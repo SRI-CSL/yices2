@@ -23,32 +23,56 @@
 
 #include <math.h>
 
+static inline
+bool evaluator_has_cache(const l2o_evaluator_t *evaluator) {
+  return evaluator->eval_cache.nelems != 0;
+}
+
+static inline
+bool evaluator_is_cached(const l2o_evaluator_t *evaluator, term_t t) {
+  if (!evaluator_has_cache(evaluator)) {
+    return false;
+  }
+  if (double_hmap_find(&evaluator->eval_cache, t) == NULL) {
+    return false;
+  }
+  return !l2o_term_has_variables(evaluator->l2o, t, &evaluator->modified_vars);
+}
+
+static inline
+double evaluator_get_cache(const l2o_evaluator_t *evaluator, term_t t) {
+  assert(evaluator_is_cached(evaluator, t));
+  double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_cache, t);
+  assert(find != NULL);
+  return find->val;
+}
+
 /** Check whether t has been already evaluated */
 static inline
-bool already_evaluated(const l2o_evaluator_t *eval_map, term_t t) {
-  double_hmap_pair_t *find = double_hmap_find(eval_map, t);
+bool already_evaluated(const l2o_evaluator_t *evaluator, term_t t) {
+  double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_map, t);
   return find != NULL;
 }
 
 /** Get evaluated value of t IF already evaluated. Always to use in combination with already_evaluated */
 static inline
-double evaluator_get(const l2o_evaluator_t *eval_map, term_t t) {
-  double_hmap_pair_t *find = double_hmap_find(eval_map, t);
+double evaluator_get(const l2o_evaluator_t *evaluator, term_t t) {
+  double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_map, t);
   assert(find != NULL);
   return find->val;
 }
 
 /** Set t_eval as the evaluated value of t */
 static inline
-void evaluator_set(l2o_evaluator_t *eval_map, term_t t, double t_eval) {
-  assert(!already_evaluated(eval_map, t) || evaluator_get(eval_map, t) == t_eval);
-  double_hmap_pair_t *p = double_hmap_get(eval_map, t);
+void evaluator_set(l2o_evaluator_t *evaluator, term_t t, double t_eval) {
+  assert(!already_evaluated(evaluator, t) || evaluator_get(evaluator, t) == t_eval);
+  double_hmap_pair_t *p = double_hmap_get(&evaluator->eval_map, t);
   p->val = t_eval;
 }
 
 /** Results are kept in the order of state. */
 static
-bool cache_find_changed_variables(const l2o_evaluator_t *eval_cache, const l2o_search_state_t *state, ivector_t *diff) {
+bool cache_find_changed_variables(const double_hmap_t *eval_cache, const l2o_search_state_t *state, ivector_t *diff) {
   for (int i = 0; i < state->n_var; ++i) {
     term_t t = state->var[i];
     double_hmap_pair_t *p = double_hmap_find(eval_cache, t);
@@ -63,18 +87,50 @@ bool cache_find_changed_variables(const l2o_evaluator_t *eval_cache, const l2o_s
 
 #ifndef NDEBUG
 static
-bool ensure_cache_values(const l2o_search_state_t *state, const l2o_evaluator_t *eval_map) {
+bool ensure_cache_values(const l2o_search_state_t *state, const l2o_evaluator_t *evaluator) {
   assert(!l2o_search_state_is_empty(state));
   for (int i = 0; i < state->n_var; ++i) {
-    double_hmap_pair_t *p = double_hmap_find(eval_map, state->var[i]);
+    double_hmap_pair_t *p = double_hmap_find(&evaluator->eval_map, state->var[i]);
     if (!p || p->val != state->val[i]) return false;
   }
   return true;
 }
 #endif
 
-void l2o_evaluator_construct(l2o_t *l2o, l2o_evaluator_t *evaluator, const l2o_search_state_t *state) {
-  init_double_hmap(evaluator, 0);
+void l2o_evaluator_construct(l2o_t *l2o, l2o_evaluator_t *evaluator) {
+  evaluator->l2o = l2o;
+  init_double_hmap(&evaluator->eval_map, 0);
+  init_double_hmap(&evaluator->eval_cache, 0);
+  init_ivector(&evaluator->modified_vars, 0);
+}
+
+void l2o_evaluator_destruct(l2o_evaluator_t *evaluator) {
+  delete_double_hmap(&evaluator->eval_map);
+  delete_double_hmap(&evaluator->eval_cache);
+  delete_ivector(&evaluator->modified_vars);
+}
+
+void l2o_evaluator_reset(l2o_evaluator_t *evaluator) {
+  double_hmap_reset(&evaluator->eval_map);
+  double_hmap_reset(&evaluator->eval_cache);
+  ivector_reset(&evaluator->modified_vars);
+}
+
+void l2o_evaluator_update_cache(l2o_evaluator_t *evaluator) {
+  assert(evaluator->eval_map.nelems > 0);
+  double_hmap_swap(&evaluator->eval_map, &evaluator->eval_cache);
+}
+
+void l2o_evaluator_set_state(l2o_evaluator_t *evaluator, const l2o_search_state_t *state) {
+  // reset the evaluation
+  double_hmap_reset(&evaluator->eval_map);
+  ivector_reset(&evaluator->modified_vars);
+
+  if (evaluator_has_cache(evaluator)) {
+    bool diffed = cache_find_changed_variables(&evaluator->eval_cache, state, &evaluator->modified_vars);
+    (void) diffed; assert(diffed);
+    int_array_sort(evaluator->modified_vars.data, evaluator->modified_vars.size);
+  }
 
   // Each var v[i] is evaluated to its assigned value x[i]
   for (uint32_t i = 0; i < state->n_var; ++i) {
@@ -83,40 +139,6 @@ void l2o_evaluator_construct(l2o_t *l2o, l2o_evaluator_t *evaluator, const l2o_s
 
   assert(ensure_cache_values(state, evaluator));
 }
-
-/** uses cache as base eval_map but cleans all terms that differ in state */
-void l2o_evaluator_construct_cache(l2o_t *l2o, l2o_evaluator_t *evaluator, const l2o_search_state_t *state,
-                                   const double_hmap_t *cache) {
-  init_double_hmap(evaluator, 0);
-
-  // Set of variables whose values have changed w.r.t. cache assignment.
-  ivector_t vars_with_new_val;
-  init_ivector(&vars_with_new_val, 0);
-
-  bool diffed = cache_find_changed_variables(cache, state, &vars_with_new_val);
-  (void)diffed; assert(diffed);
-  //int_array_sort(vars_with_new_val.data, vars_with_new_val.size);
-  for (double_hmap_pair_t *p = double_hmap_first_record(cache); p; p = double_hmap_next_record(cache, p)) {
-    // check if the term has a variable in changed_vars
-    if (!l2o_term_has_variables(l2o, p->key, &vars_with_new_val)) {
-      double_hmap_add(evaluator, p->key, p->val);
-    }
-  }
-  delete_ivector(&vars_with_new_val);
-
-  // Each var v[i] is evaluated to its assigned value x[i]
-  for (uint32_t i = 0; i < state->n_var; ++i) {
-    assert(!already_evaluated(evaluator, state->var[i]) || evaluator_get(evaluator, state->var[i]) == state->val[i]);
-    evaluator_set(evaluator, state->var[i], state->val[i]);
-  }
-
-  assert(ensure_cache_values(state, evaluator));
-}
-
-void l2o_evaluator_destruct(l2o_t *l2o, l2o_evaluator_t *evaluator) {
-  delete_double_hmap(evaluator);
-}
-
 
 double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t term) {
   if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
@@ -124,7 +146,6 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
   }
 
   term_table_t *terms = l2o->terms;
-  double_hmap_t *eval_map = evaluator;
 
   uint32_t n;
   term_t *args;
@@ -149,8 +170,14 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
     }
 
     // If evaluation already done, continue
-    if (already_evaluated(eval_map, current)) {
+    if (already_evaluated(evaluator, current)) {
       ivector_pop(&eval_stack);
+      continue;
+    }
+
+    if (evaluator_is_cached(evaluator, current)) {
+      ivector_pop(&eval_stack);
+      evaluator_set(evaluator, current, evaluator_get_cache(evaluator, current));
       continue;
     }
 
@@ -205,8 +232,8 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
         // Otherwise, should already have the value stored
         assert(current_type == BOOL_TYPE && is_neg_term(current));
         term_t current_positive_polarity = opposite_term(current);
-        assert(already_evaluated(eval_map, current_positive_polarity));
-        double current_pos_eval = evaluator_get(eval_map, current_positive_polarity);
+        assert(already_evaluated(evaluator, current_positive_polarity));
+        double current_pos_eval = evaluator_get(evaluator, current_positive_polarity);
         assert(current_pos_eval == 0.0 || current_pos_eval == 1.0); // arg_i_eval is either FALSE or TRUE
         current_eval = (current_pos_eval == 1.0) ? 0.0 : 1.0;
         break;
@@ -227,11 +254,11 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
           bool one_arg_is_true = false;
           for (uint32_t i = 0; i < n; ++i) {
             term_t arg_i = args[i];
-            bool arg_i_already_evaluated = already_evaluated(eval_map, arg_i);
+            bool arg_i_already_evaluated = already_evaluated(evaluator, arg_i);
             if (!arg_i_already_evaluated) {
               args_already_evaluated = false;
             } else {
-              double arg_i_eval = evaluator_get(eval_map, arg_i);
+              double arg_i_eval = evaluator_get(evaluator, arg_i);
               assert(arg_i_eval == 0 || arg_i_eval == 1); // arg_i_eval is either FALSE or TRUE
               if (arg_i_eval == 1) {   // arg_i is TRUE
                 one_arg_is_true = true;
@@ -250,7 +277,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
             } else {
               for (uint32_t i = 0; i < n; ++i) {    // Now we add the non evaluated args to the stack
                 term_t arg_i = args[i];
-                bool arg_i_already_evaluated = already_evaluated(eval_map, arg_i);
+                bool arg_i_already_evaluated = already_evaluated(evaluator, arg_i);
                 if (!arg_i_already_evaluated) {
                   ivector_push(&eval_stack, arg_i);
                 }
@@ -277,12 +304,12 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
             term_t arg_i = args[i];
             term_t arg_i_neg = yices_not(arg_i);
 
-            bool arg_i_neg_already_evaluated = already_evaluated(eval_map, arg_i_neg);
+            bool arg_i_neg_already_evaluated = already_evaluated(evaluator, arg_i_neg);
             if (!arg_i_neg_already_evaluated) {
               //ivector_push(eval_stack, arg_i);    // We don't add yet the unevaluated args to the stack: maybe some other arg is false, so there would be no need to evaluate the other args.
               args_already_evaluated = false;
             } else {
-              double arg_i_neg_eval = evaluator_get(eval_map, arg_i_neg);
+              double arg_i_neg_eval = evaluator_get(evaluator, arg_i_neg);
               assert(arg_i_neg_eval == 0 || arg_i_neg_eval == 1); // arg_i_neg_eval is either FALSE or TRUE
               if (arg_i_neg_eval == 0) {   // arg_i is FALSE
                 one_arg_is_false = true;
@@ -302,7 +329,7 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
               for (uint32_t i = 0; i < n; ++i) {    // Now we add the non evaluated args to the stack
                 term_t arg_i = args[i];
                 term_t arg_i_neg = yices_not(arg_i);
-                bool arg_i_neg_already_evaluated = already_evaluated(eval_map, arg_i_neg);
+                bool arg_i_neg_already_evaluated = already_evaluated(evaluator, arg_i_neg);
                 if (!arg_i_neg_already_evaluated) {
                   ivector_push(&eval_stack, arg_i_neg);
                 }
@@ -335,23 +362,23 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
           term_t t1 = args[1];
           term_t t2 = args[2];
 
-          bool cond_already_evaluated = already_evaluated(eval_map, cond);
+          bool cond_already_evaluated = already_evaluated(evaluator, cond);
 
           if (cond_already_evaluated) {
-            double cond_eval = evaluator_get(eval_map, cond);
+            double cond_eval = evaluator_get(evaluator, cond);
             assert(cond_eval == 0.0 || cond_eval == 1.0); // cond_eval is either FALSE or TRUE
             if (cond_eval == 1.0) {  // cond is TRUE
-              bool t1_already_evaluated = already_evaluated(eval_map, t1);
+              bool t1_already_evaluated = already_evaluated(evaluator, t1);
               if (t1_already_evaluated) {
-                current_eval = evaluator_get(eval_map, t1);
+                current_eval = evaluator_get(evaluator, t1);
               } else {
                 ivector_push(&eval_stack, t1);
                 continue;
               }
             } else {   // cond is FALSE
-              bool t2_already_evaluated = already_evaluated(eval_map, t2);
+              bool t2_already_evaluated = already_evaluated(evaluator, t2);
               if (t2_already_evaluated) {
-                current_eval = evaluator_get(eval_map, t2);
+                current_eval = evaluator_get(evaluator, t2);
               } else {
                 ivector_push(&eval_stack, t2);
                 continue;
@@ -373,23 +400,23 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
           term_t t1neg = yices_not(t1);
           term_t t2neg = yices_not(t2);
 
-          bool cond_already_evaluated = already_evaluated(eval_map, cond);
+          bool cond_already_evaluated = already_evaluated(evaluator, cond);
 
           if (cond_already_evaluated) {
-            double cond_eval = evaluator_get(eval_map, cond);
+            double cond_eval = evaluator_get(evaluator, cond);
             assert(cond_eval == 0 || cond_eval == 1); // cond_eval is either FALSE or TRUE
             if (cond_eval == 1) {  // cond is TRUE
-              bool t1neg_already_evaluated = already_evaluated(eval_map, t1neg);
+              bool t1neg_already_evaluated = already_evaluated(evaluator, t1neg);
               if (t1neg_already_evaluated) {
-                current_eval = evaluator_get(eval_map, t1neg);
+                current_eval = evaluator_get(evaluator, t1neg);
               } else {
                 ivector_push(&eval_stack, t1neg);
                 continue;
               }
             } else {   // cond is FALSE
-              bool t2neg_already_evaluated = already_evaluated(eval_map, t2neg);
+              bool t2neg_already_evaluated = already_evaluated(evaluator, t2neg);
               if (t2neg_already_evaluated) {
-                current_eval = evaluator_get(eval_map, t2neg);
+                current_eval = evaluator_get(evaluator, t2neg);
               } else {
                 ivector_push(&eval_stack, t2neg);
                 continue;
@@ -414,10 +441,10 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
         args = desc->arg;
         term_t t = args[0];
 
-        bool t_already_evaluated = already_evaluated(eval_map, t);
+        bool t_already_evaluated = already_evaluated(evaluator, t);
 
         if (t_already_evaluated) {
-          double t_eval = evaluator_get(eval_map, t);
+          double t_eval = evaluator_get(evaluator, t);
           if (is_pos_term(current)) {   // t == 0
             if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
               printf("\n is positive (t == 0)\n");
@@ -448,12 +475,12 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
 
         for (uint32_t i = 0; i < 2; ++i) {
           term_t arg_i = args[i];
-          bool arg_i_already_evaluated = already_evaluated(eval_map, arg_i);
+          bool arg_i_already_evaluated = already_evaluated(evaluator, arg_i);
           if (!arg_i_already_evaluated) {
             ivector_push(&eval_stack, arg_i);
             args_already_evaluated = false;
           } else {
-            args_eval[i] = evaluator_get(eval_map, arg_i);
+            args_eval[i] = evaluator_get(evaluator, arg_i);
           }
         }
 
@@ -490,12 +517,12 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
 
         for (uint32_t i = 0; i < 2; ++i) {
           term_t arg_i = args[i];
-          bool arg_i_already_evaluated = already_evaluated(eval_map, arg_i);
+          bool arg_i_already_evaluated = already_evaluated(evaluator, arg_i);
           if (!arg_i_already_evaluated) {
             ivector_push(&eval_stack, arg_i);
             args_already_evaluated = false;
           } else {
-            args_eval[i] = evaluator_get(eval_map, arg_i);
+            args_eval[i] = evaluator_get(evaluator, arg_i);
           }
         }
 
@@ -528,10 +555,10 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
         args = desc->arg;
         term_t t = args[0];
 
-        bool t_already_evaluated = already_evaluated(eval_map, t);
+        bool t_already_evaluated = already_evaluated(evaluator, t);
 
         if (t_already_evaluated) {
-          double t_eval = evaluator_get(eval_map, t);
+          double t_eval = evaluator_get(evaluator, t);
           if (is_pos_term(current)) {   // t == 0
             if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
               printf("\n is positive (t >= 0)\n");
@@ -555,10 +582,10 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
           printf("\ncurrent kind is ARITH_ABS\n");
         }
         term_t subt = arith_floor_arg(terms, current);
-        bool subt_already_evaluated = already_evaluated(eval_map, subt);
+        bool subt_already_evaluated = already_evaluated(evaluator, subt);
 
         if (subt_already_evaluated) {
-          double subt_eval = evaluator_get(eval_map, subt);
+          double subt_eval = evaluator_get(evaluator, subt);
           if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
             mcsat_trace_printf(l2o->tracer, "\nsubt = ");
             trace_term_ln(l2o->tracer, terms, subt);
@@ -575,10 +602,10 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
           printf("\ncurrent kind is ARITH_CEIL\n");
         }
         term_t subt = arith_ceil_arg(terms, current);
-        bool subt_already_evaluated = already_evaluated(eval_map, subt);
+        bool subt_already_evaluated = already_evaluated(evaluator, subt);
 
         if (subt_already_evaluated) {
-          double subt_eval = evaluator_get(eval_map, subt);
+          double subt_eval = evaluator_get(evaluator, subt);
           if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
             mcsat_trace_printf(l2o->tracer, "\nsubt = ");
             trace_term_ln(l2o->tracer, terms, subt);
@@ -595,10 +622,10 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
           printf("\ncurrent kind is ARITH_ABS\n");
         }
         term_t subt = arith_abs_arg(terms, current);
-        bool subt_already_evaluated = already_evaluated(eval_map, subt);
+        bool subt_already_evaluated = already_evaluated(evaluator, subt);
 
         if (subt_already_evaluated) {
-          double subt_eval = evaluator_get(eval_map, subt);
+          double subt_eval = evaluator_get(evaluator, subt);
           if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
             mcsat_trace_printf(l2o->tracer, "\nsubt = ");
             trace_term_ln(l2o->tracer, terms, subt);
@@ -622,12 +649,12 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
         for (uint32_t i = 0; i < n; ++i) {
           varexp_t pow_i = pow_t[i];
           term_t var = pow_i.var;
-          bool var_already_evaluated = already_evaluated(eval_map, var);
+          bool var_already_evaluated = already_evaluated(evaluator, var);
           if (!var_already_evaluated) {
             ivector_push(&eval_stack, var);
             vars_already_evaluated = false;
           } else {
-            double var_eval = evaluator_get(eval_map, var);
+            double var_eval = evaluator_get(evaluator, var);
             vars_eval[i] = var_eval;
           }
         }
@@ -661,12 +688,12 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
             vars_eval[i] = 1;             // Neutral element of product
             continue;
           }
-          bool var_already_evaluated = already_evaluated(eval_map, var);
+          bool var_already_evaluated = already_evaluated(evaluator, var);
           if (!var_already_evaluated) {
             ivector_push(&eval_stack, var);
             vars_already_evaluated = false;
           } else {
-            double var_eval = evaluator_get(eval_map, var);
+            double var_eval = evaluator_get(evaluator, var);
             vars_eval[i] = var_eval;
           }
         }
@@ -699,12 +726,12 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
 
         for (uint32_t i = 0; i < 2; ++i) {
           term_t arg_i = args[i];
-          bool arg_i_already_evaluated = already_evaluated(eval_map, arg_i);
+          bool arg_i_already_evaluated = already_evaluated(evaluator, arg_i);
           if (!arg_i_already_evaluated) {
             ivector_push(&eval_stack, arg_i);
             args_already_evaluated = false;
           } else {
-            args_eval[i] = evaluator_get(eval_map, arg_i);
+            args_eval[i] = evaluator_get(evaluator, arg_i);
           }
         }
 
@@ -738,12 +765,12 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
 
         for (uint32_t i = 0; i < 2; ++i) {
           term_t arg_i = args[i];
-          bool arg_i_already_evaluated = already_evaluated(eval_map, arg_i);
+          bool arg_i_already_evaluated = already_evaluated(evaluator, arg_i);
           if (!arg_i_already_evaluated) {
             ivector_push(&eval_stack, arg_i);
             args_already_evaluated = false;
           } else {
-            args_eval[i] = evaluator_get(eval_map, arg_i);
+            args_eval[i] = evaluator_get(evaluator, arg_i);
           }
         }
 
@@ -780,12 +807,12 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
 
         for (uint32_t i = 0; i < 2; ++i) {
           term_t arg_i = args[i];
-          bool arg_i_already_evaluated = already_evaluated(eval_map, arg_i);
+          bool arg_i_already_evaluated = already_evaluated(evaluator, arg_i);
           if (!arg_i_already_evaluated) {
             ivector_push(&eval_stack, arg_i);
             args_already_evaluated = false;
           } else {
-            args_eval[i] = evaluator_get(eval_map, arg_i);
+            args_eval[i] = evaluator_get(evaluator, arg_i);
           }
         }
 
@@ -825,12 +852,12 @@ double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t t
       mcsat_trace_printf(l2o->tracer, "\n  current_id = %d ", current);
     }
     ivector_pop(&eval_stack);
-    evaluator_set(eval_map, current, current_eval);
+    evaluator_set(evaluator, current, current_eval);
   }
 
   // Get cost of t
-  assert(already_evaluated(eval_map, term));
-  double t_eval = evaluator_get(eval_map, term);
+  assert(already_evaluated(evaluator, term));
+  double t_eval = evaluator_get(evaluator, term);
 
   if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
     printf("\nt_eval = %f", t_eval);

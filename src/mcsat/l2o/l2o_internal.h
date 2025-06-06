@@ -31,7 +31,14 @@ typedef struct {
   double *val;
 } l2o_search_state_t;
 
-typedef double_hmap_t l2o_evaluator_t;
+typedef struct {
+  double_hmap_t eval_map;
+  double_hmap_t eval_cache;
+  ivector_t modified_vars;
+
+  /** the l2o the evaluator is associated to */
+  l2o_t *l2o;
+} l2o_evaluator_t;
 
 typedef struct l2o_cost_fx {
   /** Function to approximate the cost of the function under state
@@ -62,11 +69,17 @@ bool l2o_term_has_variables(l2o_t *l2o, term_t t, const ivector_t *set_of_vars);
  */
 double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t term);
 
-void l2o_evaluator_construct(l2o_t *l2o, l2o_evaluator_t *evaluator, const l2o_search_state_t *state);
+void l2o_evaluator_construct(l2o_t *l2o, l2o_evaluator_t *evaluator);
 
-void l2o_evaluator_construct_cache(l2o_t *l2o, l2o_evaluator_t *evaluator, const l2o_search_state_t *state,
-                                   const double_hmap_t *cache);
+void l2o_evaluator_destruct(l2o_evaluator_t *evaluator);
 
+void l2o_evaluator_reset(l2o_evaluator_t *evaluator);
+
+/** Moves the eval_map to cache.
+ * The evaluator must not be used anymore until a new state is set or a reset is performed */
+void l2o_evaluator_update_cache(l2o_evaluator_t *evaluator);
+
+void l2o_evaluator_set_state(l2o_evaluator_t *evaluator, const l2o_search_state_t *state);
 
 /**
  * Hill climbing algorithm with cost function t (to be minimized), variables v (some of which have fixed values), and starting point x
