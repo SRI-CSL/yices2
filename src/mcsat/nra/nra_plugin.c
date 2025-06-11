@@ -805,17 +805,22 @@ void nra_plugin_process_unit_constraint(nra_plugin_t* nra, trail_token_t* prop, 
     // We don't do any hinting for complicated algebraic values
     if (lp_value_is_rational(&x_value)) {
       if (lp_feasibility_set_is_point(feasible_set) || (x_is_int_var && lp_feasibility_set_is_point_int(feasible_set))) {
+        mcsat_value_t value;
+        mcsat_value_construct_lp_value(&value, &x_value);
+
         if (trail_is_at_base_level(nra->ctx->trail) && !nra->ctx->options->model_interpolation) {
-          mcsat_value_t value;
-          mcsat_value_construct_lp_value(&value, &x_value);
           prop->add_at_level(prop, x, &value, nra->ctx->trail->decision_level_base);
-          mcsat_value_destruct(&value);
         } else {
           if (ctx_trace_enabled(nra->ctx, "nra::propagate")) {
             ctx_trace_printf(nra->ctx, "nra: hinting variable = %d\n", x);
           }
           nra->ctx->hint_next_decision(nra->ctx, x);
+          if (trail_is_at_base_level(nra->ctx->trail)) {
+            nra->ctx->hint_value(nra->ctx, x, &value);
+          }
         }
+        mcsat_value_destruct(&value);
+
       } else if (!lp_feasibility_set_is_full(feasible_set)) {
         lp_interval_t x_interval;
         lp_interval_construct_full(&x_interval); // [-inf, +inf]

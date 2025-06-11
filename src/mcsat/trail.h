@@ -64,6 +64,18 @@ struct mcsat_trail_s {
   /** The values per variable */
   mcsat_model_t model;
 
+  /** Best model cache */
+  mcsat_model_t best_cache;
+
+  /** Best trail depth seen so far */
+  uint32_t best_depth;
+
+  /** Target model cache */
+  mcsat_model_t target_cache;
+
+  /** Target trail depth seen so far */
+  uint32_t target_depth;
+
   /** Type of the assignment per variable (assignment_type_t) */
   ivector_t type;
 
@@ -166,7 +178,9 @@ bool trail_has_value(const mcsat_trail_t* trail, variable_t var) {
 static inline
 bool trail_has_cached_value(const mcsat_trail_t* trail, variable_t var) {
   assert(var < trail->model.size);
-  return mcsat_model_get_value(&trail->model, var)->type != VALUE_NONE;
+  // present in target cache or model cache
+  return (mcsat_model_get_value(&trail->target_cache, var)->type != VALUE_NONE ||
+	  mcsat_model_get_value(&trail->model, var)->type != VALUE_NONE);
 }
 
 /** Returns true if the value of var is other than NONE at base level */
@@ -200,7 +214,12 @@ const mcsat_value_t* trail_get_value(const mcsat_trail_t* trail, variable_t var)
 static inline
 const mcsat_value_t* trail_get_cached_value(const mcsat_trail_t* trail, variable_t var) {
   assert(!trail_has_value(trail, var));
-  return mcsat_model_get_value(&trail->model, var);
+  // prefer target cache over model cache
+  if (mcsat_model_get_value(&trail->target_cache, var)->type != VALUE_NONE) {
+    return mcsat_model_get_value(&trail->target_cache, var);
+  } else {
+    return mcsat_model_get_value(&trail->model, var);
+  }
 }
 
 /** Get the value timestamp of the variable */
@@ -217,6 +236,14 @@ bool trail_get_boolean_value(const mcsat_trail_t* trail, variable_t var) {
   const mcsat_value_t* value = trail_get_value(trail, var);
   assert(value->type == VALUE_BOOLEAN);
   return value->b;
+}
+
+/** Set the cached value of the variable */
+static inline
+void trail_set_cached_value(mcsat_trail_t* trail, variable_t var, const mcsat_value_t* value) {
+  if (!trail_has_value(trail, var)) {
+    mcsat_model_set_value(&trail->model, var, value);
+  }
 }
 
 /** Add a new decision x -> value */
@@ -261,9 +288,18 @@ void trail_gc_mark(mcsat_trail_t* trail, gc_info_t* gc_vars);
 void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars);
 
 /** compare variables based on the trail level, unassigned to the front, then assigned ones by decreasing level */
-bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_t t2);
+bool trail_variable_compare(const mcsat_trail_t* trail, variable_t t1, variable_t t2);
 
-/** Clear model cache */
-void trail_model_cache_clear(mcsat_trail_t* trail);
+/** Recache */
+void trail_recache(mcsat_trail_t* trail, uint32_t round);
+
+/** save target/best cache */
+void trail_update_extra_cache(mcsat_trail_t* trail);
+
+/** clear target/best cache */
+void trail_clear_extra_cache(mcsat_trail_t* trail, bool keep_best_cache);
+
+/** clear all caches */
+void trail_clear_cache(mcsat_trail_t* trail);
 
 #endif /* MCSAT_TRAIL_H_ */
