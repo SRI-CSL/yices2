@@ -6213,7 +6213,6 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
 
   case PARAM_UNKNOWN:
   default:
-    assert(false);
     unsupported = true;
     break;
   }
