@@ -113,7 +113,7 @@ static int32_t mcsat_rand_dec_seed;
 static bool mcsat_nra_mgcd;
 static bool mcsat_nra_nlsat;
 static bool mcsat_nra_bound;
-static bool mcsat_l20;
+static bool mcsat_l2o;
 static int32_t mcsat_nra_bound_min;
 static int32_t mcsat_nra_bound_max;
 static int32_t mcsat_bv_var_size;
@@ -170,7 +170,7 @@ typedef enum optid {
   mcsat_nra_mgcd_opt,      // use the mgcd instead psc in projection
   mcsat_nra_nlsat_opt,     // use the nlsat projection instead of brown single-cell
   mcsat_nra_bound_opt,     // search by increasing bound
-  mcsat_l20_opt,           // enable l20 mode
+  mcsat_l2o_opt,           // enable l2o mode
   mcsat_nra_bound_min_opt, // set initial bound
   mcsat_nra_bound_max_opt, // set maximal bound
   mcsat_bv_var_size_opt,   // set size of bitvector variables
@@ -222,7 +222,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "mcsat-nra-mgcd", '\0', FLAG_OPTION, mcsat_nra_mgcd_opt },
   { "mcsat-nra-nlsat", '\0', FLAG_OPTION, mcsat_nra_nlsat_opt },
   { "mcsat-nra-bound", '\0', FLAG_OPTION, mcsat_nra_bound_opt },
-  { "mcsat-l20", '\0', FLAG_OPTION, mcsat_l20_opt },
+  { "mcsat-l2o", '\0', FLAG_OPTION, mcsat_l2o_opt },
   { "mcsat-nra-bound-min", '\0', MANDATORY_INT, mcsat_nra_bound_min_opt },
   { "mcsat-nra-bound-max", '\0', MANDATORY_INT, mcsat_nra_bound_max_opt },
   { "mcsat-bv-var-size", '\0', MANDATORY_INT, mcsat_bv_var_size_opt },
@@ -303,7 +303,7 @@ static void print_mcsat_help(const char *progname) {
          "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
          "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
          "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
-         "    --mcsat-l20               Enable L20 mode\n"
+         "    --mcsat-l2o               Enable L2O mode\n"
          "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
          "    --mcsat-nra-bound-max=<B> Set maximal bound for search\n"
          "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search"
@@ -405,6 +405,7 @@ static void parse_command_line(int argc, char *argv[]) {
   mcsat_nra_mgcd = false;
   mcsat_nra_nlsat = false;
   mcsat_nra_bound = false;
+  mcsat_l2o = false;
   mcsat_nra_bound_min = -1;
   mcsat_nra_bound_max = -1;
   mcsat_bv_var_size = -1;
@@ -586,9 +587,9 @@ static void parse_command_line(int argc, char *argv[]) {
         mcsat_nra_bound = true;
         break;
 
-      case mcsat_l20_opt:
+      case mcsat_l2o_opt:
         if (! yices_has_mcsat()) goto no_mcsat;
-        mcsat_l20 = true;
+        mcsat_l2o = true;
         break;
 
       case mcsat_nra_bound_min_opt:
@@ -813,8 +814,8 @@ static void setup_options_mcsat(void) {
     smt2_set_option(":yices-mcsat-nra-bound", aval_true);
   }
 
-  if (mcsat_l20) {
-    smt2_set_option(":yices-mcsat-l20", aval_true);
+  if (mcsat_l2o) {
+    smt2_set_option(":yices-mcsat-l2o", aval_true);
   }
 
   if (mcsat_nra_bound_min >= 0) {

@@ -5358,8 +5358,8 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
     print_boolean_value(g->mcsat_options.nra_bound);
     break;
 
-  case PARAM_MCSAT_L20:
-    print_boolean_value(g->mcsat_options.l20);
+  case PARAM_MCSAT_L2O:
+    print_boolean_value(g->mcsat_options.l2o);
     break;
 
   case PARAM_MCSAT_NRA_BOUND_MAX:
@@ -5479,6 +5479,7 @@ void smt2_get_option(const char *name) {
   case SMT2_KW_PRODUCE_PROOFS:
   case SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT:
     unsupported_option();
+    flush_out();
     break;
 
   default:
@@ -6111,16 +6112,6 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
     }
     break;
 
-  case PARAM_MCSAT_L20:
-    if (param_val_to_bool(param, val, &tt, &reason)) {
-      g->mcsat_options.l20 = tt;
-      context = g->ctx;
-      if (context != NULL) {
-        context->mcsat_options.l20 = tt;
-      }
-    }
-    break;
-
   case PARAM_MCSAT_NRA_MGCD:
     if (param_val_to_bool(param, val, &tt, &reason)) {
       g->mcsat_options.nra_mgcd = tt;
@@ -6210,8 +6201,19 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
     }
     break;
 
+  case PARAM_MCSAT_L2O:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      g->mcsat_options.l2o = tt;
+      context = g->ctx;
+      if (context != NULL) {
+        context->mcsat_options.l2o = tt;
+      }
+    }
+    break;
+
   case PARAM_UNKNOWN:
   default:
+    assert(false);
     unsupported = true;
     break;
   }
