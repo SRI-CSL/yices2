@@ -755,5 +755,7 @@ extern term_t mk_bvarith_poly(term_manager_t *manager, bvpoly_t *p, uint32_t n, 
  */
 extern term_t mk_arith_elim_poly(term_manager_t *manager, polynomial_t *p, term_t t);
 
+// TODO in substitution.c use this function instead of home-made
+extern term_t mk_composite(term_manager_t *tm, term_kind_t kind, uint32_t n, term_t* children);
 
 #endif /* __TERM_MANAGER_H */

@@ -1297,7 +1297,7 @@ void add_unit_type_rep(term_table_t *table, type_t tau, term_t t) {
          term_type(table, t) == tau);
 
   p = int_hmap_get(&table->utbl, tau);
-  assert(p->val == EMPTY_KEY); // i.e., -1
+  assert(p->val == -1); // i.e., EMPTY_KEY
   p->val = t;
 }
 
@@ -1316,7 +1316,7 @@ void store_unit_type_rep(term_table_t *table, type_t tau, term_t t) {
          term_type(table, t) == tau);
 
   p = int_hmap_get(&table->utbl, tau);
-  if (p->val == EMPTY_KEY) {
+  if (p->val == -1) { // i.e., EMPTY_KEY
     p->val = t;
   }
   assert(p->val == t);
@@ -3518,6 +3518,93 @@ term_t find_constant_term(term_table_t *table, type_t tau, int32_t index) {
 }
 
 
+
+/*
+ * Composite term handling
+ */
+
+typedef struct composite_term1_s {
+  uint32_t arity;  // number of subterms
+  term_t arg[1];  // real size = arity
+} composite_term1_t;
+
+static
+composite_term1_t composite_for_noncomposite;
+
+composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t) {
+  assert(term_kind(terms, t) == kind);
+  assert(is_pos_term(t));
+
+  switch (kind) {
+    case ITE_TERM:           // if-then-else
+    case ITE_SPECIAL:        // special if-then-else term (NEW: EXPERIMENTAL)
+      return ite_term_desc(terms, t);
+    case EQ_TERM:            // equality
+      return eq_term_desc(terms, t);
+    case OR_TERM:            // n-ary OR
+      return or_term_desc(terms, t);
+    case XOR_TERM:           // n-ary XOR
+      return xor_term_desc(terms, t);
+    case ARITH_BINEQ_ATOM:   // equality: (t1 == t2)  (between two arithmetic terms)
+      return arith_bineq_atom_desc(terms, t);
+    case ARITH_EQ_ATOM: {
+      composite_for_noncomposite.arity = 1;
+      composite_for_noncomposite.arg[0] = arith_eq_arg(terms, t);
+      return (composite_term_t*)&composite_for_noncomposite;
+    }
+    case ARITH_GE_ATOM: {
+      composite_for_noncomposite.arity = 1;
+      composite_for_noncomposite.arg[0] = arith_ge_arg(terms, t);
+      return (composite_term_t*)&composite_for_noncomposite;
+    }
+    case ARITH_FF_BINEQ_ATOM:
+      return arith_ff_bineq_atom_desc(terms, t);
+    case ARITH_FF_EQ_ATOM: {
+      composite_for_noncomposite.arity = 1;
+      composite_for_noncomposite.arg[0] = arith_ff_eq_arg(terms, t);
+      return (composite_term_t*)&composite_for_noncomposite;
+    }
+    case APP_TERM:           // application of an uninterpreted function
+      return app_term_desc(terms, t);
+    case ARITH_RDIV:          // division: (/ x y)
+      return arith_rdiv_term_desc(terms, t);
+    case ARITH_IDIV:          // division: (div x y) as defined in SMT-LIB 2
+      return arith_idiv_term_desc(terms, t);
+    case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
+      return arith_mod_term_desc(terms, t);
+    case UPDATE_TERM:
+      return update_term_desc(terms, t);
+    case DISTINCT_TERM:
+      return distinct_term_desc(terms, t);
+    case BV_ARRAY:
+      return bvarray_term_desc(terms, t);
+    case BV_DIV:
+      return bvdiv_term_desc(terms, t);
+    case BV_REM:
+      return bvrem_term_desc(terms, t);
+    case BV_SDIV:
+      return bvsdiv_term_desc(terms, t);
+    case BV_SREM:
+      return bvsrem_term_desc(terms, t);
+    case BV_SMOD:
+      return bvsmod_term_desc(terms, t);
+    case BV_SHL:
+      return bvshl_term_desc(terms, t);
+    case BV_LSHR:
+      return bvlshr_term_desc(terms, t);
+    case BV_ASHR:
+      return bvashr_term_desc(terms, t);
+    case BV_EQ_ATOM:
+      return bveq_atom_desc(terms, t);
+    case BV_GE_ATOM:
+      return bvge_atom_desc(terms, t);
+    case BV_SGE_ATOM:
+      return bvsge_atom_desc(terms, t);
+    default:
+      assert(false);
+      return NULL;
+  }
+}
 
 
 

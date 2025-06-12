@@ -68,6 +68,8 @@ void nra_plugin_stats_init(nra_plugin_t* nra) {
   nra->stats.evaluations = statistics_new_int(nra->ctx->stats, "mcsat::nra::evaluations");
   nra->stats.constraint_regular = statistics_new_int(nra->ctx->stats, "mcsat::nra::constraints_regular");
   nra->stats.constraint_root = statistics_new_int(nra->ctx->stats, "mcsat::nra::constraints_root");
+  nra->stats.value_cache_usage = statistics_new_avg(nra->ctx->stats, "mcsat::nra::value_cache_usage");
+  nra->stats.value_cache_feasibility = statistics_new_avg(nra->ctx->stats, "mcsat::nra::value_cache_feasibility");
 }
 
 static
@@ -1119,6 +1121,9 @@ void nra_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide_tok
       using_cached = true;
     }
   }
+  // measure the number of cache uses
+  statistic_avg_add(nra->stats.value_cache_feasibility, using_cached ? 1 : 0);
+  statistic_avg_add(nra->stats.value_cache_usage, x_cached_value != NULL ? 1 : 0);
 
   // If the set is 0, we can pick any value, including 0
   if (!using_cached && feasible != NULL) {
@@ -2198,4 +2203,14 @@ plugin_t* nra_plugin_allocator(void) {
   plugin->plugin_interface.set_exception_handler = nra_plugin_set_exception_handler;
 
   return (plugin_t*) plugin;
+}
+
+const lp_feasibility_set_t* get_fs_by_term(plugin_t *plugin, term_t v) {
+  nra_plugin_t *nra = (nra_plugin_t*)plugin;
+  if (!variable_db_has_variable(nra->ctx->var_db, v)) {
+    return NULL;
+  }
+  variable_t var = variable_db_get_variable(nra->ctx->var_db, v);
+  assert(var != variable_null);
+  return feasible_set_db_get(nra->feasible_set_db, var);
 }

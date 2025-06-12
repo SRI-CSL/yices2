@@ -25,6 +25,7 @@
 #include <assert.h>
 
 #include "utils/int_hash_sets.h"
+#include "utils/int_array_sort.h"
 #include "utils/memalloc.h"
 
 /*
@@ -64,6 +65,9 @@ void init_int_hset(int_hset_t *set, uint32_t n) {
   set->nelems = 0;
   set->z_flag = false;
   set->resize_threshold = (uint32_t)(n * INT_HSET_RESIZE_RATIO);
+#ifndef NDEBUG
+  set->is_closed = false;
+#endif
 }
 
 
@@ -158,6 +162,7 @@ static bool hset_add(uint32_t *a, uint32_t mask, uint32_t x) {
  * Double the size of set. keep all elements
  */
 static void hset_extend(int_hset_t *set) {
+  assert(!set->is_closed);
   uint32_t n, n2;
   uint32_t *tmp;
   uint32_t i, mask, x;
@@ -193,6 +198,7 @@ static void hset_extend(int_hset_t *set) {
  * External function: check whether x is present in set
  */
 bool int_hset_member(int_hset_t *set, uint32_t x) {
+  assert(!set->is_closed);
   if (x == 0) {
     return set->z_flag;
   }
@@ -206,6 +212,7 @@ bool int_hset_member(int_hset_t *set, uint32_t x) {
  */
 bool int_hset_add(int_hset_t *set, uint32_t x) {
   bool result;
+  assert(!set->is_closed);
 
   if (x == 0) {
     result = ! set->z_flag;
@@ -251,6 +258,44 @@ void int_hset_close(int_hset_t *set) {
     i ++;
     set->nelems = i;
   }
+
+#ifndef NDEBUG
+  set->is_closed = true;
+#endif
+}
+
+/*
+ * Close the set and sort it
+ * 1) move all non-zero elements in data[0 ... nelems-1]
+ * 2) sort data[0 ... nelems-1]
+ * 3) if z_flag is set, copy 0 into data[nelems], then increment nelems
+ */
+void int_hset_close_and_sort(int_hset_t *set) {
+  uint32_t i, j, n, x, *a;
+
+  n = set->size;
+  a = set->data;
+  i = 0;
+  for (j=0; j<n; j++) {
+    x = a[j];
+    if (x != 0) {
+      a[i] = x;
+      i ++;
+    }
+  }
+
+  assert(i == set->nelems && i < n);
+  if (set->z_flag) {
+    a[i] = 0;
+    i ++;
+    set->nelems = i;
+  }
+
+  int_array_sort((int32_t*) a, set->nelems);
+
+#ifndef NDEBUG
+  set->is_closed = true;
+#endif
 }
 
 
@@ -280,4 +325,7 @@ void int_hset_reset(int_hset_t *set) {
 
   set->nelems = 0;
   set->z_flag = false;
+#ifndef NDEBUG
+  set->is_closed = false;
+#endif
 }
