@@ -79,7 +79,7 @@ bool cache_find_changed_variables(const l2o_t *l2o, const l2o_search_state_t *st
   return true;
 }
 
-#ifndef NDEBUG
+#if 0
 static
 bool ensure_cache_values(const l2o_search_state_t *state, const double_hmap_t *eval_map) {
   assert(!l2o_search_state_is_empty(state));
