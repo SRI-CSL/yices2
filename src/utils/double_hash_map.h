@@ -19,47 +19,50 @@
 /*
  * HASH MAPS
  *
- * keys and values are signed 32bit integers that must be non-negative.
+ * keys are signed 32bit integers that must be non-negative; values are double
+ * 
+ * Adapted from int_hash_map
  */
 
-#ifndef __INT_HASH_MAP_H
-#define __INT_HASH_MAP_H
+
+#ifndef __EVAL_HASH_MAP_H
+#define __EVAL_HASH_MAP_H
 
 #include <stdint.h>
 #include <stdbool.h>
-
 
 /*
  * Records stored in the hash table are pairs of integers
  * - key is >= 0
  */
-typedef struct int_hmap_pair_s {
+typedef struct double_hmap_pair_s {
   int32_t key;
-  int32_t val;
-} int_hmap_pair_t;
+  double val;
+} double_hmap_pair_t;
 
-typedef struct int_hmap_s {
-  int_hmap_pair_t *data;
+
+typedef struct double_hmap_s {
+  double_hmap_pair_t *data;
   uint32_t size; // must be a power of 2
   uint32_t nelems;
   uint32_t ndeleted;
   uint32_t resize_threshold;
   uint32_t cleanup_threshold;
-} int_hmap_t;
+} double_hmap_t;
 
 
 /*
  * Default initial size
  */
-#define INT_HMAP_DEFAULT_SIZE 32
-#define INT_HMAP_MAX_SIZE (UINT32_MAX/8)
+#define DOUBLE_HMAP_DEFAULT_SIZE 32
+#define DOUBLE_HMAP_MAX_SIZE (UINT32_MAX/8)
 
 /*
  * Ratios: resize_threshold = size * RESIZE_RATIO
  *         cleanup_threshold = size * CLEANUP_RATIO
  */
-#define INT_HMAP_RESIZE_RATIO 0.6
-#define INT_HMAP_CLEANUP_RATIO 0.2
+#define DOUBLE_HMAP_RESIZE_RATIO 0.6
+#define DOUBLE_HMAP_CLEANUP_RATIO 0.2
 
 
 /*
@@ -67,68 +70,61 @@ typedef struct int_hmap_s {
  * - n = initial size, must be 0 or a power of 2
  * - if n = 0, the default size is used
  */
-extern void init_int_hmap(int_hmap_t *hmap, uint32_t n);
+extern void init_double_hmap(double_hmap_t *hmap, uint32_t n);
 
 
 /*
  * Delete: free memory
  */
-extern void delete_int_hmap(int_hmap_t *hmap);
+extern void delete_double_hmap(double_hmap_t *hmap);
 
 
 /*
  * Find record with key k. Return NULL if there's none
  */
-extern int_hmap_pair_t *int_hmap_find(const int_hmap_t *hmap, int32_t k);
+extern double_hmap_pair_t *double_hmap_find(const double_hmap_t *hmap, int32_t k);
 
 
 /*
  * Get record with key k. If one is in the table return it.
  * Otherwise, add a fresh record with key k and value -1 and return it.
  */
-extern int_hmap_pair_t *int_hmap_get(int_hmap_t *hmap, int32_t k);
+extern double_hmap_pair_t *double_hmap_get(double_hmap_t *hmap, int32_t k);
 
 
 /*
  * Add record [k -> v]
  * - there must not be a record with the same key
  */
-extern void int_hmap_add(int_hmap_t *hmap, int32_t k, int32_t v);
+extern void double_hmap_add(double_hmap_t *hmap, int32_t k, double v);
 
+/*
+ * Add record [k -> v ] to hmap
+ * - if there is a record with the same key, it is replaced by the new record
+ */
+void double_hmap_add_replace(double_hmap_t *hmap, int32_t k, double v);
+
+/*
+ * Add record [k -> v ] to hmap
+ * - if there is a record with the same key, it does not replace it (but does not throw an error)
+ */
+void double_hmap_add_not_replace(double_hmap_t *hmap, int32_t k, double v);
 
 /*
  * Erase record r
  */
-extern void int_hmap_erase(int_hmap_t *hmap, int_hmap_pair_t *r);
+extern void double_hmap_erase(double_hmap_t *hmap, double_hmap_pair_t *r);
 
 
 /*
- * Remove all records
+ * Deep copy one map to another
  */
-extern void int_hmap_reset(int_hmap_t *hmap);
-
-
+extern void double_hmap_copy(double_hmap_t *hmap_to, const double_hmap_t *hmap_from);
 
 /*
- * Remove all records that satisfy f
- * - calls f(aux, p) on every record p stored in hmap
- * - if f(aux, p) returns true then record p is removed
+ * Swap m1 and m2
  */
-typedef bool (*int_hmap_filter_t)(void *aux, const int_hmap_pair_t *p);
-
-extern void int_hmap_remove_records(int_hmap_t *hmap, void *aux, int_hmap_filter_t f);
-
-
-/*
- * Iterator: call f(aux, p) on every record p stored in hmap
- * - f must not have any side effect on the hmap
- */
-typedef void (*int_hmap_iterator_t)(void *aux, const int_hmap_pair_t *p);
-
-extern void int_hmap_iterate(int_hmap_t *hmap, void *aux, int_hmap_iterator_t f);
-
-
-
+extern void double_hmap_swap(double_hmap_t *m1, double_hmap_t *m2);
 
 /*
  * Support for scanning all records:
@@ -136,8 +132,13 @@ extern void int_hmap_iterate(int_hmap_t *hmap, void *aux, int_hmap_iterator_t f)
  * - next(p) gives the next record after p or NULL
  * IMPORTANT: The hmap must not be modified between calls to next
  */
-extern int_hmap_pair_t *int_hmap_first_record(const int_hmap_t *hmap);
-extern int_hmap_pair_t *int_hmap_next_record(const int_hmap_t *hmap, const int_hmap_pair_t *p);
+extern double_hmap_pair_t *double_hmap_first_record(const double_hmap_t *hmap);
+extern double_hmap_pair_t *double_hmap_next_record(const double_hmap_t *hmap, const double_hmap_pair_t *p);
 
 
-#endif /* __INT_HASH_MAP_H */
+/*
+ * Remove all records
+ */
+extern void double_hmap_reset(double_hmap_t *hmap);
+
+#endif /* __EVAL_HASH_MAP_H */

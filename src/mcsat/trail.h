@@ -297,7 +297,7 @@ void trail_recache(mcsat_trail_t* trail, uint32_t round);
 void trail_update_extra_cache(mcsat_trail_t* trail);
 
 /** clear target/best cache */
-void trail_clear_extra_cache(mcsat_trail_t* trail);
+void trail_clear_extra_cache(mcsat_trail_t* trail, bool keep_best_cache);
 
 /** clear all caches */
 void trail_clear_cache(mcsat_trail_t* trail);
