@@ -642,31 +642,43 @@ void bv_plugin_process_unit_constraint(bv_plugin_t* bv, trail_token_t* prop, var
     if (!trail_has_value(trail, x)) {
       bdd_t feasible = bv_feasible_set_db_get(bv->feasible, x);
       uint32_t x_bitsize = bv_term_bitsize(ctx->terms, x_term);
-      bool is_fixed = bv_bdd_manager_bdd_is_point(bddm, feasible, x_bitsize);
-      if (is_fixed) {
+
+      if (bv_bdd_manager_bdd_is_point(bddm, feasible, x_bitsize)) {
         bool is_boolean = variable_db_get_type_kind(var_db, x) == BOOL_TYPE;
         bvconstant_t x_bv_value;
         init_bvconstant(&x_bv_value);
         bvconstant_set_bitsize(&x_bv_value, x_bitsize);
         bv_bdd_manager_pick_value(bddm, x_term, feasible, &x_bv_value);
-        if (ctx_trace_enabled(ctx, "mcsat::bv::propagate")) {
-          ctx_trace_printf(ctx, "propagating value for :\n");
-          ctx_trace_term(ctx, x_term);
-        }
 
-        int_hmap_pair_t* find = int_hmap_get(&bv->variable_propagation_type, x);
-        find->val = BV_PROP_SINGLETON;
-        (*bv->stats.propagations) ++;
+        bool x_value = bvconst_tst_bit(x_bv_value.data, 0);
+        mcsat_value_t value;
 
         if (is_boolean) {
-          bool x_value = bvconst_tst_bit(x_bv_value.data, 0);
-          prop->add(prop, x, x_value ? &mcsat_value_true : &mcsat_value_false);
+          mcsat_value_construct_bool(&value, x_value);
         } else {
-          mcsat_value_t x_value;
-          mcsat_value_construct_bv_value(&x_value, &x_bv_value);
-          prop->add(prop, x, &x_value);
-          mcsat_value_destruct(&x_value);
+          mcsat_value_construct_bv_value(&value, &x_bv_value);
         }
+
+        if (trail_is_at_base_level(bv->ctx->trail)) {
+          if (ctx_trace_enabled(ctx, "mcsat::bv::propagate")) {
+            ctx_trace_printf(ctx, "propagating value for :\n");
+            ctx_trace_term(ctx, x_term);
+          }
+
+          int_hmap_get(&bv->variable_propagation_type, x)->val = BV_PROP_SINGLETON;
+          (*bv->stats.propagations)++;
+          prop->add(prop, x, &value);
+        } else {
+          if (ctx_trace_enabled(ctx, "mcsat::bv::propagate")) {
+            ctx_trace_printf(ctx, "hinting variable :\n");
+            ctx_trace_term(ctx, x_term);
+          }
+
+          bv->ctx->hint_next_decision(bv->ctx, x);
+          bv->ctx->hint_value(bv->ctx, x, &value);
+        }
+
+        mcsat_value_destruct(&value);
         delete_bvconstant(&x_bv_value);
       }
     }

@@ -1,1 +1,1 @@
---mcsat
+--mcsat --mcsat-bv-var-size=8
