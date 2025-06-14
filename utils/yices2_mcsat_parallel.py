@@ -11,6 +11,14 @@ import argparse
 import random
 from typing import List, Set, Tuple
 
+def _global_signal_handler(signum, frame):
+    """Global signal handler for the main process"""
+    if signum == signal.SIGINT:
+        print("\nReceived Ctrl+C, shutting down gracefully...", file=sys.stderr)
+    else:
+        print(f"\nReceived signal {signum}, shutting down gracefully...", file=sys.stderr)
+    sys.exit(0)
+
 class ConfigGenerator:
     def __init__(self, num_configs: int, seed: int = None):
         self.num_configs = num_configs
@@ -20,9 +28,8 @@ class ConfigGenerator:
     def generate_configs(self) -> List[List[str]]:
         configs = []
         
-        # Always include empty config
+        # Always include empty config and nra bound
         configs.append([])
-        # and nra bound
         configs.append(["--mcsat-nra-bound"])
         
         # Generate remaining configs
@@ -60,20 +67,7 @@ class PortfolioSolver:
         self.threads = []
         self.stop_event = threading.Event()
         self.start_time = None
-        self.processes = []  # Keep track of subprocesses
-        
-        # Set up signal handlers
-        signal.signal(signal.SIGINT, self._signal_handler)
-        signal.signal(signal.SIGTERM, self._signal_handler)
-
-    def _signal_handler(self, signum, frame):
-        """Handle termination signals"""
-        if signum == signal.SIGINT:
-            self.log("\nReceived Ctrl+C, shutting down gracefully...")
-        else:
-            self.log(f"\nReceived signal {signum}, shutting down gracefully...")
-        self.cleanup_threads()
-        sys.exit(0)
+        self.processes = []
 
     def log(self, message):
         if self.verbose:
@@ -84,23 +78,16 @@ class PortfolioSolver:
         self.log("Stopping all threads...")
         self.stop_event.set()
         
-        # Terminate all subprocesses
+        # Kill all subprocesses immediately
         for process in self.processes:
             try:
-                process.terminate()
-                process.wait(timeout=1)  # Wait up to 1 second for process to terminate
-            except subprocess.TimeoutExpired:
-                process.kill()  # Force kill if termination times out
+                if process.poll() is None:  # If process is still running
+                    os.killpg(os.getpgid(process.pid), signal.SIGKILL)
             except Exception as e:
-                self.log(f"Error terminating process: {e}")
+                self.log(f"Error killing process: {e}")
         
-        # Wait for threads to finish
-        for i, thread in enumerate(self.threads):
-            try:
-                thread.join(timeout=1)  # Wait up to 1 second for thread to finish
-                self.log(f"Thread {i} stopped")
-            except Exception as e:
-                self.log(f"Error stopping thread {i}: {e}")
+        # Threads will exit naturally when their processes are killed
+        self.threads.clear()
 
     def run_yices(self, thread_id, params):
         process = None
@@ -112,7 +99,8 @@ class PortfolioSolver:
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-                text=True
+                text=True,
+                preexec_fn=os.setsid
             )
             self.processes.append(process)
             
@@ -136,9 +124,9 @@ class PortfolioSolver:
         finally:
             if process and process.poll() is None:
                 try:
-                    process.terminate()
+                    os.killpg(os.getpgid(process.pid), signal.SIGKILL)
                 except Exception as e:
-                    self.log(f"Error terminating process in thread {thread_id}: {e}")
+                    self.log(f"Error killing process in thread {thread_id}: {e}")
 
     def solve(self):
         try:
@@ -177,10 +165,13 @@ class PortfolioSolver:
                 return "unknown", f"Timeout after {self.timeout} seconds"
 
         finally:
-            # Clean up threads and processes
             self.cleanup_threads()
 
 def main():
+    # Set up global signal handlers
+    signal.signal(signal.SIGINT, _global_signal_handler)
+    signal.signal(signal.SIGTERM, _global_signal_handler)
+    
     parser = argparse.ArgumentParser(description='Portfolio solver using yices_smt2')
     parser.add_argument('--yices', required=True, help='Path to yices_smt2 executable')
     parser.add_argument('-n', '--num-threads', type=int, default=4, help='Number of threads to use (default: 4)')
@@ -201,7 +192,7 @@ def main():
 
     try:
         solver = PortfolioSolver(args.yices, args.smt2_file, args.num_threads, args.timeout, args.verbose, args.seed)
-        result, output = solver.solve()
+        _, output = solver.solve()
         print(output)
     except KeyboardInterrupt:
         print("\nInterrupted by user", file=sys.stderr)
