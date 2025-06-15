@@ -1,4 +1,4 @@
 unsat
 (bv-slt (bv-add x y z) 0b00000000)
 unsat
-(bv-slt (bv-add (bv-mul 0b00000010 x) y) 0b00000000)
+(or (= 0b00000000 (bv-add 0b10000000 y (bv-concat (bv-extract 6 0 x) 0b0))) (bv-ge (bv-add y (bv-concat (bv-extract 6 0 x) 0b0)) 0b10000000))

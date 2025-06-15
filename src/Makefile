@@ -276,6 +276,7 @@ core_src_c := \
 	utils/csets.c \
 	utils/cputime.c \
 	utils/dep_tables.c \
+	utils/double_hash_map.c \
 	utils/error.c \
 	utils/gcd.c \
 	utils/generic_heap.c \
@@ -395,6 +396,10 @@ mcsat_src_c := \
 	mcsat/bv/explain/full_bv_trivial.c \
 	mcsat/watch_list_manager.c \
 	mcsat/preprocessor.c \
+	mcsat/l2o/l2o.c \
+	mcsat/l2o/evaluator.c \
+	mcsat/l2o/hill_climbing.c \
+	mcsat/l2o/varset_table.c \
 	mcsat/options.c
 
 

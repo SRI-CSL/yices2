@@ -1768,6 +1768,11 @@ static inline special_term_t *ite_special_desc(const term_table_t *table, term_t
 
 
 
+/*
+ * Composite term handling
+ */
+
+composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t);
 
 
 /*

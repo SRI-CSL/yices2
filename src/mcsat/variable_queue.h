@@ -110,7 +110,7 @@ void var_queue_set_activity(var_queue_t* queue, variable_t x, double a);
 void var_queue_decay_activities(var_queue_t *queue);
 
 /** Compare two variables by score */
-int var_queue_cmp_variables(var_queue_t *queue, variable_t x, variable_t y);
+int var_queue_cmp_variables(const var_queue_t *queue, variable_t x, variable_t y);
 
 /** Sweep the queue */
 void var_queue_gc_sweep(var_queue_t* queue, const gc_info_t* gc_vars);

@@ -84,6 +84,8 @@ struct nra_plugin_s {
     statistic_int_t* evaluations;
     statistic_int_t* constraint_regular;
     statistic_int_t* constraint_root;
+    statistic_avg_t* value_cache_usage;
+    statistic_avg_t* value_cache_feasibility;
   } stats;
 
   /** Database of polynomial constraints */

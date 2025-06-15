@@ -492,6 +492,18 @@ void q_set_mpq(rational_t *r, const mpq_t q) {
 }
 
 /*
+ * Sets a rational to a value from a double
+ */
+void q_set_double(rational_t *r, double d) {
+  mpq_ptr qt;
+
+  q_prepare(r);
+  qt = get_gmp(r);
+  mpq_set_d(qt, d);
+  q_normalize(r);
+}
+
+/*
  * Copy r2 into r1
  */
 void q_set(rational_t *r1, const rational_t *r2) {
