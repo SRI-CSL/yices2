@@ -5379,11 +5379,11 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
     break;
 
   case PARAM_MCSAT_RAND_DEC_FREQ:
-    print_float_value(g->mcsat_options.rand_dec_freq);
+    print_float_value(g->parameters.randomness);
     break;
 
   case PARAM_MCSAT_RAND_DEC_SEED:
-    print_int32_value(g->mcsat_options.rand_dec_seed);
+    print_int32_value(g->parameters.random_seed);
     break;
 
   case PARAM_MCSAT_VAR_ORDER:
@@ -6174,21 +6174,13 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
 
   case PARAM_MCSAT_RAND_DEC_FREQ:
     if (param_val_to_ratio(param, val, &x, &reason)) {
-      g->mcsat_options.rand_dec_freq = x;
-      context = g->ctx;
-      if (context != NULL) {
-        context->mcsat_options.rand_dec_freq = x;
-      }
+      g->parameters.randomness = x;
     }
     break;
 
   case PARAM_MCSAT_RAND_DEC_SEED:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->mcsat_options.rand_dec_seed = n;
-      context = g->ctx;
-      if (context != NULL) {
-        context->mcsat_options.rand_dec_seed = n;
-      }
+      g->parameters.random_seed = n;
     }
     break;
 

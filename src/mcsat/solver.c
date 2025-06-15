@@ -343,13 +343,13 @@ void mcsat_stats_init(mcsat_solver_t* mcsat) {
 }
 
 static
-void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
+void mcsat_heuristics_init(mcsat_solver_t* mcsat, const param_t *params) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
   mcsat->heuristic_params.recache_interval = mcsat->ctx->mcsat_options.l2o ? 50 : 300;
   mcsat->heuristic_params.recache_initial = mcsat->ctx->mcsat_options.l2o ? 50 : 300;
-  mcsat->heuristic_params.random_decision_freq = mcsat->ctx->mcsat_options.rand_dec_freq;
-  mcsat->heuristic_params.random_decision_seed = mcsat->ctx->mcsat_options.rand_dec_seed;
+  mcsat->heuristic_params.random_decision_freq = params->randomness;
+  mcsat->heuristic_params.random_decision_seed = params->random_seed;
 }
 
 static
@@ -2767,7 +2767,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   mcsat->terms_size_on_solver_entry = nterms(mcsat->terms);
 
   // Initialize for search
-  mcsat_heuristics_init(mcsat);
+  mcsat_heuristics_init(mcsat, params);
   mcsat_notify_plugins(mcsat, MCSAT_SOLVER_START);
 
   // set initial variable order
