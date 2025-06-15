@@ -274,7 +274,10 @@ static void bitblast_then_export(context_t *ctx, const char *s) {
     break;
 
   case STATUS_SAT:
+    fprintf(stderr, "Trivially sat: Export to dimacs skipped\n");
+    break;
   case STATUS_UNSAT:
+    fprintf(stderr, "Trivially unsat: Export to dimacs skipped\n");
     break;
 
   case YICES_STATUS_INTERRUPTED:
