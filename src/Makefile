@@ -432,7 +432,6 @@ extra_src_c := \
 	frontend/smt2/parenthesized_expr.c \
 	frontend/smt2/smt2_commands.c \
 	frontend/smt2/smt2_expressions.c \
-	frontend/smt2/smt2_lexer.c \
 	frontend/smt2/smt2_model_printer.c \
 	frontend/smt2/smt2_parser.c \
 	frontend/smt2/smt2_printer.c \
