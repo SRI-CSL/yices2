@@ -22,12 +22,11 @@
 
 #include "terms/terms.h"
 #include "terms/term_manager.h"
-#include "utils/pair_hash_map2.h"
+#include "utils/int_hash_mmap.h"
 #include "utils/double_hash_map.h"
 #include "io/tracer.h"
 
 #include "mcsat/tracing.h"
-#include "mcsat/l2o/varset_table.h"
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/variable_queue.h"
 
@@ -67,14 +66,8 @@ typedef struct l2o {
   int_hmap_t l2o_var_map;
 #endif
 
-  /** Table of sets of variables */
-  varset_table_t varset_table;
-  
-  /** Map from a term to the table index of the set of its free variables */
-  int_hmap_t freevars_map;
-
-  /** Map from a variable and an index of varset_table to a boolean which is true iff the variable is member of the varset */
-  pmap2_t varset_members_cache;
+  /** terms with their free variables */
+  int_hmmap_t var_member;
 
   /** Statistics */
   statistics_t stats;

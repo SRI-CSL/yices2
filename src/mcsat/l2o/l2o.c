@@ -21,6 +21,7 @@
 #include "terms/term_explorer.h"
 #include "api/yices_api_lock_free.h"
 #include "utils/int_array_sort2.h"
+#include "utils/int_hash_sets.h"
 
 #include <math.h>
 #include <poly/feasibility_set.h>
@@ -50,9 +51,7 @@ bool_plugin) {
   init_int_hmap(&l2o->l2o_var_map, 0);
 #endif
 
-  init_varset_table(&l2o->varset_table, 0 );
-  init_int_hmap(&l2o->freevars_map, 0);
-  init_pmap2(&l2o->varset_members_cache);
+  init_int_hmmap(&l2o->var_member, 0);
 
   l2o->tracer = NULL;
   l2o->exception = handler;
@@ -76,9 +75,7 @@ void l2o_destruct(l2o_t* l2o) {
 #endif
 
   delete_int_hmap(&l2o->simplify_map);
-  delete_varset_table(&l2o->varset_table);
-  delete_int_hmap(&l2o->freevars_map);
-  delete_pmap2(&l2o->varset_members_cache);
+  delete_int_hmmap(&l2o->var_member);
 
   scope_holder_destruct(&l2o->scope);
   statistics_destruct(&l2o->stats);
@@ -102,89 +99,13 @@ void l2o_set(l2o_t* l2o, term_t t, term_t t_l2o) {
   (*l2o->l2o_stats.n_terms)++;
 }
 
-static
-int32_t get_freevars_index(const l2o_t* l2o, term_t t) {
-  term_t t_unsigned = unsigned_term(t);
-  int_hmap_pair_t* find = int_hmap_find(&l2o->freevars_map, t_unsigned);
-  return find == NULL ? -1 : find->val;
-}
-
-static
-const int_hset_t* get_freevars(const l2o_t* l2o, term_t t){
-  term_t t_unsigned = unsigned_term(t);
-  int32_t index = get_freevars_index(l2o,  t_unsigned);
-  return index == -1 ? NULL : get_varset(&l2o->varset_table, index);
-}
-
-static
-const int_hset_t* get_freevars_from_index(const l2o_t* l2o, int32_t index){
-  assert(index != -1);
-  return get_varset(&l2o->varset_table, index);
-}
-
-// Set the set of free variables for t
-static inline
-void set_freevars_new(l2o_t* l2o, term_t t, int_hset_t* vars_set) {
-  term_t t_unsigned = unsigned_term(t);
-  assert(get_freevars_index(l2o, t_unsigned) == -1);
-  int32_t index = add_varset(&l2o->varset_table, vars_set);
-  int_hmap_add(&l2o->freevars_map, t_unsigned, index);
-}
-
-// Set the set of free variables of t to be equal to the set of free variables of t2
-static
-void set_freevars_dependent(l2o_t* l2o, term_t t, term_t t2) {
-  term_t t_unsigned = unsigned_term(t);
-  term_t t2_unsigned = unsigned_term(t2);
-  assert(get_freevars_index(l2o, t_unsigned) == -1);
-  int32_t index = get_freevars_index(l2o, t2_unsigned);
-  assert(get_freevars_index(l2o, t2_unsigned) != -1);
-  int_hmap_add(&l2o->freevars_map, t_unsigned, index);
-}
-
-/** Get as input an array of varset_table indices of length n. Fills the variables in out. */
-static
-void construct_union_set_from_indices(const l2o_t* l2o, const int32_t* indices, uint32_t n, int_hset_t *out) {
-  for (uint32_t i = 0; i < n; ++ i) {
-    int32_t index = indices[i];
-    assert(index != -1);
-    const int_hset_t* var_set_i = get_freevars_from_index(l2o, index);
-    uint32_t nelems = var_set_i->nelems;
-    for (uint32_t j = 0; j < nelems; ++ j) {
-      term_t var = var_set_i->data[j];
-      int_hset_add(out, var);
-    }
-  }
-}
-
-static
-bool is_var_member_of_varset(l2o_t *l2o, term_t var, const int_hset_t *varset, int32_t varset_index) {
-  //TODO change name &l2o->varset_members_cache
-  pmap2_rec_t *rec = pmap2_get(&l2o->varset_members_cache, var, varset_index);
-  if (rec->val == -1) {    // not cached yet
-    bool var_is_member = false;
-    for (uint32_t j = 0; j < varset->nelems; ++j) {
-      if (var == varset->data[j]) {
-        var_is_member = true;
-        break;
-      }
-    }
-    rec->val = var_is_member;
-  } else {
-    assert(rec->val == true || rec->val == false);
-  }
-  return rec->val;
-}
-
 /** Checks whether the intersection between set_of_vars and the free variables in t is empty (0) or not (1) */
 bool l2o_term_has_variables(l2o_t *l2o, term_t t, const ivector_t *set_of_vars) {
-  int32_t index_vars_in_t = get_freevars_index(l2o, t);
-  assert(index_vars_in_t != -1);
-  const int_hset_t *vars_in_t = get_freevars_from_index(l2o, index_vars_in_t);
-
+  term_t t_pos = unsigned_term(t);
   for (uint32_t i = 0; i < set_of_vars->size; ++i) {
-    bool var_is_member = is_var_member_of_varset(l2o, set_of_vars->data[i], vars_in_t, index_vars_in_t);
-    if (var_is_member) {
+    term_t t_var = set_of_vars->data[i];
+    assert(is_pos_term(t_var));
+    if (int_hmmap_contains(&l2o->var_member, t_pos, t_var)) {
       return true;
     }
   }
@@ -812,7 +733,103 @@ term_t l2o_apply(l2o_t* l2o, term_t t) {
   return t_l2o;
 }
 
+static
+void collect_free_vars(l2o_t *l2o, term_t t, ivector_t *v, uint32_t offset) {
+  term_t current_term = unsigned_term(t);
 
+  if(int_hmmap_find_all(&l2o->var_member, current_term, v) > 0) {
+    // If already visited, continue
+    return;
+  }
+
+  if(t == RESERVED_TERM || t == UNUSED_TERM) {
+    return;
+  }
+
+  term_kind_t current_kind = term_kind(l2o->terms, current_term);
+
+  if (current_kind == UNINTERPRETED_TERM) {
+    // found a variable
+    ivector_push(v, current_term);
+    int_hmmap_add(&l2o->var_member, current_term, current_term);
+    return;
+  }
+
+  ivector_t subterms;
+  init_ivector(&subterms, 0);
+
+  switch (current_kind) {
+    case CONSTANT_TERM:
+    case ARITH_CONSTANT:
+      break;
+
+    case ARITH_POLY: {
+      polynomial_t *polydesc = poly_term_desc(l2o->terms, current_term);
+      for (uint32_t i = 0; i < polydesc->nterms; ++i) {
+        term_t var = polydesc->mono[i].var;
+        if (var > 0)
+          ivector_push(&subterms, var);
+      }
+      break;
+    }
+
+    case POWER_PRODUCT: {
+      pprod_t* ppdesc = pprod_term_desc(l2o->terms, current_term);
+      for (uint32_t i = 0; i < ppdesc->len; ++ i) {
+        term_t var = ppdesc->prod[i].var;
+        assert(var != RESERVED_TERM);
+        if (var > 0)
+          ivector_push(&subterms, var);
+      }
+      break;
+    }
+
+    default: {
+      composite_term_t *c = get_composite(l2o->terms, current_kind, current_term);
+      for (int i = 0; i < c->arity; ++i) {
+        term_t arg = c->arg[i];
+        ivector_push(&subterms, arg);
+      }
+      break;
+    }
+  }
+
+  // handle subterms
+  for (uint32_t i = 0; i < subterms.size; ++i) {
+    term_t arg = subterms.data[i];
+    assert(good_term(l2o->terms, arg));
+    collect_free_vars(l2o, arg, v, v->size);
+  }
+  delete_ivector(&subterms);
+
+  //term_print_to_file(stderr, l2o->terms, t);
+  //fprintf(stderr, "\n");
+
+  // associates the term its variables
+  assert(offset <= v->size);
+  assert(!int_hmmap_contains_key(&l2o->var_member, current_term));
+  for (uint32_t i = offset; i < v->size; ++i) {
+    term_t var = v->data[i];
+    //term_print_to_file(stderr, l2o->terms, var);
+    //fprintf(stderr, ", ");
+    assert(is_pos_term(var));
+    assert(is_pos_term(current_term));
+    // TODO sort and remove duplicates from v and use add
+    int_hmmap_insert(&l2o->var_member, current_term, var);
+  }
+  //fprintf(stderr, "\n--------------\n");
+}
+
+static
+void collect_freevars(l2o_t* l2o, term_t t) {
+  ivector_t v;
+  init_ivector(&v, 0);
+  collect_free_vars(l2o, t, &v, 0);
+  delete_ivector(&v);
+}
+
+
+# if 0
 // Find all the free variables in t and in each subterm of t, and store them in l2o freevars_map
 static
 void collect_freevars(l2o_t* l2o, term_t t) {
@@ -1143,6 +1160,7 @@ void collect_freevars(l2o_t* l2o, term_t t) {
 
   delete_int_hset(&current_vars_set);
 }
+#endif
 
 void l2o_set_exception_handler(l2o_t* l2o, jmp_buf* handler) {
   l2o->exception = handler;
@@ -1258,25 +1276,27 @@ void l2o_search_state_destruct(l2o_search_state_t *state) {
 
 static
 bool l2o_is_valid_term(l2o_t *l2o, term_t t) {
-  if (t == -1) {
+  assert(is_pos_term(t));
+
+  if (int_hmmap_find(&l2o->var_member, t, 0) == NULL) {
     return false;
   }
-
-  const int_hset_t* var_set = get_freevars(l2o, t);
-  assert(var_set != NULL);
-  assert(var_set->is_closed);
-
+  bool ok = true;
+  ivector_t v;
+  init_ivector(&v, 0);
+  int_hmmap_find_all(&l2o->var_member, t, &v);
   // Check if there are non-arith and non-bool vars; if yes, return without doing anything
-  uint32_t n_var = var_set->nelems;
-  for (uint32_t i = 0; i < n_var; ++ i) {
-    term_t t_i = var_set->data[i];
+  for (uint32_t i = 0; i < v.size; ++ i) {
+    term_t t_i = v.data[i];
     type_kind_t type_vi = term_type_kind(l2o->terms, t_i);
+    // TODO don't even collect in the first place if its not of valid type
     if(type_vi != INT_TYPE && type_vi != REAL_TYPE && type_vi != BOOL_TYPE){
-      return false;
+      ok = false;
+      break;
     }
   }
-
-  return true;
+  delete_ivector(&v);
+  return ok;
 }
 
 extern const lp_feasibility_set_t* get_fs_by_term(plugin_t *plugin, term_t v);
@@ -1349,14 +1369,17 @@ bool l2o_compare_vars_bool(void *data, int32_t a, int32_t b) {
 
 static
 void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, bool use_cached_values, const var_queue_t *queue, l2o_search_state_t *state) {
-  const int_hset_t* var_set = get_freevars(l2o, t);
-  assert(var_set != NULL);
-  assert(var_set->is_closed);
-  uint32_t n_var = var_set->nelems;
+  ivector_t vars_t;
+  init_ivector(&vars_t, 0);
+  int_hmmap_find_all(&l2o->var_member, unsigned_term(t), &vars_t);
+  ivector_remove_duplicates(&vars_t);
 
   l2o_search_state_construct_empty(state);
 
+  uint32_t n_var = vars_t.size;
+
   if (n_var == 0) {
+    delete_ivector(&vars_t);
     return;
   }
 
@@ -1373,12 +1396,14 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, b
   init_ivector(&vars_fixed, 0);
 
   for (uint32_t i = 0; i < n_var; ++ i) {
-    term_t t_i = var_set->data[i];
+    term_t t_i = vars_t.data[i];
     variable_t var_i = variable_db_get_variable_if_exists(trail->var_db, t_i);
     assert (var_i != variable_null);
     ivector_push(trail_has_value(trail, var_i) ? &vars_fixed : &vars, var_i);
   }
   state->n_var_fixed = vars_fixed.size;
+
+  delete_ivector(&vars_t);
 
 #ifdef L2O_VAR_PRIO_SORTING
   if (queue) {

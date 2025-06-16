@@ -292,6 +292,7 @@ core_src_c := \
 	utils/int_hash_classes.c \
 	utils/int_hash_map2.c \
 	utils/int_hash_map.c \
+	utils/int_hash_mmap.c \
 	utils/int_hash_sets.c \
 	utils/int_hash_tables.c \
 	utils/int_heap2.c \
@@ -400,7 +401,6 @@ mcsat_src_c := \
 	mcsat/l2o/l2o_cost_fx.c \
 	mcsat/l2o/evaluator.c \
 	mcsat/l2o/hill_climbing.c \
-	mcsat/l2o/varset_table.c \
 	mcsat/options.c
 
 

@@ -21,6 +21,8 @@
 #include "mcsat/l2o/l2o.h"
 #include "mcsat/l2o/l2o_internal.h"
 
+#include "utils/int_hash_sets.h"
+
 #include <poly/feasibility_set.h>
 #include <poly/interval.h>
 
