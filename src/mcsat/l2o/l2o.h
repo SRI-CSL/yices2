@@ -38,7 +38,7 @@ typedef enum {
   L2O_FS_JUMP,
 } l2o_mode_t;
 
-typedef struct {
+typedef struct l2o {
   /** The l2o mode */
   l2o_mode_t mode;
 

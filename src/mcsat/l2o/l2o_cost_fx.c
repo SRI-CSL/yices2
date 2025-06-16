@@ -12,19 +12,13 @@
 static
 double l2o_cost_fx_term_eval(l2o_cost_fx_t *fx, const l2o_search_state_t *state) {
   l2o_cost_fx_term_t *fx_t = (l2o_cost_fx_term_t*) fx;
-  delete_double_hmap(&fx_t->eval_map);
-  if (fx_t->eval_cache.nelems > 0) {
-    l2o_evaluator_construct_cache(fx->l2o, &fx_t->eval_map, state, &fx_t->eval_cache);
-  } else {
-    l2o_evaluator_construct(fx->l2o, &fx_t->eval_map, state);
-  }
-  return l2o_evaluate_term_approx(fx->l2o, &fx_t->eval_map, fx_t->term);
+  l2o_evaluator_set_state(&fx->evaluator, state);
+  return l2o_evaluate_term_approx(fx->l2o, &fx->evaluator, fx_t->term);
 }
 
 static
 void l2o_cost_fx_term_update_cache(l2o_cost_fx_t *fx) {
-  l2o_cost_fx_term_t *fx_t = (l2o_cost_fx_term_t*) fx;
-  double_hmap_swap(&fx_t->eval_cache, &fx_t->eval_map);
+  l2o_evaluator_update_cache(&fx->evaluator);
 }
 
 void l2o_cost_fx_term_construct(l2o_t *l2o, l2o_cost_fx_term_t *fx, term_t t) {
@@ -32,13 +26,11 @@ void l2o_cost_fx_term_construct(l2o_t *l2o, l2o_cost_fx_term_t *fx, term_t t) {
   fx->fx.eval = l2o_cost_fx_term_eval;
   fx->fx.update_cache = l2o_cost_fx_term_update_cache;
   fx->term = t;
-  init_double_hmap(&fx->eval_map, 0);
-  init_double_hmap(&fx->eval_cache, 0);
+  l2o_evaluator_construct(l2o, &fx->fx.evaluator);
 }
 
 void l2o_cost_fx_term_destruct(l2o_cost_fx_term_t *fx) {
-  delete_double_hmap(&fx->eval_map);
-  delete_double_hmap(&fx->eval_cache);
+  l2o_evaluator_destruct(&fx->fx.evaluator);
 }
 
 
@@ -59,8 +51,7 @@ double l2o_cost_fx_cnf_eval(l2o_cost_fx_t *fx, const l2o_search_state_t *state) 
 
 static
 void l2o_cost_fx_cnf_update_cache(l2o_cost_fx_t *fx) {
-  l2o_cost_fx_cnf_t *fxc = (l2o_cost_fx_cnf_t*) fx;
-  double_hmap_swap(&fxc->eval_cache, &fxc->eval_map);
+  l2o_evaluator_update_cache(&fx->evaluator);
 }
 
 void l2o_cost_fx_cnf_construct(l2o_t *l2o, l2o_cost_fx_cnf_t *fx) {
@@ -68,9 +59,7 @@ void l2o_cost_fx_cnf_construct(l2o_t *l2o, l2o_cost_fx_cnf_t *fx) {
   fx->fx.l2o = l2o;
   fx->fx.eval = l2o_cost_fx_cnf_eval;
   fx->fx.update_cache = l2o_cost_fx_cnf_update_cache;
-
-  init_double_hmap(&fx->eval_map, 0);
-  init_double_hmap(&fx->eval_cache, 0);
+  l2o_evaluator_construct(l2o, &fx->fx.evaluator);
 
   fx->capacity = L2O_COST_FX_INITIAL_CAPACITY;
   fx->lit = (term_t*) safe_malloc(sizeof(term_t)*fx->capacity);
@@ -86,8 +75,7 @@ void l2o_cost_fx_cnf_destruct(l2o_cost_fx_cnf_t *fx) {
   safe_free(fx->lit);
   delete_ivector(&fx->clause_ids);
   int_lset_destruct(&fx->var2clause);
-  delete_double_hmap(&fx->eval_map);
-  delete_double_hmap(&fx->eval_cache);
+  l2o_evaluator_destruct(&fx->fx.evaluator);
 }
 
 static

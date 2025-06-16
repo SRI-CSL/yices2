@@ -24,6 +24,8 @@
 
 #include <stdint.h>
 
+typedef struct l2o l2o_t;
+
 typedef struct {
   uint32_t n_var;
   uint32_t n_var_fixed;
@@ -50,6 +52,8 @@ typedef struct l2o_cost_fx {
 
   /** the l2o the cost fx is associated to */
   l2o_t *l2o;
+
+  l2o_evaluator_t evaluator;
 } l2o_cost_fx_t;
 
 void l2o_search_state_construct_empty(l2o_search_state_t *state);
@@ -92,12 +96,6 @@ typedef struct {
 
   /** The term to evaluate. */
   term_t term;
-
-  /** Map of subterms of term to their value. */
-  double_hmap_t eval_map;
-
-  /** Cache of eval_map. */
-  double_hmap_t eval_cache;
 } l2o_cost_fx_term_t;
 
 void l2o_cost_fx_term_construct(l2o_t *l2o, l2o_cost_fx_term_t *fx, term_t t);
@@ -118,12 +116,6 @@ typedef struct {
 
   /** map of var -> [clause_id] */
   int_lset_t var2clause;
-
-  /** Map of subterms of term to their value. */
-  double_hmap_t eval_map;
-
-  /** Cache of eval_map. */
-  double_hmap_t eval_cache;
 } l2o_cost_fx_cnf_t;
 
 void l2o_cost_fx_cnf_construct(l2o_t *l2o, l2o_cost_fx_cnf_t *fx);
