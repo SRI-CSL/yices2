@@ -50,6 +50,12 @@ typedef struct l2o_cost_fx {
   /** Updates the cache with the last evaluation result. */
   void (*update_cache)(struct l2o_cost_fx *fx);
 
+  /** Fills all free variables of fx in v. */
+  void (*get_free_vars)(const struct l2o_cost_fx *fx, ivector_t *v);
+
+  /** Deletes the cost function. */
+  void (*destruct)(struct l2o_cost_fx *fx);
+
   /** the l2o the cost fx is associated to */
   l2o_t *l2o;
 
@@ -71,7 +77,10 @@ bool l2o_term_has_variables(l2o_t *l2o, term_t t, const ivector_t *set_of_vars);
 /**
  * Approximately evaluates term_eval t substituting variables v with double values x. The assignment has to be total.
  */
-double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t term);
+double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term);
+
+/** Returns a value if it is evaluated. Does not run the evaluator. */
+double l2o_evaluator_get_value_if_exists(l2o_evaluator_t *evaluator, term_t term);
 
 void l2o_evaluator_construct(l2o_t *l2o, l2o_evaluator_t *evaluator);
 
@@ -99,7 +108,6 @@ typedef struct {
 } l2o_cost_fx_term_t;
 
 void l2o_cost_fx_term_construct(l2o_t *l2o, l2o_cost_fx_term_t *fx, term_t t);
-void l2o_cost_fx_term_destruct(l2o_cost_fx_term_t *fx);
 
 
 typedef struct {
@@ -120,11 +128,13 @@ typedef struct {
 
 void l2o_cost_fx_cnf_construct(l2o_t *l2o, l2o_cost_fx_cnf_t *fx);
 
-void l2o_cost_fx_cnf_destruct(l2o_cost_fx_cnf_t *fx);
-
 /** adds an assertion to the cost function. Returns the number of added clauses. */
 uint32_t l2o_cost_fx_cnf_add(l2o_cost_fx_cnf_t *fx, variable_t v);
 
 void l2o_cost_fx_print(const l2o_cost_fx_cnf_t *fx, FILE *out);
+
+bool l2o_is_valid_term(l2o_t *l2o, term_t t);
+
+void l2o_collect_freevars(l2o_t* l2o, term_t t);
 
 #endif /* MCSAT_L2O_INTERNAL_H_ */

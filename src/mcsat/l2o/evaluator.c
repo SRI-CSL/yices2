@@ -47,6 +47,13 @@ double evaluator_get_cache(const l2o_evaluator_t *evaluator, term_t t) {
   return find->val;
 }
 
+static inline
+double evaluator_get_if_cached(const l2o_evaluator_t *evaluator, term_t t) {
+  double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_cache, t);
+  return find ? find->val : INFINITY;
+
+}
+
 /** Check whether t has been already evaluated */
 static inline
 bool already_evaluated(const l2o_evaluator_t *evaluator, term_t t) {
@@ -60,6 +67,12 @@ double evaluator_get(const l2o_evaluator_t *evaluator, term_t t) {
   double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_map, t);
   assert(find != NULL);
   return find->val;
+}
+
+static inline
+double evaluator_get_if_eval(const l2o_evaluator_t *evaluator, term_t t) {
+  double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_map, t);
+  return find ? find->val : INFINITY;
 }
 
 /** Set t_eval as the evaluated value of t */
@@ -140,12 +153,19 @@ void l2o_evaluator_set_state(l2o_evaluator_t *evaluator, const l2o_search_state_
   assert(ensure_cache_values(state, evaluator));
 }
 
-double l2o_evaluate_term_approx(l2o_t *l2o, l2o_evaluator_t *evaluator, term_t term) {
+double l2o_evaluator_get_value_if_exists(l2o_evaluator_t *evaluator, term_t term) {
+  return evaluator_get_if_eval(evaluator, term);
+}
+
+double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
+  l2o_t *l2o = evaluator->l2o;
+  term_table_t *terms = l2o->terms;
+
   if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
     printf("\nl2o_evaluate_term_approx\n");
   }
 
-  term_table_t *terms = l2o->terms;
+  assert(l2o_is_valid_term(evaluator->l2o, term));
 
   uint32_t n;
   term_t *args;

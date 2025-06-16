@@ -820,8 +820,7 @@ void collect_free_vars(l2o_t *l2o, term_t t, ivector_t *v, uint32_t offset) {
   //fprintf(stderr, "\n--------------\n");
 }
 
-static
-void collect_freevars(l2o_t* l2o, term_t t) {
+void l2o_collect_freevars(l2o_t* l2o, term_t t) {
   ivector_t v;
   init_ivector(&v, 0);
   collect_free_vars(l2o, t, &v, 0);
@@ -1274,13 +1273,13 @@ void l2o_search_state_destruct(l2o_search_state_t *state) {
   free(state->val);
 }
 
-static
 bool l2o_is_valid_term(l2o_t *l2o, term_t t) {
   assert(is_pos_term(t));
 
   if (int_hmmap_find(&l2o->var_member, t, 0) == NULL) {
     return false;
   }
+
   bool ok = true;
   ivector_t v;
   init_ivector(&v, 0);
@@ -1368,13 +1367,12 @@ bool l2o_compare_vars_bool(void *data, int32_t a, int32_t b) {
 #endif
 
 static
-void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, bool use_cached_values, const var_queue_t *queue, l2o_search_state_t *state) {
+void l2o_search_state_create(l2o_t *l2o, l2o_cost_fx_t *fx, const mcsat_trail_t *trail, bool use_cached_values, const
+var_queue_t *queue, l2o_search_state_t *state) {
   ivector_t vars_t;
   init_ivector(&vars_t, 0);
-  int_hmmap_find_all(&l2o->var_member, unsigned_term(t), &vars_t);
-  ivector_remove_duplicates(&vars_t);
 
-  l2o_search_state_construct_empty(state);
+  fx->get_free_vars(fx, &vars_t);
 
   uint32_t n_var = vars_t.size;
 
@@ -1382,6 +1380,8 @@ void l2o_search_state_create(l2o_t *l2o, term_t t, const mcsat_trail_t *trail, b
     delete_ivector(&vars_t);
     return;
   }
+
+  l2o_search_state_construct_empty(state);
 
   assert(state->val == NULL && state->var == NULL);
   state->n_var = n_var;
@@ -1477,34 +1477,21 @@ void l2o_set_hint(l2o_t *l2o, mcsat_trail_t *trail, const l2o_search_state_t *st
 
 /** Minimize L2O cost function and set hint to trail */
 static
-void l2o_minimize_and_set_hint(l2o_t *l2o, term_t t, mcsat_trail_t *trail, bool use_cached_values, const var_queue_t *queue) {
+void l2o_minimize_and_set_hint(l2o_t *l2o, l2o_cost_fx_t *fx, mcsat_trail_t *trail, bool use_cached_values, const
+var_queue_t
+*queue) {
   if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
     printf("\n\n  init l2o_minimize_and_set_hint\n");
   }
 
-  if(t == -1){   // TODO why does this happens? E.g. /QF_NIA/non-incremental/QF_NIA/leipzig/term-AvoWGH.smt2
-    if (trace_enabled(l2o->tracer, "mcsat::l2o")) {
-      mcsat_trace_printf(l2o->tracer, "\nt is RESERVED_TERM\n");
-    }
-    return;
-  }
-
-  // ensure that the term has freevares are collected
-  collect_freevars(l2o, t);
-  if(!l2o_is_valid_term(l2o, t)) {
-    return;
-  }
-
-  l2o_cost_fx_term_t fx;
   l2o_search_state_t state;
 
   // create search state and cost fx
-  l2o_cost_fx_term_construct(l2o, &fx, t);
-  l2o_search_state_create(l2o, t, trail, use_cached_values, queue, &state);
+  l2o_search_state_create(l2o, fx, trail, use_cached_values, queue, &state);
 
   if (!l2o_search_state_is_empty(&state)) {
     // Improve val using hill_climbing
-    hill_climbing(l2o, (l2o_cost_fx_t*)&fx, &state);
+    hill_climbing(l2o, fx, &state);
 
     // Set hints
     l2o_set_hint(l2o, trail, &state);
@@ -1512,7 +1499,6 @@ void l2o_minimize_and_set_hint(l2o_t *l2o, term_t t, mcsat_trail_t *trail, bool 
 
   // destroy state
   l2o_search_state_destruct(&state);
-  l2o_cost_fx_term_destruct(&fx);
 }
 
 // TODO mark all l2o_terms for GC or clear term tables
@@ -1524,7 +1510,7 @@ void l2o_reset(l2o_t *l2o) {
 }
 
 static
-term_t l2o_make_cost_fx(l2o_t* l2o, const mcsat_trail_t *trail) {
+l2o_cost_fx_t* l2o_make_cost_fx(l2o_t* l2o, const mcsat_trail_t *trail) {
   l2o_reset(l2o);
 
   ivector_t l2o_terms;
@@ -1552,22 +1538,30 @@ term_t l2o_make_cost_fx(l2o_t* l2o, const mcsat_trail_t *trail) {
   }
   term_t result = mk_sum(l2o, l2o_terms.size, l2o_terms.data);
 
+  l2o_cost_fx_term_t *ret;
+
+  // ensure that the term has freevares are collected
+  l2o_collect_freevars(l2o, result);
+  if(!l2o_is_valid_term(l2o, result)) {
+    ret = NULL;
+  } else {
+    ret = safe_malloc(sizeof(l2o_cost_fx_term_t));
+    l2o_cost_fx_term_construct(l2o, ret, result);
+  }
+
   delete_ivector(&l2o_terms);
   delete_int_hset(&used_trail_terms);
-  return result;
+  return (l2o_cost_fx_t*)ret;
 }
 
 void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values, const var_queue_t *queue) {
-  term_t cost_fx = l2o_make_cost_fx(l2o, trail);
+  l2o_cost_fx_t *fx = l2o_make_cost_fx(l2o, trail);
 
-  if (trace_enabled(l2o->tracer, "mcsat::l2o")){
-    mcsat_trace_printf(l2o->tracer, "\tfinal cost_fx id = %d", cost_fx);   
-    mcsat_trace_printf(l2o->tracer, " value = ");
-    term_table_t* terms = l2o->terms;
-    trace_term_ln(l2o->tracer, terms, cost_fx);
+  if (fx) {
+    l2o_minimize_and_set_hint(l2o, fx, trail, use_cached_values, queue);
+    // TODO make proper dynamic free function
+    fx->destruct(fx);
+    safe_free(fx);
+    (*l2o->l2o_stats.n_runs)++;
   }
-
-  // TODO: Check if cost is zero
-  l2o_minimize_and_set_hint(l2o, cost_fx, trail, use_cached_values, queue);
-  (*l2o->l2o_stats.n_runs)++;
 }
