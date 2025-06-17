@@ -133,6 +133,7 @@ core_src_c := \
 	exists_forall/ef_skolemize.c \
 	exists_forall/efsolver.c \
 	frontend/smt2/attribute_values.c \
+	frontend/smt2/smt2_lexer.c \
 	frontend/yices/yices_lexer.c \
 	frontend/yices/yices_parser.c \
 	io/concrete_value_printer.c \
@@ -436,7 +437,6 @@ extra_src_c := \
 	frontend/smt2/parenthesized_expr.c \
 	frontend/smt2/smt2_commands.c \
 	frontend/smt2/smt2_expressions.c \
-	frontend/smt2/smt2_lexer.c \
 	frontend/smt2/smt2_model_printer.c \
 	frontend/smt2/smt2_parser.c \
 	frontend/smt2/smt2_printer.c \
