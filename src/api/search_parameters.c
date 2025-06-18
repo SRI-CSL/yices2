@@ -178,6 +178,7 @@ static const param_t default_settings = {
   DEFAULT_MAX_UPDATE_CONFLICTS,
   DEFAULT_MAX_EXTENSIONALITY,
 
+  // MCSAT parameters from mcsat/options.h
   DEFAULT_MCSAT_NRA_MGCD,
   DEFAULT_MCSAT_NRA_NLSAT,
   DEFAULT_MCSAT_NRA_BOUND,
