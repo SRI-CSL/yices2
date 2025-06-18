@@ -170,6 +170,8 @@ struct param_s {
   uint32_t max_update_conflicts;
   uint32_t max_extensionality;
 
+  // MCSAT L2O option
+  bool mcsat_l2o;
 };
 
 

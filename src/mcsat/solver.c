@@ -192,6 +192,7 @@ struct mcsat_solver_s {
 
   /** L2O operator */
   l2o_t l2o;
+  bool use_l2o;
 
   /**
    * Array of owners for each term kind. If there are more than one, they
@@ -346,8 +347,8 @@ static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat, const param_t *params) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
-  mcsat->heuristic_params.recache_interval = mcsat->ctx->mcsat_options.l2o ? 50 : 300;
-  mcsat->heuristic_params.recache_initial = mcsat->ctx->mcsat_options.l2o ? 50 : 300;
+  mcsat->heuristic_params.recache_interval = mcsat->use_l2o ? 50 : 300;
+  mcsat->heuristic_params.recache_initial = mcsat->use_l2o ? 50 : 300;
   mcsat->heuristic_params.random_decision_freq = params->randomness;
   mcsat->heuristic_params.random_decision_seed = params->random_seed;
 }
@@ -1482,12 +1483,12 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
     // recache
     if (mcsat->pending_requests_all.recache) {
       uint32_t recache_count = *mcsat->solver_stats.recaches;
-      bool use_l2o = mcsat->ctx->mcsat_options.l2o && (recache_count % 2 == 0);
+      bool use_l2o = mcsat->use_l2o && (recache_count % 2 == 0);
       if (use_l2o) {
         l2o_run(&mcsat->l2o, mcsat->trail, (recache_count / 2) % 3, NULL);
         trail_clear_extra_cache(mcsat->trail, true); // keep best cache and clear target cache
       } else {
-        uint32_t recache_param = mcsat->ctx->mcsat_options.l2o ? recache_count / 2 : recache_count;
+        uint32_t recache_param = mcsat->use_l2o ? recache_count / 2 : recache_count;
         trail_recache(mcsat->trail, recache_param);
       }
       mcsat->pending_requests_all.recache = false;
@@ -2767,6 +2768,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   mcsat->terms_size_on_solver_entry = nterms(mcsat->terms);
 
   // Initialize for search
+  mcsat->use_l2o = params->mcsat_l2o | mcsat->ctx->mcsat_options.l2o;
   mcsat_heuristics_init(mcsat, params);
   mcsat_notify_plugins(mcsat, MCSAT_SOLVER_START);
 

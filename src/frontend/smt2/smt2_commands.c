@@ -6203,6 +6203,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       if (context != NULL) {
         context->mcsat_options.l2o = tt;
       }
+      g->parameters.mcsat_l2o = tt;
     }
     break;
 
