@@ -21,13 +21,13 @@
 #include <stddef.h>
 
 extern void init_mcsat_options(mcsat_options_t *opts) {
-  opts->nra_nlsat = false;
-  opts->nra_mgcd = false;
-  opts->nra_bound = false;
-  opts->l2o = false;
-  opts->nra_bound_min = -1;
-  opts->nra_bound_max = -1;
-  opts->bv_var_size = -1;
-  opts->model_interpolation = false;
+  opts->nra_nlsat = DEFAULT_MCSAT_NRA_NLSAT;
+  opts->nra_mgcd = DEFAULT_MCSAT_NRA_MGCD;
+  opts->nra_bound = DEFAULT_MCSAT_NRA_BOUND;
+  opts->l2o = DEFAULT_MCSAT_L2O;
+  opts->nra_bound_min = DEFAULT_MCSAT_NRA_BOUND_MIN;
+  opts->nra_bound_max = DEFAULT_MCSAT_NRA_BOUND_MAX;
+  opts->bv_var_size = DEFAULT_MCSAT_BV_VAR_SIZE;
+  opts->model_interpolation = DEFAULT_MCSAT_MODEL_INTERPOLATION;
 }
 

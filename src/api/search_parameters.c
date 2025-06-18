@@ -28,6 +28,7 @@
 #include "solvers/simplex/simplex.h"
 #include "solvers/quant/quant_solver.h"
 #include "utils/string_utils.h"
+#include "mcsat/options.h"
 
 
 
@@ -122,6 +123,17 @@
  * - MAX_EXTENSIONALITY = 1
  */
 
+/*
+ * Default MCSAT parameters defined in mcsat/options.h
+ * - DEFAULT_MCSAT_NRA_MGCD false
+ * - DEFAULT_MCSAT_NRA_NLSAT false
+ * - DEFAULT_MCSAT_NRA_BOUND false
+ * - DEFAULT_MCSAT_L2O false
+ * - DEFAULT_MCSAT_NRA_BOUND_MIN -1
+ * - DEFAULT_MCSAT_NRA_BOUND_MAX -1
+ * - DEFAULT_MCSAT_BV_VAR_SIZE -1
+ */
+
 
 /*
  * All default parameters
@@ -165,6 +177,14 @@ static const param_t default_settings = {
 
   DEFAULT_MAX_UPDATE_CONFLICTS,
   DEFAULT_MAX_EXTENSIONALITY,
+
+  DEFAULT_MCSAT_NRA_MGCD,
+  DEFAULT_MCSAT_NRA_NLSAT,
+  DEFAULT_MCSAT_NRA_BOUND,
+  DEFAULT_MCSAT_NRA_BOUND_MIN,
+  DEFAULT_MCSAT_NRA_BOUND_MAX,
+  DEFAULT_MCSAT_BV_VAR_SIZE,
+  DEFAULT_MCSAT_L2O,
 };
 
 
@@ -221,9 +241,17 @@ typedef enum param_key {
   // array solver
   PARAM_MAX_UPDATE_CONFLICTS,
   PARAM_MAX_EXTENSIONALITY,
+  // mcsat parameters
+  PARAM_MCSAT_NRA_MGCD,
+  PARAM_MCSAT_NRA_NLSAT,
+  PARAM_MCSAT_NRA_BOUND,
+  PARAM_MCSAT_NRA_BOUND_MIN,
+  PARAM_MCSAT_NRA_BOUND_MAX,
+  PARAM_MCSAT_BV_VAR_SIZE,
+  PARAM_MCSAT_L2O,
 } param_key_t;
 
-#define NUM_PARAM_KEYS (PARAM_MAX_EXTENSIONALITY+1)
+#define NUM_PARAM_KEYS (PARAM_MCSAT_L2O+1)
 
 // parameter names in lexicographic ordering
 static const char *const param_key_names[NUM_PARAM_KEYS] = {
@@ -249,6 +277,13 @@ static const char *const param_key_names[NUM_PARAM_KEYS] = {
   "max-extensionality",
   "max-interface-eqs",
   "max-update-conflicts",
+  "mcsat-bv-var-size",
+  "mcsat-l2o",
+  "mcsat-nra-bound",
+  "mcsat-nra-bound-max",
+  "mcsat-nra-bound-min",
+  "mcsat-nra-mgcd",
+  "mcsat-nra-nlsat",
   "optimistic-final-check",
   "prop-threshold",
   "r-factor",
@@ -286,6 +321,13 @@ static const int32_t param_code[NUM_PARAM_KEYS] = {
   PARAM_MAX_EXTENSIONALITY,
   PARAM_MAX_INTERFACE_EQS,
   PARAM_MAX_UPDATE_CONFLICTS,
+  PARAM_MCSAT_BV_VAR_SIZE,
+  PARAM_MCSAT_L2O,
+  PARAM_MCSAT_NRA_BOUND,
+  PARAM_MCSAT_NRA_BOUND_MAX,
+  PARAM_MCSAT_NRA_BOUND_MIN,
+  PARAM_MCSAT_NRA_MGCD,
+  PARAM_MCSAT_NRA_NLSAT,
   PARAM_OPTIMISTIC_FCHECK,
   PARAM_PROP_THRESHOLD,
   PARAM_R_FACTOR,
@@ -683,6 +725,43 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
     if (r == 0) {
       parameters->max_extensionality = (uint32_t) z;
     }
+    break;
+
+  case PARAM_MCSAT_NRA_MGCD:
+    r = set_bool_param(value, &parameters->mcsat_nra_mgcd);
+    break;
+
+  case PARAM_MCSAT_NRA_NLSAT:
+    r = set_bool_param(value, &parameters->mcsat_nra_nlsat);
+    break;
+
+  case PARAM_MCSAT_NRA_BOUND:
+    r = set_bool_param(value, &parameters->mcsat_nra_bound);
+    break;
+
+  case PARAM_MCSAT_NRA_BOUND_MIN:
+    r = set_int32_param(value, &z, 0, INT32_MAX);
+    if (r == 0) {
+      parameters->mcsat_nra_bound_min = (uint32_t) z;
+    }
+    break;
+
+  case PARAM_MCSAT_NRA_BOUND_MAX:
+    r = set_int32_param(value, &z, 0, INT32_MAX);
+    if (r == 0) {
+      parameters->mcsat_nra_bound_max = (uint32_t) z;
+    }
+    break;
+
+  case PARAM_MCSAT_BV_VAR_SIZE:
+    r = set_int32_param(value, &z, 1, INT32_MAX);
+    if (r == 0) {
+      parameters->mcsat_bv_var_size = (uint32_t) z;
+    }
+    break;
+
+  case PARAM_MCSAT_L2O:
+    r = set_bool_param(value, &parameters->mcsat_l2o);
     break;
 
   default:

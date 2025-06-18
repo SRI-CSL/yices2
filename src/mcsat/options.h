@@ -38,6 +38,15 @@ typedef struct mcsat_options_s {
   bool model_interpolation;
 } mcsat_options_t;
 
+#define DEFAULT_MCSAT_NRA_MGCD false
+#define DEFAULT_MCSAT_NRA_NLSAT false
+#define DEFAULT_MCSAT_NRA_BOUND false
+#define DEFAULT_MCSAT_L2O false
+#define DEFAULT_MCSAT_NRA_BOUND_MIN -1
+#define DEFAULT_MCSAT_NRA_BOUND_MAX -1
+#define DEFAULT_MCSAT_BV_VAR_SIZE -1
+#define DEFAULT_MCSAT_MODEL_INTERPOLATION false
+
 /** Initialize options with default values. */
 extern void init_mcsat_options(mcsat_options_t *opts);
 
