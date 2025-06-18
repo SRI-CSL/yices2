@@ -170,25 +170,6 @@ struct param_s {
   uint32_t max_update_conflicts;
   uint32_t max_extensionality;
 
-  /*
-   * MCSAT PARAMETERS
-   * - mcsat_rand_dec_freq: frequency (it is set via randomness)
-   * - mcsat_rand_dec_seed: seed for random decisions (it is set via random_seed)
-   * - mcsat_nra_mgcd: use model-based GCD instead of PSC for projection
-   * - mcsat_nra_nlsat: use NLSAT projection instead of Brown's single-cell construction
-   * - mcsat_nra_bound: search by increasing the bound on variable magnitude
-   * - mcsat_nra_bound_min: initial lower bound
-   * - mcsat_nra_bound_max: maximal bound for search
-   * - mcsat_bv_var_size: size of bit-vector variables in MCSAT search
-   * - mcsat_l2o: enable L2O mode
-   */
-  bool mcsat_nra_mgcd;
-  bool mcsat_nra_nlsat;
-  bool mcsat_nra_bound;
-  int32_t mcsat_nra_bound_min;
-  int32_t mcsat_nra_bound_max;
-  uint32_t mcsat_bv_var_size;
-  bool mcsat_l2o;
 };
 
 
