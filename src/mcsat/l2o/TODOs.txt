@@ -1,0 +1,32 @@
+
+* When setting the model for the trail, round doubles to gmp integers.
+** For NRA, convert to rationals (with a cap on num/dem)
+
+* l2o.c:1004 and 1057: memory leak; use (const) pointers
+
+* no int_hset_reset after init necessary
+
+* don't use static fields (e.g. l2o.c: 191)
+
+* all functions not explicitly part of the external interface of your component should be made static
+
+* Some cast overflows (*not* evaluator.c:166)
+
+* Use a list of terms for clauses, instead of one big sum term.
+
+* l2o.c: get_composite: better to extract the code from the preprocessor towards term.c and avoid duplicating it
+
+* .h file for evaluator and hill_climbing
+
+* eval_cache_t: either make it an internal data structure or expose construct/destruct (first is preferred)
+
+
+Questions:
+* l2o_evaluate_term_approx: what if a (sub) term occurs multiple time in one run. Is the cache used?
+* Why the effort with hasing the variable lists? (Why not just a pair_hash_set_t to cache which vars are in which terms?) 
+* Do you know about get_free_vars_of_term in free_var_collector.c?
+
+Ideas:
+* consider using other term table for l2o terms?
+* use free_var_index
+
