@@ -18,6 +18,8 @@
 
 #include "mcsat/l2o/l2o.h"
 #include "mcsat/l2o/l2o_internal.h"
+#include "mcsat/bool/bool_plugin.h"
+
 #include "terms/term_explorer.h"
 #include "api/yices_api_lock_free.h"
 #include "utils/int_array_sort2.h"
@@ -820,11 +822,30 @@ void collect_free_vars(l2o_t *l2o, term_t t, ivector_t *v, uint32_t offset) {
   //fprintf(stderr, "\n--------------\n");
 }
 
-void l2o_collect_freevars(l2o_t* l2o, term_t t) {
+/** Returns true if its a valid term. */
+static
+bool l2o_collect_free_vars(l2o_t* l2o, term_t t) {
   ivector_t v;
   init_ivector(&v, 0);
   collect_free_vars(l2o, t, &v, 0);
   delete_ivector(&v);
+  return l2o_is_valid_term(l2o, t);
+}
+
+/** Returns true if all terms are valid. */
+static
+bool l2o_collect_free_vars_list(l2o_t *l2o, ivector_t *lits) {
+  bool result = true;
+  ivector_t v;
+  init_ivector(&v, 0);
+  for (uint32_t i = 0; i < lits->size; ++i) {
+    term_t t = lits->data[i];
+    collect_free_vars(l2o, t, &v, 0);
+    ivector_reset(&v);
+    result = result && l2o_is_valid_term(l2o, t);
+  }
+  delete_ivector(&v);
+  return result;
 }
 
 
@@ -1274,7 +1295,7 @@ void l2o_search_state_destruct(l2o_search_state_t *state) {
 }
 
 bool l2o_is_valid_term(l2o_t *l2o, term_t t) {
-  assert(is_pos_term(t));
+  t = unsigned_term(t);
 
   if (int_hmmap_find(&l2o->var_member, t, 0) == NULL) {
     return false;
@@ -1509,8 +1530,65 @@ void l2o_reset(l2o_t *l2o) {
   int_hmap_reset(&l2o->simplify_map);
 }
 
+// TODO check for duplicate clauses
 static
-l2o_cost_fx_t* l2o_make_cost_fx(l2o_t* l2o, const mcsat_trail_t *trail) {
+bool l2o_cost_fx_cnf_add(l2o_cost_fx_cnf_t *fx, const plugin_t *bool_plugin, variable_t v) {
+  bool success = true;
+
+  ivector_t clause_refs, terms;
+  init_ivector(&clause_refs, 0);
+  init_ivector(&terms, 0);
+  if (bool_plugin_get_clauses_of_variable(bool_plugin, v, &clause_refs)) {
+    // non-unit clause
+    for (uint32_t i = 0; i < clause_refs.size; ++i) {
+      clause_ref_t ref = clause_refs.data[i];
+      bool_plugin_query_clause(bool_plugin, ref, &terms);
+      l2o_cost_fx_cnf_add_clause(fx, &terms);
+      success = success && l2o_collect_free_vars_list(fx->fx.l2o, &terms);
+      ivector_reset(&terms);
+    }
+  } else {
+    // unit clause
+    bool_plugin_query_unit_clause(bool_plugin, v, &terms);
+    l2o_cost_fx_cnf_add_clause(fx, &terms);
+    success = l2o_collect_free_vars_list(fx->fx.l2o, &terms);
+  }
+  delete_ivector(&clause_refs);
+  delete_ivector(&terms);
+  return success;
+}
+
+static
+l2o_cost_fx_t* l2o_make_cost_fx_cnf(l2o_t* l2o, const mcsat_trail_t *trail) {
+  const ivector_t *assertions = &l2o->assertions;
+  const plugin_t *bool_plugin = l2o->bool_plugin;
+  assert(bool_plugin);
+  bool success = true;
+
+  l2o_cost_fx_cnf_t fx;
+  l2o_cost_fx_cnf_construct(l2o, &fx);
+  for (uint32_t i = 0; i < assertions->size; ++ i) {
+    term_t t = assertions->data[i];
+    bool neg = is_neg_term(t);
+    variable_t v = variable_db_get_variable_if_exists(trail->var_db, unsigned_term(t));
+    // TODO handle negative variables
+    assert(v != variable_null);
+    success = l2o_cost_fx_cnf_add(&fx, l2o->bool_plugin, v);
+    if (!success) break;
+  }
+
+  if (success) {
+    l2o_cost_fx_cnf_t *fx_m = safe_malloc(sizeof(l2o_cost_fx_cnf_t));
+    *fx_m = fx;
+    return (l2o_cost_fx_t*) fx_m;
+  } else {
+    fx.fx.destruct((l2o_cost_fx_t*)&fx);
+    return NULL;
+  }
+}
+
+static
+l2o_cost_fx_t* l2o_make_cost_fx_l2o(l2o_t* l2o, const mcsat_trail_t *trail) {
   l2o_reset(l2o);
 
   ivector_t l2o_terms;
@@ -1541,8 +1619,7 @@ l2o_cost_fx_t* l2o_make_cost_fx(l2o_t* l2o, const mcsat_trail_t *trail) {
   l2o_cost_fx_term_t *ret;
 
   // ensure that the term has freevares are collected
-  l2o_collect_freevars(l2o, result);
-  if(!l2o_is_valid_term(l2o, result)) {
+  if(!l2o_collect_free_vars(l2o, result)) {
     ret = NULL;
   } else {
     ret = safe_malloc(sizeof(l2o_cost_fx_term_t));
@@ -1555,7 +1632,12 @@ l2o_cost_fx_t* l2o_make_cost_fx(l2o_t* l2o, const mcsat_trail_t *trail) {
 }
 
 void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values, const var_queue_t *queue) {
-  l2o_cost_fx_t *fx = l2o_make_cost_fx(l2o, trail);
+  l2o_cost_fx_t *fx =
+#if 0
+      l2o_make_cost_fx_l2o(l2o, trail);
+#else
+      l2o_make_cost_fx_cnf(l2o, trail);
+#endif
 
   if (fx) {
     l2o_minimize_and_set_hint(l2o, fx, trail, use_cached_values, queue);

@@ -1068,19 +1068,19 @@ plugin_t* bool_plugin_allocator(void) {
 
 
 // TODO find proper place
-bool bool_plugin_get_clauses_of_variable(plugin_t *plugin, variable_t var, ivector_t *clauses) {
+bool bool_plugin_get_clauses_of_variable(const plugin_t *plugin, variable_t var, ivector_t *clauses) {
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
   return cnf_get_clauses(&bp->cnf, var, clauses);
 }
 
-void bool_plugin_query_unit_clause(plugin_t *plugin, variable_t var, ivector_t *terms) {
+void bool_plugin_query_unit_clause(const plugin_t *plugin, variable_t var, ivector_t *terms) {
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
   assert(!cnf_get_clauses(&bp->cnf, var, NULL));
   ivector_push(terms, variable_db_get_term(bp->ctx->var_db, var));
 }
 
-void bool_plugin_query_clause(plugin_t *plugin, clause_ref_t clause_ref, ivector_t *terms) {
-  bool_plugin_t* bp = (bool_plugin_t*) plugin;
+void bool_plugin_query_clause(const plugin_t *plugin, clause_ref_t clause_ref, ivector_t *terms) {
+  const bool_plugin_t* bp = (bool_plugin_t*) plugin;
   assert(clause_db_is_clause(&bp->clause_db, clause_ref, true));
   mcsat_clause_t *C = clause_db_get_clause(&bp->clause_db, clause_ref);
   for (uint32_t i = 0; i < C->size; ++i) {

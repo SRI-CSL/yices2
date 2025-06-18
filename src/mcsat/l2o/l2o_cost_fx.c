@@ -1,8 +1,7 @@
 #include "l2o.h"
 #include "l2o_internal.h"
 
-#include "mcsat/bool/bool_plugin.h"
-
+#include <math.h>
 
 //
 // Term cost fx
@@ -57,26 +56,29 @@ static
 bool is_clause_sat(l2o_evaluator_t *e, term_t *lit) {
   uint32_t i;
 
+  // don't allow empty clauses
   assert(lit[0] != NULL_TERM);
 
   // first run: check if a term is cached
   i = 0;
-  while(lit[i]) {
+  while(lit[i] != NULL_TERM) {
     double val = l2o_evaluator_get_value_if_exists(e, lit[i]);
-    assert(val == 0.0 || val == 1.0);
+    assert(val == 0.0 || val == 1.0 || val == INFINITY);
     if (val == 1.0) {
       return true;
     }
+    ++ i;
   }
 
   // second run: evaluate the terms
   i = 0;
-  while(lit[i]) {
+  while(lit[i] != NULL_TERM) {
     double val = l2o_evaluator_run_term(e, lit[i]);
     assert(val == 0.0 || val == 1.0);
     if (val == 1.0) {
       return true;
     }
+    ++ i;
   }
 
   return false;
@@ -87,12 +89,12 @@ static
 double l2o_cost_fx_cnf_eval(l2o_cost_fx_t *fx, const l2o_search_state_t *state) {
   l2o_cost_fx_cnf_t *fx_cnf = (l2o_cost_fx_cnf_t*) fx;
   l2o_evaluator_set_state(&fx->evaluator, state);
-
   double cost = 0;
   uint32_t idx = 0;
   for (uint32_t i = 0; i < fx_cnf->clause_ids.size; ++i) {
     idx = fx_cnf->clause_ids.data[i];
     assert(idx == 0 || fx_cnf->lit[idx-1] == NULL_TERM);
+    if (fx_cnf->lit[idx] == NULL_TERM) break;
     if (!is_clause_sat(&fx->evaluator, fx_cnf->lit + idx)) {
       cost += 1.0;
     }
@@ -109,7 +111,24 @@ void l2o_cost_fx_cnf_update_cache(l2o_cost_fx_t *fx) {
 
 static
 void l2o_cost_fx_cnf_get_free_vars(const l2o_cost_fx_t *fx, ivector_t *v) {
-  // TODO
+  l2o_cost_fx_cnf_t *fx_cnf = (l2o_cost_fx_cnf_t*)fx;
+  l2o_t *l2o = fx->l2o;
+
+  ivector_t free_vars;
+  init_ivector(&free_vars, 0);
+
+  for(uint32_t p = 0; true; ++ p) {
+    assert(p + 1 < fx_cnf->capacity);
+    if (fx_cnf->lit[p] == NULL_TERM && fx_cnf->lit[p+1] == NULL_TERM) break;
+    if (fx_cnf->lit[p] == NULL_TERM) continue;
+    term_t t = unsigned_term(fx_cnf->lit[p]);
+    assert(int_hmmap_contains_key(&l2o->var_member, t));
+    int_hmmap_find_all(&l2o->var_member, t, &free_vars);
+  }
+
+  ivector_remove_duplicates(&free_vars);
+  ivector_append(v, &free_vars);
+  delete_ivector(&free_vars);
 }
 
 static
@@ -141,8 +160,7 @@ void l2o_cost_fx_cnf_construct(l2o_t *l2o, l2o_cost_fx_cnf_t *fx) {
   fx->lit[0] = NULL_TERM;
 }
 
-static
-uint32_t l2o_cost_fx_add_clause(l2o_cost_fx_cnf_t *fx, const ivector_t *clause) {
+uint32_t l2o_cost_fx_cnf_add_clause(l2o_cost_fx_cnf_t *fx, const ivector_t *clause) {
   assert(clause->size > 0);
   assert(fx->clause_ids.size > 0);
   uint32_t last_clause_id = ivector_last(&fx->clause_ids);
@@ -161,7 +179,6 @@ uint32_t l2o_cost_fx_add_clause(l2o_cost_fx_cnf_t *fx, const ivector_t *clause) 
   for (; i < clause->size; ++i) {
     term_t lit = clause->data[i];
     fx->lit[last_clause_id + i] = lit;
-    l2o_collect_freevars(fx->fx.l2o, lit);
   }
   fx->lit[last_clause_id + i] = NULL_TERM;
 
@@ -173,36 +190,7 @@ uint32_t l2o_cost_fx_add_clause(l2o_cost_fx_cnf_t *fx, const ivector_t *clause) 
   return last_clause_id;
 }
 
-// TODO check for duplicate clauses
-uint32_t l2o_cost_fx_cnf_add(l2o_cost_fx_cnf_t *fx, variable_t v) {
-  plugin_t *bool_plugin = fx->fx.l2o->bool_plugin;
-  assert(bool_plugin);
-
-  uint32_t i;
-
-  ivector_t clause_refs, terms;
-  init_ivector(&clause_refs, 0);
-  init_ivector(&terms, 0);
-  if (bool_plugin_get_clauses_of_variable(bool_plugin, v, &clause_refs)) {
-    // non-unit clause
-    for (i = 0; i < clause_refs.size; ++i) {
-      clause_ref_t ref = clause_refs.data[i];
-      bool_plugin_query_clause(bool_plugin, ref, &terms);
-      l2o_cost_fx_add_clause(fx, &terms);
-      ivector_reset(&terms);
-    }
-  } else {
-    // unit clause
-    bool_plugin_query_unit_clause(bool_plugin, v, &terms);
-    l2o_cost_fx_add_clause(fx, &terms);
-    i = 1;
-  }
-  delete_ivector(&clause_refs);
-  delete_ivector(&terms);
-  return i;
-}
-
-void l2o_cost_fx_print(const l2o_cost_fx_cnf_t *fx, FILE *out) {
+void l2o_cost_fx_cnf_print(const l2o_cost_fx_cnf_t *fx, FILE *out) {
   int i = 0;
 
   fprintf(out, "Cost function with %d clauses:\n  (", fx->clause_ids.size - 1);

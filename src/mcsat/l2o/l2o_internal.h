@@ -129,12 +129,10 @@ typedef struct {
 void l2o_cost_fx_cnf_construct(l2o_t *l2o, l2o_cost_fx_cnf_t *fx);
 
 /** adds an assertion to the cost function. Returns the number of added clauses. */
-uint32_t l2o_cost_fx_cnf_add(l2o_cost_fx_cnf_t *fx, variable_t v);
+uint32_t l2o_cost_fx_cnf_add_clause(l2o_cost_fx_cnf_t *fx, const ivector_t *clause);
 
-void l2o_cost_fx_print(const l2o_cost_fx_cnf_t *fx, FILE *out);
+void l2o_cost_fx_cnf_print(const l2o_cost_fx_cnf_t *fx, FILE *out);
 
 bool l2o_is_valid_term(l2o_t *l2o, term_t t);
-
-void l2o_collect_freevars(l2o_t* l2o, term_t t);
 
 #endif /* MCSAT_L2O_INTERNAL_H_ */

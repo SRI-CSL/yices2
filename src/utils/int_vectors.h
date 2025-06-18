@@ -146,6 +146,9 @@ static inline void ivector_shrink(ivector_t *v, uint32_t n) {
   v->size = n;
 }
 
+static inline void ivector_append(ivector_t *v, const ivector_t *o) {
+  ivector_add(v, o->data, o->size);
+}
 
 /*
  * Remove duplicates in an integer vector
