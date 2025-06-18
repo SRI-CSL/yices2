@@ -36,7 +36,6 @@
 #include "solvers/cdcl/delegate.h"
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
-#include "mcsat/options.h"
 
 #include "api/yices_globals.h"
 #include "mt/thread_macros.h"
@@ -549,9 +548,6 @@ static void context_set_search_parameters(context_t *ctx, const param_t *params)
 }
 
 static smt_status_t _o_call_mcsat_solver(context_t *ctx, const param_t *params) {
-  // Set MCSAT options from search parameters
-  mcsat_options_set_from_params(&ctx->mcsat_options, params);
-
   mcsat_solve(ctx->mcsat, params, NULL, 0, NULL);
   return mcsat_status(ctx->mcsat);
 }

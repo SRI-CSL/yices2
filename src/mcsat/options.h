@@ -20,7 +20,6 @@
 #define MCSAT_OPTIONS_H_
 
 #include "utils/int_vectors.h"
-#include "api/search_parameters.h"
 
 #include <stdbool.h>
 #include <stdint.h>
@@ -29,14 +28,14 @@
  * Options for the mcsat solver.
  */
 typedef struct mcsat_options_s {
-  bool model_interpolation;
   bool nra_mgcd;
   bool nra_nlsat;
   bool nra_bound;
+  bool l2o;
   int32_t nra_bound_min;
   int32_t nra_bound_max;
   int32_t bv_var_size;
-  bool l2o;
+  bool model_interpolation;
 } mcsat_options_t;
 
 #define DEFAULT_MCSAT_NRA_MGCD false
@@ -50,8 +49,5 @@ typedef struct mcsat_options_s {
 
 /** Initialize options with default values. */
 extern void init_mcsat_options(mcsat_options_t *opts);
-
-/** Set MCSAT options from search parameters. */
-extern void mcsat_options_set_from_params(mcsat_options_t *opts, const param_t *params);
 
 #endif /* MCSAT_OPTIONS_H_ */
