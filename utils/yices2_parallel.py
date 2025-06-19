@@ -24,24 +24,29 @@ def _global_signal_handler(signum, frame):
     sys.exit(0)
 
 class ConfigGenerator:
-    def __init__(self, num_configs: int, seed: int = None):
+    def __init__(self, num_configs: int, seed: int = None, use_l2o: bool = False):
         self.num_configs = num_configs
+        self.use_l2o = use_l2o
         if seed is not None:
             random.seed(seed)
         
     def generate_configs(self) -> List[List[str]]:
-        configs = [[], ["--mcsat-nra-bound"]]  # Always include empty config and nra bound
+        configs = [[], ["--mcsat", "--mcsat-nra-bound"]]  # Always include empty config and nra bound
+        if self.use_l2o:
+            configs.append(["--mcsat", "--mcsat-l2o"])
         
         for _ in range(self.num_configs - 2):
-            options = []
+            options = ["--mcsat"]  # Start with base mcsat option
             if random.random() < 0.9:
                 options.append(f"--mcsat-rand-dec-freq={random.uniform(0, 1):.2f}")
             if random.random() < 0.6:
                 options.append(f"--mcsat-rand-dec-seed={random.randint(1, 1000000)}")
             if random.random() < 0.3:
                 options.append("--mcsat-nra-bound")
-                
-            if not options:
+            if self.use_l2o and random.random() < 0.1:
+                options.append("--mcsat-l2o")
+
+            if len(options) == 1:  # If only base option, add a random one
                 options.append(random.choice([
                     f"--mcsat-rand-dec-freq={random.uniform(0, 1):.2f}",
                     f"--mcsat-rand-dec-seed={random.randint(1, 1000000)}"
@@ -52,12 +57,13 @@ class ConfigGenerator:
         return configs
 
 class PortfolioSolver:
-    def __init__(self, yices_path, smt2_file, num_threads, verbose=False, seed=None):
+    def __init__(self, yices_path, smt2_file, num_threads, verbose=False, seed=None, use_l2o=False):
         self.yices_path = yices_path
         self.smt2_file = smt2_file
         self.num_threads = num_threads
         self.verbose = verbose
         self.seed = seed
+        self.use_l2o = use_l2o
         self.threads = []
         self.stop_event = threading.Event()
         self.start_time = None
@@ -94,7 +100,7 @@ class PortfolioSolver:
     def run_yices(self, thread_id, params):
         process = None
         try:
-            cmd = [self.yices_path, "--mcsat"] + params + [self.smt2_file]
+            cmd = [self.yices_path] + params + [self.smt2_file]
             self.log(f"Thread {thread_id} starting with params: {' '.join(params)}")
             
             process = subprocess.Popen(
@@ -129,7 +135,7 @@ class PortfolioSolver:
 
     def solve(self):
         try:
-            config_generator = ConfigGenerator(self.num_threads, self.seed)
+            config_generator = ConfigGenerator(self.num_threads, self.seed, self.use_l2o)
             param_sets = config_generator.generate_configs()
             
             self.start_time = time.time()
@@ -171,6 +177,7 @@ def main():
     parser.add_argument('-n', '--num-threads', type=int, default=4, help='Number of threads to use (default: 4)')
     parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose output')
     parser.add_argument('--seed', type=int, help='Random seed for configuration generation')
+    parser.add_argument('--mcsat-l2o', action='store_true', help='Use MCSAT L2O option as one of the configuration')
     parser.add_argument('smt2_file', help='Path to SMT2 benchmark file')
     
     args = parser.parse_args()
@@ -191,7 +198,7 @@ def main():
         sys.exit(1)
 
     try:
-        solver = PortfolioSolver(args.yices, args.smt2_file, args.num_threads, args.verbose, args.seed)
+        solver = PortfolioSolver(args.yices, args.smt2_file, args.num_threads, args.verbose, args.seed, args.mcsat_l2o)
         result, output = solver.solve()
         print(result)
     except KeyboardInterrupt:
