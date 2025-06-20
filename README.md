@@ -3,7 +3,7 @@
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/12768/badge.svg)](https://scan.coverity.com/projects/sri-csl-yices2)
 [![Coverage Status](https://coveralls.io/repos/github/SRI-CSL/yices2/badge.svg?branch=master)](https://coveralls.io/github/SRI-CSL/yices2?branch=master)
 
-<img width="100" style="display: block; margin: auto;" src="https://avatars.githubusercontent.com/u/8029212?s=200&v=4"/>
+<img width="100" style="display: block; margin: auto;" src="https://avatars.githubusercontent.com/u/8029212"/>
 
 # SRI Yices 2
 
