@@ -1,4 +1,4 @@
-<img width="300" style="display: block; margin: auto;" src="https://www.csl.sri.com/images/logo_sri.gif"/>
+<img width="300" style="display: block; margin: auto;" src="https://avatars.githubusercontent.com/u/8029212?s=200&v=4"/>
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![CI](https://github.com/SRI-CSL/yices2/actions/workflows/ci.yml/badge.svg)](https://github.com/SRI-CSL/yices2/actions/workflows/ci.yml)
