@@ -277,6 +277,8 @@ struct mcsat_solver_s {
     statistic_int_t* decisions;
     // Restarts performed
     statistic_int_t* restarts;
+    // Partial restarts performed
+    statistic_int_t* partial_restarts;
     // Conflicts handled
     statistic_int_t* conflicts;
     // Average conflict size
@@ -332,6 +334,7 @@ void mcsat_stats_init(mcsat_solver_t* mcsat) {
   mcsat->solver_stats.gc_calls = statistics_new_int(&mcsat->stats, "mcsat::gc_calls");
   mcsat->solver_stats.lemmas = statistics_new_int(&mcsat->stats, "mcsat::lemmas");
   mcsat->solver_stats.restarts = statistics_new_int(&mcsat->stats, "mcsat::restarts");
+  mcsat->solver_stats.partial_restarts = statistics_new_int(&mcsat->stats, "mcsat::partial_restarts");
   mcsat->solver_stats.recaches = statistics_new_int(&mcsat->stats, "mcsat::recaches");
 }
 
@@ -1509,10 +1512,12 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       }
       mcsat_backtrack_to(mcsat, backtrack_level, false);
       mcsat->pending_requests_all.restart = false;
-      (*mcsat->solver_stats.restarts) ++;
       // notify if backtracked to base level
       if (backtrack_level == mcsat->trail->decision_level_base) {
+        (*mcsat->solver_stats.restarts) ++;
         mcsat_notify_plugins(mcsat, MCSAT_SOLVER_RESTART);
+      } else {
+        (*mcsat->solver_stats.partial_restarts) ++;
       }
     }
 
