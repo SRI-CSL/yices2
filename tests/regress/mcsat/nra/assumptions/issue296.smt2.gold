@@ -1,1 +1,1 @@
-(error "mcsat: checking with assumptions only supports variables as assumptions")
+sat
