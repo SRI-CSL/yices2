@@ -1437,6 +1437,49 @@ void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level, bool update_cache
   if (update_cache) trail_update_extra_cache(mcsat->trail);
 }
 
+static 
+void mcsat_partial_restart(mcsat_solver_t *mcsat) {
+  // Only do something if above base level
+  if (mcsat->trail->decision_level <= mcsat->trail->decision_level_base) {
+    return;
+  }
+
+  // If heap is empty, do a full restart
+  if (var_queue_is_empty(&mcsat->var_queue)) {
+    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
+    return;
+  }
+
+  // Most active unassigned variable in the heap
+  variable_t x = mcsat->var_queue.heap[1];
+  double ax = var_queue_get_activity(&mcsat->var_queue, x);
+  uint32_t base = mcsat->trail->decision_level_base;
+  uint32_t n = mcsat->trail->decision_level;
+  uint32_t target_level = UINT32_MAX;
+
+  // Scan the trail for decision variables
+  for (uint32_t i = 0; i < mcsat->trail->elements.size; ++i) {
+    variable_t v = mcsat->trail->elements.data[i];
+    if (trail_get_assignment_type(mcsat->trail, v) == DECISION) {
+      uint32_t level = trail_get_level(mcsat->trail, v);
+      if (level > base && level <= n) {
+        double v_activity = var_queue_get_activity(&mcsat->var_queue, v);
+        //printf("  Level %u: decision var %d (activity %g)\n", level, v, v_activity);
+        if (v_activity < ax) {
+          //printf("  Backtracking to level %u\n", level - 1);
+          target_level = level - 1;
+          break;
+        }
+      }
+    }
+  }
+  if (target_level != UINT32_MAX) {
+    mcsat_backtrack_to(mcsat, target_level, false);
+  } else {
+    mcsat_backtrack_to(mcsat, base, false);
+  }
+}
+
 static
 void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
@@ -1450,9 +1493,17 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         mcsat_trace_printf(mcsat->ctx->trace, "restarting\n");
       }
+
       mcsat->assumptions_decided_level = -1;
       mcsat->assumption_i = 0;
-      mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
+
+      if (mcsat->ctx->mcsat_options.partial_restart) {
+        mcsat_partial_restart(mcsat);
+      } else {
+        // full restart  // backtrack to base level
+        mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
+      }
+
       mcsat->pending_requests_all.restart = false;
       (*mcsat->solver_stats.restarts) ++;
       mcsat_notify_plugins(mcsat, MCSAT_SOLVER_RESTART);
