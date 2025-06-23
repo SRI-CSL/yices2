@@ -38,12 +38,18 @@ class ConfigGenerator:
         for _ in range(self.num_configs - 2):
             options = ["--mcsat"]  # Start with base mcsat option
             if random.random() < 0.9:
-                options.append(f"--mcsat-rand-dec-freq={random.uniform(0, 1):.2f}")
-            if random.random() < 0.6:
                 options.append(f"--mcsat-rand-dec-seed={random.randint(1, 1000000)}")
-            if random.random() < 0.3:
+            if random.random() < 0.9:
+                options.append(f"--mcsat-rand-dec-freq={random.uniform(0, 1):.2f}")
+            if random.random() < 0.5:
+                options.append("--mcsat-nra-nlsat")
+            if random.random() < 0.5:
+                options.append("--mcsat-nra-mgcd")
+            if random.random() < 0.5:
                 options.append("--mcsat-nra-bound")
-            if self.use_l2o and random.random() < 0.1:
+            if random.random() < 0.5:
+                options.append("--mcsat-partial-restart")
+            if self.use_l2o and random.random() < 0.5:
                 options.append("--mcsat-l2o")
 
             if len(options) == 1:  # If only base option, add a random one
