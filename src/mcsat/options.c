@@ -28,6 +28,6 @@ extern void init_mcsat_options(mcsat_options_t *opts) {
   opts->nra_bound_max = -1;
   opts->bv_var_size = -1;
   opts->model_interpolation = false;
-  opts->partial_restart = true;
+  opts->partial_restart = false;
 }
 
