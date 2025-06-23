@@ -1504,8 +1504,8 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
         backtrack_level = mcsat_partial_restart_level(mcsat);
       }
       if (backtrack_level == mcsat->trail->decision_level_base) {
-	      mcsat->assumptions_decided_level = -1;
-	      mcsat->assumption_i = 0;
+        mcsat->assumptions_decided_level = -1;
+        mcsat->assumption_i = 0;
       }
       mcsat_backtrack_to(mcsat, backtrack_level, false);
       mcsat->pending_requests_all.restart = false;
