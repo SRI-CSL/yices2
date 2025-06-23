@@ -1510,7 +1510,10 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       mcsat_backtrack_to(mcsat, backtrack_level, false);
       mcsat->pending_requests_all.restart = false;
       (*mcsat->solver_stats.restarts) ++;
-      mcsat_notify_plugins(mcsat, MCSAT_SOLVER_RESTART);
+      // notify if backtracked to base level
+      if (backtrack_level == mcsat->trail->decision_level_base) {
+        mcsat_notify_plugins(mcsat, MCSAT_SOLVER_RESTART);
+      }
     }
 
     // GC
