@@ -1451,13 +1451,13 @@ uint32_t mcsat_partial_restart_level(mcsat_solver_t *mcsat) {
   double ax = var_queue_get_activity(&mcsat->var_queue, x);
   // Most active unassigned variable in the heap
   while (!var_queue_is_empty(&mcsat->var_queue)) {
-	  x = var_queue_pop(&mcsat->var_queue);
-	  if (!trail_has_value(mcsat->trail, x)) {
-	    ax = var_queue_get_activity(&mcsat->var_queue, x);
-	    var_queue_insert(&mcsat->var_queue, x);
-	    break;
-	  }
-	}
+    x = var_queue_pop(&mcsat->var_queue);
+    if (!trail_has_value(mcsat->trail, x)) {
+      ax = var_queue_get_activity(&mcsat->var_queue, x);
+      var_queue_insert(&mcsat->var_queue, x);
+      break;
+    }
+  }
 
   // Scan the trail for decision variables
   for (uint32_t i = 0; i < mcsat->trail->elements.size; ++i) {
