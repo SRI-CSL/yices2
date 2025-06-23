@@ -689,19 +689,12 @@ static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params
     init_ivector(&assumptions, n);
 
     for (i = 0; i < n; ++ i) {
-      if (!yices_term_is_atomic(a[i])) {
-        // create temporary Boolean label if the assumption is not an atomic term
-        term_t b = new_uninterpreted_term(ctx->terms, bool_id);
-        int_hmap_add(&lmap, b, a[i]);
-        yices_assert_formula(ctx, yices_implies(b, a[i]));
-        model_map_term(&mdl, b, vtbl_mk_bool(&mdl.vtbl, true));
-        ivector_push(&assumptions, b);
-      } else {
-        term_t x = unsigned_term(a[i]);
-        value_t val = is_pos_term(a[i]) ? vtbl_mk_bool(&mdl.vtbl, true) : vtbl_mk_bool(&mdl.vtbl, false);
-        model_map_term(&mdl, x, val);
-        ivector_push(&assumptions, x);
-      }
+      // create temporary Boolean label for assumptions
+      term_t b = new_uninterpreted_term(ctx->terms, bool_id);
+      int_hmap_add(&lmap, b, a[i]);
+      yices_assert_formula(ctx, yices_implies(b, a[i]));
+      model_map_term(&mdl, b, vtbl_mk_bool(&mdl.vtbl, true));
+      ivector_push(&assumptions, b);
     }
     
     // Solve
