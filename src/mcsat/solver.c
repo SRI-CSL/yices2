@@ -1438,15 +1438,10 @@ void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level, bool update_cache
 }
 
 static 
-bool mcsat_partial_restart(mcsat_solver_t *mcsat) {
-  // Only do something if above base level
-  if (mcsat->trail->decision_level <= mcsat->trail->decision_level_base) {
-    return true;
-  }
-
-  // If heap is empty, we don't do partial restart
+uint32_t mcsat_partial_restart_level(mcsat_solver_t *mcsat) {
+  // If heap is empty, we go to base level
   if (var_queue_is_empty(&mcsat->var_queue)) {
-    return false;
+    return mcsat->trail->decision_level_base;
   }
 
   uint32_t base = mcsat->trail->decision_level_base;
@@ -1481,10 +1476,10 @@ bool mcsat_partial_restart(mcsat_solver_t *mcsat) {
     }
   }
   if (target_level != UINT32_MAX) {
-    mcsat_backtrack_to(mcsat, target_level, false);
+    return target_level;
   }
 
-  return (target_level != UINT32_MAX);
+  return base;
 }
 
 static
@@ -1501,17 +1496,18 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
         mcsat_trace_printf(mcsat->ctx->trace, "restarting\n");
       }
 
-      // mcsat_partial_restart returns true if a partial restart was performed,
-      // false if a full restart is needed (i.e., backtrack to base level)
-      bool ok = mcsat->ctx->mcsat_options.partial_restart && mcsat_partial_restart(mcsat);
-      if (!ok) {
-        // full restart
-        mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
+      // Determine the backtrack level for restart:
+      // If partial_restart is enabled, use mcsat_partial_restart_level to compute the level.
+      // Otherwise, perform a full restart by backtracking to the base level.
+      uint32_t backtrack_level = mcsat->trail->decision_level_base;
+      if (mcsat->ctx->mcsat_options.partial_restart) {
+        backtrack_level = mcsat_partial_restart_level(mcsat);
       }
-      if (mcsat->trail->decision_level == mcsat->trail->decision_level_base) {
+      if (backtrack_level == mcsat->trail->decision_level_base) {
 	      mcsat->assumptions_decided_level = -1;
 	      mcsat->assumption_i = 0;
       }
+      mcsat_backtrack_to(mcsat, backtrack_level, false);
       mcsat->pending_requests_all.restart = false;
       (*mcsat->solver_stats.restarts) ++;
       mcsat_notify_plugins(mcsat, MCSAT_SOLVER_RESTART);
