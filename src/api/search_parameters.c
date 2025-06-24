@@ -122,6 +122,11 @@
  * - MAX_EXTENSIONALITY = 1
  */
 
+/*
+ * Default MCSAT L2O option
+ */
+#define DEFAULT_MCSAT_L2O false
+
 
 /*
  * All default parameters
@@ -165,6 +170,7 @@ static const param_t default_settings = {
 
   DEFAULT_MAX_UPDATE_CONFLICTS,
   DEFAULT_MAX_EXTENSIONALITY,
+  DEFAULT_MCSAT_L2O,
 };
 
 
@@ -221,9 +227,11 @@ typedef enum param_key {
   // array solver
   PARAM_MAX_UPDATE_CONFLICTS,
   PARAM_MAX_EXTENSIONALITY,
+  // mcsat l2o
+  PARAM_MCSAT_L2O,
 } param_key_t;
 
-#define NUM_PARAM_KEYS (PARAM_MAX_EXTENSIONALITY+1)
+#define NUM_PARAM_KEYS (PARAM_MCSAT_L2O+1)
 
 // parameter names in lexicographic ordering
 static const char *const param_key_names[NUM_PARAM_KEYS] = {
@@ -249,6 +257,7 @@ static const char *const param_key_names[NUM_PARAM_KEYS] = {
   "max-extensionality",
   "max-interface-eqs",
   "max-update-conflicts",
+  "mcsat-l2o",
   "optimistic-final-check",
   "prop-threshold",
   "r-factor",
@@ -286,6 +295,7 @@ static const int32_t param_code[NUM_PARAM_KEYS] = {
   PARAM_MAX_EXTENSIONALITY,
   PARAM_MAX_INTERFACE_EQS,
   PARAM_MAX_UPDATE_CONFLICTS,
+  PARAM_MCSAT_L2O,
   PARAM_OPTIMISTIC_FCHECK,
   PARAM_PROP_THRESHOLD,
   PARAM_R_FACTOR,
@@ -683,6 +693,10 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
     if (r == 0) {
       parameters->max_extensionality = (uint32_t) z;
     }
+    break;
+
+  case PARAM_MCSAT_L2O:
+    r = set_bool_param(value, &parameters->mcsat_l2o);
     break;
 
   default:

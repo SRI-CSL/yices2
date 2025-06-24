@@ -133,4 +133,9 @@ void int_queue_reset(int_queue_t *q) {
   q->tail = 0;
 }
 
+/**
+ * Swaps two queues
+ */
+void int_queue_swap(int_queue_t *q1, int_queue_t *q2);
+
 #endif /* __INT_QUEUES_H */

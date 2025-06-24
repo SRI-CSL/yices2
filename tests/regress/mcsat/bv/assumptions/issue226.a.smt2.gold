@@ -1,2 +1,2 @@
 unsat
-(/= (bv-extract 3 0 y) 0b0110)
+(= 0b0111001 (bv-add (bv-mul 0b1010011 x) (bv-mul 0b1111000 y)))

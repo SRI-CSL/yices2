@@ -46,6 +46,9 @@ typedef struct int_hset_s {
   uint32_t nelems;
   bool z_flag;
   uint32_t resize_threshold;
+#ifndef NDEBUG
+  bool is_closed;
+#endif
 } int_hset_t;
 
 
@@ -123,6 +126,14 @@ extern bool int_hset_add(int_hset_t *set, uint32_t x);
  */
 extern void int_hset_close(int_hset_t *set);
 
+
+/*
+ * Close the set and sort it
+ * 1) move all non-zero elements in data[0 ... nelems-1]
+ * 2) sort data[0 ... nelems-1]
+ * 3) if z_flag is set, copy 0 into data[nelems], then increment nelems
+ */
+extern void int_hset_close_and_sort(int_hset_t *set);
 
 /*
  * Empty the set
