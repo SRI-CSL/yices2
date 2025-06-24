@@ -6603,3 +6603,106 @@ term_t mk_arith_elim_poly(term_manager_t *mngr, polynomial_t *p, term_t t) {
   return mk_arith_term(mngr, b);
 }
 
+term_t mk_composite(term_manager_t *tm, term_kind_t kind, uint32_t n, term_t* children) {
+  term_table_t* terms = tm->terms;
+
+  switch (kind) {
+    case ITE_TERM:           // if-then-else
+    case ITE_SPECIAL:        // special if-then-else term (NEW: EXPERIMENTAL)
+    {
+      assert(n == 3);
+      term_t type = super_type(terms->types, term_type(terms, children[1]), term_type(terms, children[2]));
+      assert(type != NULL_TYPE);
+      return mk_ite(tm, children[0], children[1], children[2], type);
+    }
+    case EQ_TERM:            // equality
+      assert(n == 2);
+      return mk_eq(tm, children[0], children[1]);
+    case OR_TERM:            // n-ary OR
+      assert(n > 1);
+      return mk_or(tm, n, children);
+    case XOR_TERM:           // n-ary XOR
+      return mk_xor(tm, n, children);
+    case ARITH_EQ_ATOM:
+      assert(n == 1);
+      return mk_arith_eq(tm, children[0], zero_term);
+    case ARITH_GE_ATOM:
+      assert(n == 1);
+      return mk_arith_geq(tm, children[0], zero_term);
+    case ARITH_BINEQ_ATOM:   // equality: (t1 == t2)  (between two arithmetic terms)
+      assert(n == 2);
+      return mk_arith_eq(tm, children[0], children[1]);
+    case ARITH_FF_EQ_ATOM:
+      assert(n == 1);
+      return mk_arith_ff_eq(tm, children[0], zero_term);
+    case ARITH_FF_BINEQ_ATOM:
+      assert(n == 2);
+      return mk_arith_ff_eq(tm, children[0], children[1]);
+    case APP_TERM:           // application of an uninterpreted function
+      assert(n > 1);
+      return mk_application(tm, children[0], n-1, children + 1);
+    case ARITH_RDIV:
+      assert(n == 2);
+      return mk_arith_rdiv(tm, children[0], children[1]);
+    case ARITH_IDIV:          // division: (div x y) as defined in SMT-LIB 2
+      assert(n == 2);
+      return mk_arith_idiv(tm, children[0], children[1]);
+    case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
+      assert(n == 2);
+      return mk_arith_mod(tm, children[0], children[1]);
+    case ARITH_IS_INT_ATOM:
+      assert(n == 1);
+      return mk_arith_is_int(tm, children[0]);
+    case ARITH_FLOOR:
+      assert(n == 1);
+      return mk_arith_floor(tm, children[0]);
+    case ARITH_CEIL:
+      assert(n == 1);
+      return mk_arith_ceil(tm, children[0]);
+    case ARITH_ABS:
+      assert(n == 1);
+      return mk_arith_abs(tm, children[0]);
+    case UPDATE_TERM:
+      assert(n > 2);
+      return mk_update(tm, children[0], n-2, children + 1, children[n-1]);
+    case BV_ARRAY:
+      assert(n >= 1);
+      return mk_bvarray(tm, n, children);
+    case BV_DIV:
+      assert(n == 2);
+      return mk_bvdiv(tm, children[0], children[1]);
+    case BV_REM:
+      assert(n == 2);
+      return mk_bvrem(tm, children[0], children[1]);
+    case BV_SDIV:
+      assert(n == 2);
+      return mk_bvsdiv(tm, children[0], children[1]);
+    case BV_SREM:
+      assert(n == 2);
+      return mk_bvsrem(tm, children[0], children[1]);
+    case BV_SMOD:
+      assert(n == 2);
+      return mk_bvsmod(tm, children[0], children[1]);
+    case BV_SHL:
+      assert(n == 2);
+      return mk_bvshl(tm, children[0], children[1]);
+    case BV_LSHR:
+      assert(n == 2);
+      return mk_bvlshr(tm, children[0], children[1]);
+    case BV_ASHR:
+      assert(n == 2);
+      return mk_bvashr(tm, children[0], children[1]);
+    case BV_EQ_ATOM:
+      assert(n == 2);
+      return mk_bveq(tm, children[0], children[1]);
+    case BV_GE_ATOM:
+      assert(n == 2);
+      return mk_bvge(tm, children[0], children[1]);
+    case BV_SGE_ATOM:
+      assert(n == 2);
+      return mk_bvsge(tm, children[0], children[1]);
+    default:
+      assert(false);
+      return NULL_TERM;
+  }
+}

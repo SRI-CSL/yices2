@@ -181,6 +181,7 @@ extern void q_set_int32(rational_t *r, int32_t num, uint32_t den);
 extern void q_set_int64(rational_t *r, int64_t num, uint64_t den);
 extern void q_set32(rational_t *r, int32_t num);
 extern void q_set64(rational_t *r, int64_t num);
+extern void q_set_double(rational_t *r, double d);
 
 extern void q_set_mpq(rational_t *r, const mpq_t q);
 extern void q_set_mpz(rational_t *r, const mpz_t z);

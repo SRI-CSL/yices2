@@ -50,6 +50,8 @@
 
 #include "mcsat/preprocessor.h"
 
+#include "mcsat/l2o/l2o.h"
+
 #include "mcsat/utils/statistics.h"
 
 #include "utils/dprng.h"
@@ -130,7 +132,7 @@ struct mcsat_solver_s {
   /** Term manager for everyone to use */
   term_manager_t tm;
 
-  /** Input types are are from this table */
+  /** Input types are from this table */
   type_table_t* types;
 
   /** Input terms are from this table */
@@ -187,6 +189,10 @@ struct mcsat_solver_s {
 
   /** The preprocessor */
   preprocessor_t preprocessor;
+
+  /** L2O operator */
+  l2o_t l2o;
+  bool use_l2o;
 
   /**
    * Array of owners for each term kind. If there are more than one, they
@@ -296,6 +302,8 @@ struct mcsat_solver_s {
     lemma_weight_type_t lemma_restart_weight_type;
     // recache interval
     uint32_t recache_interval;
+    // wait some time until the first l2o/recache operation
+    uint32_t recache_initial;
     // Random decision frequency
     double random_decision_freq;
     // Random decision seed
@@ -342,8 +350,8 @@ static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat, const param_t *params) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
-  mcsat->heuristic_params.recache_interval = 300;
-  // Use params for random decision parameters
+  mcsat->heuristic_params.recache_interval = mcsat->use_l2o ? 50 : 300;
+  mcsat->heuristic_params.recache_initial = mcsat->use_l2o ? 50 : 300;
   mcsat->heuristic_params.random_decision_freq = params->randomness;
   mcsat->heuristic_params.random_decision_seed = params->random_seed;
 }
@@ -945,6 +953,9 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
 
   // Construct the plugins
   mcsat_add_plugins(mcsat);
+
+  // Construct L2O
+  l2o_construct(&mcsat->l2o, L2O, mcsat->terms, mcsat->exception, mcsat->plugins[mcsat->nra_plugin_id].plugin);
 }
 
 void mcsat_destruct(mcsat_solver_t* mcsat) {
@@ -974,6 +985,7 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   variable_db_destruct(mcsat->var_db);
   safe_free(mcsat->var_db);
   preprocessor_destruct(&mcsat->preprocessor);
+  l2o_destruct(&mcsat->l2o);
   delete_ivector(&mcsat->top_decision_vars);
   delete_int_queue(&mcsat->hinted_decision_vars);
   var_queue_destruct(&mcsat->var_queue);
@@ -1531,10 +1543,18 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       (*mcsat->solver_stats.gc_calls) ++;
     }
 
-    // recache target cache
+    // recache
     if (mcsat->pending_requests_all.recache) {
+      uint32_t recache_count = *mcsat->solver_stats.recaches;
+      bool use_l2o = mcsat->use_l2o && (recache_count % 2 == 0);
+      if (use_l2o) {
+        l2o_run(&mcsat->l2o, mcsat->trail, (recache_count / 2) % 3, NULL);
+        trail_clear_extra_cache(mcsat->trail, true); // keep best cache and clear target cache
+      } else {
+        uint32_t recache_param = mcsat->use_l2o ? recache_count / 2 : recache_count;
+        trail_recache(mcsat->trail, recache_param);
+      }
       mcsat->pending_requests_all.recache = false;
-      trail_recache(mcsat->trail, (*mcsat->solver_stats.recaches));
       (*mcsat->solver_stats.recaches) ++;
     }
 
@@ -2811,6 +2831,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   mcsat->terms_size_on_solver_entry = nterms(mcsat->terms);
 
   // Initialize for search
+  mcsat->use_l2o = params->mcsat_l2o | mcsat->ctx->mcsat_options.l2o;
   mcsat_heuristics_init(mcsat, params);
   mcsat_notify_plugins(mcsat, MCSAT_SOLVER_START);
 
@@ -2821,8 +2842,8 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   restart_resource = 0;
   luby_init(&luby, mcsat->heuristic_params.restart_interval);
 
-  // recache parameters
-  uint32_t recache_limit = (*mcsat->solver_stats.conflicts) + mcsat->heuristic_params.recache_interval;
+  // recache
+  uint32_t recache_limit = (*mcsat->solver_stats.conflicts) + mcsat->heuristic_params.recache_initial;
   uint32_t recache_round = 0;
 
   // Whether to run learning
@@ -2836,13 +2857,6 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       luby_next(&luby);
       mcsat_request_restart(mcsat);
 
-    } else if ((*mcsat->solver_stats.conflicts) > recache_limit) {
-      // recache
-      ++recache_round;
-      mcsat_request_recache(mcsat);
-      double l = log10(recache_round + 9);
-      recache_limit = (*mcsat->solver_stats.conflicts) +
-	(recache_round * l * l * l *  mcsat->heuristic_params.recache_interval);
     }
 
     // Process any outstanding requests
@@ -2855,6 +2869,16 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     // If inconsistent, analyze the conflict
     if (!mcsat_is_consistent(mcsat)) {
       goto conflict;
+    }
+
+    if (trail_is_at_base_level(mcsat->trail) && (*mcsat->solver_stats.conflicts) > recache_limit) {
+      // printf("\n*mcsat->solver_stats.conflicts: %d", *mcsat->solver_stats.conflicts);
+      ++recache_round;
+      mcsat_request_recache(mcsat);
+      double l = log10(recache_round + 9);
+      recache_limit = (*mcsat->solver_stats.conflicts) +
+                      (recache_round * l * l * l *
+                       mcsat->heuristic_params.recache_interval);
     }
 
     // If any requests, process them and go again
@@ -2895,6 +2919,10 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     break;
 
   conflict:
+    //printf("\nn conflicts: %d",*mcsat->solver_stats.conflicts);
+    //if(*mcsat->solver_stats.conflicts > 0 && *mcsat->solver_stats.conflicts % 1000 == 0){
+    //  run_l2o = true;
+    //}
 
     (*mcsat->solver_stats.conflicts)++;
     mcsat_notify_plugins(mcsat, MCSAT_SOLVER_CONFLICT);
@@ -2949,6 +2977,9 @@ void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer) {
 
   // Set the trace for the preprocessor
   preprocessor_set_tracer(&mcsat->preprocessor, tracer);
+
+  // Set the trace for L2O
+  l2o_set_tracer(&mcsat->l2o, tracer);
 }
 
 
@@ -2991,6 +3022,12 @@ void mcsat_assert_formulas_internal(mcsat_solver_t* mcsat, uint32_t n, const ter
     }
   }
 
+  // Store assertions to L2O
+  for (i = 0; i < assertions->size; ++ i) {
+    term_t f_i = assertions->data[i];
+    l2o_store_assertion(&mcsat->l2o, f_i);
+  }
+
   // Assert individual formulas
   for (i = 0; i < assertions->size; ++ i) {
     // Assert it
@@ -3013,10 +3050,12 @@ void mcsat_show_stats(mcsat_solver_t* mcsat, FILE* out) {
   int fd = fileno(out);
   assert(fd >= 0);
   statistics_print(&mcsat->stats, fd);
+  statistics_print(&mcsat->l2o.stats, fd);
 }
 
 void mcsat_show_stats_fd(mcsat_solver_t* mcsat, int out) {
   statistics_print(&mcsat->stats, out);
+  statistics_print(&mcsat->l2o.stats, out);
 }
 
 void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
@@ -3086,6 +3125,7 @@ void mcsat_set_exception_handler(mcsat_solver_t* mcsat, jmp_buf* handler) {
   uint32_t i;
   mcsat->exception = handler;
   preprocessor_set_exception_handler(&mcsat->preprocessor, handler);
+  l2o_set_exception_handler(&mcsat->l2o, handler);
   for (i = 0; i < mcsat->plugins_count; ++ i) {
     plugin_t* plugin = mcsat->plugins[i].plugin;
     plugin->set_exception_handler(plugin, handler);

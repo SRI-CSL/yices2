@@ -90,7 +90,7 @@ srcsubdirs = mt io terms utils solvers solvers/floyd_warshall \
     parser_utils model api frontend frontend/common \
     frontend/smt1 frontend/yices frontend/smt2 context exists_forall \
     mcsat mcsat/eq mcsat/weq mcsat/uf mcsat/bool mcsat/ite mcsat/nra mcsat/ff mcsat/bv \
-    mcsat/bv/explain mcsat/utils
+    mcsat/bv/explain mcsat/utils mcsat/l2o
 
 testdir = tests/unit
 regressdir = tests/regress
