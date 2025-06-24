@@ -134,6 +134,7 @@ core_src_c := \
 	exists_forall/efsolver.c \
 	frontend/smt2/attribute_values.c \
 	frontend/smt2/smt2_lexer.c \
+	frontend/smt2/smt2_term_utils.c \
 	frontend/yices/yices_lexer.c \
 	frontend/yices/yices_parser.c \
 	io/concrete_value_printer.c \
