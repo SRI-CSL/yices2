@@ -580,6 +580,7 @@ typedef struct solver_stats_s {
   uint32_t try_equiv_calls;          // number of calls to try_equivalent_vars (includes preprocessing)
   uint32_t subst_calls;              // number of calls to apply_substitution
   uint32_t probe_calls;              // number of calls to failed_literal_probing
+  uint32_t rephase_calls;            // number of calls to rephase
 
   // Substitutions
   uint32_t subst_vars;               // number of variables eliminated by substitution
@@ -663,6 +664,11 @@ typedef struct solver_param_s {
   uint64_t probing_min_budget;  // Minimal budget (number of propagations)
   uint64_t probing_max_budget;  // Maximal budget (number of propagations_
   double probing_ratio;         // Fraction of propagations for probing (relative to search).
+
+  /*
+   * Rephase
+   */
+  uint32_t rephase_interval;    // Number of conflicts between two calls to rephase
 
 } solver_param_t;
 
@@ -923,6 +929,11 @@ typedef struct sat_solver_s {
   uint64_t probing_inc;        // Increment to probing next
 
   /*
+   * Rephase
+   */
+  uint64_t rephase_next;       // Number of conflicts before the next call to rephase
+
+  /*
    * Exponential moving averages for restarts
    * (based on "Evaluating CDCL Restart Schemes" by Biere & Froehlich, 2015).
    */
@@ -1018,6 +1029,18 @@ typedef struct sat_solver_s {
    * File for data collection (used only when macro DATA is non-zero)
    */
   FILE *data;
+
+  /*
+   * Target assignment cache for phase selection
+   */
+  uint8_t *target_phases;
+  uint32_t target_limit;
+
+  /*
+   * Best phase cache for phase selection
+   */
+  uint8_t *best_phases;
+  uint32_t best_limit;
 
 } sat_solver_t;
 

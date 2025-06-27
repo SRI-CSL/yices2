@@ -25,6 +25,8 @@
 #include <stdio.h>
 #include <inttypes.h>
 #include <float.h>
+#include <string.h>
+#include <math.h>
 
 #include "solvers/cdcl/new_sat_solver.h"
 #include "solvers/cdcl/new_gate_hash_map.h"
@@ -376,6 +378,10 @@ static inline void export_last_conflict(sat_solver_t *solver) { }
 #define PROBING_MAX_BUDGET 1000000
 #define PROBING_RATIO 0.02
 
+/*
+ * To control rephase
+ */
+#define REPHASE_INTERVAL 1000
 
 
 /**********
@@ -2760,6 +2766,7 @@ static void init_stats(solver_stats_t *stat) {
   stat->try_equiv_calls = 0;
   stat->subst_calls = 0;
   stat->probe_calls = 0;
+  stat->rephase_calls = 0;
 
   stat->subst_vars = 0;
   stat->subst_units = 0;
@@ -2810,6 +2817,8 @@ static void init_params(solver_param_t *params) {
   params->probing_min_budget = PROBING_MIN_BUDGET;
   params->probing_max_budget = PROBING_MAX_BUDGET;
   params->probing_ratio = PROBING_RATIO;
+
+  params->rephase_interval = REPHASE_INTERVAL;
 }
 
 /*
@@ -2913,6 +2922,14 @@ void init_nsat_solver(sat_solver_t *solver, uint32_t sz, bool pp) {
   init_bgate_array(&solver->gates);
 
   solver->data = NULL;
+
+  solver->target_phases = (uint8_t *) safe_malloc(n * 2 * sizeof(uint8_t));
+  memset(solver->target_phases, 0, n * 2 * sizeof(uint8_t));
+  solver->target_limit = 0;
+
+  solver->best_phases = (uint8_t *) safe_malloc(n * 2 * sizeof(uint8_t));
+  memset(solver->best_phases, 0, n * 2 * sizeof(uint8_t));
+  solver->best_limit = 0;
 }
 
 
@@ -2984,6 +3001,14 @@ void delete_nsat_solver(sat_solver_t *solver) {
   delete_bgate_array(&solver->gates);
 
   close_datafile(solver);
+
+  safe_free(solver->target_phases);
+  solver->target_phases = NULL;
+  solver->target_limit = 0;
+
+  safe_free(solver->best_phases);
+  solver->best_phases = NULL;
+  solver->best_limit = 0;
 }
 
 
@@ -3046,6 +3071,14 @@ void reset_nsat_solver(sat_solver_t *solver) {
   reset_bgate_array(&solver->gates);
 
   reset_datafile(solver);
+
+  safe_free(solver->target_phases);
+  solver->target_phases = NULL;
+  solver->target_limit = 0;
+
+  safe_free(solver->best_phases);
+  solver->best_phases = NULL;
+  solver->best_limit = 0;
 }
 
 
@@ -8728,6 +8761,40 @@ static bvar_t nsat_select_decision_variable(sat_solver_t *solver) {
 
 
 
+// Helper to update target phases cache if needed
+static void update_target_phases(sat_solver_t *solver) {
+  uint32_t n_assigned = solver->stack.top;
+  if (solver->target_phases && n_assigned > solver->target_limit) {
+    memcpy(solver->target_phases, solver->value, solver->nliterals * sizeof(uint8_t));
+    solver->target_limit = n_assigned;
+  }
+}
+
+// Helper to clear target phases cache
+static void clear_target_phases(sat_solver_t *solver) {
+  if (solver->target_phases) {
+    memset(solver->target_phases, 0, solver->nliterals * sizeof(uint8_t));
+    solver->target_limit = 0;
+  }
+}
+
+// Helper to update best phases cache if needed
+static void update_best_phases(sat_solver_t *solver) {
+  uint32_t n_assigned = solver->stack.top;
+  if (solver->best_phases && n_assigned > solver->best_limit) {
+    memcpy(solver->best_phases, solver->value, solver->nliterals * sizeof(uint8_t));
+    solver->best_limit = n_assigned;
+  }
+}
+
+// Helper to clear best phases cache
+static void clear_best_phases(sat_solver_t *solver) {
+  if (solver->best_phases) {
+    memset(solver->best_phases, 0, solver->nliterals * sizeof(uint8_t));
+    solver->best_limit = 0;
+  }
+}
+
 /******************
  *  BACKTRACKING  *
  *****************/
@@ -8912,6 +8979,8 @@ static void partial_restart_using_list(sat_solver_t *solver) {
  * Partial restart wrapper
  */
 static void partial_restart(sat_solver_t *solver) {
+  update_target_phases(solver);
+  update_best_phases(solver);
   solver->stats.starts ++;
   // partial_restart_using_heap(solver);
   partial_restart_using_list(solver);
@@ -8923,6 +8992,8 @@ static void partial_restart(sat_solver_t *solver) {
  * Full restart: backtrack to level 0
  */
 static void full_restart(sat_solver_t *solver) {
+  update_target_phases(solver);
+  update_best_phases(solver);
   solver->stats.starts ++;
   if (solver->decision_level > 0) {
     backtrack(solver, 0);
@@ -9738,6 +9809,9 @@ static void resolve_conflict(sat_solver_t *solver) {
     assert(n > 0);
     add_unit_clause(solver, l);
   }
+
+  update_target_phases(solver);
+  update_best_phases(solver);
 }
 
 
@@ -9940,6 +10014,17 @@ static void extend_assignment(sat_solver_t *solver) {
   assert(var_is_unassigned(solver, x));
 
   l = pos_lit(x);
+
+  // Check target cache first
+  if (!solver->stabilizing && solver->target_phases && solver->target_limit > 0) {
+    uint8_t tval = solver->target_phases[l];
+    if (tval == VAL_TRUE) {
+      return l;
+    } else if (tval == VAL_FALSE) {
+      return not(l);
+    }
+  }
+
   /*
    * Since l is not assigned, value[l] is either VAL_UNDEF_FALSE (i.e., 0)
    * or VAL_UNDEF_TRUE (i.e., 1).
@@ -10863,7 +10948,7 @@ static bool stabilizing(sat_solver_t *solver) {
       solver->stabilizing = false;
       solver->stab_next += 2 * solver->stab_length;
       if (solver->stab_length <= UINT64_MAX/STAB_FACTOR) {
-	solver->stab_length *= STAB_FACTOR;
+        solver->stab_length *= STAB_FACTOR;
       }
     }
     report(solver, solver->stabilizing ? "[" : "]");
@@ -11003,6 +11088,78 @@ static void done_simplify(sat_solver_t *solver) {
 }
 
 
+/*
+ * WHEN TO REPHASE
+ */
+
+/*
+ * Initialize the rephase counter
+ */
+static void init_rephase(sat_solver_t *solver) {
+  solver->rephase_next = solver->stats.conflicts + solver->params.rephase_interval;
+}
+
+/*
+ * Check to trigger call to rephase (clear target phase)
+ */
+static inline bool need_rephase(const sat_solver_t *solver) {
+  return !solver->stabilizing && solver->stats.conflicts >= solver->rephase_next;
+}
+
+static void rephase(sat_solver_t *solver) {
+  if (solver->stabilizing)
+    return;
+
+  uint32_t n = solver->stats.rephase_calls;
+
+  if ((n % 2) == 0) {
+    // Even: use best_phases if available
+    if (solver->best_phases) {
+      for (uint32_t i = 0; i < solver->nvars; i++) {
+        if (var_is_unassigned(solver, i)) {
+          uint8_t v = solver->best_phases[pos_lit(i)];
+          if (bval_is_undef(v)) continue; // skip if no suggestion
+          solver->value[pos_lit(i)] = v;
+          solver->value[neg_lit(i)] = opposite_val(v);
+        }
+      }
+      clear_best_phases(solver);
+    }
+  } else {
+    // Odd: alternate between random and flipping
+    if (((n / 2) % 2) == 0) {
+      // First odd: randomize
+      for (uint32_t i = 0; i < solver->nvars; i++) {
+        if (var_is_unassigned(solver, i)) {
+          uint8_t v = (rand() & 1) ? 1 : 0;
+          solver->value[pos_lit(i)] = v;
+          solver->value[neg_lit(i)] = opposite_val(v);
+        }
+      }
+    } else {
+      // Second odd: flip
+      for (uint32_t i = 0; i < solver->nvars; i++) {
+        if (var_is_unassigned(solver, i)) {
+          uint8_t v = solver->value[pos_lit(i)];
+          v ^= 1; // flip 0 <-> 1
+          solver->value[pos_lit(i)] = v;
+          solver->value[neg_lit(i)] = opposite_val(v);
+        }
+      }
+    }
+  }
+
+  clear_target_phases(solver);
+}
+
+/*
+ * Update counter after a call to rephase
+ */
+static void done_rephase(sat_solver_t *solver) {
+  solver->stats.rephase_calls++;
+  uint32_t n = solver->stats.rephase_calls;
+  solver->rephase_next = solver->stats.conflicts + n * pow(log10(n + 9), 3) * solver->params.rephase_interval;
+}
 
 
 /*****************************
@@ -11154,6 +11311,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
   init_restart(solver);
   init_reduce(solver);
   init_simplify(solver);
+  init_rephase(solver);
 
   if (solver->preprocess) {
     // preprocess + one round of simplification
@@ -11196,45 +11354,50 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
 
       // conflict
       if (solver->decision_level == 0) {
-	export_last_conflict(solver);
-	solver->status = STAT_UNSAT;
-	break;
+        export_last_conflict(solver);
+        solver->status = STAT_UNSAT;
+        break;
       }
       resolve_conflict(solver);
       check_watch_vectors(solver);
       if (! solver->stabilizing) {
-	decay_clause_activities(solver);
+	      decay_clause_activities(solver);
       }
 
     } else {
       // no conflict
       update_max_depth(solver);
 
+      if (need_rephase(solver)) {
+        rephase(solver);
+        done_rephase(solver);
+      }
+
       if (need_simplify(solver)) {
-	full_restart(solver);
-	done_restart(solver);
-	nsat_simplify(solver);
-	done_simplify(solver);
-	if (solver->has_empty_clause) break;
+        full_restart(solver);
+        done_restart(solver);
+        nsat_simplify(solver);
+        done_simplify(solver);
+        if (solver->has_empty_clause) break;
       } else if (need_restart(solver)) {
-	partial_restart(solver);
-	done_restart(solver);
+        partial_restart(solver);
+	      done_restart(solver);
 
       } else if (need_reduce(solver)) {
-	nsat_reduce_learned_clause_set(solver);
-	done_reduce(solver);
+        nsat_reduce_learned_clause_set(solver);
+        done_reduce(solver);
 
       } else {
-	if (solver->try_assignment) {
-	  build_assignment(solver);
-	  solver->try_assignment = false;
-	}
-	x = nsat_select_decision_variable(solver);
-	if (x == 0) {
-	  solver->status = STAT_SAT;
-	  break;
-	}
-	nsat_decide_literal(solver, preferred_literal(solver, x));
+      	if (solver->try_assignment) {
+	        build_assignment(solver);
+	        solver->try_assignment = false;
+	      }
+        x = nsat_select_decision_variable(solver);
+        if (x == 0) {
+          solver->status = STAT_SAT;
+          break;
+        }
+        nsat_decide_literal(solver, preferred_literal(solver, x));
       }
     }
   }
@@ -11273,6 +11436,7 @@ void nsat_show_statistics(FILE *f, const sat_solver_t *solver) {
   fprintf(f, "c  scc calls               : %"PRIu32"\n", stat->scc_calls);
   fprintf(f, "c  apply subst calls       : %"PRIu32"\n", stat->subst_calls);
   fprintf(f, "c  probings                : %"PRIu32"\n", stat->probe_calls);
+  fprintf(f, "c  rephasing               : %"PRIu32"\n", stat->rephase_calls);
   fprintf(f, "c  substituted vars        : %"PRIu32"\n", stat->subst_vars);
   fprintf(f, "c  unit equiv              : %"PRIu32"\n", stat->subst_units);
   fprintf(f, "c  equivalences            : %"PRIu32"\n", stat->equivs);
@@ -12504,5 +12668,4 @@ static void check_list(const sat_solver_t *solver) {
 
   fprintf(stderr, "check[%"PRIu32"]: OK\n", checks);
 }
-
 #endif
