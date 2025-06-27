@@ -79,13 +79,13 @@ Yices Terms
 
 .. c:type:: term_vector_t
 
-   Vectors of terms. This is a structure defined as follows::
+   Vector of terms. This is a structure defined as follows::
 
-     typedef struct type_vector_s {
+     typedef struct term_vector_s {
        uint32_t capacity;
        uint32_t size;
-       type_t *data;
-     } type_vector_t;
+       term_t *data;
+     } term_vector_t;
 
    A term vector *v* stores a variable-sized array of terms:
 
