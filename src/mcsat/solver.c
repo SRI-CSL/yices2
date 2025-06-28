@@ -1465,7 +1465,7 @@ uint32_t mcsat_partial_restart_level(mcsat_solver_t *mcsat) {
   // Scan the trail for decision variables
   for (uint32_t i = 0; i < mcsat->trail->elements.size; ++i) {
     variable_t v = mcsat->trail->elements.data[i];
-    if (trail_has_value(mcsat->trail, v)) {
+    if (trail_get_assignment_type(mcsat->trail, v) == DECISION) {
       uint32_t level = trail_get_level(mcsat->trail, v);
       if (level > base && level <= n) {
         double v_activity = var_queue_get_activity(&mcsat->var_queue, v);
