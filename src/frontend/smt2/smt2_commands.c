@@ -6490,34 +6490,18 @@ void smt2_set_logic(const char *name) {
     }
   }
 
-  // if unsat cores or unsat assumptions are requested, we can't use the mcsat solver
-  if (__smt2_globals.produce_unsat_cores || __smt2_globals.produce_unsat_assumptions) {
-    if (__smt2_globals.mcsat) {
-      // Allow unsat cores with MCSAT if model interpolation is enabled
-      if (!__smt2_globals.mcsat_options.model_interpolation) {
-        print_error("the mcsat solver does not support unsat cores without model interpolation");
-        return;
-      }
-    }
-    if (arch == CTX_ARCH_MCSAT) {
-      // Allow unsat cores with MCSAT architecture if model interpolation is enabled
-      if (!__smt2_globals.mcsat_options.model_interpolation) {
-        print_error("unsat cores are not supported in logic %s with MCSAT without model interpolation", name);
-        return;
-      }
-    }
-  }
-
-  smt2_lexer_activate_logic(code);
-  __smt2_globals.logic_code = code;
-  __smt2_globals.logic_name = clone_string(name);
-  string_incref(__smt2_globals.logic_name);
-
   // Set model_interpolation if unsat cores are enabled and architecture is MCSAT
   if ((__smt2_globals.produce_unsat_cores || __smt2_globals.produce_unsat_assumptions) && 
       (arch == CTX_ARCH_MCSAT || __smt2_globals.mcsat)) {
     __smt2_globals.mcsat_options.model_interpolation = true;
   }
+
+
+
+  smt2_lexer_activate_logic(code);
+  __smt2_globals.logic_code = code;
+  __smt2_globals.logic_name = clone_string(name);
+  string_incref(__smt2_globals.logic_name);
 
   /*
    * In incremental mode: initialize the context
