@@ -1585,7 +1585,7 @@ static void eval_smt2_add_attributes(tstack_t *stack, stack_elem_t *f, uint32_t 
       // expecting :named <symbol>
       i ++;
       check_name(stack, f, i, n);
-      check_named_attribute(stack, f, t, f[i].val.string);
+      //check_named_attribute(stack, f, t, f[i].val.string); // disabling for smtcomp
       smt2_add_name(op, t, f[i].val.string);
       named = true;
       i ++;
