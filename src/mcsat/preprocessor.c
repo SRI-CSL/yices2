@@ -86,7 +86,7 @@ void preprocessor_set(preprocessor_t* pre, term_t t, term_t t_pre) {
 }
 
 /**
- * Returns true if we should purify t as an argument of a function.
+ * Returns purified version of t if we should purify t as an argument of a function.
  * Any new equalities are added to output.
  */
 static inline
@@ -451,7 +451,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
           children_done = false;
           ivector_push(pre_stack, child);
         } else {
-          if (is_arithmetic_literal(terms, child_pre)) {
+          if (is_arithmetic_literal(terms, child_pre) || child_pre == false_term) {
             // purify if arithmetic literal, i.e. a = 0 where a is of integer type
             child_pre = preprocessor_purify(pre, child_pre, out);
           }
