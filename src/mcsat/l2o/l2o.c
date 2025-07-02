@@ -1294,6 +1294,17 @@ void l2o_search_state_destruct(l2o_search_state_t *state) {
   free(state->val);
 }
 
+void l2o_search_state_print(const l2o_search_state_t *state, term_table_t *terms, FILE *file) {
+  for (uint32_t i = 0; i < state->n_var; ++i) {
+    term_print_to_file(file, terms, state->var[i]);
+    if (i < state->n_var_fixed) {
+      fprintf(file, "(F)");
+    }
+    fprintf(file, ": %f ", state->val[i]);
+    fprintf(file, "%d\n", term_type_kind(terms, state->var[i]));
+  }
+}
+
 bool l2o_is_valid_term(l2o_t *l2o, term_t t) {
   t = unsigned_term(t);
 

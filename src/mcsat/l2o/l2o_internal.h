@@ -66,6 +66,8 @@ void l2o_search_state_construct_empty(l2o_search_state_t *state);
 
 void l2o_search_state_destruct(l2o_search_state_t *state);
 
+void l2o_search_state_print(const l2o_search_state_t *state, term_table_t *terms, FILE *file);
+
 static inline
 bool l2o_search_state_is_empty(const l2o_search_state_t *state) {
   return state->n_var == 0;
