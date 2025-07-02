@@ -46,7 +46,7 @@ jobs:
           - os: ubuntu-latest
             mode: gcov
             config-opt: --enable-mcsat
-            env: CC=gcc CXX=g++
+            env: CC=gcc-13 CXX=g++-13
           - os: ubuntu-latest
             mode: debug
             config-opt: --enable-thread-safety --enable-mcsat
