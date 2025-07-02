@@ -84,5 +84,6 @@ runs:
           export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
         fi
         autoconf
+        make clean || true
         CFLAGS='-Werror' ${{ inputs.env }} ./configure ${{ inputs.config-opt }}
         make MODE=${{ inputs.mode }}
