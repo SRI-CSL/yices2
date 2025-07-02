@@ -14,3 +14,12 @@ runs:
         sudo apt-get install -y lcov
         sudo gem install coveralls-lcov
         echo "Install Linux dependencies [DONE]"
+    - name: Install macOS Dependencies
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        echo "Install macOS dependencies"
+        brew update
+        brew install gmp gperf python3 lcov
+        sudo gem install coveralls-lcov
+        echo "Install macOS dependencies [DONE]"
