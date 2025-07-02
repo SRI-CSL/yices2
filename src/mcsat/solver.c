@@ -2673,7 +2673,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
   if (mcsat->stop_search) {
     if (mcsat->status == STATUS_SEARCHING) {
-      mcsat->status = STATUS_INTERRUPTED;
+      mcsat->status = YICES_STATUS_INTERRUPTED;
     }
     mcsat->stop_search = false;
   }
@@ -2786,7 +2786,8 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
     term_t x_term = variable_db_get_term(mcsat->var_db, x);
     term_kind_t x_kind = term_kind(mcsat->terms, x_term);
 
-    if (x_kind == UNINTERPRETED_TERM) {
+    if (x_kind == UNINTERPRETED_TERM &&
+	term_type_kind(mcsat->terms, x_term) != FUNCTION_TYPE) {
 
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         mcsat_trace_printf(mcsat->ctx->trace, "var = ");

@@ -80,7 +80,7 @@ typedef enum smt_status {
   STATUS_UNKNOWN,
   STATUS_SAT,
   STATUS_UNSAT,
-  STATUS_INTERRUPTED,
+  YICES_STATUS_INTERRUPTED, /* renaming because of a clash with windows defined symbol */
   STATUS_ERROR
 } smt_status_t;
 

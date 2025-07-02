@@ -54,6 +54,14 @@ const char* kind_to_string(term_kind_t t) {
     return "ITE_TERM";
   case UNINTERPRETED_TERM:
     return "UNINTERPRETED_TERM";
+  case UPDATE_TERM:
+    return "UPDATE_TERM";
+  case ARITH_RDIV:
+    return "ARITH_RDIV";
+  case ARITH_IDIV:
+    return "ARITH_IDIV";
+  case ARITH_MOD:
+    return "ARITH_MOD";
   default:
     assert(false);
     return "UNKNOWN_TERM";

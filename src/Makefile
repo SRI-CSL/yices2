@@ -276,6 +276,7 @@ core_src_c := \
 	utils/csets.c \
 	utils/cputime.c \
 	utils/dep_tables.c \
+	utils/error.c \
 	utils/gcd.c \
 	utils/generic_heap.c \
 	utils/hash_functions.c \
@@ -350,6 +351,7 @@ mcsat_src_c := \
 	mcsat/gc.c \
 	mcsat/eq/equality_graph.c \
 	mcsat/eq/merge_queue.c \
+	mcsat/weq/weak_eq_graph.c \
 	mcsat/utils/int_mset.c \
 	mcsat/utils/int_lset.c \
 	mcsat/utils/value_hash_map.c \
@@ -493,7 +495,6 @@ bin_src_c := \
 	frontend/yices_sat_new.c \
 	frontend/yices_smt.c \
 	frontend/yices_smt2.c \
-	frontend/yices_smt2_mt.c \
 	frontend/yices_smtcomp.c \
 
 #

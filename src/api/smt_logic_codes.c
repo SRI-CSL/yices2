@@ -43,6 +43,8 @@ static const char * const smt_logic_names[NUM_SMT_LOGIC_NAMES] = {
   "ANRA",
   "AUF",
   "AUFBV",
+  "AUFBVLIA",
+  "AUFBVNIA",
   "AUFLIA",
   "AUFLIRA",
   "AUFLRA",
@@ -68,6 +70,8 @@ static const char * const smt_logic_names[NUM_SMT_LOGIC_NAMES] = {
   "QF_ANRA",
   "QF_AUF",
   "QF_AUFBV",
+  "QF_AUFBVLIA",
+  "QF_AUFBVNIA",
   "QF_AUFLIA",
   "QF_AUFLIRA",
   "QF_AUFLRA",
@@ -86,6 +90,7 @@ static const char * const smt_logic_names[NUM_SMT_LOGIC_NAMES] = {
   "QF_RDL",
   "QF_UF",
   "QF_UFBV",
+  "QF_UFBVLIA",
   "QF_UFIDL",
   "QF_UFLIA",
   "QF_UFLIRA",
@@ -97,6 +102,7 @@ static const char * const smt_logic_names[NUM_SMT_LOGIC_NAMES] = {
   "RDL",
   "UF",
   "UFBV",
+  "UFBVLIA",
   "UFIDL",
   "UFLIA",
   "UFLIRA",
@@ -124,6 +130,8 @@ static const smt_logic_t smt_code[NUM_SMT_LOGIC_NAMES] = {
   ANRA,
   AUF,
   AUFBV,
+  AUFBVLIA,
+  AUFBVNIA,
   AUFLIA,
   AUFLIRA,
   AUFLRA,
@@ -149,6 +157,8 @@ static const smt_logic_t smt_code[NUM_SMT_LOGIC_NAMES] = {
   QF_ANRA,
   QF_AUF,
   QF_AUFBV,
+  QF_AUFBVLIA,
+  QF_AUFBVNIA,
   QF_AUFLIA,
   QF_AUFLIRA,
   QF_AUFLRA,
@@ -167,6 +177,7 @@ static const smt_logic_t smt_code[NUM_SMT_LOGIC_NAMES] = {
   QF_RDL,
   QF_UF,
   QF_UFBV,
+  QF_UFBVLIA,
   QF_UFIDL,
   QF_UFLIA,
   QF_UFLIRA,
@@ -178,6 +189,7 @@ static const smt_logic_t smt_code[NUM_SMT_LOGIC_NAMES] = {
   RDL,
   UF,
   UFBV,
+  UFBVLIA,
   UFIDL,
   UFLIA,
   UFLIRA,
@@ -292,6 +304,7 @@ static const uint8_t has_arrays[NUM_SMT_LOGICS] = {
   true,   // ANIRA
   true,   // AUF
   false,  // UFBV
+  false,  // UFBVLIA
   false,  // UFIDL
   false,  // UFLIA
   false,  // UFLRA
@@ -301,6 +314,8 @@ static const uint8_t has_arrays[NUM_SMT_LOGICS] = {
   false,  // UFNIRA
   false,  // UFRDL
   true,   // AUFBV
+  true,   // AUFBVLIA
+  true,   // AUFBVNIA
   true,   // AUFLIA
   true,   // AUFLRA
   true,   // AUFLIRA
@@ -328,6 +343,7 @@ static const uint8_t has_arrays[NUM_SMT_LOGICS] = {
   true,   // QF_ANIRA
   true,   // QF_AUF
   false,  // QF_UFBV
+  false,  // QF_UFBVLIA
   false,  // QF_UFIDL
   false,  // QF_UFLIA
   false,  // QF_UFLRA
@@ -337,6 +353,8 @@ static const uint8_t has_arrays[NUM_SMT_LOGICS] = {
   false,  // QF_UFNIRA
   false,  // QF_UFRDL
   true,   // QF_AUFBV
+  true,   // QF_AUFBVLIA
+  true,   // QF_AUFBVNIA
   true,   // QF_AUFLIA
   true,   // QF_AUFLRA
   true,   // QF_AUFLIRA
@@ -370,6 +388,7 @@ static const uint8_t has_bv[NUM_SMT_LOGICS] = {
   false,  // ANIRA
   false,  // AUF
   true,   // UFBV
+  true,   // UFBVLIA
   false,  // UFIDL
   false,  // UFLIA
   false,  // UFLRA
@@ -379,6 +398,8 @@ static const uint8_t has_bv[NUM_SMT_LOGICS] = {
   false,  // UFNIRA
   false,  // UFRDL
   true,   // AUFBV
+  true,   // AUFBVLIA
+  true,   // AUFBVNIA
   false,  // AUFLIA
   false,  // AUFLRA
   false,  // AUFLIRA
@@ -406,6 +427,7 @@ static const uint8_t has_bv[NUM_SMT_LOGICS] = {
   false,  // QF_ANIRA
   false,  // QF_AUF
   true,   // QF_UFBV
+  true,   // QF_UFBVLIA
   false,  // QF_UFIDL
   false,  // QF_UFLIA
   false,  // QF_UFLRA
@@ -415,6 +437,8 @@ static const uint8_t has_bv[NUM_SMT_LOGICS] = {
   false,  // QF_UFNIRA
   false,  // QF_UFRDL
   true,   // QF_AUFBV
+  true,   // QF_AUFBVLIA
+  true,   // QF_AUFBVNIA
   false,  // QF_AUFLIA
   false,  // QF_AUFLRA
   false,  // QF_AUFLIRA
@@ -448,6 +472,7 @@ static const uint8_t has_quantifiers[NUM_SMT_LOGICS] = {
   true,   // ANIRA
   true,   // AUF
   true,   // UFBV
+  true,   // UFBVLIA
   true,   // UFIDL
   true,   // UFLIA
   true,   // UFLRA
@@ -457,6 +482,8 @@ static const uint8_t has_quantifiers[NUM_SMT_LOGICS] = {
   true,   // UFNIRA
   true,   // UFRDL
   true,   // AUFBV
+  true,   // AUFBVLIA
+  true,   // AUFBVNIA
   true,   // AUFLIA
   true,   // AUFLRA
   true,   // AUFLIRA
@@ -484,6 +511,7 @@ static const uint8_t has_quantifiers[NUM_SMT_LOGICS] = {
   false,  // QF_ANIRA
   false,  // QF_AUF
   false,  // QF_UFBV
+  false,  // QF_UFBVLIA
   false,  // QF_UFIDL
   false,  // QF_UFLIA
   false,  // QF_UFLRA
@@ -493,6 +521,8 @@ static const uint8_t has_quantifiers[NUM_SMT_LOGICS] = {
   false,  // QF_UFNIRA
   false,  // QF_UFRDL
   false,  // QF_AUFBV
+  false,  // QF_AUFBVLIA
+  false,  // QF_AUFBVNIA
   false,  // QF_AUFLIA
   false,  // QF_AUFLRA
   false,  // QF_AUFLIRA
@@ -526,6 +556,7 @@ static const uint8_t has_uf[NUM_SMT_LOGICS] = {
   false,  // ANIRA
   true,   // AUF
   true,   // UFBV
+  true,   // UFBVLIA
   true,   // UFIDL
   true,   // UFLIA
   true,   // UFLRA
@@ -535,6 +566,8 @@ static const uint8_t has_uf[NUM_SMT_LOGICS] = {
   true,   // UFNIRA
   true,   // UFRDL
   true,   // AUFBV
+  true,   // AUFBVLIA
+  true,   // AUFBVNIA
   true,   // AUFLIA
   true,   // AUFLRA
   true,   // AUFLIRA
@@ -562,6 +595,7 @@ static const uint8_t has_uf[NUM_SMT_LOGICS] = {
   false,  // QF_ANIRA
   true,   // QF_AUF
   true,   // QF_UFBV
+  true,   // QF_UFBVLIA
   true,   // QF_UFIDL
   true,   // QF_UFLIA
   true,   // QF_UFLRA
@@ -571,6 +605,8 @@ static const uint8_t has_uf[NUM_SMT_LOGICS] = {
   true,   // QF_UFNIRA
   true,   // QF_UFRDL
   true,   // QF_AUFBV
+  true,   // QF_AUFBVLIA
+  true,   // QF_AUFBVNIA
   true,   // QF_AUFLIA
   true,   // QF_AUFLRA
   true,   // QF_AUFLIRA
@@ -604,6 +640,7 @@ static const uint8_t arith_frag[NUM_SMT_LOGICS] = {
   ARITH_NIRA,   // ANIRA
   ARITH_NONE,   // AUF
   ARITH_NONE,   // UFBV
+  ARITH_LIA,    // UFBVLIA
   ARITH_IDL,    // UFIDL
   ARITH_LIA,    // UFLIA
   ARITH_LRA,    // UFLRA
@@ -613,6 +650,8 @@ static const uint8_t arith_frag[NUM_SMT_LOGICS] = {
   ARITH_NIRA,   // UFNIRA
   ARITH_RDL,    // UFRDL
   ARITH_NONE,   // AUFBV
+  ARITH_LIA,    // AUFBVLIA
+  ARITH_NIA,    // AUFBVNIA
   ARITH_LIA,    // AUFLIA
   ARITH_LRA,    // AUFLRA
   ARITH_LIRA,   // AUFLIRA
@@ -640,6 +679,7 @@ static const uint8_t arith_frag[NUM_SMT_LOGICS] = {
   ARITH_NIRA,   // QF_ANIRA
   ARITH_NONE,   // QF_AUF
   ARITH_NONE,   // QF_UFBV
+  ARITH_LIA,    // QF_UFBVLIA
   ARITH_IDL,    // QF_UFIDL
   ARITH_LIA,    // QF_UFLIA
   ARITH_LRA,    // QF_UFLRA
@@ -649,6 +689,8 @@ static const uint8_t arith_frag[NUM_SMT_LOGICS] = {
   ARITH_NIRA,   // QF_UFNIRA
   ARITH_RDL,    // QF_UFRDL
   ARITH_NONE,   // QF_AUFBV
+  ARITH_LIA,    // QF_AUFBVLIA
+  ARITH_NIA,    // QF_AUFBVNIA
   ARITH_LIA,    // QF_AUFLIA
   ARITH_LRA,    // QF_AUFLRA
   ARITH_LIRA,   // QF_AUFLIRA
@@ -723,6 +765,7 @@ static const smt_logic_t logic2qf[NUM_SMT_LOGICS] = {
   QF_ANIRA,
   QF_AUF,
   QF_UFBV,
+  QF_UFBVLIA,
   QF_UFIDL,
   QF_UFLIA,
   QF_UFLRA,
@@ -732,6 +775,8 @@ static const smt_logic_t logic2qf[NUM_SMT_LOGICS] = {
   QF_UFNIRA,
   QF_UFRDL,
   QF_AUFBV,
+  QF_AUFBVLIA,
+  QF_AUFBVNIA,
   QF_AUFLIA,
   QF_AUFLRA,
   QF_AUFLIRA,
@@ -762,6 +807,7 @@ static const smt_logic_t logic2qf[NUM_SMT_LOGICS] = {
   QF_ANIRA,
   QF_AUF,
   QF_UFBV,
+  QF_UFBVLIA,
   QF_UFIDL,
   QF_UFLIA,
   QF_UFLRA,
@@ -771,6 +817,8 @@ static const smt_logic_t logic2qf[NUM_SMT_LOGICS] = {
   QF_UFNIRA,
   QF_UFRDL,
   QF_AUFBV,
+  QF_AUFBVLIA,
+  QF_AUFBVNIA,
   QF_AUFLIA,
   QF_AUFLRA,
   QF_AUFLIRA,
@@ -791,6 +839,8 @@ smt_logic_t qf_fragment(smt_logic_t code) {
  * Which of these are officially recognized by our masters.
  *
  * - 2014/06/19: marked as 'official' everything in SMT-COMP 2014
+ *
+ * - 2023/05/18: updated according to SMT-COMP 2022
  */
 static const bool is_official[NUM_SMT_LOGICS] = {
   false,  // NONE
@@ -806,28 +856,31 @@ static const bool is_official[NUM_SMT_LOGICS] = {
   false,  // NIRA
   false,  // RDL
   true,   // UF
-  false,  // ABV
+  true,   // ABV
   true,   // ALIA
   false,  // ALRA
   false,  // ALIRA
-  false,  // ANIA
+  true,   // ANIA
   false,  // ANRA
   false,  // ANIRA
   false,  // AUF
   true,   // UFBV
+  true,   // UFBVLIA
   true,   // UFIDL
   true,   // UFLIA
   true,   // UFLRA
   false,  // UFLIRA
   true,   // UFNIA
-  false,  // UFNRA
+  true,   // UFNRA
   false,  // UFNIRA
   false,  // UFRDL
-  false,  // AUFBV
+  true,   // AUFBV
+  false,  // AUFBVLIA
+  false,  // AUFBVNIA
   true,   // AUFLIA
   false,  // AUFLRA
   true,   // AUFLIRA
-  false,  // AUFNIA
+  true,   // AUFNIA
   false,  // AUFNRA
   true,   // AUFNIRA
 
@@ -836,21 +889,22 @@ static const bool is_official[NUM_SMT_LOGICS] = {
   true,   // QF_IDL
   true,   // QF_LIA
   true,   // QF_LRA
-  false,  // QF_LIRA
+  true,   // QF_LIRA
   true,   // QF_NIA
   true,   // QF_NRA
-  false,  // QF_NIRA
+  true,   // QF_NIRA
   true,   // QF_RDL
   true,   // QF_UF
   true,   // QF_ABV
   true,   // QF_ALIA
   false,  // QF_ALRA
   false,  // QF_ALIRA
-  false,  // QF_ANIA
+  true,   // QF_ANIA
   false,  // QF_ANRA
   false,  // QF_ANIRA
   false,  // QF_AUF
   true,   // QF_UFBV
+  true,   // QF_UFBVLIA
   true,   // QF_UFIDL
   true,   // QF_UFLIA
   true,   // QF_UFLRA
@@ -860,6 +914,8 @@ static const bool is_official[NUM_SMT_LOGICS] = {
   false,  // QF_UFNIRA
   false,  // QF_UFRDL
   true,   // QF_AUFBV
+  true,   // QF_AUFBVLIA
+  true,   // QF_AUFBVNIA
   true,   // QF_AUFLIA
   false,  // QF_AUFLRA
   true,   // QF_AUFLIRA

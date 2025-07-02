@@ -64,6 +64,7 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "AUF",
 
   "UFBV",
+  "UFBVLIA",
   "UFIDL",
   "UFLIA",
   "UFLRA",
@@ -74,6 +75,8 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "UFRDL",
 
   "AUFBV",
+  "AUFBVLIA",
+  "AUFBVNIA",
   "AUFLIA",
   "AUFLRA",
   "AUFLIRA",
@@ -103,6 +106,7 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "QF_AUF",
 
   "QF_UFBV",
+  "QF_UFBVLIA",
   "QF_UFIDL",
   "QF_UFLIA",
   "QF_UFLRA",
@@ -113,6 +117,8 @@ static const char* const logic2string[NUM_SMT_LOGICS+1] = {
   "QF_UFRDL",
 
   "QF_AUFBV",
+  "QF_AUFBVLIA",
+  "QF_AUFBVNIA",
   "QF_AUFLIA",
   "QF_AUFLRA",
   "QF_AUFLIRA",
@@ -162,6 +168,7 @@ static const bool supported[NUM_SMT_LOGICS] = {
   false,   // ANIRA
   false,   // AUF
   false,   // UFBV
+  false,   // UFBVLIA
   false,   // UFIDL
   false,   // UFLIA
   false,   // UFLRA
@@ -171,6 +178,8 @@ static const bool supported[NUM_SMT_LOGICS] = {
   false,   // UFNIRA
   false,   // UFRDL
   false,   // AUFBV
+  false,   // AUFBVLIA
+  false,   // AUFBVNIA
   false,   // AUFLIA
   false,   // AUFLRA
   false,   // AUFLIRA
@@ -193,11 +202,12 @@ static const bool supported[NUM_SMT_LOGICS] = {
   true,    // QF_ALIA
   true,    // QF_ALRA
   true,    // QF_ALIRA
-  false,   // QF_ANIA
-  false,   // QF_ANRA
-  false,   // QF_ANIRA
+  true,    // QF_ANIA
+  true,    // QF_ANRA
+  true,    // QF_ANIRA
   true,    // QF_AUF
   true,    // QF_UFBV
+  true,    // QF_UFBVLIA
   true,    // QF_UFIDL
   true,    // QF_UFLIA
   true,    // QF_UFLRA
@@ -207,12 +217,14 @@ static const bool supported[NUM_SMT_LOGICS] = {
   true,    // QF_UFNIRA
   true,    // QF_UFRDL
   true,    // QF_AUFBV
+  true,    // QF_AUFBVLIA
+  true,    // QF_AUFBVNIA
   true,    // QF_AUFLIA
   true,    // QF_AUFLRA
   true,    // QF_AUFLIRA
-  false,   // QF_AUFNIA
-  false,   // QF_AUFNRA
-  false,   // QF_AUFNIRA
+  true,    // QF_AUFNIA
+  true,    // QF_AUFNRA
+  true,    // QF_AUFNIRA
 
   true,    // ALL ==> QF_AUFLIRA + QF+_BV
 };

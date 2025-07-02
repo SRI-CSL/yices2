@@ -1,4 +1,4 @@
-(set-logic QF_UFNRA)
+(set-logic QF_UF)
 
 (declare-sort s 0)
 

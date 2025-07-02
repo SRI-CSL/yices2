@@ -20,32 +20,44 @@
 #include <stdio.h>
 #include <assert.h>
 #include <errno.h>
+#include <string.h>
 
 #include "yices_locks.h"
+#include "threads.h"
 
-//I see NDEBUG and DEBUG in the code; which is it?
-#ifdef DEBUG
-static pthread_mutexattr_t mta;
-static pthread_mutexattr_t* mattr = &mta;
-#else
-static pthread_mutexattr_t* mattr = NULL;
-#endif
+static void print_error(const char *caller, const char *syscall, int errnum) {
+  char buffer[64];
 
+  strerror_r(errnum, buffer, sizeof(buffer));
+  fprintf(stderr, "%s failed: %s returned %d: %s\n", caller, syscall,
+	  errnum, buffer);
+}
 
 int32_t create_yices_lock(yices_lock_t* lock){
-  int32_t retcode;
-#ifdef DEBUG
-  retcode = pthread_mutexattr_settype(&mta, PTHREAD_MUTEX_ERRORCHECK);
-  if(retcode){
-    fprintf(stderr, "create_yices_lock failed: pthread_mutexattr_settype returned %d\n", retcode);
-  }
+  pthread_mutexattr_t *mattr = NULL;
+
+#ifndef NDEBUG
+  /* Make the mutex detect recursive locks. */
+  pthread_mutexattr_t mta;
+
+  mattr = &mta;
+
+  check_thread_api(pthread_mutexattr_init(mattr),
+		   "create_yices_lock: pthread_mutexattr_init");
+  check_thread_api(pthread_mutexattr_settype(mattr,
+					     PTHREAD_MUTEX_ERRORCHECK),
+		   "create_yices_lock: pthread_mutextattr_settype");
 #endif
-  retcode = pthread_mutex_init(lock, mattr);
-  if(retcode){
-    fprintf(stderr, "create_yices_lock failed: pthread_mutex_init returned %d\n", retcode);
-  }
-  assert(retcode == 0);
-  return retcode;
+
+  check_thread_api(pthread_mutex_init(lock, mattr),
+		   "create_yices_lock: pthread_mutex_init");
+
+#ifndef NDEBUG
+  check_thread_api(pthread_mutexattr_destroy(mattr),
+		   "create_yices_lock: pthread_mutexattr_destroy");
+#endif
+
+  return 0;
 }
 
 int32_t try_yices_lock(yices_lock_t* lock){
@@ -54,7 +66,7 @@ int32_t try_yices_lock(yices_lock_t* lock){
     if(retcode == EBUSY){
       return 1;
     } else {
-      fprintf(stderr, "try_yices_lock failed: pthread_mutex_trylock returned %d\n", retcode);
+      print_error("try_yices_lock", "pthread_mutex_trylock", retcode);
     }
     return -1;
   }
@@ -63,27 +75,20 @@ int32_t try_yices_lock(yices_lock_t* lock){
 
 
 int32_t get_yices_lock(yices_lock_t* lock){
-  int32_t retcode = pthread_mutex_lock(lock);
-  if(retcode){
-    fprintf(stderr, "get_yices_lock failed: pthread_mutex_lock returned %d\n", retcode);
-  }
-  assert(retcode == 0);
-  return retcode;
+  check_thread_api(pthread_mutex_lock(lock),
+		   "get_yices_lock: pthread_mutex_lock");
+
+  return 0;
 }
 
 int32_t release_yices_lock(yices_lock_t* lock){
-  int32_t retcode = pthread_mutex_unlock(lock);
-  if(retcode){
-    fprintf(stderr, "release_yices_lock failed: pthread_mutex_unlock returned %d\n", retcode);
-  }
-  assert(retcode == 0);
-  return retcode;
+  check_thread_api(pthread_mutex_unlock(lock),
+		   "release_yices_lock: pthread_mutex_unlock");
+
+  return 0;
 }
 
 void destroy_yices_lock(yices_lock_t* lock){
-  int32_t retcode = pthread_mutex_destroy(lock);
-  if(retcode){
-    fprintf(stderr, "destroy_yices_lock failed: pthread_mutex_destroy returned %d\n", retcode);
-  }
-  assert(retcode == 0);
+  check_thread_api(pthread_mutex_destroy(lock),
+		   "destroy_yices_lock: pthread_mutex_destroy");
 }

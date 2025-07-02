@@ -138,7 +138,7 @@
  * OTHER
  * - timeout: timeout value in second (applies to check)
  *   timeout value = 0 means no timeout
- * - timeout_initialized: true once init_timeout is called
+ * - to: the timeout structure
  *
  * COMMAND-LINE OPTIONS:
  * - logic_name: logic to use (option --logic=xxx)
@@ -175,7 +175,7 @@ static int32_t verbosity;
 static tracer_t *tracer;
 
 static uint32_t timeout;
-static bool timeout_initialized;
+static timeout_t *to;
 
 static char *logic_name;
 static char *arith_name;
@@ -261,8 +261,6 @@ static assumptions_and_core_t *unsat_assumptions;
 static pp_area_t pp_area = {
   140, UINT32_MAX, 0, false, false
 };
-
-
 
 /**************************
  *  COMMAND-LINE OPTIONS  *
@@ -1170,7 +1168,7 @@ static void cleanup_context(void) {
     break;
 
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
   default:
     // should not happen
     freport_bug(stderr, "unexpected context status");
@@ -2542,11 +2540,10 @@ static void timeout_handler(void *data) {
  */
 static void set_timeout(void) {
   if (timeout > 0) {
-    if (!timeout_initialized) {
-      init_timeout();
-      timeout_initialized = true;
+    if (!to) {
+      to = init_timeout();
     }
-    start_timeout(timeout, timeout_handler, context);
+    start_timeout(to, timeout, timeout_handler, context);
   }
 }
 
@@ -2555,8 +2552,8 @@ static void set_timeout(void) {
  */
 static void reset_timeout(void) {
   if (timeout > 0) {
-    assert(timeout_initialized);
-    clear_timeout();
+    assert(to);
+    clear_timeout(to);
     timeout = 0;
   }
 }
@@ -2738,7 +2735,7 @@ static void yices_check_cmd(void) {
       stat = do_check();
       print_status(stat);
       // force exit if the check was interrupted
-      done = (stat == STATUS_INTERRUPTED);
+      done = (stat == YICES_STATUS_INTERRUPTED);
 
     } else {
       if (code == TRIVIALLY_UNSAT) {
@@ -2780,7 +2777,7 @@ static void yices_check_cmd(void) {
 	// if the search was interrupted, cleanup
 	stat = do_check();
 	print_status(stat);
-	if (stat == STATUS_INTERRUPTED) {
+	if (stat == YICES_STATUS_INTERRUPTED) {
 	  if (mode == CTX_MODE_INTERACTIVE) {
 	    context_cleanup(context);
 	    assert(context_status(context) == STATUS_IDLE);
@@ -2798,7 +2795,7 @@ static void yices_check_cmd(void) {
 	if (stat != STATUS_ERROR) {
 	  print_status(stat);
 	}
-	if (stat == STATUS_INTERRUPTED) {
+	if (stat == YICES_STATUS_INTERRUPTED) {
 	  // try to cleanup if we're in interactive mode
 	  if (mode == CTX_MODE_INTERACTIVE) {
 	    context_cleanup(context);
@@ -2816,7 +2813,7 @@ static void yices_check_cmd(void) {
       break;
 
     case STATUS_SEARCHING:
-    case STATUS_INTERRUPTED:
+    case YICES_STATUS_INTERRUPTED:
     default:
       // this should not happen
       freport_bug(stderr,"unexpected context status in 'check'");
@@ -2850,7 +2847,7 @@ static void yices_check_assuming_cmd(uint32_t n, const signed_symbol_t *a) {
     if (status != STATUS_ERROR) {
       print_status(status);
     }
-    if (status == STATUS_INTERRUPTED) {
+    if (status == YICES_STATUS_INTERRUPTED) {
       if (mode == CTX_MODE_INTERACTIVE) {
 	// recover
 	context_cleanup(context);
@@ -2923,7 +2920,7 @@ static void yices_show_unsat_core_cmd(void) {
 
       case STATUS_IDLE:
       case STATUS_SEARCHING:
-      case STATUS_INTERRUPTED:
+      case YICES_STATUS_INTERRUPTED:
       default:
 	freport_bug(stderr, "unexpected context status in 'show-unsat-core'");
 	break;
@@ -2959,7 +2956,7 @@ static void yices_show_unsat_assumptions_cmd(void) {
 
       case STATUS_IDLE:
       case STATUS_SEARCHING:
-      case STATUS_INTERRUPTED:
+      case YICES_STATUS_INTERRUPTED:
       default:
 	freport_bug(stderr, "unexpected context status in 'show-unsat-assumptions'");
 	break;
@@ -3004,7 +3001,7 @@ static bool context_has_model(const char *cmd_name) {
     break;
 
   case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
   default:
     // this should not happen
     freport_bug(stderr,"unexpected context status in '%s'", cmd_name);
@@ -3303,7 +3300,7 @@ static void bitblast_then_export(context_t *ctx, const char *s) {
     do_export(ctx, s);
     break;
 
-  case STATUS_INTERRUPTED:
+  case YICES_STATUS_INTERRUPTED:
     if (context_supports_cleaninterrupt(ctx)) {
       context_cleanup(ctx);
       assert(context_status(ctx) == STATUS_IDLE);
@@ -3999,7 +3996,7 @@ int yices_main(int argc, char *argv[]) {
    */
   interactive = false;
   timeout = 0;
-  timeout_initialized = false;
+  to = NULL;
   include_depth = 0;
   ready_time = 0.0;
   check_process_time = 0.0;
@@ -4111,8 +4108,8 @@ int yices_main(int argc, char *argv[]) {
 
   yices_exit();
 
-  if (timeout_initialized) {
-    delete_timeout();
+  if (to) {
+    delete_timeout(to);
   }
 
   return exit_code;

@@ -149,7 +149,7 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
   uint32_t r_threshold;
   literal_t l;
 
-  assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == STATUS_INTERRUPTED);
+  assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
   r_threshold = *reduce_threshold;
@@ -203,7 +203,7 @@ static void luby_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *red
   uint32_t r_threshold;
   literal_t l;
 
-  assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == STATUS_INTERRUPTED);
+  assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
   r_threshold = *reduce_threshold;
@@ -262,7 +262,7 @@ static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *
   uint32_t r_threshold;
   literal_t l;
 
-  assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == STATUS_INTERRUPTED);
+  assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
   r_threshold = *reduce_threshold;
@@ -666,7 +666,7 @@ smt_status_t precheck_context(context_t *ctx) {
     stat = smt_status(core);
 
     assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
-	   stat == STATUS_INTERRUPTED);
+	   stat == YICES_STATUS_INTERRUPTED);
 
     if (stat == STATUS_SEARCHING) {
       end_search_unknown(core);
@@ -703,7 +703,7 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
     stat = smt_status(core);
 
     assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
-	   stat == STATUS_INTERRUPTED);
+	   stat == YICES_STATUS_INTERRUPTED);
 
     if (stat == STATUS_SEARCHING) {
       if (smt_easy_sat(core)) {
@@ -763,7 +763,7 @@ int32_t bitblast_then_export_to_dimacs(context_t *ctx, const char *filename, smt
     stat = smt_status(core);
 
     assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
-	   stat == STATUS_INTERRUPTED);
+	   stat == YICES_STATUS_INTERRUPTED);
 
     if (stat == STATUS_SEARCHING) {
       code = 1;
@@ -820,7 +820,7 @@ int32_t process_then_export_to_dimacs(context_t *ctx, const char *filename, smt_
     stat = smt_status(core);
 
     assert(stat == STATUS_UNSAT || stat == STATUS_SEARCHING ||
-	   stat == STATUS_INTERRUPTED);
+	   stat == YICES_STATUS_INTERRUPTED);
 
     if (stat == STATUS_SEARCHING) {
       if (smt_easy_sat(core)) {

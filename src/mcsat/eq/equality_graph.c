@@ -763,7 +763,6 @@ bool eq_graph_term_is_rep(const eq_graph_t* eq, term_t t) {
   return n->find == id;
 }
 
-
 eq_node_id_t eq_graph_value_id(const eq_graph_t* eq, const mcsat_value_t* v) {
   value_hmap_pair_t* find = value_hmap_find(&eq->value_to_id, v);
   assert(find != NULL);
@@ -1339,6 +1338,11 @@ const mcsat_value_t* eq_graph_get_propagated_term_value(const eq_graph_t* eq, te
   const eq_node_t* n_find = eq_graph_get_node_const(eq, n_find_id);
   assert(n_find->type == EQ_NODE_VALUE);
   return eq->values_list.data + n_find->index;
+}
+
+eq_node_id_t eq_graph_get_propagated_term_value_id(const eq_graph_t* eq, term_t t) {
+  const mcsat_value_t* val = eq_graph_get_propagated_term_value(eq, t);
+  return eq_graph_value_id(eq, val);
 }
 
 void eq_graph_propagate_trail(eq_graph_t* eq) {

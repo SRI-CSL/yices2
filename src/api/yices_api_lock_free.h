@@ -575,8 +575,15 @@ extern context_t *_o_yices_new_context(const ctx_config_t *config);
 
 extern void _o_yices_free_context(context_t *ctx);
 
-//iam: this one is defined in context.c
+extern int32_t _o_yices_assert_formula(context_t *ctx, term_t t);
+
+//Defined in context.c.
 extern int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f);
+
+extern int32_t _o_assert_formula(context_t *ctx, term_t);
+
+extern smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param_t *params,
+									   uint32_t n, const term_t t[]);
 
 /****************
  *  UNSAT CORE  *

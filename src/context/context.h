@@ -206,7 +206,7 @@ extern int32_t assert_blocking_clause(context_t *ctx);
  * - if parameters is NULL, the default values are used
  *
  * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
- * STATUS_INTERRUPTED (these codes are defined in smt_core.h)
+ * YICES_STATUS_INTERRUPTED (these codes are defined in smt_core.h)
  */
 extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
 
@@ -219,7 +219,7 @@ extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
  * - each a[i] must be defined in ctx->core
  *
  * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
- * STATUS_INTERRUPTED
+ * YICES_STATUS_INTERRUPTED
  *
  * If status is STATUS_UNSAT then the assumptions are inconsistent
  */
@@ -235,7 +235,7 @@ extern smt_status_t check_context_with_assumptions(context_t *ctx, const param_t
  * - t = variables to use from the model (size = n)
  *
  * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
- * STATUS_INTERRUPTED
+ * YICES_STATUS_INTERRUPTED
  *
  * If status is STATUS_UNSAT then the context and model are inconsistent
  */
@@ -434,7 +434,7 @@ extern int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f);
  *  STATUS_UNKNOWN
  *  STATUS_SAT
  *  STATUS_UNSAT
- *  STATUS_INTERRUPTED
+ *  YICES_STATUS_INTERRUPTED
  */
 static inline smt_status_t context_status(context_t *ctx) {
   if (ctx->arch == CTX_ARCH_MCSAT) {

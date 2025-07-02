@@ -94,6 +94,9 @@ typedef struct {
     /** Increase of the lemma limit after gc */
     float lemma_limit_factor;
 
+    /** bump factor for bool vars -- geq 1. Higher number means more weightage **/
+    uint32_t bool_var_bump_factor;
+
   } heuristic_params;
 
   struct {
@@ -120,12 +123,15 @@ static
 void bool_plugin_heuristics_init(bool_plugin_t* bp) {
   // Clause scoring
   bp->heuristic_params.clause_score_bump_factor = 1;
-  bp->heuristic_params.clause_score_decay_factor = 0.95;
+  bp->heuristic_params.clause_score_decay_factor = 0.999;
   bp->heuristic_params.clause_score_limit = 1e20;
 
   // Clause database compact
   bp->heuristic_params.lemma_limit_init = 1000;
-  bp->heuristic_params.lemma_limit_factor = 1.02;
+  bp->heuristic_params.lemma_limit_factor = 1.1;
+
+  // Bool var scoring
+  bp->heuristic_params.bool_var_bump_factor = 5;
 }
 
 static
@@ -749,8 +755,9 @@ term_t bool_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector
     }
     ivector_push(reasons, opposite_term(t_i));
 
-    // Bump the reason variable
-    bp->ctx->bump_variable(bp->ctx, x_i);
+    // Bump the reason variable -- give more weightage to boolean reasons
+    bp->ctx->bump_variable_n(bp->ctx, x_i,
+			     bp->heuristic_params.bool_var_bump_factor);
   }
 
   // Bump the clause as useful
@@ -769,8 +776,32 @@ bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars
   term_t t_unsigned = unsigned_term(t);
   variable_t t_var = variable_db_get_variable_if_exists(var_db, t_unsigned);
   if (t_var == variable_null) {
+    // trying one step further to evaluate equality terms
+    if (term_kind(bp->ctx->terms, t_unsigned) == EQ_TERM) {
+      composite_term_t* t_desc = eq_term_desc(bp->ctx->terms, t);
+      term_t t1 = t_desc->arg[0];
+      term_t t2 = t_desc->arg[1];
+      assert(t1 != NULL_TERM);
+      assert(t2 != NULL_TERM);
+      variable_t t1_var = variable_db_get_variable_if_exists(var_db, t1);
+      variable_t t2_var = variable_db_get_variable_if_exists(var_db, t2);
+      if (t1_var != variable_null && t2_var != variable_null) {
+	if (trail_has_value(trail, t1_var) && trail_has_value(trail, t2_var)) {
+	  bool negated = is_neg_term(t);
+	  const mcsat_value_t* t1_var_value = trail_get_value(trail, t1_var);
+	  const mcsat_value_t* t2_var_value = trail_get_value(trail, t2_var);
+	  if (negated) {
+	    return (t1_var_value->b == t2_var_value->b) != value->b;
+	  } else {
+	    return (t1_var_value->b == t2_var_value->b) == value->b;
+	  }
+	}
+      }
+    }
+    // couldn't evaluate
     return false;
   }
+
   int_mset_add(vars, t_var);
   if (trail_has_value(trail, t_var)) {
     bool negated = is_neg_term(t);
@@ -837,8 +868,11 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   clause_db_t* db = &bp->clause_db;
 
   uint32_t i;
+  float act_threshold;
   variable_t var;
   clause_ref_t clause_ref;
+  mcsat_clause_t* c;
+  mcsat_clause_tag_t *c_tag;
 
   if (gc_vars->level == 0) {
 
@@ -848,10 +882,19 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
     // Sort the lemmas based on scores
     int_array_sort2(bp->lemmas.data, bp->lemmas.size, (void*) db, bool_plugin_clause_compare_for_removal);
 
+    // avg activity score
+    act_threshold = bp->heuristic_params.clause_score_bump_factor / bp->lemmas.size;
+
     // Mark all the variables in half of lemmas as used
     for (i = 0; i < bp->lemmas.size / 2; ++ i) {
       clause_ref = bp->lemmas.data[i];
       assert(clause_db_is_clause(db, clause_ref, true));
+      c_tag = clause_db_get_tag(db, clause_ref);
+      if (c_tag->score <= act_threshold) {
+        // consider clauses with score higher than the avg activity score
+        // since the clauses are sorted according to their scores, we break here
+        break;
+      }
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
@@ -860,6 +903,16 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
       var = bp->propagated.data[i];
       clause_ref = bool_plugin_get_reason_ref(bp, var);
       gc_info_mark(&bp->gc_clauses, clause_ref);
+    }
+
+    // keep binary clauses
+    for (i = 0; i < bp->lemmas.size; ++ i) {
+      clause_ref = bp->lemmas.data[i];
+      assert(clause_db_is_clause(db, clause_ref, true));
+      c = clause_db_get_clause(&bp->clause_db, clause_ref);
+      if (c->size <= 2) {
+	gc_info_mark(&bp->gc_clauses, clause_ref);
+      }
     }
   }
 
