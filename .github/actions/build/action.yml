@@ -17,6 +17,20 @@ runs:
       if: contains(inputs.config-opt, '--enable-mcsat')
       shell: bash
       run: |
+        # Set Homebrew environment variables for macOS
+        if [[ "$(uname)" == "Darwin" ]]; then
+          if [ -d /opt/homebrew ]; then
+            BREW_PREFIX=/opt/homebrew
+          else
+            BREW_PREFIX=/usr/local
+          fi
+          export CPPFLAGS="-I$BREW_PREFIX/include"
+          export LDFLAGS="-L$BREW_PREFIX/lib"
+          export PKG_CONFIG_PATH="$BREW_PREFIX/lib/pkgconfig"
+          export DYLD_LIBRARY_PATH="$BREW_PREFIX/lib:$DYLD_LIBRARY_PATH"
+        else
+          export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
+        fi
         pushd .
         git clone https://github.com/SRI-CSL/libpoly.git
         mkdir -p libpoly/build
@@ -29,6 +43,20 @@ runs:
       if: contains(inputs.config-opt, '--enable-mcsat')
       shell: bash
       run: |
+        # Set Homebrew environment variables for macOS
+        if [[ "$(uname)" == "Darwin" ]]; then
+          if [ -d /opt/homebrew ]; then
+            BREW_PREFIX=/opt/homebrew
+          else
+            BREW_PREFIX=/usr/local
+          fi
+          export CPPFLAGS="-I$BREW_PREFIX/include"
+          export LDFLAGS="-L$BREW_PREFIX/lib"
+          export PKG_CONFIG_PATH="$BREW_PREFIX/lib/pkgconfig"
+          export DYLD_LIBRARY_PATH="$BREW_PREFIX/lib:$DYLD_LIBRARY_PATH"
+        else
+          export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
+        fi
         pushd .
         git clone https://github.com/ivmai/cudd.git
         cd cudd
@@ -41,12 +69,20 @@ runs:
     - name: Build and test Yices
       shell: bash
       run: |
-        autoconf
-        CFLAGS='-Werror' ${{ inputs.env }} ./configure ${{ inputs.config-opt }}
-        # Set library path for both Linux and macOS
+        # Set Homebrew environment variables for macOS
         if [[ "$(uname)" == "Darwin" ]]; then
-          export DYLD_LIBRARY_PATH=/usr/local/lib/:${DYLD_LIBRARY_PATH}
+          if [ -d /opt/homebrew ]; then
+            BREW_PREFIX=/opt/homebrew
+          else
+            BREW_PREFIX=/usr/local
+          fi
+          export CPPFLAGS="-I$BREW_PREFIX/include"
+          export LDFLAGS="-L$BREW_PREFIX/lib"
+          export PKG_CONFIG_PATH="$BREW_PREFIX/lib/pkgconfig"
+          export DYLD_LIBRARY_PATH="$BREW_PREFIX/lib:$DYLD_LIBRARY_PATH"
         else
           export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
         fi
+        autoconf
+        CFLAGS='-Werror' ${{ inputs.env }} ./configure ${{ inputs.config-opt }}
         make MODE=${{ inputs.mode }}
