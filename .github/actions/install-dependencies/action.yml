@@ -20,6 +20,6 @@ runs:
       run: |
         echo "Install macOS dependencies"
         brew update
-        brew install gmp gperf python3 lcov
+        brew install gmp gperf python3 lcov autoconf
         sudo gem install coveralls-lcov
         echo "Install macOS dependencies [DONE]"
