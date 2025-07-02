@@ -38,7 +38,7 @@ jobs:
     if: github.event_name == 'pull_request'
     strategy:
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, macos-latest]
         mode: [debug, release, gcov]
         config-opt: [--enable-mcsat, --enable-thread-safety]
         env: [CC=gcc CXX=g++, CC=clang CXX=clang++]
