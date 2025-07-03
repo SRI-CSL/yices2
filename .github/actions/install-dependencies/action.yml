@@ -12,5 +12,15 @@ runs:
         sudo apt-get install -y libgmp-dev gperf
         sudo apt-get install -y python3-pip
         sudo apt-get install -y lcov
+        sudo apt-get install -y gcc-13 g++-13
         sudo gem install coveralls-lcov
         echo "Install Linux dependencies [DONE]"
+    - name: Install macOS Dependencies
+      if: runner.os == 'macOS'
+      shell: bash
+      run: |
+        echo "Install macOS dependencies"
+        brew update
+        brew install gperf lcov autoconf automake libtool
+        sudo gem install coveralls-lcov
+        echo "Install macOS dependencies [DONE]"
