@@ -30,6 +30,7 @@ bool evaluator_has_cache(const l2o_evaluator_t *evaluator) {
 
 static inline
 bool evaluator_is_cached(const l2o_evaluator_t *evaluator, term_t t) {
+  assert(is_pos_term(t));
   if (!evaluator_has_cache(evaluator)) {
     return false;
   }
@@ -41,6 +42,7 @@ bool evaluator_is_cached(const l2o_evaluator_t *evaluator, term_t t) {
 
 static inline
 double evaluator_get_cache(const l2o_evaluator_t *evaluator, term_t t) {
+  assert(is_pos_term(t));
   assert(evaluator_is_cached(evaluator, t));
   double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_cache, t);
   assert(find != NULL);
@@ -49,6 +51,7 @@ double evaluator_get_cache(const l2o_evaluator_t *evaluator, term_t t) {
 
 static inline
 double evaluator_get_if_cached(const l2o_evaluator_t *evaluator, term_t t) {
+  assert(is_pos_term(t));
   double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_cache, t);
   return find ? find->val : INFINITY;
 
@@ -57,6 +60,7 @@ double evaluator_get_if_cached(const l2o_evaluator_t *evaluator, term_t t) {
 /** Check whether t has been already evaluated */
 static inline
 bool already_evaluated(const l2o_evaluator_t *evaluator, term_t t) {
+  t = unsigned_term(t);
   double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_map, t);
   return find != NULL;
 }
@@ -64,6 +68,7 @@ bool already_evaluated(const l2o_evaluator_t *evaluator, term_t t) {
 /** Get evaluated value of t IF already evaluated. Always to use in combination with already_evaluated */
 static inline
 double evaluator_get(const l2o_evaluator_t *evaluator, term_t t) {
+  assert(is_pos_term(t));
   double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_map, t);
   assert(find != NULL);
   return find->val;
@@ -71,6 +76,7 @@ double evaluator_get(const l2o_evaluator_t *evaluator, term_t t) {
 
 static inline
 double evaluator_get_if_eval(const l2o_evaluator_t *evaluator, term_t t) {
+  assert(is_pos_term(t));
   double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_map, t);
   return find ? find->val : INFINITY;
 }
@@ -78,6 +84,7 @@ double evaluator_get_if_eval(const l2o_evaluator_t *evaluator, term_t t) {
 /** Set t_eval as the evaluated value of t */
 static inline
 void evaluator_set(l2o_evaluator_t *evaluator, term_t t, double t_eval) {
+  assert(is_pos_term(t));
   assert(!already_evaluated(evaluator, t) || evaluator_get(evaluator, t) == t_eval);
   double_hmap_pair_t *p = double_hmap_get(&evaluator->eval_map, t);
   p->val = t_eval;
@@ -153,8 +160,39 @@ void l2o_evaluator_set_state(l2o_evaluator_t *evaluator, const l2o_search_state_
   assert(ensure_cache_values(state, evaluator));
 }
 
-double l2o_evaluator_get_value_if_exists(l2o_evaluator_t *evaluator, term_t term) {
+double l2o_evaluator_get_value(const l2o_evaluator_t *evaluator, term_t term) {
+  assert(already_evaluated(evaluator, term));
+  return evaluator_get(evaluator, term);
+}
+
+double l2o_evaluator_get_value_if_exists(const l2o_evaluator_t *evaluator, term_t term) {
   return evaluator_get_if_eval(evaluator, term);
+}
+
+static
+double evaluator_get_fix_pol(const l2o_evaluator_t *evaluator, term_t term) {
+  assert(is_pos_term(term) || term_type_kind(evaluator->l2o->terms, term) == BOOL_TYPE);
+  double result = evaluator_get(evaluator, unsigned_term(term));
+  if (is_neg_term(term)) {
+    // it's boolean
+    assert(result == 1.0 || result == 0.0);
+    return !result;
+  } else {
+    return result;
+  }
+}
+
+static
+void evaluator_set_fix_pol(l2o_evaluator_t *evaluator, term_t term, double t_eval) {
+  bool is_bool = term_type_kind(evaluator->l2o->terms, term) == BOOL_TYPE;
+  (void) is_bool;
+  assert(!is_bool || t_eval == 1.0 || t_eval == 0.0);
+  if (is_neg_term(term)) {
+    assert(is_bool);
+    evaluator_set(evaluator, unsigned_term(term), !t_eval);
+  } else {
+    evaluator_set(evaluator, term, t_eval);
+  }
 }
 
 double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
@@ -195,9 +233,9 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
       continue;
     }
 
-    if (evaluator_is_cached(evaluator, current)) {
+    if (evaluator_is_cached(evaluator, unsigned_term(current))) {
       ivector_pop(&eval_stack);
-      evaluator_set(evaluator, current, evaluator_get_cache(evaluator, current));
+      evaluator_set(evaluator, unsigned_term(current), evaluator_get_cache(evaluator, unsigned_term(current)));
       continue;
     }
 
@@ -278,9 +316,9 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
             if (!arg_i_already_evaluated) {
               args_already_evaluated = false;
             } else {
-              double arg_i_eval = evaluator_get(evaluator, arg_i);
-              assert(arg_i_eval == 0 || arg_i_eval == 1); // arg_i_eval is either FALSE or TRUE
-              if (arg_i_eval == 1) {   // arg_i is TRUE
+              double arg_i_eval = evaluator_get_fix_pol(evaluator, arg_i);
+              assert(arg_i_eval == 0.0 || arg_i_eval == 1.0); // arg_i_eval is either FALSE or TRUE
+              if (arg_i_eval == 1.0) {   // arg_i is TRUE
                 one_arg_is_true = true;
                 break;
               }
@@ -329,9 +367,9 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
               //ivector_push(eval_stack, arg_i);    // We don't add yet the unevaluated args to the stack: maybe some other arg is false, so there would be no need to evaluate the other args.
               args_already_evaluated = false;
             } else {
-              double arg_i_neg_eval = evaluator_get(evaluator, arg_i_neg);
-              assert(arg_i_neg_eval == 0 || arg_i_neg_eval == 1); // arg_i_neg_eval is either FALSE or TRUE
-              if (arg_i_neg_eval == 0) {   // arg_i is FALSE
+              double arg_i_neg_eval = evaluator_get_fix_pol(evaluator, arg_i_neg);
+              assert(arg_i_neg_eval == 0.0 || arg_i_neg_eval == 1.0); // arg_i_neg_eval is either FALSE or TRUE
+              if (arg_i_neg_eval == 0.0) {   // arg_i is FALSE
                 one_arg_is_false = true;
                 break;
               }
@@ -385,12 +423,12 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
           bool cond_already_evaluated = already_evaluated(evaluator, cond);
 
           if (cond_already_evaluated) {
-            double cond_eval = evaluator_get(evaluator, cond);
+            double cond_eval = evaluator_get_fix_pol(evaluator, cond);
             assert(cond_eval == 0.0 || cond_eval == 1.0); // cond_eval is either FALSE or TRUE
             if (cond_eval == 1.0) {  // cond is TRUE
               bool t1_already_evaluated = already_evaluated(evaluator, t1);
               if (t1_already_evaluated) {
-                current_eval = evaluator_get(evaluator, t1);
+                current_eval = evaluator_get_fix_pol(evaluator, t1);
               } else {
                 ivector_push(&eval_stack, t1);
                 continue;
@@ -398,7 +436,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
             } else {   // cond is FALSE
               bool t2_already_evaluated = already_evaluated(evaluator, t2);
               if (t2_already_evaluated) {
-                current_eval = evaluator_get(evaluator, t2);
+                current_eval = evaluator_get_fix_pol(evaluator, t2);
               } else {
                 ivector_push(&eval_stack, t2);
                 continue;
@@ -423,12 +461,12 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
           bool cond_already_evaluated = already_evaluated(evaluator, cond);
 
           if (cond_already_evaluated) {
-            double cond_eval = evaluator_get(evaluator, cond);
+            double cond_eval = evaluator_get_fix_pol(evaluator, cond);
             assert(cond_eval == 0 || cond_eval == 1); // cond_eval is either FALSE or TRUE
             if (cond_eval == 1) {  // cond is TRUE
               bool t1neg_already_evaluated = already_evaluated(evaluator, t1neg);
               if (t1neg_already_evaluated) {
-                current_eval = evaluator_get(evaluator, t1neg);
+                current_eval = evaluator_get_fix_pol(evaluator, t1neg);
               } else {
                 ivector_push(&eval_stack, t1neg);
                 continue;
@@ -436,7 +474,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
             } else {   // cond is FALSE
               bool t2neg_already_evaluated = already_evaluated(evaluator, t2neg);
               if (t2neg_already_evaluated) {
-                current_eval = evaluator_get(evaluator, t2neg);
+                current_eval = evaluator_get_fix_pol(evaluator, t2neg);
               } else {
                 ivector_push(&eval_stack, t2neg);
                 continue;
@@ -457,21 +495,21 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
         }
         term_t current_unsigned = unsigned_term(current);
         composite_term_t *desc = get_composite(terms, current_kind, current_unsigned);
-        n = desc->arity;
+        assert(desc->arity == 1);
         args = desc->arg;
         term_t t = args[0];
 
         bool t_already_evaluated = already_evaluated(evaluator, t);
 
         if (t_already_evaluated) {
-          double t_eval = evaluator_get(evaluator, t);
+          double t_eval = evaluator_get_fix_pol(evaluator, t);
           if (is_pos_term(current)) {   // t == 0
             if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
               printf("\n is positive (t == 0)\n");
             }
-            current_eval = t_eval == 0;
+            current_eval = t_eval == 0.0;
           } else {                        // t != 0
-            current_eval = t_eval != 0;
+            current_eval = t_eval != 0.0;
           }
           break;
         } else {
@@ -500,7 +538,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
             ivector_push(&eval_stack, arg_i);
             args_already_evaluated = false;
           } else {
-            args_eval[i] = evaluator_get(evaluator, arg_i);
+            args_eval[i] = evaluator_get_fix_pol(evaluator, arg_i);
           }
         }
 
@@ -542,7 +580,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
             ivector_push(&eval_stack, arg_i);
             args_already_evaluated = false;
           } else {
-            args_eval[i] = evaluator_get(evaluator, arg_i);
+            args_eval[i] = evaluator_get_fix_pol(evaluator, arg_i);
           }
         }
 
@@ -578,7 +616,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
         bool t_already_evaluated = already_evaluated(evaluator, t);
 
         if (t_already_evaluated) {
-          double t_eval = evaluator_get(evaluator, t);
+          double t_eval = evaluator_get_fix_pol(evaluator, t);
           if (is_pos_term(current)) {   // t == 0
             if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
               printf("\n is positive (t >= 0)\n");
@@ -674,8 +712,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
             ivector_push(&eval_stack, var);
             vars_already_evaluated = false;
           } else {
-            double var_eval = evaluator_get(evaluator, var);
-            vars_eval[i] = var_eval;
+            vars_eval[i] = evaluator_get(evaluator, var);;
           }
         }
         if (!vars_already_evaluated) {
@@ -713,8 +750,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
             ivector_push(&eval_stack, var);
             vars_already_evaluated = false;
           } else {
-            double var_eval = evaluator_get(evaluator, var);
-            vars_eval[i] = var_eval;
+            vars_eval[i] = evaluator_get(evaluator, var);
           }
         }
         if (!vars_already_evaluated) {
@@ -872,7 +908,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
       mcsat_trace_printf(l2o->tracer, "\n  current_id = %d ", current);
     }
     ivector_pop(&eval_stack);
-    evaluator_set(evaluator, current, current_eval);
+    evaluator_set_fix_pol(evaluator, current, current_eval);
   }
 
   // Get cost of t

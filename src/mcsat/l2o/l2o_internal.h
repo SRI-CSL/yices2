@@ -81,8 +81,11 @@ bool l2o_term_has_variables(l2o_t *l2o, term_t t, const ivector_t *set_of_vars);
  */
 double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term);
 
+/** Returns a value that exists. */
+double l2o_evaluator_get_value(const l2o_evaluator_t *evaluator, term_t term);
+
 /** Returns a value if it is evaluated. Does not run the evaluator. */
-double l2o_evaluator_get_value_if_exists(l2o_evaluator_t *evaluator, term_t term);
+double l2o_evaluator_get_value_if_exists(const l2o_evaluator_t *evaluator, term_t term);
 
 void l2o_evaluator_construct(l2o_t *l2o, l2o_evaluator_t *evaluator);
 
