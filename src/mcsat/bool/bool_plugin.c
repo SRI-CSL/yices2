@@ -27,6 +27,8 @@
 #include "utils/int_array_sort2.h"
 #include "mcsat/utils/scope_holder.h"
 
+#include <math.h>
+
 typedef struct {
 
   /** The plugin interface */
@@ -80,6 +82,9 @@ typedef struct {
   /** GC info for clause removal */
   gc_info_t gc_clauses;
 
+  /** GC round */
+  uint32_t gc_round;
+
   struct {
 
     /** Score increase per bump (multiplicative) */
@@ -92,7 +97,7 @@ typedef struct {
     /** Limit on lemma clauses before we ask for gc */
     uint32_t lemma_limit_init;
     /** Increase of the lemma limit after gc */
-    float lemma_limit_factor;
+    float lemma_limit_interval;
 
     /** bump factor for bool vars -- geq 1. Higher number means more weightage **/
     uint32_t bool_var_bump_factor;
@@ -128,7 +133,7 @@ void bool_plugin_heuristics_init(bool_plugin_t* bp) {
 
   // Clause database compact
   bp->heuristic_params.lemma_limit_init = 1000;
-  bp->heuristic_params.lemma_limit_factor = 1.05;
+  bp->heuristic_params.lemma_limit_interval = 100;
 
   // Bool var scoring
   bp->heuristic_params.bool_var_bump_factor = 20;
@@ -1007,13 +1012,15 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   switch (kind) {
   case MCSAT_SOLVER_START:
     // Re-initialize the heuristics
-    bp->lemmas_limit = bp->lemmas.size + bp->heuristic_params.lemma_limit_init;
+    bp->lemmas_limit = bp->heuristic_params.lemma_limit_init;
+    bp->gc_round = 0;
     break;
   case MCSAT_SOLVER_RESTART:
     // Check if clause compaction needed
     if (bp->lemmas.size > bp->lemmas_limit) {
       bp->ctx->request_gc(bp->ctx);
-      bp->lemmas_limit *= bp->heuristic_params.lemma_limit_factor;
+      bp->gc_round++;
+      bp->lemmas_limit += bp->heuristic_params.lemma_limit_interval * sqrt(bp->gc_round);
     }
     break;
   case MCSAT_SOLVER_CONFLICT:
