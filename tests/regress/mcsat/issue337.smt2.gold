@@ -1,1 +1,2 @@
-(error "mcsat: unsupported theory")
+sat
+
