@@ -116,6 +116,7 @@ static bool mcsat_nra_bound;
 static int32_t mcsat_nra_bound_min;
 static int32_t mcsat_nra_bound_max;
 static int32_t mcsat_bv_var_size;
+static bool mcsat_partial_restart;
 
 static pvector_t trace_tags;
 
@@ -172,6 +173,7 @@ typedef enum optid {
   mcsat_nra_bound_min_opt, // set initial bound
   mcsat_nra_bound_max_opt, // set maximal bound
   mcsat_bv_var_size_opt,   // set size of bitvector variables
+  mcsat_partial_restart_opt, // enable partial restart heuristic in MCSAT
   trace_opt,               // enable a trace tag
   show_ef_help_opt,        // print help about the ef options
   ematch_en_opt,                    // enable ematching
@@ -223,6 +225,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "mcsat-nra-bound-min", '\0', MANDATORY_INT, mcsat_nra_bound_min_opt },
   { "mcsat-nra-bound-max", '\0', MANDATORY_INT, mcsat_nra_bound_max_opt },
   { "mcsat-bv-var-size", '\0', MANDATORY_INT, mcsat_bv_var_size_opt },
+  { "mcsat-partial-restart", '\0', FLAG_OPTION, mcsat_partial_restart_opt },
   { "trace", 't', MANDATORY_STRING, trace_opt },
   { "ef-help", '0', FLAG_OPTION, show_ef_help_opt },
   { "ematch", '\0', FLAG_OPTION, ematch_en_opt },
@@ -302,7 +305,8 @@ static void print_mcsat_help(const char *progname) {
          "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
          "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
          "    --mcsat-nra-bound-max=<B> Set maximal bound for search\n"
-         "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search"
+         "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search\n"
+         "    --mcsat-partial-restart   Enable partial restart heuristic in MCSAT search"
          "\n");
   fflush(stdout);
 }
@@ -404,6 +408,7 @@ static void parse_command_line(int argc, char *argv[]) {
   mcsat_nra_bound_min = -1;
   mcsat_nra_bound_max = -1;
   mcsat_bv_var_size = -1;
+  mcsat_partial_restart = false;
 
   init_pvector(&trace_tags, 5);
 
@@ -598,6 +603,10 @@ static void parse_command_line(int argc, char *argv[]) {
         if (! yices_has_mcsat()) goto no_mcsat;
         if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
         mcsat_bv_var_size = elem.i_value;
+        break;
+
+      case mcsat_partial_restart_opt:
+        mcsat_partial_restart = true;
         break;
 
       case show_ef_help_opt:
@@ -832,6 +841,10 @@ static void setup_options_mcsat(void) {
     aval_bv_var_size = attr_vtbl_rational(__smt2_globals.avtbl, &q);
     smt2_set_option(":yices-mcsat-bv-var-size", aval_bv_var_size);
     q_clear(&q);
+  }
+
+  if (mcsat_partial_restart) {
+    smt2_set_option(":yices-mcsat-partial-restart", aval_true);
   }
 }
 

@@ -33,17 +33,18 @@
 
 
 /*
- * Test partition: 11 terms, 4 classes
+ * Test partition: 12 terms, 5 classes
  * class[0] = { true, a-, b+ }
  * class[1] = { c+, d- }
  * class[2] = { e+, f+, g+ }
  * class[3] = { h+, i+, j+ }
+ * class[4] = { k+ }
  *
  * with classes 2 and 3 distinct
  */
 
 #define NC 4
-#define NT 11
+#define NT 12
 
 // fixed label array
 static elabel_t label[NT];
@@ -59,6 +60,7 @@ static eterm_t g = 7;
 static eterm_t h = 8;
 static eterm_t i = 9;
 static eterm_t j = 10;
+static eterm_t k = 11;
 
 
 #define NCMP 50
@@ -88,6 +90,8 @@ static void init_labels(void) {
   label[h] = pos_label(3);
   label[i] = pos_label(3);
   label[j] = pos_label(3);
+
+  label[k] = pos_label(4);
 };
 
 /*

@@ -21,8 +21,6 @@
 #include <stddef.h>
 
 extern void init_mcsat_options(mcsat_options_t *opts) {
-  opts->rand_dec_freq = 0.02;
-  opts->rand_dec_seed = 0xabcdef98;
   opts->nra_nlsat = false;
   opts->nra_mgcd = false;
   opts->nra_bound = false;
@@ -30,5 +28,6 @@ extern void init_mcsat_options(mcsat_options_t *opts) {
   opts->nra_bound_max = -1;
   opts->bv_var_size = -1;
   opts->model_interpolation = false;
+  opts->partial_restart = false;
 }
 
