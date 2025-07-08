@@ -5592,16 +5592,19 @@ void smt_clear_unsat(smt_core_t *s) {
   if (s->has_assumptions) {
     backtrack_to_base_level(s);
 
+    // if assumptions didn't contribute the unsat result, don't clear the status
+    if (s->bad_assumption != null_literal) {
+      // status returns to IDLE
+      s->status = STATUS_IDLE;
+      saved_status = STATUS_IDLE;
+    }
+
     // cleanup
     s->has_assumptions = false;
     s->num_assumptions = 0;
     s->assumption_index = 0;
     s->assumptions = NULL;
     s->bad_assumption = null_literal;
-
-    // status returns to IDLE
-    s->status = STATUS_IDLE;
-    saved_status = STATUS_IDLE;
   }
 
   assert(s->decision_level == s->base_level);
