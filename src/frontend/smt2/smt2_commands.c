@@ -6676,9 +6676,9 @@ static yices_thread_result_t YICES_THREAD_ATTR check_delayed_assertions_thread(v
 
 static smt_status_t get_status_from_globals(smt2_globals_t *g) {
   if (g->trivially_unsat) {
-    return STATUS_UNSAT;
+    return YICES_STATUS_UNSAT;
   } else if (g->trivially_sat) {
-    return STATUS_SAT;
+    return YICES_STATUS_SAT;
   } else {
     assert(g->ctx);
     return yices_context_status(g->ctx);
