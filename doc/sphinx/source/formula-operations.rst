@@ -31,9 +31,9 @@ third-party Boolean satisfiability solvers for bit-vector problems.
 
    Check satisfiability of formula *f*
 
-   This returns :c:enum:`STATUS_SAT` if *f* is satisfiable,
-   :c:enum:`STATUS_UNSAT` if *f* is not satisfiable,
-   or :c:enum:`STATUS_ERROR` if there is an error.
+   This returns :c:enum:`YICES_STATUS_SAT` if *f* is satisfiable,
+   :c:enum:`YICES_STATUS_UNSAT` if *f* is not satisfiable,
+   or :c:enum:`YICES_STATUS_ERROR` if there is an error.
 
    **Parameters**
 
@@ -92,7 +92,7 @@ third-party Boolean satisfiability solvers for bit-vector problems.
 
     model_t *result;
     smt_status_t status = yices_check_formula(f, "QF_LRA", &result, NULL);
-    if (status == STATUS_SAT) {
+    if (status == YICES_STATUS_SAT) {
        // a model is returned in result
        yices_pp_model(stdout, result, 100, 100, 0);
        ...

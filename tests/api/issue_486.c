@@ -58,7 +58,7 @@ main(void)
   
   smt_status_t status;
   status = yices_check_context(ctx, NULL);
-  if (status != STATUS_SAT) {
+  if (status != YICES_STATUS_SAT) {
     assert(false);
   }
   

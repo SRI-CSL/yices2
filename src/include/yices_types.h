@@ -75,13 +75,13 @@ typedef struct param_s param_t;
  * Context status code
  */
 typedef enum smt_status {
-  STATUS_IDLE,
-  STATUS_SEARCHING,
-  STATUS_UNKNOWN,
-  STATUS_SAT,
-  STATUS_UNSAT,
+  YICES_STATUS_IDLE,
+  YICES_STATUS_SEARCHING,
+  YICES_STATUS_UNKNOWN,
+  YICES_STATUS_SAT,
+  YICES_STATUS_UNSAT,
   YICES_STATUS_INTERRUPTED, /* renaming because of a clash with windows defined symbol */
-  STATUS_ERROR
+  YICES_STATUS_ERROR
 } smt_status_t;
 
 

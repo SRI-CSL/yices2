@@ -312,7 +312,7 @@ int main(int argc, char* argv[]) {
 
     status = yices_check_context(ctx, NULL);
 
-    if(status == STATUS_SAT){
+    if(status == YICES_STATUS_SAT){
 
       if(get_solution(ctx, b,  solution)){
 

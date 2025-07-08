@@ -139,23 +139,23 @@ context, assert ``f`` in this context, then call function :c:func:`yices_check_c
   }
 
   switch (yices_check_context(ctx, NULL)) {
-  case STATUS_SAT:
+  case YICES_STATUS_SAT:
     printf("The formula is satisfiable\n");
     ...
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     printf("The formula is not satisfiable\n");
     break;
 
-  case STATUS_UNKNOWN:
+  case YICES_STATUS_UNKNOWN:
     printf("The status is unknown\n");
     break;
 
-  case STATUS_IDLE:
-  case STATUS_SEARCHING:
+  case YICES_STATUS_IDLE:
+  case YICES_STATUS_SEARCHING:
   case YICES_STATUS_INTERRUPTED:
-  case STATUS_ERROR:
+  case YICES_STATUS_ERROR:
     fprintf(stderr, "Error in check_context\n");
     yices_print_error(stderr);
     break;
@@ -167,11 +167,11 @@ function :c:func:`yices_assert_formula` asserts a formula in the
 context. Function :c:func:`yices_check_context` returns a code of type
 :c:type:`smt_status_t`:
  
-   - :c:enum:`STATUS_SAT` means that the context is satisfiable.
+   - :c:enum:`YICES_STATUS_SAT` means that the context is satisfiable.
 
-   - :c:enum:`STATUS_UNSAT` means that the context is not satisfiable.
+   - :c:enum:`YICES_STATUS_UNSAT` means that the context is not satisfiable.
 
-   - :c:enum:`STATUS_UNKNOWN` means that the context's status could
+   - :c:enum:`YICES_STATUS_UNKNOWN` means that the context's status could
      not be determined.
 
 Other codes are error conditions.
