@@ -474,7 +474,7 @@ static void print_results(void) {
     fprintf(stderr, "\n\n");
   }
 
-  if (resu == YICES_STATUS_SAT) {
+  if (resu == status_sat) {
     printf("sat\n");
   } else if (resu == status_unsat) {
     printf("unsat\n");
@@ -517,7 +517,7 @@ static void print_model(void) {
   int v;
   bval_t val;
 
-  if (solver_status(&solver) == YICES_STATUS_SAT) {
+  if (solver_status(&solver) == status_sat) {
     for (v = 0; v<nvars; v++) {
       val = get_variable_assignment(&solver, v);
       switch (val) {
