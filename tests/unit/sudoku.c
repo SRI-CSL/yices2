@@ -129,7 +129,7 @@ bool assert_sudoku_rules(context_t *ctx, board_t b){
         yices_pp_term(stdout, b_1_9, 1024, 0, 0);
       }
       yices_errcode = yices_assert_formula(ctx, b_1_9);
-      if(yices_errcode != NO_ERROR){
+      if(yices_errcode != YICES_NO_ERROR){
         fprintf(stderr, "assert_sudoku_rules 'between_1_and_9' failed: %s\n", yices_error_string());
         return false;
       }
@@ -169,7 +169,7 @@ bool pose_problem(context_t *ctx, board_t b, const game_t g){
       assert((value >= 0) && (value <= 9));
       if(value > 0){
         yices_errcode = yices_assert_formula(ctx, yices_arith_eq_atom(yices_int32(value), b[i][j]));
-        if(yices_errcode != NO_ERROR){
+        if(yices_errcode != YICES_NO_ERROR){
           fprintf(stderr, "pose_problem for row %d column %d failed: %s\n", i, j, yices_error_string());
           return false;
         }
@@ -202,7 +202,7 @@ bool get_solution(context_t *ctx, board_t b,  game_t solution){
 
       yices_errcode = yices_get_int32_value(model, b[i][j], &value);
 
-      if (yices_errcode != NO_ERROR){
+      if (yices_errcode != YICES_NO_ERROR){
         fprintf(stderr, "get_solution for row %d column %d failed: %s\n", i, j, yices_error_string());
         return false;
       }

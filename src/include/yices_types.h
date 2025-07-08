@@ -300,7 +300,7 @@ typedef enum yices_gen_mode {
  *   that depends on the error code.
  */
 typedef enum error_code {
-  NO_ERROR = 0,
+  YICES_NO_ERROR = 0,
 
   /*
    * Errors in type or term construction
@@ -504,7 +504,7 @@ typedef enum error_code {
  *
  *  error code                 meaningful fields
  *
- *  NO_ERROR                   none
+ *  YICES_NO_ERROR             none
  *
  *  INVALID_TYPE               type1
  *  INVALID_TERM               term1

@@ -674,7 +674,7 @@ Error Reports
 
    The following error codes are defined:
 
-   .. c:enum:: NO_ERROR
+   .. c:enum:: YICES_NO_ERROR
 
       Everything is fine.
 
