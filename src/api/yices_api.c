@@ -85,6 +85,7 @@
 #include "model/map_to_model.h"
 #include "model/model_queries.h"
 #include "model/models.h"
+#include "model/term_to_val.h"
 #include "model/val_to_term.h"
 
 #include "solvers/cdcl/delegate.h"
@@ -9963,7 +9964,7 @@ EXPORTED int32_t yices_pp_term_values_fd(int fd, model_t *mdl, uint32_t n, const
  * - the mapping is defined by two arrays var[] and map[]
  * - every element of var must be an uninterpreted term
  *   every element of map must be a constant of primitive or tuple type
- *   map[i]'s type must be a subtype of var[i]
+ *   map[i]'s type must be a subtype of var[i]'s type
  * - there must not be duplicates in array var
  *
  * The function returns NULL and set up the error report if something
@@ -10133,6 +10134,79 @@ int32_t _o_yices_model_set_mpq(model_t *model, term_t var, mpq_t val) {
   return yices_model_set_q(model, var, &r0);
 }
 
+EXPORTED int32_t yices_model_set_double(model_t *model, term_t var, double val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_double(model, var, val));
+}
+
+int32_t _o_yices_model_set_double(model_t *model, term_t var, double val) {
+  q_set_double(&r0, val);
+  return yices_model_set_q(model, var, &r0);
+}
+
+EXPORTED int32_t yices_model_set_float(model_t *model, term_t var, float val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_float(model, var, val));
+}
+
+int32_t _o_yices_model_set_float(model_t *model, term_t var, float val) {
+  q_set_float(&r0, val);
+  return yices_model_set_q(model, var, &r0);
+}
+
+EXPORTED int32_t yices_model_set_term(model_t *model, term_t var, term_t value) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_term(model, var, value));
+}
+
+int32_t _o_yices_model_set_term(model_t *model, term_t var, term_t value) {
+  term_converter_t convert;
+  value_t v;
+  type_t tau;
+  if (! check_good_term(__yices_globals.manager, var) ||
+      ! check_uninterpreted(__yices_globals.terms, var) ||
+      ! check_unassigned_in_model(model, var) ||
+      ! check_good_term(__yices_globals.manager, value) ||
+      ! is_constant_term(__yices_globals.terms, value)) {
+    return -1;
+  }
+  tau = term_type(__yices_globals.terms, var);
+  if (! is_subtype(__yices_globals.types, term_type(__yices_globals.terms, value), tau)) {
+    set_error_code(TYPE_MISMATCH);
+    return -1;
+  }
+  init_term_converter(&convert, __yices_globals.terms, &model->vtbl);
+  v = convert_term_to_val(&convert, value);
+  delete_term_converter(&convert);
+  model_map_term(model, var, v);
+  return 0;
+}
+
+EXPORTED int32_t yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_yval(model, var, yval));
+}
+
+int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) {
+  value_table_t *vtbl;
+  value_t v;
+  type_t tau;
+
+  if (! check_good_term(__yices_globals.manager, var) ||
+      ! check_uninterpreted(__yices_globals.terms, var) ||
+      ! check_unassigned_in_model(model, var)) {
+    return -1;
+  }
+
+  vtbl = model_get_vtbl(model);
+  v = yval->node_id;
+  tau = term_type(__yices_globals.terms, var);
+  
+  // Check that the yval is a valid object
+  if (! good_object(vtbl, v)) {
+    set_error_code(TYPE_MISMATCH);
+    return -1;
+  }
+
+  model_map_term(model, var, v);
+  return 0;
+}
 
 EXPORTED int32_t yices_model_set_algebraic_number(model_t *model, term_t var, const lp_algebraic_number_t *val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_model_set_algebraic_number(model, var, val));
@@ -10313,6 +10387,50 @@ int32_t _o_yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n,
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set_array(bv0.data, a, n);
   yices_model_set_bvconstant(model, var, &bv0);
+
+  return 0;
+}
+
+
+/*
+ * Assign a value to a scalar or uninterpreted variable.
+ * - var must be an uninterpreted term of scalar or uninterpreted type
+ * - var must not have a value in model
+ * - val is the index of the constant to assign
+ *   (with the same meaning as in function yices_constant):
+ *   - if var has type tau and tau is a scalar type of size n then
+ *     val must be between 0 and n-1
+ *   - if var has an uninterpreted type, then val can be any non-negative integer
+ *
+ * Return -1 if there's an error and set the error report.
+ * Return 0 otherwise.
+ *
+ * Error report:
+ * - code = INVALID_TERM if var is not valid
+ * - code = MDL_UNINT_REQUIRED if var is not uninterpreted
+ * - code = MDL_DUPLICATE_VAR if var already has a value in model
+ * - code = TYPE_MISMATCH if var is not scalar or uninterpreted
+ * - code = INVALID_CONSTANT_INDEX if val is negative or too large for scalar type
+ */
+EXPORTED int32_t yices_model_set_scalar(model_t *model, term_t var, int32_t val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_scalar(model, var, val));
+}
+
+int32_t _o_yices_model_set_scalar(model_t *model, term_t var, int32_t val) {
+  type_t tau;
+
+  if (! check_good_term(__yices_globals.manager, var) ||
+      ! check_uninterpreted(__yices_globals.terms, var) ||
+      ! check_unassigned_in_model(model, var)) {
+    return -1;
+  }
+
+  tau = term_type(__yices_globals.terms, var);
+  if (! check_good_constant(__yices_globals.types, tau, val)) {
+    return -1;
+  }
+
+  model_map_term(model, var, vtbl_mk_const(&model->vtbl, tau, val, NULL));
 
   return 0;
 }
