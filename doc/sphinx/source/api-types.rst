@@ -1127,6 +1127,13 @@ Error Reports
 
       Model generalization failed for some other reason.
 
+   .. c:enum:: MODEL_INVALID_TERM
+
+      Invalid term for model assignment: the term is not a valid uninterpreted term
+      or is already assigned in the model. This error is reported by model assignment
+      functions such as :c:func:`yices_model_set_double`, :c:func:`yices_model_set_float`,
+      :c:func:`yices_model_set_scalar`, :c:func:`yices_model_set_term`, and :c:func:`yices_model_set_yval`.
+
 
    .. c:enum:: YVAL_INVALID_OP
  
