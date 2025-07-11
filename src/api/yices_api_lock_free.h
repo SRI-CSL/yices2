@@ -648,24 +648,12 @@ extern int32_t _o_yices_model_set_bv_from_array(model_t *model, term_t var, uint
 
 extern int32_t _o_yices_model_set_scalar(model_t *model, term_t var, int32_t val);
 
-/*
- * Lock-free version: assign a value term to an uninterpreted variable in the model.
- */
 extern int32_t _o_yices_model_set_term(model_t *model, term_t var, term_t value);
 
-/*
- * Lock-free version: assign a double value to a real or arithmetic uninterpreted term.
- */
 extern int32_t _o_yices_model_set_double(model_t *model, term_t var, double val);
 
-/*
- * Lock-free version: assign a float value to a real or arithmetic uninterpreted term.
- */
 extern int32_t _o_yices_model_set_float(model_t *model, term_t var, float val);
 
-/*
- * Lock-free version: assign a yval_t value to an uninterpreted variable in the model.
- */
 extern int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval);
 
 /************************

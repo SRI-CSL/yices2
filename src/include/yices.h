@@ -4943,7 +4943,7 @@ __YICES_DLLSPEC__ extern char *yices_model_to_string(model_t *mdl, uint32_t widt
  *
  * Returns 0 on success, -1 on error (sets error code).
  *
- * Since <next version>.
+ * Since 2.7.0
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_term(model_t *model, term_t var, term_t value);
 
@@ -4957,7 +4957,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_term(model_t *model, term_t var
  *
  * Returns 0 on success, -1 on error (sets error code).
  *
- * Since <next version>.
+ * Since 2.7.0
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_yval(model_t *model, term_t var, const yval_t *yval);
 

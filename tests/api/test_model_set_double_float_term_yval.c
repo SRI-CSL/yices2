@@ -14,19 +14,6 @@ static void test_double_float_model_setting(void) {
   model_t *model = yices_new_model();
   double dval;
 
-  if (real_type == NULL_TYPE) {
-    fprintf(stderr, "Failed to create real type\n");
-    exit(1);
-  }
-  if (var == NULL_TERM) {
-    fprintf(stderr, "Failed to create uninterpreted real term\n");
-    exit(1);
-  }
-  if (model == NULL) {
-    fprintf(stderr, "Failed to create model\n");
-    exit(1);
-  }
-
   // Set double value
   if (yices_model_set_double(model, var, 3.14) != 0) {
     yices_print_error(stderr);
@@ -51,14 +38,6 @@ static void test_double_float_model_setting(void) {
   // Set float value on new variable
   var = yices_new_uninterpreted_term(real_type);
   model = yices_new_model();
-  if (var == NULL_TERM) {
-    fprintf(stderr, "Failed to create uninterpreted real term\n");
-    exit(1);
-  }
-  if (model == NULL) {
-    fprintf(stderr, "Failed to create model\n");
-    exit(1);
-  }
   if (yices_model_set_float(model, var, 2.71f) != 0) {
     yices_print_error(stderr);
     exit(1);
@@ -77,19 +56,6 @@ static void test_term_model_setting(void) {
   model_t *model = yices_new_model();
   term_t value = yices_int32(42);
   term_t out;
-
-  if (int_type == NULL_TYPE) {
-    fprintf(stderr, "Failed to create int type\n");
-    exit(1);
-  }
-  if (var == NULL_TERM) {
-    fprintf(stderr, "Failed to create uninterpreted int term\n");
-    exit(1);
-  }
-  if (model == NULL) {
-    fprintf(stderr, "Failed to create model\n");
-    exit(1);
-  }
 
   // Set term value
   if (yices_model_set_term(model, var, value) != 0) {
@@ -127,19 +93,6 @@ static void test_yval_model_setting(void) {
   model_t *model = yices_new_model();
   yval_t yval;
   int32_t ival;
-
-  if (int_type == NULL_TYPE) {
-    fprintf(stderr, "Failed to create int type\n");
-    exit(1);
-  }
-  if (var1 == NULL_TERM || var2 == NULL_TERM) {
-    fprintf(stderr, "Failed to create uninterpreted int terms\n");
-    exit(1);
-  }
-  if (model == NULL) {
-    fprintf(stderr, "Failed to create model\n");
-    exit(1);
-  }
 
   // Set var1 in model
   if (yices_model_set_int32(model, var1, 123) != 0) {
