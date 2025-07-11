@@ -249,7 +249,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 
 .. c:function:: int32_t yices_model_set_bool(model_t *model, term_t var, int32_t val)
@@ -276,7 +276,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid Boolean uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 
 .. c:function:: int32_t yices_model_set_int32(model_t *model, term_t var, int32_t val)
@@ -303,7 +303,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid integer uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 
 .. c:function:: int32_t yices_model_set_int64(model_t *model, term_t var, int64_t val)
@@ -330,7 +330,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid integer uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 .. c:function:: int32_t yices_model_set_rational32(model_t *model, term_t var, int32_t num, uint32_t den)
 
@@ -358,7 +358,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid real uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 
 .. c:function:: int32_t yices_model_set_rational64(model_t *model, term_t var, int64_t num, uint64_t den)
@@ -387,7 +387,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid real uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 
 .. c:function:: int32_t yices_model_set_mpz(model_t *model, term_t var, mpz_t val)
@@ -415,7 +415,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid integer uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
    **Note**
 
@@ -448,7 +448,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid real uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
    **Note**
 
@@ -481,7 +481,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid real uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
    **Note**
 
@@ -513,7 +513,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid bitvector uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 
 .. c:function:: int32_t yices_model_set_bv_int64(model_t *model, term_t var, int64_t val)
@@ -540,7 +540,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid bitvector uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 .. c:function:: int32_t yices_model_set_bv_uint32(model_t *model, term_t var, uint32_t val)
 
@@ -566,7 +566,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid bitvector uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 
 .. c:function:: int32_t yices_model_set_bv_uint64(model_t *model, term_t var, uint64_t val)
@@ -593,7 +593,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid bitvector uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 
 .. c:function:: int32_t yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val)
@@ -621,7 +621,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid bitvector uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
    **Note**
 
@@ -656,7 +656,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid bitvector uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 
 .. c:function:: int32_t yices_model_set_double(model_t *model, term_t var, double val)
@@ -683,7 +683,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid real uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 
 .. c:function:: int32_t yices_model_set_float(model_t *model, term_t var, float val)
@@ -710,7 +710,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid real uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 
 .. c:function:: int32_t yices_model_set_term(model_t *model, term_t var, term_t value)
@@ -739,7 +739,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 
 .. c:function:: int32_t yices_model_set_yval(model_t *model, term_t var, const yval_t *yval)
@@ -767,7 +767,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    - If *var* is not a valid uninterpreted term or is already assigned:
 
-     -- error code: :c:enum:`MODEL_INVALID_TERM`
+     -- error code: :c:enum:`INVALID_TERM`
 
 
 

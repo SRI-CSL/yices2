@@ -3789,7 +3789,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_scalar(model_t *model, term_t v
  *   - -1 on error
  *
  * Error codes:
- *   - MODEL_INVALID_TERM if var is not a valid real uninterpreted term or is already assigned
+ *   - INVALID_TERM if var is not a valid real uninterpreted term or is already assigned
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_double(model_t *model, term_t var, double val);
 
@@ -3808,7 +3808,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_double(model_t *model, term_t v
  *   - -1 on error
  *
  * Error codes:
- *   - MODEL_INVALID_TERM if var is not a valid real uninterpreted term or is already assigned
+ *   - INVALID_TERM if var is not a valid real uninterpreted term or is already assigned
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_float(model_t *model, term_t var, float val);
 
