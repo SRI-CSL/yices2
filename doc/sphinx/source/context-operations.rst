@@ -1013,7 +1013,7 @@ yices_set_config). This model interpolant is constructed by calling
    NOTE: if *t[i]* does not have a value in *mdl*, then a default value is
    picked for *v_i*.
 
-   If this function returns STATUS_UNSAT and the context supports
+   If this function returns YICES_STATUS_UNSAT and the context supports
    model interpolation, then one can construct a model interpolant by
    calling function :c:func:`yices_get_model_interpolant`.
 
@@ -1086,7 +1086,7 @@ yices_set_config). This model interpolant is constructed by calling
    NOTE: if *t[i]* does not have a value in *mdl*, then a default value is
    picked for *v_i*.
 
-   If this function returns STATUS_UNSAT and the context supports
+   If this function returns YICES_STATUS_UNSAT and the context supports
    model interpolation, then one can construct a model interpolant by
    calling function :c:func:`yices_get_model_interpolant`.
 

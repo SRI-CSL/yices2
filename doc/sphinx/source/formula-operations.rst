@@ -198,7 +198,7 @@ to DIMACS cannot be performed as no CNF is constructed.
 The following two functions process formulas in the QF_BV logic. They
 first perform preprocessing and simplification. If the formulas are
 solved by this preprocessing, the functions return the status (either
-:c:enum:`STATUS_SAT` or :c:enum:`STATUS_UNSAT`). Otherwise, the
+:c:enum:`YICES_STATUS_SAT` or :c:enum:`YICES_STATUS_UNSAT`). Otherwise, the
 functions construct a CNF formula and write it to a file. Optionally,
 the functions can perform an extra round of simplification to the CNF
 formula before exporting it.

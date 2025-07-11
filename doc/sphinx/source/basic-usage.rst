@@ -183,8 +183,8 @@ Once the context ``ctx`` is no longer needed, we delete it using :c:func:`yices_
 Building and Querying a Model
 -----------------------------
 
-If :c:func:`yices_check_context` returns :c:data:`STATUS_SAT` (or
-:c:data:`STATUS_UNKNOWN`), we can construct a model of the asserted
+If :c:func:`yices_check_context` returns :c:data:`YICES_STATUS_SAT` (or
+:c:data:`YICES_STATUS_UNKNOWN`), we can construct a model of the asserted
 formulas by calling :c:func:`yices_get_model`. We then display the
 model using :c:func:`yices_pp_model`::
 
