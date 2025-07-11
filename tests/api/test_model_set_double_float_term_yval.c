@@ -14,21 +14,59 @@ static void test_double_float_model_setting(void) {
   model_t *model = yices_new_model();
   double dval;
 
+  if (real_type == NULL_TYPE) {
+    fprintf(stderr, "Failed to create real type\n");
+    exit(1);
+  }
+  if (var == NULL_TERM) {
+    fprintf(stderr, "Failed to create uninterpreted real term\n");
+    exit(1);
+  }
+  if (model == NULL) {
+    fprintf(stderr, "Failed to create model\n");
+    exit(1);
+  }
+
   // Set double value
-  assert(yices_model_set_double(model, var, 3.14) == 0);
-  assert(yices_get_double_value(model, var, &dval) == 0);
+  if (yices_model_set_double(model, var, 3.14) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+  if (yices_get_double_value(model, var, &dval) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
   assert(dval == 3.14);
 
   // Set float value (should fail, already assigned)
-  assert(yices_model_set_float(model, var, 2.71f) < 0);
+  if (yices_model_set_float(model, var, 2.71f) >= 0) {
+    fprintf(stderr, "Expected error for setting float value on already assigned variable, but call succeeded\n");
+    exit(1);
+  } else {
+    yices_print_error(stderr);
+  }
 
   yices_free_model(model);
 
   // Set float value on new variable
   var = yices_new_uninterpreted_term(real_type);
   model = yices_new_model();
-  assert(yices_model_set_float(model, var, 2.71f) == 0);
-  assert(yices_get_double_value(model, var, &dval) == 0);
+  if (var == NULL_TERM) {
+    fprintf(stderr, "Failed to create uninterpreted real term\n");
+    exit(1);
+  }
+  if (model == NULL) {
+    fprintf(stderr, "Failed to create model\n");
+    exit(1);
+  }
+  if (yices_model_set_float(model, var, 2.71f) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+  if (yices_get_double_value(model, var, &dval) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
   assert((float)dval == 2.71f);
   yices_free_model(model);
 }
@@ -40,16 +78,44 @@ static void test_term_model_setting(void) {
   term_t value = yices_int32(42);
   term_t out;
 
+  if (int_type == NULL_TYPE) {
+    fprintf(stderr, "Failed to create int type\n");
+    exit(1);
+  }
+  if (var == NULL_TERM) {
+    fprintf(stderr, "Failed to create uninterpreted int term\n");
+    exit(1);
+  }
+  if (model == NULL) {
+    fprintf(stderr, "Failed to create model\n");
+    exit(1);
+  }
+
   // Set term value
-  assert(yices_model_set_term(model, var, value) == 0);
+  if (yices_model_set_term(model, var, value) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
   out = yices_get_value_as_term(model, var);
-  assert(out == value);
+  if (out != value) {
+    exit(1);
+  }
 
   // Error: set again
-  assert(yices_model_set_term(model, var, value) < 0);
+  if (yices_model_set_term(model, var, value) >= 0) {
+    fprintf(stderr, "Expected error for setting term value again, but call succeeded\n");
+    exit(1);
+  } else {
+    yices_print_error(stderr);
+  }
 
   // Error: type mismatch - set real value to int variable
-  assert(yices_model_set_term(model, var, yices_parse_rational("3.14")) < 0);
+  if (yices_model_set_term(model, var, yices_parse_rational("3.14")) >= 0) {
+    fprintf(stderr, "Expected error for type mismatch in set_term, but call succeeded\n");
+    exit(1);
+  } else {
+    yices_print_error(stderr);
+  }
 
   yices_free_model(model);
 }
@@ -62,18 +128,48 @@ static void test_yval_model_setting(void) {
   yval_t yval;
   int32_t ival;
 
+  if (int_type == NULL_TYPE) {
+    fprintf(stderr, "Failed to create int type\n");
+    exit(1);
+  }
+  if (var1 == NULL_TERM || var2 == NULL_TERM) {
+    fprintf(stderr, "Failed to create uninterpreted int terms\n");
+    exit(1);
+  }
+  if (model == NULL) {
+    fprintf(stderr, "Failed to create model\n");
+    exit(1);
+  }
+
   // Set var1 in model
-  assert(yices_model_set_int32(model, var1, 123) == 0);
+  if (yices_model_set_int32(model, var1, 123) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
   // Get yval from model
-  assert(yices_get_value(model, var1, &yval) == 0);
+  if (yices_get_value(model, var1, &yval) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
   // Set var2 in same model using yval
-  assert(yices_model_set_yval(model, var2, &yval) == 0);
+  if (yices_model_set_yval(model, var2, &yval) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
   // Check value
-  assert(yices_get_int32_value(model, var2, &ival) == 0);
+  if (yices_get_int32_value(model, var2, &ival) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
   assert(ival == 123);
 
   // Error: set again
-  assert(yices_model_set_yval(model, var2, &yval) < 0);
+  if (yices_model_set_yval(model, var2, &yval) >= 0) {
+    fprintf(stderr, "Expected error for setting yval again, but call succeeded\n");
+    exit(1);
+  } else {
+    yices_print_error(stderr);
+  }
 
   yices_free_model(model);
 }

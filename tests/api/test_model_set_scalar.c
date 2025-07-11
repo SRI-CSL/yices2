@@ -36,28 +36,60 @@ static void test_scalar_model_setting(void) {
   assert(model != NULL);
 
   // Test setting scalar value 0
-  assert(yices_model_set_scalar(model, var0, 0) == 0);
+  if (yices_model_set_scalar(model, var0, 0) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
 
   // Verify the value was set correctly
-  assert(yices_get_scalar_value(model, var0, &val) == 0);
-  assert(val == 0);
+  if (yices_get_scalar_value(model, var0, &val) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+  if (val != 0) {
+    fprintf(stderr, "Expected value 0, got %d\n", val);
+    exit(1);
+  }
 
   // Test setting scalar value 1
-  assert(yices_model_set_scalar(model, var1, 1) == 0);
+  if (yices_model_set_scalar(model, var1, 1) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
 
   // Verify the value was set correctly
-  assert(yices_get_scalar_value(model, var1, &val) == 0);
-  assert(val == 1);
+  if (yices_get_scalar_value(model, var1, &val) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+  if (val != 1) {
+    fprintf(stderr, "Expected value 1, got %d\n", val);
+    exit(1);
+  }
 
   // Test setting scalar value 2
-  assert(yices_model_set_scalar(model, var2, 2) == 0);
+  if (yices_model_set_scalar(model, var2, 2) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
 
   // Verify the value was set correctly
-  assert(yices_get_scalar_value(model, var2, &val) == 0);
-  assert(val == 2);
+  if (yices_get_scalar_value(model, var2, &val) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+  if (val != 2) {
+    fprintf(stderr, "Expected value 2, got %d\n", val);
+    exit(1);
+  }
 
   // Test setting invalid scalar value (should fail)
-  assert(yices_model_set_scalar(model, var0, 3) < 0); // Should fail for value >= cardinality
+  if (yices_model_set_scalar(model, var0, 3) >= 0) {
+    fprintf(stderr, "Expected error for invalid scalar value, but call succeeded\n");
+    exit(1);
+  } else {
+    yices_print_error(stderr);
+  }
 
   yices_free_model(model);
 }
@@ -73,7 +105,10 @@ static void test_uninterpreted_model_setting(void) {
 
   // Create an uninterpreted type
   uninterpreted_type = yices_new_uninterpreted_type();
-  assert(uninterpreted_type != NULL_TYPE);
+  if (uninterpreted_type == NULL_TYPE) {
+    fprintf(stderr, "Failed to create uninterpreted type\n");
+    exit(1);
+  }
 
   // Create uninterpreted terms
   var0 = yices_new_uninterpreted_term(uninterpreted_type);
@@ -88,20 +123,47 @@ static void test_uninterpreted_model_setting(void) {
   assert(model != NULL);
 
   // Test setting various values
-  assert(yices_model_set_scalar(model, var0, 0) == 0);
+  if (yices_model_set_scalar(model, var0, 0) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
 
-  assert(yices_get_scalar_value(model, var0, &val) == 0);
-  assert(val == 0);
+  if (yices_get_scalar_value(model, var0, &val) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+  if (val != 0) {
+    fprintf(stderr, "Expected value 0, got %d\n", val);
+    exit(1);
+  }
 
-  assert(yices_model_set_scalar(model, var1, 42) == 0);
+  if (yices_model_set_scalar(model, var1, 42) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
 
-  assert(yices_get_scalar_value(model, var1, &val) == 0);
-  assert(val == 42);
+  if (yices_get_scalar_value(model, var1, &val) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+  if (val != 42) {
+    fprintf(stderr, "Expected value 42, got %d\n", val);
+    exit(1);
+  }
 
-  assert(yices_model_set_scalar(model, var2, 1000) == 0);
+  if (yices_model_set_scalar(model, var2, 1000) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
 
-  assert(yices_get_scalar_value(model, var2, &val) == 0);
-  assert(val == 1000);
+  if (yices_get_scalar_value(model, var2, &val) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+  if (val != 1000) {
+    fprintf(stderr, "Expected value 1000, got %d\n", val);
+    exit(1);
+  }
 
   yices_free_model(model);
 }
@@ -122,12 +184,27 @@ static void test_error_conditions(void) {
   model = yices_new_model();
 
   // Test setting scalar value on non-scalar term (should fail)
-  assert(yices_model_set_scalar(model, int_var, 0) < 0);
+  if (yices_model_set_scalar(model, int_var, 0) >= 0) {
+    fprintf(stderr, "Expected error for setting scalar value on non-scalar term, but call succeeded\n");
+    exit(1);
+  } else {
+    yices_print_error(stderr);
+  }
 
   // Test setting invalid scalar value
-  assert(yices_model_set_scalar(model, scalar_var, -1) < 0);
+  if (yices_model_set_scalar(model, scalar_var, -1) >= 0) {
+    fprintf(stderr, "Expected error for setting negative scalar value, but call succeeded\n");
+    exit(1);
+  } else {
+    yices_print_error(stderr);
+  }
 
-  assert(yices_model_set_scalar(model, scalar_var, 2) < 0);
+  if (yices_model_set_scalar(model, scalar_var, 2) >= 0) {
+    fprintf(stderr, "Expected error for setting out-of-range scalar value, but call succeeded\n");
+    exit(1);
+  } else {
+    yices_print_error(stderr);
+  }
 
   yices_free_model(model);
 }
