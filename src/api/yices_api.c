@@ -10186,8 +10186,7 @@ EXPORTED int32_t yices_model_set_yval(model_t *model, term_t var, const yval_t *
 int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) {
   value_table_t *vtbl;
   value_t v;
-  type_t tau;
-
+  
   if (! check_good_term(__yices_globals.manager, var) ||
       ! check_uninterpreted(__yices_globals.terms, var) ||
       ! check_unassigned_in_model(model, var)) {
@@ -10196,7 +10195,6 @@ int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) 
 
   vtbl = model_get_vtbl(model);
   v = yval->node_id;
-  tau = term_type(__yices_globals.terms, var);
   
   // Check that the yval is a valid object
   if (! good_object(vtbl, v)) {
