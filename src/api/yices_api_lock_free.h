@@ -646,6 +646,16 @@ extern int32_t _o_yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val);
 
 extern int32_t _o_yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n, const int32_t a[]);
 
+extern int32_t _o_yices_model_set_scalar(model_t *model, term_t var, int32_t val);
+
+extern int32_t _o_yices_model_set_term(model_t *model, term_t var, term_t value);
+
+extern int32_t _o_yices_model_set_double(model_t *model, term_t var, double val);
+
+extern int32_t _o_yices_model_set_float(model_t *model, term_t var, float val);
+
+extern int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval);
+
 /************************
  *  VALUES IN A MODEL   *
  ***********************/
