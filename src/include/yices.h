@@ -3762,6 +3762,58 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_bv_mpz(model_t *model, term_t v
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n, const int32_t a[]);
 
+/*
+ * Assign a scalar value to a scalar or uninterpreted uninterpreted term.
+ * - var = scalar or uninterpreted uninterpreted term
+ * - val = scalar constant index
+ * - var must be an uninterpreted term of scalar or uninterpreted type
+ *   (and var must not have a value in model).
+ *
+ * The value val must be a valid constant index for the type of var:
+ * - if var has scalar type of cardinality n, then val must be between 0 and n-1
+ * - if var has uninterpreted type, then val can be any non-negative integer
+ *
+ * Since 2.7.0.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_scalar(model_t *model, term_t var, int32_t val);
+/*
+ * Assign a double value to a real uninterpreted term in the model.
+ * - model: pointer to the model in which the assignment is made
+ * - var: the uninterpreted term of real type to assign a value to
+ * - val: the double value to assign to var
+ *
+ * Requirements:
+ *   - var must be an uninterpreted term of real type
+ *   - var must not already have a value in model
+ *
+ * Returns:
+ *   - 0 on success
+ *   - -1 on error
+ *
+ * Error codes:
+ *   - INVALID_TERM if var is not a valid real uninterpreted term or is already assigned
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_double(model_t *model, term_t var, double val);
+
+/*
+ * Assign a float value to a real uninterpreted term in the model.
+ * - model: pointer to the model in which the assignment is made
+ * - var: the uninterpreted term of real type to assign a value to
+ * - val: the float value to assign to var
+ *
+ * Requirements:
+ *   - var must be an uninterpreted term of real type
+ *   - var must not already have a value in model
+ *
+ * Returns:
+ *   - 0 on success
+ *   - -1 on error
+ *
+ * Error codes:
+ *   - INVALID_TERM if var is not a valid real uninterpreted term or is already assigned
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_float(model_t *model, term_t var, float val);
+
 
 
 
@@ -4882,6 +4934,34 @@ __YICES_DLLSPEC__ extern char *yices_term_to_string(term_t t, uint32_t width, ui
  * when no longer needed by calling yices_free_string.
  */
 __YICES_DLLSPEC__ extern char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+
+
+/*
+ * Assign a value term to an uninterpreted symbol in the model.
+ * - var = uninterpreted symbol
+ * - value = constant term (primitive or tuple type)
+ * - var must not have a value in model
+ * - value's type must be a subtype of var's type
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.7.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_term(model_t *model, term_t var, term_t value);
+
+
+/*
+ * Assign a yval_t value to an uninterpreted symbol in the model.
+ * - var = uninterpreted symbol
+ * - yval = value descriptor (possibly from another model)
+ * - var must not have a value in model
+ * - yval must be compatible with var's type
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.7.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_yval(model_t *model, term_t var, const yval_t *yval);
 
 
 #ifdef __cplusplus

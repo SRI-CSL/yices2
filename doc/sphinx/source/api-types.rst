@@ -1127,7 +1127,6 @@ Error Reports
 
       Model generalization failed for some other reason.
 
-
    .. c:enum:: YVAL_INVALID_OP
  
       Invalid operation on a value descriptor (node in the model DAG).
