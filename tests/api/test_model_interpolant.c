@@ -97,7 +97,7 @@ static void check_unsat_with_empty_model(void) {
 
   smt_status_t status;
   status = check_with_model_and_hint(ctx, model, assertion, 0, vars, 0);
-  if (status != STATUS_UNSAT) {
+  if (status != YICES_STATUS_UNSAT) {
     assert(false);
   }
 

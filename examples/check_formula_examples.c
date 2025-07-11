@@ -49,11 +49,11 @@ static void test(const char *delegate) {
       show_formulas(n);
       status = yices_check_formulas(formula, n, "QF_BV", &model, delegate);
       switch (status) {
-      case STATUS_UNSAT:
+      case YICES_STATUS_UNSAT:
 	printf("unsat\n");
 	break;
 
-      case STATUS_SAT:
+      case YICES_STATUS_SAT:
 	printf("sat\n");
 	printf("model:\n  ");
 	yices_pp_model(stdout, model, 100, 120, 2);

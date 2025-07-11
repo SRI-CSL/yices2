@@ -48,7 +48,7 @@ void check_fixed_order(void) {
   status = yices_check_context_with_model_and_hint(ctx, NULL,  mdl, 1, vars, 0);
   assert(!yices_error_code());
 
-  assert(status == STATUS_SAT);
+  assert(status == YICES_STATUS_SAT);
 
   model_t* res_mdl = yices_get_model(ctx, 1);
   // we should have decided y first and because of the hint its value should be 4
@@ -101,7 +101,7 @@ void check_initial_order(void) {
   status = yices_check_context_with_model_and_hint(ctx, NULL,  mdl, 1, vars, 0);
   assert(!yices_error_code());
 
-  assert(status == STATUS_SAT);
+  assert(status == YICES_STATUS_SAT);
 
   model_t* res_mdl = yices_get_model(ctx, 1);
   // we should have decided y first and because of the hint its value should be 4

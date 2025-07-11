@@ -52,7 +52,7 @@ int main(void) {
   term_t one = generate_one();
 
   yices_assert_formula(ctx, yices_arith_eq_atom(yices_zero(), one));
-  assert(yices_check_context(ctx, NULL) == STATUS_UNSAT);
+  assert(yices_check_context(ctx, NULL) == YICES_STATUS_UNSAT);
   assert(!yices_error_code());
 
   yices_free_context(ctx);

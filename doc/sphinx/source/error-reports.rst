@@ -27,7 +27,7 @@ The following functions give access to the error report.
 
 .. c:function:: void yices_clear_error(void)
 
-   This resets the global error code to :c:enum:`NO_ERROR` (i.e., 0)
+   This resets the global error code to :c:enum:`YICES_NO_ERROR` (i.e., 0)
 
 .. c:function:: int32_t yices_print_error(FILE* f)
 

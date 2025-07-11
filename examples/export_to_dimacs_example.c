@@ -33,8 +33,8 @@ static void show_formulas(uint32_t n) {
 
 static char *status_to_string(smt_status_t status) {
   switch (status) {
-  case STATUS_SAT: return "sat";
-  case STATUS_UNSAT: return "unsat";
+  case YICES_STATUS_SAT: return "sat";
+  case YICES_STATUS_UNSAT: return "unsat";
   default: return "bug";
   }
 }

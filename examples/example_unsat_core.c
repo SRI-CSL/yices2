@@ -70,7 +70,7 @@ static void check_and_get_core(context_t *ctx, uint32_t n, const term_t *a) {
 
   // NULL here means default search parameters
   switch (yices_check_context_with_assumptions(ctx, NULL, n, a)) {
-  case STATUS_SAT:
+  case YICES_STATUS_SAT:
     printf("satisfiable\n");
     model = yices_get_model(ctx, true);
     if (model == NULL) {
@@ -84,11 +84,11 @@ static void check_and_get_core(context_t *ctx, uint32_t n, const term_t *a) {
     printf("\n");
     break;
 
-  case STATUS_UNKNOWN:
+  case YICES_STATUS_UNKNOWN:
     printf("the check is inconclusive\n");
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     printf("not satisfiable\n");
 
     // initialize a vector to store the core

@@ -471,7 +471,7 @@ bool check_rewrite(plugin_context_t* ctx, term_t old, term_t t){
   context_t* yctx      = _o_yices_new_context(NULL);
   _o_yices_assert_formula(yctx, mk_neq(tm, old, t));
   smt_status_t output = yices_check_context(yctx, NULL);
-  bool result = (output == STATUS_UNSAT);
+  bool result = (output == YICES_STATUS_UNSAT);
   if (!result && ctx_trace_enabled(ctx, "mcsat::bv::arith::ctz")) {
     FILE* out = ctx_trace_out(ctx);
     fprintf(out, "Original term is");

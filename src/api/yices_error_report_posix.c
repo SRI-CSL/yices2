@@ -47,7 +47,7 @@ void init_yices_error(void){
   if (!__yices_error_initialized) {
     __yices_error_initialized = true;
     memset(&__yices_error, 0, sizeof(error_report_t));
-    __yices_error.code = NO_ERROR;
+    __yices_error.code = YICES_NO_ERROR;
   }
 }
 

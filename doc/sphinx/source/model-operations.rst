@@ -37,7 +37,7 @@ Model Construction
    - *keep_subst*: flag to indicates whether the model should include
      eliminated variables
 
-   The context's status must be either :c:enum:`STATUS_SAT` or :c:enum:`STATUS_UNKNOWN`.
+   The context's status must be either :c:enum:`YICES_STATUS_SAT` or :c:enum:`YICES_STATUS_UNKNOWN`.
 
    When assertions are added to a context, the simplification
    procedures may eliminate variables by substitution (see
@@ -54,7 +54,7 @@ Model Construction
 
    **Error report**
 
-   - if *ctx*'s status is not :c:enum:`STATUS_SAT` or :c:enum:`STATUS_UNKNOWN`
+   - if *ctx*'s status is not :c:enum:`YICES_STATUS_SAT` or :c:enum:`YICES_STATUS_UNKNOWN`
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
@@ -147,7 +147,7 @@ Model Construction
    Here is an example use of this function::
 
       yices_assert_formula(ctx, f);
-      if (yices_check(ctx, ...) == STATUS_SAT) {
+      if (yices_check(ctx, ...) == YICES_STATUS_SAT) {
          term_vector_t v;
          model_t *m = yices_get_model(ctx, true);
 	 yices_init_term_vector(&v);

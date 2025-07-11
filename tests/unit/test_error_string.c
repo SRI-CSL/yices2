@@ -30,7 +30,7 @@
 #define NUM_CODES 114
 
 static const error_code_t all_codes[NUM_CODES] = {
-  NO_ERROR,
+  YICES_NO_ERROR,
   INVALID_TYPE,
   INVALID_TERM,
   INVALID_CONSTANT_INDEX,
@@ -146,7 +146,7 @@ static const error_code_t all_codes[NUM_CODES] = {
 };
 
 static const char* const all_names[NUM_CODES] = {
-  "NO_ERROR",
+  "YICES_NO_ERROR",
   "INVALID_TYPE",
   "INVALID_TERM",
   "INVALID_CONSTANT_INDEX",
