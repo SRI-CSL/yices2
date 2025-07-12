@@ -3998,11 +3998,28 @@ term_t mk_constant(term_manager_t *manager, type_t tau, int32_t i) {
  * - i.e., this creates a fresh global variable
  */
 term_t mk_uterm(term_manager_t *manager, type_t tau) {
+  term_table_t *table;
+  int_hmap_pair_t *p;
+  term_t t;
+
+  table = manager->terms;
+
+  // Create a new uninterpreted term
   if (is_unit_type(manager->types, tau)) {
-    return get_unit_type_rep(manager->terms, tau);
+    // Check if we already have an uninterpreted term for unit type
+    p = int_hmap_find(&table->utbl, tau);
+    if (p != NULL) {
+      return p->val;
+    } else {
+      t = new_uninterpreted_term(table, tau);
+      // Store it in the table
+      p = int_hmap_get(&table->utbl, tau);
+      p->val = t;
+      return t;
+    }
   }
 
-  return new_uninterpreted_term(manager->terms, tau);
+  return new_uninterpreted_term(table, tau);
 }
 
 
