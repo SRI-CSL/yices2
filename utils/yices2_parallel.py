@@ -49,7 +49,7 @@ class ConfigGenerator:
             random.seed(seed)
         
     def generate_configs(self) -> List[List[str]]:
-        configs = [[], ["--mcsat", "--mcsat-nra-bound"]]  # Always include empty config and nra bound
+        configs = [[], ["--mcsat", "--mcsat-na-bound"]]  # Always include empty config and na bound
         if self.use_l2o:
             configs.append(["--mcsat", "--mcsat-l2o"])
         
@@ -60,11 +60,11 @@ class ConfigGenerator:
             if random.random() < 0.9:
                 options.append(f"--mcsat-rand-dec-freq={random.uniform(0, 1):.2f}")
             if random.random() < 0.5:
-                options.append("--mcsat-nra-nlsat")
+                options.append("--mcsat-na-nlsat")
             if random.random() < 0.5:
-                options.append("--mcsat-nra-mgcd")
+                options.append("--mcsat-na-mgcd")
             if random.random() < 0.5:
-                options.append("--mcsat-nra-bound")
+                options.append("--mcsat-na-bound")
             if random.random() < 0.5:
                 options.append("--mcsat-partial-restart")
             if self.use_l2o and random.random() < 0.5:
