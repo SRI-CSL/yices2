@@ -33,7 +33,7 @@
 
 
 #ifdef HAVE_MCSAT
-#include "mcsat/nra/nra_plugin_explain.h"
+#include "mcsat/na/na_plugin_explain.h"
 #endif
 
 
@@ -586,7 +586,7 @@ static void proj_process_arith_literals(projector_t *proj) {
   }
   if (proj->is_nonlinear) {
     // project
-    code = nra_project_arith_literals(&proj->arith_literals, proj->mdl, proj->mngr,
+    code = na_project_arith_literals(&proj->arith_literals, proj->mdl, proj->mngr,
 				      proj->num_evars, proj->evars,
 				      proj->arith_vars.size, proj->arith_vars.data);
     if (code < 0) {

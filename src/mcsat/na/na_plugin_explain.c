@@ -16,9 +16,9 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-#include "nra_plugin_explain.h"
-#include "nra_plugin_internal.h"
-#include "nra_libpoly.h"
+#include "na_plugin_explain.h"
+#include "na_plugin_internal.h"
+#include "na_libpoly.h"
 #include "mcsat/utils/lp_utils.h"
 
 #include "utils/int_hash_map.h"
@@ -159,10 +159,10 @@ void lp_projection_map_construct(lp_projection_map_t* map,
   lp_variable_list_construct(&map->unprojected_vars);
 }
 
-void lp_projection_map_construct_from_nra(lp_projection_map_t* map, nra_plugin_t* nra) {
+void lp_projection_map_construct_from_na(lp_projection_map_t* map, na_plugin_t* na) {
   lp_projection_map_construct(map,
-      nra->ctx->tm, &nra->lp_data, &nra->buffer, nra->ctx,
-      nra->ctx->options->nra_mgcd, nra->ctx->options->nra_nlsat);
+      na->ctx->tm, &na->lp_data, &na->buffer, na->ctx,
+      na->ctx->options->na_mgcd, na->ctx->options->na_nlsat);
 }
 
 void lp_projection_map_destruct(lp_projection_map_t* map) {
@@ -368,7 +368,7 @@ void lp_projection_map_describe_cell_part(lp_projection_map_t* map, lp_variable_
 
     term_t p_term = lp_projection_map_polynomial_to_term(map, p);
 
-    if (ctx_trace_enabled(map->plugin_ctx, "nra::explain::projection")) {
+    if (ctx_trace_enabled(map->plugin_ctx, "na::explain::projection")) {
       ctx_trace_printf(map->plugin_ctx, "p_term = "); ctx_trace_term(map->plugin_ctx, p_term);
     }
 
@@ -516,7 +516,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
   lp_polynomial_hash_set_t* x_set = lp_projection_map_get_set_of(map, x);
   lp_polynomial_hash_set_close(x_set);
 
-  if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
+  if (ctx_trace_enabled(ctx, "na::explain::projection")) {
     ctx_trace_printf(ctx, "x_set = "); lp_polynomial_hash_set_print(x_set, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
   }
 
@@ -555,7 +555,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
     assert(lp_polynomial_top_variable(p) == x);
     size_t p_deg = lp_polynomial_degree(p);
 
-    if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
+    if (ctx_trace_enabled(ctx, "na::explain::projection")) {
       ctx_trace_printf(ctx, "x_cell = "); lp_interval_print(&x_cell, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
       ctx_trace_printf(ctx, "x_cell_a_p = "); if (*x_cell_a_p != NULL) lp_polynomial_print((*x_cell_a_p), ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
       ctx_trace_printf(ctx, "x_cell_a_root_index = %zu\n", x_cell_a_root_index);
@@ -571,7 +571,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
     size_t p_roots_size = 0;
     lp_polynomial_roots_isolate(p, map->lp_data->lp_assignment, p_roots, &p_roots_size);
 
-    if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
+    if (ctx_trace_enabled(ctx, "na::explain::projection")) {
       ctx_trace_printf(ctx, "roots = ");
       size_t p_roots_i;
       for (p_roots_i = 0; p_roots_i < p_roots_size; ++ p_roots_i) {
@@ -585,7 +585,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
 
     // Binary search for the current value x_v
     const lp_value_t* x_v = lp_assignment_get_value(map->lp_data->lp_assignment, x);
-    if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
+    if (ctx_trace_enabled(ctx, "na::explain::projection")) {
       ctx_trace_printf(ctx, "x_v = ");
       lp_value_print(x_v, ctx_trace_out(ctx));
       ctx_trace_printf(ctx, "\n");
@@ -600,7 +600,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
         m = (lb + ub) / 2;
         m_cmp = lp_value_cmp(p_roots + m, x_v);
 
-        if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
+        if (ctx_trace_enabled(ctx, "na::explain::projection")) {
           ctx_trace_printf(ctx, "m = %d\n", m);
           ctx_trace_printf(ctx, "m_cmp = %d\n", m_cmp);
           ctx_trace_printf(ctx, "lb = %d\n", lb);
@@ -667,7 +667,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
       }
     }
 
-    if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
+    if (ctx_trace_enabled(ctx, "na::explain::projection")) {
       ctx_trace_printf(ctx, "roots = ");
       size_t p_roots_i;
       for (p_roots_i = 0; p_roots_i < p_roots_size; ++ p_roots_i) {
@@ -687,7 +687,7 @@ void lp_projection_map_construct_cell(lp_projection_map_t* map, lp_variable_t x,
     safe_free(p_roots);
   }
 
-  if (ctx_trace_enabled(ctx, "nra::explain::projection")) {
+  if (ctx_trace_enabled(ctx, "na::explain::projection")) {
     ctx_trace_printf(ctx, "x_cell = "); lp_interval_print(&x_cell, ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
     ctx_trace_printf(ctx, "x_cell_a_p = "); if (*x_cell_a_p != NULL) lp_polynomial_print((*x_cell_a_p), ctx_trace_out(ctx)); ctx_trace_printf(ctx, "\n");
     ctx_trace_printf(ctx, "x_cell_a_root_index = %zu\n", x_cell_a_root_index);
@@ -749,7 +749,7 @@ void lp_projection_map_add_mgcd(lp_projection_map_t* map, lp_variable_t x, const
   assert(lp_polynomial_top_variable(q) == x);
 
   // Compute the gcd
-  if (ctx_trace_enabled(map->plugin_ctx, "nra::explain::mgcd")) {
+  if (ctx_trace_enabled(map->plugin_ctx, "na::explain::mgcd")) {
     ctx_trace_printf(map->plugin_ctx, "p = "); lp_polynomial_print(p, ctx_trace_out(map->plugin_ctx)); ctx_trace_printf(map->plugin_ctx, "\n");
     ctx_trace_printf(map->plugin_ctx, "q = "); lp_polynomial_print(q, ctx_trace_out(map->plugin_ctx)); ctx_trace_printf(map->plugin_ctx, "\n");
 
@@ -775,7 +775,7 @@ void lp_projection_map_add_mgcd(lp_projection_map_t* map, lp_variable_t x, const
 
   lp_polynomial_vector_t* assumptions = lp_polynomial_mgcd(p, q, map->lp_data->lp_assignment);
 
-  if (ctx_trace_enabled(map->plugin_ctx, "nra::explain::mgcd")) {
+  if (ctx_trace_enabled(map->plugin_ctx, "na::explain::mgcd")) {
     ctx_trace_printf(map->plugin_ctx, "mgcd done: \n");
   }
 
@@ -846,7 +846,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out, int_hse
   // Project
   for (;;) {
 
-    if (ctx_trace_enabled(map->plugin_ctx, "nra::explain::projection")) {
+    if (ctx_trace_enabled(map->plugin_ctx, "na::explain::projection")) {
       ctx_trace_printf(map->plugin_ctx, "current projection:\n");
       lp_projection_map_print(map, ctx_trace_out(map->plugin_ctx));
     }
@@ -858,7 +858,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out, int_hse
       break;
     }
 
-    if (ctx_trace_enabled(map->plugin_ctx, "nra::explain::projection")) {
+    if (ctx_trace_enabled(map->plugin_ctx, "na::explain::projection")) {
       ctx_trace_printf(map->plugin_ctx, "x = %s\n", lp_variable_db_get_name(map->lp_data->lp_var_db, x));
     }
 
@@ -906,7 +906,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out, int_hse
       assert(lp_polynomial_top_variable(p) == x);
       uint32_t p_deg = lp_polynomial_degree(p);
 
-      if (ctx_trace_enabled(map->plugin_ctx, "nra::explain::projection")) {
+      if (ctx_trace_enabled(map->plugin_ctx, "na::explain::projection")) {
         ctx_trace_printf(map->plugin_ctx, "p = "); lp_polynomial_print(p, ctx_trace_out(map->plugin_ctx)); ctx_trace_printf(map->plugin_ctx, "\n");
         ctx_trace_printf(map->plugin_ctx, "p_deg = %u\n", p_deg);
       }
@@ -968,7 +968,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out, int_hse
             q = lp_projection_map_get_set_of(map, x)->data[x_set_j];
             assert(lp_polynomial_top_variable(p) == x);
 
-            if (ctx_trace_enabled(map->plugin_ctx, "nra::explain::projection")) {
+            if (ctx_trace_enabled(map->plugin_ctx, "na::explain::projection")) {
               ctx_trace_printf(map->plugin_ctx, "q = "); lp_polynomial_print(q, ctx_trace_out(map->plugin_ctx)); ctx_trace_printf(map->plugin_ctx, "\n");
             }
 
@@ -981,7 +981,7 @@ void lp_projection_map_project(lp_projection_map_t* map, ivector_t* out, int_hse
                continue;
             }
 
-            if (ctx_trace_enabled(map->plugin_ctx, "nra::explain::projection")) {
+            if (ctx_trace_enabled(map->plugin_ctx, "na::explain::projection")) {
               ctx_trace_printf(map->plugin_ctx, "q_r = "); lp_polynomial_print(q_r, ctx_trace_out(map->plugin_ctx)); ctx_trace_printf(map->plugin_ctx, "\n");
               ctx_trace_printf(map->plugin_ctx, "q_r_deg = %u\n", q_r_deg);
             }
@@ -1047,25 +1047,25 @@ bool constraint_get_value(const mcsat_trail_t* trail, const int_mset_t* pos, con
 /** Try to resolve the two constraints with Fourier-Motzkin resolution */
 static
 bool
-poly_constraint_resolve_fm(nra_plugin_t *nra,
+poly_constraint_resolve_fm(na_plugin_t *na,
                            const poly_constraint_t *c0, bool c0_negated,
                            const poly_constraint_t *c1, bool c1_negated,
                            ivector_t *out) {
 
-  lp_polynomial_context_t* ctx = nra->lp_data.lp_ctx;
-  lp_assignment_t* m = nra->lp_data.lp_assignment;
+  lp_polynomial_context_t* ctx = na->lp_data.lp_ctx;
+  lp_assignment_t* m = na->lp_data.lp_assignment;
 
   if (poly_constraint_is_root_constraint(c0) || poly_constraint_is_root_constraint(c1)) {
     return false;
   }
 
-  if (ctx_trace_enabled(nra->ctx, "mcsat::nra::explain")) {
-    ctx_trace_printf(nra->ctx, "c0 %s: ", c0_negated ? "(negated)" : "");
-    poly_constraint_print(c0, ctx_trace_out(nra->ctx));
-    ctx_trace_printf(nra->ctx, "\n");
-    ctx_trace_printf(nra->ctx, "c1 %s: ", c1_negated ? "(negated)" : "");
-    poly_constraint_print(c1, ctx_trace_out(nra->ctx));
-    ctx_trace_printf(nra->ctx, "\n");
+  if (ctx_trace_enabled(na->ctx, "mcsat::na::explain")) {
+    ctx_trace_printf(na->ctx, "c0 %s: ", c0_negated ? "(negated)" : "");
+    poly_constraint_print(c0, ctx_trace_out(na->ctx));
+    ctx_trace_printf(na->ctx, "\n");
+    ctx_trace_printf(na->ctx, "c1 %s: ", c1_negated ? "(negated)" : "");
+    poly_constraint_print(c1, ctx_trace_out(na->ctx));
+    ctx_trace_printf(na->ctx, "\n");
   }
 
   lp_polynomial_vector_t* assumptions = lp_polynomial_vector_new(ctx);
@@ -1077,12 +1077,12 @@ poly_constraint_resolve_fm(nra_plugin_t *nra,
   bool ok = lp_polynomial_constraint_resolve_fm(c0->polynomial, c0_sgn_condition, c1->polynomial, c1_sgn_condition, m, R, &R_sgn_condition, assumptions);
   if (ok) {
     // (C1 && C2 && assumptions && !(p R2 0)) => false
-    term_manager_t* tm = nra->ctx->tm;
+    term_manager_t* tm = na->ctx->tm;
     size_t n = lp_polynomial_vector_size(assumptions);
     size_t i;
     for (i = 0; i < n; ++ i) {
       lp_polynomial_t* assumption_p_i = lp_polynomial_vector_at(assumptions, i);
-      term_t assumption_i_p_term = lp_polynomial_to_yices_term_nra(nra, assumption_p_i);
+      term_t assumption_i_p_term = lp_polynomial_to_yices_term_na(na, assumption_p_i);
       int assumption_i_p_sgn = lp_polynomial_sgn(assumption_p_i, m);
       //      term_t assumption_i = NULL_TERM; // infer dead store
       term_t assumption_i;
@@ -1093,14 +1093,14 @@ poly_constraint_resolve_fm(nra_plugin_t *nra,
       } else {
         assumption_i = mk_arith_term_eq0(tm, assumption_i_p_term);
       }
-      if (ctx_trace_enabled(nra->ctx, "mcsat::nra::explain")) {
-        ctx_trace_printf(nra->ctx, "adding FM assumption: ");
-        ctx_trace_term(nra->ctx, assumption_i);
+      if (ctx_trace_enabled(na->ctx, "mcsat::na::explain")) {
+        ctx_trace_printf(na->ctx, "adding FM assumption: ");
+        ctx_trace_term(na->ctx, assumption_i);
       }
       ivector_push(out, assumption_i);
       lp_polynomial_delete(assumption_p_i);
     }
-    term_t R_p_term = lp_polynomial_to_yices_term_nra(nra, R);
+    term_t R_p_term = lp_polynomial_to_yices_term_na(na, R);
     term_t R_term = NULL_TERM;
     switch (R_sgn_condition) {
     case LP_SGN_LT_0:
@@ -1123,9 +1123,9 @@ poly_constraint_resolve_fm(nra_plugin_t *nra,
       break;
     }
     R_term = opposite_term(R_term);
-    if (ctx_trace_enabled(nra->ctx, "mcsat::nra::explain")) {
-      ctx_trace_printf(nra->ctx, "adding resolvent: ");
-      ctx_trace_term(nra->ctx, R_term);
+    if (ctx_trace_enabled(na->ctx, "mcsat::na::explain")) {
+      ctx_trace_printf(na->ctx, "adding resolvent: ");
+      ctx_trace_term(na->ctx, R_term);
     }
     ivector_push(out, R_term);
   }
@@ -1136,30 +1136,30 @@ poly_constraint_resolve_fm(nra_plugin_t *nra,
   return ok;
 }
 
-void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const int_mset_t* neg, variable_t conflict_var,
+void na_plugin_explain_conflict(na_plugin_t* na, const int_mset_t* pos, const int_mset_t* neg, variable_t conflict_var,
     const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict) {
 
-  if (ctx_trace_enabled(nra->ctx, "nra::explain")) {
-    ctx_trace_printf(nra->ctx, "nra_plugin_explain_conflict()\n");
+  if (ctx_trace_enabled(na->ctx, "na::explain")) {
+    ctx_trace_printf(na->ctx, "na_plugin_explain_conflict()\n");
     uint32_t i;
     int_mset_t variables;
     int_mset_construct(&variables, variable_null);
     for (i = 0; i < core->size; ++ i) {
-      term_t core_i_t = variable_db_get_term(nra->ctx->var_db, core->data[i]);
-      nra_plugin_get_constraint_variables(nra, core_i_t, &variables);
-      ctx_trace_printf(nra->ctx, "core[%u] = ", i);
-      ctx_trace_term(nra->ctx, core_i_t);
+      term_t core_i_t = variable_db_get_term(na->ctx->var_db, core->data[i]);
+      na_plugin_get_constraint_variables(na, core_i_t, &variables);
+      ctx_trace_printf(na->ctx, "core[%u] = ", i);
+      ctx_trace_term(na->ctx, core_i_t);
     }
-    trail_print(nra->ctx->trail, ctx_trace_out(nra->ctx));
+    trail_print(na->ctx->trail, ctx_trace_out(na->ctx));
     ivector_t* variables_list = int_mset_get_list(&variables);
     for (i = 0; i < variables_list->size; ++ i) {
       variable_t var = variables_list->data[i];
-      if (trail_has_value(nra->ctx->trail, var)) {
-        const mcsat_value_t* v = trail_get_value(nra->ctx->trail, var);
-        variable_db_print_variable(nra->ctx->var_db, var, ctx_trace_out(nra->ctx));
-        ctx_trace_printf(nra->ctx, " -> ");
-        mcsat_value_print(v, ctx_trace_out(nra->ctx));
-        ctx_trace_printf(nra->ctx, "\n");
+      if (trail_has_value(na->ctx->trail, var)) {
+        const mcsat_value_t* v = trail_get_value(na->ctx->trail, var);
+        variable_db_print_variable(na->ctx->var_db, var, ctx_trace_out(na->ctx));
+        ctx_trace_printf(na->ctx, " -> ");
+        mcsat_value_print(v, ctx_trace_out(na->ctx));
+        ctx_trace_printf(na->ctx, "\n");
       }
     }
     int_mset_destruct(&variables);
@@ -1169,15 +1169,15 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
   if (false && core->size == 2 && lemma_reasons->size == 0) {
     variable_t c0_var = core->data[0];
     variable_t c1_var = core->data[1];
-    bool c0_negated = !constraint_get_value(nra->ctx->trail, pos, neg, c0_var);
-    bool c1_negated = !constraint_get_value(nra->ctx->trail, pos, neg, c1_var);
-    const poly_constraint_t* c0 = poly_constraint_db_get(nra->constraint_db, c0_var);
-    const poly_constraint_t* c1 = poly_constraint_db_get(nra->constraint_db, c1_var);
-    bool resolved = poly_constraint_resolve_fm(nra, c0, c0_negated, c1, c1_negated, conflict);
+    bool c0_negated = !constraint_get_value(na->ctx->trail, pos, neg, c0_var);
+    bool c1_negated = !constraint_get_value(na->ctx->trail, pos, neg, c1_var);
+    const poly_constraint_t* c0 = poly_constraint_db_get(na->constraint_db, c0_var);
+    const poly_constraint_t* c1 = poly_constraint_db_get(na->constraint_db, c1_var);
+    bool resolved = poly_constraint_resolve_fm(na, c0, c0_negated, c1, c1_negated, conflict);
     if (resolved) {
-      term_t c0_term = variable_db_get_term(nra->ctx->var_db, c0_var);
+      term_t c0_term = variable_db_get_term(na->ctx->var_db, c0_var);
       if (c0_negated) c0_term = opposite_term(c0_term);
-      term_t c1_term = variable_db_get_term(nra->ctx->var_db, c1_var);
+      term_t c1_term = variable_db_get_term(na->ctx->var_db, c1_var);
       if (c1_negated) c1_term = opposite_term(c1_term);
       ivector_push(conflict, c0_term);
       ivector_push(conflict, c1_term);
@@ -1187,25 +1187,25 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
 
   // Create the map from variables to
   lp_projection_map_t projection_map;
-  lp_projection_map_construct_from_nra(&projection_map, nra);
+  lp_projection_map_construct_from_na(&projection_map, na);
 
   // Add all the polynomials
   uint32_t core_i;
   for (core_i = 0; core_i < core->size; ++ core_i) {
     variable_t constraint_var = core->data[core_i];
-    assert(constraint_has_value(nra->ctx->trail, pos, neg, constraint_var));
-    const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
+    assert(constraint_has_value(na->ctx->trail, pos, neg, constraint_var));
+    const poly_constraint_t* constraint = poly_constraint_db_get(na->constraint_db, constraint_var);
     // If the polynomial isn't unit, it is a global inference, so we explain with a different polynomial
-    bool is_unit = poly_constraint_is_unit(constraint, nra->lp_data.lp_assignment);
+    bool is_unit = poly_constraint_is_unit(constraint, na->lp_data.lp_assignment);
     bool is_speculation = int_mset_contains(pos, constraint_var) || int_mset_contains(neg, constraint_var);
     bool is_inference = false;
     if (!is_unit && !is_speculation) {
       const lp_polynomial_t* p = poly_constraint_get_polynomial(constraint);
       lp_sign_condition_t sgn_condition = poly_constraint_get_sign_condition(constraint);
-      bool negated = !trail_get_boolean_value(nra->ctx->trail, constraint_var);
-      assert(conflict_var == nra->conflict_variable || (nra->conflict_variable == variable_null && conflict_var == nra->conflict_variable_int));
-      term_t t = variable_db_get_term(nra->ctx->var_db, conflict_var);
-      lp_variable_t x = lp_data_get_lp_variable_from_term(&nra->lp_data, t);
+      bool negated = !trail_get_boolean_value(na->ctx->trail, constraint_var);
+      assert(conflict_var == na->conflict_variable || (na->conflict_variable == variable_null && conflict_var == na->conflict_variable_int));
+      term_t t = variable_db_get_term(na->ctx->var_db, conflict_var);
+      lp_variable_t x = lp_data_get_lp_variable_from_term(&na->lp_data, t);
       lp_polynomial_t* p_inference_reason = lp_polynomial_constraint_explain_infer_bounds(p, sgn_condition, negated, x);
       if (p_inference_reason != NULL) {
         is_inference = true;
@@ -1224,7 +1224,7 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
   uint32_t lemma_reasons_i;
   for (lemma_reasons_i = 0; lemma_reasons_i < lemma_reasons->size; ++ lemma_reasons_i) {
     variable_t constraint_var = lemma_reasons->data[lemma_reasons_i];
-    const poly_constraint_t* constraint = poly_constraint_db_get(nra->constraint_db, constraint_var);
+    const poly_constraint_t* constraint = poly_constraint_db_get(na->constraint_db, constraint_var);
     const lp_polynomial_t* p = poly_constraint_get_polynomial(constraint);
     lp_projection_map_add(&projection_map, p);
   }
@@ -1235,9 +1235,9 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
   // Add the core to the conflict
   for (core_i = 0; core_i < core->size; ++ core_i) {
     variable_t constraint_var = core->data[core_i];
-    term_t constraint_term = variable_db_get_term(nra->ctx->var_db, constraint_var);
-    assert(constraint_has_value(nra->ctx->trail, pos, neg, constraint_var));
-    bool constraint_value = constraint_get_value(nra->ctx->trail, pos, neg, constraint_var);
+    term_t constraint_term = variable_db_get_term(na->ctx->var_db, constraint_var);
+    assert(constraint_has_value(na->ctx->trail, pos, neg, constraint_var));
+    bool constraint_value = constraint_get_value(na->ctx->trail, pos, neg, constraint_var);
     if (!constraint_value) {
       constraint_term = opposite_term(constraint_term);
     }
@@ -1248,19 +1248,19 @@ void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const
   lp_projection_map_destruct(&projection_map);
 }
 
-void nra_plugin_describe_cell(nra_plugin_t* nra, term_t p, ivector_t* out_literals) {
+void na_plugin_describe_cell(na_plugin_t* na, term_t p, ivector_t* out_literals) {
 
   // Create the projection map
   lp_projection_map_t projection_map;
-  lp_projection_map_construct_from_nra(&projection_map, nra);
+  lp_projection_map_construct_from_na(&projection_map, na);
   projection_map.use_root_constraints_for_cells = false;
 
-  if (ctx_trace_enabled(nra->ctx, "nra::simplify_conflict")) {
-    ctx_trace_printf(nra->ctx, "p = "); ctx_trace_term(nra->ctx, p);
+  if (ctx_trace_enabled(na->ctx, "na::simplify_conflict")) {
+    ctx_trace_printf(na->ctx, "p = "); ctx_trace_term(na->ctx, p);
   }
 
   // Add the polynomial
-  lp_polynomial_t* p_poly = lp_polynomial_from_term_nra(nra, p, NULL);
+  lp_polynomial_t* p_poly = lp_polynomial_from_term_na(na, p, NULL);
   lp_projection_map_add(&projection_map, p_poly);
   lp_polynomial_delete(p_poly);
 
@@ -1333,7 +1333,7 @@ void lp_projection_map_add_constraint(lp_projection_map_t* map, term_t cstr, lp_
   lp_polynomial_delete(cstr_polynomial);
 }
 
-int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manager_t* tm,
+int32_t na_project_arith_literals(ivector_t* literals, model_t* mdl, term_manager_t* tm,
     uint32_t n_vars_to_elim, const term_t *vars_to_elim,
     uint32_t n_vars_to_keep, const term_t *vars_to_keep) {
 

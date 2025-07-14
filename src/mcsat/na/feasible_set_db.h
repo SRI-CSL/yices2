@@ -25,13 +25,13 @@
 #include "mcsat/mcsat_types.h"
 #include "mcsat/value.h"
 
-typedef struct nra_plugin_s nra_plugin_t;
+typedef struct na_plugin_s na_plugin_t;
 
 /** Contains the map from variables to feasible sets that can be backtracked */
 typedef struct feasible_set_db_struct feasible_set_db_t;
 
 /** Create a new database */
-feasible_set_db_t* feasible_set_db_new(nra_plugin_t * ctx);
+feasible_set_db_t* feasible_set_db_new(na_plugin_t * ctx);
 
 /** Delete the database */
 void feasible_set_db_delete(feasible_set_db_t* db);

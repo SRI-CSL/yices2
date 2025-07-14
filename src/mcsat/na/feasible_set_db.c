@@ -16,11 +16,11 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-#include "mcsat/nra/feasible_set_db.h"
+#include "mcsat/na/feasible_set_db.h"
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/utils/lp_constraint_db.h"
 #include "mcsat/tracing.h"
-#include "mcsat/nra/nra_plugin_internal.h"
+#include "mcsat/na/na_plugin_internal.h"
 
 #include "utils/int_array_sort2.h"
 
@@ -80,7 +80,7 @@ struct feasible_set_db_struct {
   scope_holder_t scope;
 
   /** the plugin */
-  nra_plugin_t* plugin;
+  na_plugin_t* plugin;
 };
 
 static
@@ -162,7 +162,7 @@ void feasible_set_db_print(feasible_set_db_t* db, FILE* out) {
 
 #define INITIAL_DB_SIZE 100
 
-feasible_set_db_t* feasible_set_db_new(nra_plugin_t* nra) {
+feasible_set_db_t* feasible_set_db_new(na_plugin_t* na) {
   feasible_set_db_t* db = safe_malloc(sizeof(feasible_set_db_t));
 
   db->memory_size = 1; // 0 is special null ref
@@ -180,7 +180,7 @@ feasible_set_db_t* feasible_set_db_new(nra_plugin_t* nra) {
 
   scope_holder_construct(&db->scope);
 
-  db->plugin = nra;
+  db->plugin = na;
 
   return db;
 }
@@ -226,7 +226,7 @@ bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_
 
   bool feasible = true;
 
-  if (ctx_trace_enabled(db->plugin->ctx, "nra::feasible_set_db")) {
+  if (ctx_trace_enabled(db->plugin->ctx, "na::feasible_set_db")) {
     fprintf(ctx_trace_out(db->plugin->ctx), "feasible_set_db_update\n");
     feasible_set_db_print(db, ctx_trace_out(db->plugin->ctx));
   }
@@ -239,7 +239,7 @@ bool feasible_set_db_update(feasible_set_db_t* db, variable_t x, lp_feasibility_
 
   if (old_set != NULL) {
 
-    if (ctx_trace_enabled(db->plugin->ctx, "nra::feasible_set_db")) {
+    if (ctx_trace_enabled(db->plugin->ctx, "na::feasible_set_db")) {
       ctx_trace_printf(db->plugin->ctx, "feasible_set_db_update()\n");
       ctx_trace_printf(db->plugin->ctx, "old_set = ");
       lp_feasibility_set_print(old_set, ctx_trace_out(db->plugin->ctx));
@@ -325,7 +325,7 @@ void feasible_set_db_push(feasible_set_db_t* db) {
 
 void feasible_set_db_pop(feasible_set_db_t* db) {
 
-  if (ctx_trace_enabled(db->plugin->ctx, "nra::feasible_set_db")) {
+  if (ctx_trace_enabled(db->plugin->ctx, "na::feasible_set_db")) {
     fprintf(ctx_trace_out(db->plugin->ctx), "feasible_set_db_pop");
     feasible_set_db_print(db, ctx_trace_out(db->plugin->ctx));
   }
@@ -357,7 +357,7 @@ void feasible_set_db_pop(feasible_set_db_t* db) {
     find->val = prev;
   }
 
-  if (ctx_trace_enabled(db->plugin->ctx, "nra::feasible_set_db")) {
+  if (ctx_trace_enabled(db->plugin->ctx, "na::feasible_set_db")) {
     feasible_set_db_print(db, ctx_trace_out(db->plugin->ctx));
   }
 }
@@ -425,18 +425,18 @@ void feasible_set_quickxplain(const feasible_set_db_t* db, const lp_feasibility_
 }
 
 static
-void get_max_degree_max_level(const nra_plugin_t *nra, const feasibility_list_element_t* memory, uint32_t *max_deg, uint32_t *max_lvl) {
+void get_max_degree_max_level(const na_plugin_t *na, const feasibility_list_element_t* memory, uint32_t *max_deg, uint32_t *max_lvl) {
   uint32_t deg = 0, lvl = 0;
 
   for (uint32_t i = 0; i < memory->reasons_size; ++ i) {
     variable_t i_var = memory->reasons[i];
-    if (trail_has_value(nra->ctx->trail, i_var)) {
-      uint32_t i_lvl = trail_get_level(nra->ctx->trail, i_var);
+    if (trail_has_value(na->ctx->trail, i_var)) {
+      uint32_t i_lvl = trail_get_level(na->ctx->trail, i_var);
       if (i_lvl > lvl) {
         lvl = i_lvl;
       }
     }
-    const poly_constraint_t* i_constraint = poly_constraint_db_get(nra->constraint_db, i_var);
+    const poly_constraint_t* i_constraint = poly_constraint_db_get(na->constraint_db, i_var);
     const lp_polynomial_t* i_poly = poly_constraint_get_polynomial(i_constraint);
     uint32_t i_deg =  lp_polynomial_degree(i_poly);
     if (i_deg > deg) {
@@ -450,17 +450,17 @@ void get_max_degree_max_level(const nra_plugin_t *nra, const feasibility_list_el
 
 /** Compare variables first by degree, then by level, prefer non root constraints */
 static
-bool compare_reasons(void *nra_plugin, int32_t r1, int32_t r2) {
+bool compare_reasons(void *na_plugin, int32_t r1, int32_t r2) {
   // TODO actually prefer non root constraints (as hinted by the function description)
 
-  const nra_plugin_t* nra = (nra_plugin_t*) nra_plugin;
-  const feasible_set_db_t* db = nra->feasible_set_db;
+  const na_plugin_t* na = (na_plugin_t*) na_plugin;
+  const feasible_set_db_t* db = na->feasible_set_db;
 
   // Get max degree and max level of the reasons of both constraints
   uint32_t r1_degree = 0, r2_degree = 0;
   uint32_t r1_level = 0, r2_level = 0;
-  get_max_degree_max_level(nra, db->memory + r1, &r1_degree, &r1_level);
-  get_max_degree_max_level(nra, db->memory + r2, &r2_degree, &r2_level);
+  get_max_degree_max_level(na, db->memory + r1, &r1_degree, &r1_level);
+  get_max_degree_max_level(na, db->memory + r2, &r2_degree, &r2_level);
 
   // Prefer smaller degrees
   if (r1_degree != r2_degree) {
@@ -472,9 +472,9 @@ bool compare_reasons(void *nra_plugin, int32_t r1, int32_t r2) {
 }
 
 static
-void print_conflict_reasons(FILE* out, const feasible_set_db_t* db, nra_plugin_t* nra, ivector_t* reason_indices) {
+void print_conflict_reasons(FILE* out, const feasible_set_db_t* db, na_plugin_t* na, ivector_t* reason_indices) {
   uint32_t i, j;
-  poly_constraint_db_t* poly_db = nra->constraint_db;
+  poly_constraint_db_t* poly_db = na->constraint_db;
   
   for (i = 0; i < reason_indices->size; ++ i) {
     fprintf(out, "[%d]: ", i);
@@ -498,7 +498,7 @@ void feasible_set_filter_reason_indices(const feasible_set_db_t* db, const mcsat
   // Sort variables by degree and trail level decreasing
   int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) db->plugin, compare_reasons);
  
-  if (ctx_trace_enabled(db->plugin->ctx, "nra::conflict")) {
+  if (ctx_trace_enabled(db->plugin->ctx, "na::conflict")) {
     ctx_trace_printf(db->plugin->ctx, "filtering: before\n");
     print_conflict_reasons(ctx_trace_out(db->plugin->ctx), db, db->plugin, reasons_indices);
   }
@@ -513,7 +513,7 @@ void feasible_set_filter_reason_indices(const feasible_set_db_t* db, const mcsat
   // Sort again for consistency
   int_array_sort2(reasons_indices->data, reasons_indices->size, (void*) db->plugin, compare_reasons);
 
-  if (ctx_trace_enabled(db->plugin->ctx, "nra::conflict")) {
+  if (ctx_trace_enabled(db->plugin->ctx, "na::conflict")) {
     ctx_trace_printf(db->plugin->ctx, "filtering: after\n");
     print_conflict_reasons(ctx_trace_out(db->plugin->ctx), db, db->plugin, reasons_indices);
   }                           
@@ -540,7 +540,7 @@ bool feasible_set_check_if_conflict(feasible_set_db_t* db, ivector_t* set_indice
       const lp_feasibility_set_t* reason_feasible = db->memory[set_index].reason_feasible_set;
       lp_feasibility_set_t* intersect = lp_feasibility_set_intersect(S, reason_feasible);
 
-      if (ctx_trace_enabled(db->plugin->ctx, "nra::get_conflict")) {
+      if (ctx_trace_enabled(db->plugin->ctx, "na::get_conflict")) {
         ctx_trace_printf(db->plugin->ctx, "S = "); lp_feasibility_set_print(S, ctx_trace_out(db->plugin->ctx)); ctx_trace_printf(db->plugin->ctx, "\n");
         ctx_trace_printf(db->plugin->ctx, "reason_feasible = "); lp_feasibility_set_print(reason_feasible, ctx_trace_out(db->plugin->ctx)); ctx_trace_printf(db->plugin->ctx, "\n");
         ctx_trace_printf(db->plugin->ctx, "intersect = "); lp_feasibility_set_print(intersect, ctx_trace_out(db->plugin->ctx)); ctx_trace_printf(db->plugin->ctx, "\n");
@@ -561,7 +561,7 @@ bool feasible_set_check_if_conflict(feasible_set_db_t* db, ivector_t* set_indice
 
 void feasible_set_db_get_conflict_reasons(const feasible_set_db_t* db, variable_t x, const mcsat_value_t* x_value, ivector_t* reasons_out, ivector_t* lemma_reasons) {
 
-  if (ctx_trace_enabled(db->plugin->ctx, "nra::get_conflict")) {
+  if (ctx_trace_enabled(db->plugin->ctx, "na::get_conflict")) {
     ctx_trace_printf(db->plugin->ctx, "get_reasons of: ");
     variable_db_print_variable(db->plugin->ctx->var_db, x, ctx_trace_out(db->plugin->ctx));
     ctx_trace_printf(db->plugin->ctx, "\n");
@@ -600,7 +600,7 @@ variable_t feasible_set_db_get_cheap_unassigned(feasible_set_db_t* db, lp_value_
 
   variable_t best_var = variable_null;
   size_t best_var_degree = 0;
-  if (ctx_trace_enabled(db->plugin->ctx, "nra::decide")) {
+  if (ctx_trace_enabled(db->plugin->ctx, "na::decide")) {
     feasible_set_db_print(db, ctx_trace_out(db->plugin->ctx));
   }
 
