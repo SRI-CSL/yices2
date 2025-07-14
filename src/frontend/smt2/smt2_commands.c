@@ -700,7 +700,7 @@ static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params
     // Solve
     status = yices_check_context_with_model(ctx, params, &mdl, n, assumptions.data);
 
-    if (status == STATUS_UNSAT) {
+    if (status == YICES_STATUS_UNSAT) {
       term_t model_interp = context_get_unsat_model_interpolant(ctx);
       if (model_interp != NULL_TERM) {
 	      ivector_t lcore;
@@ -3232,7 +3232,7 @@ static void validate_unsat_core(smt2_globals_t *g) {
   int32_t code;
   smt_status_t status;
 
-  if (g->unsat_core->status == STATUS_UNSAT) {
+  if (g->unsat_core->status == YICES_STATUS_UNSAT) {
     saved_context = g->ctx;
     g->ctx = NULL;
     init_smt2_context(g);
