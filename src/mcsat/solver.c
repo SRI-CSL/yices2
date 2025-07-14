@@ -43,10 +43,10 @@
 
 #include "mcsat/bool/bool_plugin.h"
 #include "mcsat/ite/ite_plugin.h"
-#include "mcsat/nra/nra_plugin.h"
 #include "mcsat/uf/uf_plugin.h"
 #include "mcsat/bv/bv_plugin.h"
 #include "mcsat/ff/ff_plugin.h"
+#include "mcsat/na/na_plugin.h"
 
 #include "mcsat/preprocessor.h"
 
@@ -309,7 +309,7 @@ struct mcsat_solver_s {
   uint32_t bool_plugin_id;
   uint32_t uf_plugin_id;
   uint32_t ite_plugin_id;
-  uint32_t nra_plugin_id;
+  uint32_t na_plugin_id;
   uint32_t bv_plugin_id;
   uint32_t ff_plugin_id;
 };
@@ -834,7 +834,7 @@ void mcsat_add_plugins(mcsat_solver_t* mcsat) {
   mcsat->bool_plugin_id = mcsat_add_plugin(mcsat, bool_plugin_allocator, "bool_plugin");
   mcsat->uf_plugin_id = mcsat_add_plugin(mcsat, uf_plugin_allocator, "uf_plugin");
   mcsat->ite_plugin_id = mcsat_add_plugin(mcsat, ite_plugin_allocator, "ite_plugin");
-  mcsat->nra_plugin_id = mcsat_add_plugin(mcsat, nra_plugin_allocator, "nra_plugin");
+  mcsat->na_plugin_id = mcsat_add_plugin(mcsat, na_plugin_allocator, "na_plugin");
   mcsat->bv_plugin_id = mcsat_add_plugin(mcsat, bv_plugin_allocator, "bv_plugin");
   mcsat->ff_plugin_id = mcsat_add_plugin(mcsat, ff_plugin_allocator, "ff_plugin");
 }
@@ -854,7 +854,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   mcsat->types = ctx->types;
   mcsat->terms = ctx->terms;
   mcsat->terms_size_on_solver_entry = 0;
-  mcsat->status = STATUS_IDLE;
+  mcsat->status = YICES_STATUS_IDLE;
   mcsat->inconsistent_push_calls = 0;
 
   // New term manager
@@ -1064,7 +1064,7 @@ void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal);
 
 void mcsat_push(mcsat_solver_t* mcsat) {
 
-  assert(mcsat->status == STATUS_IDLE); // We must have clear before
+  assert(mcsat->status == YICES_STATUS_IDLE); // We must have clear before
 
   if (trace_enabled(mcsat->ctx->trace, "mcsat::push")) {
     mcsat_trace_printf(mcsat->ctx->trace, "mcsat::push start\n");
@@ -1112,7 +1112,7 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
 
   if (mcsat->inconsistent_push_calls > 0) {
     mcsat->inconsistent_push_calls --;
-    mcsat->status = STATUS_IDLE;
+    mcsat->status = YICES_STATUS_IDLE;
     return;
   }
 
@@ -1163,7 +1163,7 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   }
 
   // Set the status back to idle
-  mcsat->status = STATUS_IDLE;
+  mcsat->status = YICES_STATUS_IDLE;
   mcsat->interpolant = NULL_TERM;
 
   if (trace_enabled(mcsat->ctx->trace, "mcsat::pop")) {
@@ -1178,7 +1178,7 @@ void mcsat_clear(mcsat_solver_t* mcsat) {
   mcsat->assumption_i = 0;
   mcsat->assumptions_decided_level = -1;
   mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, true);
-  mcsat->status = STATUS_IDLE;
+  mcsat->status = YICES_STATUS_IDLE;
   mcsat->interpolant = NULL_TERM; // BD
 }
 
@@ -1896,7 +1896,7 @@ void propagation_check(const ivector_t* reasons, term_t x, term_t subst) {
    }
    smt_status_t result = yices_check_context(ctx, NULL);
    (void) result;
-   assert(result == STATUS_UNSAT);
+   assert(result == YICES_STATUS_UNSAT);
    yices_free_context(ctx);
    yices_free_config(config);
 }
@@ -2157,7 +2157,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
         }
       }
     }
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = YICES_STATUS_UNSAT;
     mcsat->variable_in_conflict = variable_null;
     delete_ivector(&reason);
     return;
@@ -2311,14 +2311,14 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   }
 
   if (mcsat_conflict_with_assumptions(mcsat, conflict_level)) {
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = YICES_STATUS_UNSAT;
     if (mcsat->ctx->mcsat_options.model_interpolation) {
       mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
     }
     mcsat->assumptions_decided_level = -1;
     mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
   } else if (conflict_level <= mcsat->trail->decision_level_base) {
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = YICES_STATUS_UNSAT;
   } else {
     assert(conflict_get_top_level_vars_count(&conflict) == 1);
     // We should still be in conflict, so back out
@@ -2792,12 +2792,12 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   mcsat->assumptions_model = mdl;
 
   // Start the search
-  mcsat->status = STATUS_SEARCHING;
+  mcsat->status = YICES_STATUS_SEARCHING;
 
   // If we're already unsat, just return
   if (!mcsat_is_consistent(mcsat)) {
     mcsat->interpolant = false_term;
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = YICES_STATUS_UNSAT;
     assert(int_queue_is_empty(&mcsat->registration_queue));
     goto solve_done;
   }
@@ -2887,7 +2887,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     }
 
     // Nothing to decide, we're satisfiable
-    mcsat->status = STATUS_SAT;
+    mcsat->status = YICES_STATUS_SAT;
     if (trace_enabled(mcsat->ctx->trace, "mcsat::model::check")) {
       mcsat_check_model(mcsat, true);
     }
@@ -2902,7 +2902,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     // If at level 0 we're unsat
     if (n_assumptions == 0 && trail_is_at_base_level(mcsat->trail)) {
       mcsat->interpolant = false_term;
-      mcsat->status = STATUS_UNSAT;
+      mcsat->status = YICES_STATUS_UNSAT;
       break;
     }
 
@@ -2910,7 +2910,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     mcsat_analyze_conflicts(mcsat, &restart_resource);
 
     // Analysis might have discovered base level conflict
-    if (mcsat->status == STATUS_UNSAT) {
+    if (mcsat->status == YICES_STATUS_UNSAT) {
       if (n_assumptions == 0) {
         mcsat->interpolant = false_term;
       }
@@ -2922,7 +2922,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   }
 
   if (mcsat->stop_search) {
-    if (mcsat->status == STATUS_SEARCHING) {
+    if (mcsat->status == YICES_STATUS_SEARCHING) {
       mcsat->status = YICES_STATUS_INTERRUPTED;
     }
     mcsat->stop_search = false;

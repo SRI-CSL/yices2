@@ -16,12 +16,12 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
  
-#ifndef NRA_PLUGIN_H_
-#define NRA_PLUGIN_H_
+#ifndef NA_PLUGIN_H_
+#define NA_PLUGIN_H_
 
 #include "mcsat/plugin.h"
 
-/** Allocate a new nra plugin and setup the plugin-interface method */
-plugin_t* nra_plugin_allocator(void);
+/** Allocate a new na plugin and setup the plugin-interface method */
+plugin_t* na_plugin_allocator(void);
 
-#endif /* NRA_PLUGIN_H_ */
+#endif /* NA_PLUGIN_H_ */

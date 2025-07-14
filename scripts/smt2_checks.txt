@@ -781,20 +781,20 @@ tests/regress/mcsat/nia/nia_01.smt2
 tests/regress/mcsat/nia/nia_02.smt2
 tests/regress/mcsat/nia/nia_03.smt2
 tests/regress/mcsat/nia/nia_04.smt2
-tests/regress/mcsat/nia/nia_05.smt2 [ --mcsat-nra-bound ]
+tests/regress/mcsat/nia/nia_05.smt2 [ --mcsat-na-bound ]
 tests/regress/mcsat/nra/incremental/incremental00.smt2 [ --incremental ]
 tests/regress/mcsat/nra/incremental/incremental01.smt2 [ --incremental ]
 tests/regress/mcsat/nra/incremental/incremental02.smt2 [ --incremental ]
 tests/regress/mcsat/nra/incremental/Problem14_prop_000.c.10.smt2 [ --incremental ]
-tests/regress/mcsat/nra/nra_00.smt2
-tests/regress/mcsat/nra/nra_01.smt2
-tests/regress/mcsat/nra/nra_02.smt2
-tests/regress/mcsat/nra/nra_03.smt2
-tests/regress/mcsat/nra/nra_04.smt2
-tests/regress/mcsat/nra/nra_05.smt2
-tests/regress/mcsat/nra/nra_06.smt2
-tests/regress/mcsat/nra/nra_07.smt2
-tests/regress/mcsat/nra/nra_08.smt2
+tests/regress/mcsat/nra/na_00.smt2
+tests/regress/mcsat/nra/na_01.smt2
+tests/regress/mcsat/nra/na_02.smt2
+tests/regress/mcsat/nra/na_03.smt2
+tests/regress/mcsat/nra/na_04.smt2
+tests/regress/mcsat/nra/na_05.smt2
+tests/regress/mcsat/nra/na_06.smt2
+tests/regress/mcsat/nra/na_07.smt2
+tests/regress/mcsat/nra/na_08.smt2
 tests/regress/mcsat/nra/random/random_1_10_11690352c1.smt2
 tests/regress/mcsat/nra/random/random_1_10_14a85eaebd.smt2
 tests/regress/mcsat/nra/random/random_1_10_34eac69ae0.smt2

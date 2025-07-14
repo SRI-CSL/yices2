@@ -25,7 +25,7 @@
 #include "mcsat/utils/int_mset.h"
 #include "terms/term_manager.h"
 
-typedef struct nra_plugin_s nra_plugin_t;
+typedef struct na_plugin_s na_plugin_t;
 
 /**
  * Explain the core in the conflict. Core is a set of constraint variables,
@@ -35,14 +35,14 @@ typedef struct nra_plugin_s nra_plugin_t;
  * neg: set of negative assumptions (to extend the trail)
  *
  * */
-void nra_plugin_explain_conflict(nra_plugin_t* nra, const int_mset_t* pos, const int_mset_t* neg, variable_t conflict_var,
+void na_plugin_explain_conflict(na_plugin_t* na, const int_mset_t* pos, const int_mset_t* neg, variable_t conflict_var,
     const ivector_t* core, const ivector_t* lemma_reasons, ivector_t* conflict);
 
 /**
  * Construct a cell for a given polynomial that captures the current model. The cell is is
  * described in terms of polynomial constraints only.
  */
-void nra_plugin_describe_cell(nra_plugin_t* nra, term_t p, ivector_t* out_literals);
+void na_plugin_describe_cell(na_plugin_t* na, term_t p, ivector_t* out_literals);
 
 /**
  * Project a set of literals.
@@ -62,6 +62,6 @@ void nra_plugin_describe_cell(nra_plugin_t* nra, term_t p, ivector_t* out_litera
  *
  * @return 0 on success, negative if failure (e.g., integer arithmetic).
  */
-int32_t nra_project_arith_literals(ivector_t* literals, model_t* mdl, term_manager_t* tm,
+int32_t na_project_arith_literals(ivector_t* literals, model_t* mdl, term_manager_t* tm,
     uint32_t n_vars_to_elim, const term_t *vars_to_elim,
     uint32_t n_vars_to_keep, const term_t *vars_to_keep);

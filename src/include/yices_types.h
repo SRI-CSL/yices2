@@ -75,13 +75,13 @@ typedef struct param_s param_t;
  * Context status code
  */
 typedef enum smt_status {
-  STATUS_IDLE,
-  STATUS_SEARCHING,
-  STATUS_UNKNOWN,
-  STATUS_SAT,
-  STATUS_UNSAT,
+  YICES_STATUS_IDLE,
+  YICES_STATUS_SEARCHING,
+  YICES_STATUS_UNKNOWN,
+  YICES_STATUS_SAT,
+  YICES_STATUS_UNSAT,
   YICES_STATUS_INTERRUPTED, /* renaming because of a clash with windows defined symbol */
-  STATUS_ERROR
+  YICES_STATUS_ERROR
 } smt_status_t;
 
 
@@ -300,7 +300,7 @@ typedef enum yices_gen_mode {
  *   that depends on the error code.
  */
 typedef enum error_code {
-  NO_ERROR = 0,
+  YICES_NO_ERROR = 0,
 
   /*
    * Errors in type or term construction
@@ -504,7 +504,7 @@ typedef enum error_code {
  *
  *  error code                 meaningful fields
  *
- *  NO_ERROR                   none
+ *  YICES_NO_ERROR             none
  *
  *  INVALID_TYPE               type1
  *  INVALID_TERM               term1
