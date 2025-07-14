@@ -3010,28 +3010,28 @@ __YICES_DLLSPEC__ extern int32_t yices_default_config_for_logic(ctx_config_t *co
  *
  *
  * A context can be in one of the following states:
- * 1) STATUS_IDLE: this is the initial state.
+ * 1) YICES_STATUS_IDLE: this is the initial state.
  *    In this state, it's possible to assert formulas.
- *    After assertions, the status may change to STATUS_UNSAT (if
+ *    After assertions, the status may change to YICES_STATUS_UNSAT (if
  *    the assertions are trivially unsatisfiable). Otherwise
- *    the state remains STATUS_IDLE.
+ *    the state remains YICES_STATUS_IDLE.
  *
- * 2) STATUS_SEARCHING: this is the context status during search.
+ * 2) YICES_STATUS_SEARCHING: this is the context status during search.
  *    The context moves into that state after a call to 'check'
  *    and remains in that state until the solver completes
  *    or the search is interrupted.
  *
- * 3) STATUS_SAT/STATUS_UNSAT/STATUS_UNKNOWN: status returned after a search
- *    - STATUS_UNSAT means the assertions are not satisfiable.
- *    - STATUS_SAT means they are satisfiable.
- *    - STATUS_UNKNOWN means that the solver could not determine whether
+ * 3) YICES_STATUS_SAT/YICES_STATUS_UNSAT/YICES_STATUS_UNKNOWN: status returned after a search
+ *    - YICES_STATUS_UNSAT means the assertions are not satisfiable.
+ *    - YICES_STATUS_SAT means they are satisfiable.
+ *    - YICES_STATUS_UNKNOWN means that the solver could not determine whether
  *      the assertions are satisfiable or not. This may happen if
  *      Yices is not complete for the specific logic used (e.g.,
  *      if the formula includes quantifiers).
  *
- * 4) STATUS_INTERRUPTED: if the context is in the STATUS_SEARCHING state,
+ * 4) YICES_STATUS_INTERRUPTED: if the context is in the YICES_STATUS_SEARCHING state,
  *    then it can be interrupted via a call to stop_search.
- *    The status STATUS_INTERRUPTED indicates that.
+ *    The status YICES_STATUS_INTERRUPTED indicates that.
  *
  * For fine tuning: there are options that determine which internal
  * simplifications are applied when formulas are asserted, and
@@ -3071,12 +3071,12 @@ __YICES_DLLSPEC__ extern void yices_free_context(context_t *ctx);
  * - return one of the codes defined in yices_types.h,
  *   namely one of the constants
  *
- *    STATUS_IDLE
- *    STATUS_SEARCHING
- *    STATUS_UNKNOWN
- *    STATUS_SAT
- *    STATUS_UNSAT
- *    STATUS_INTERRUPTED
+ *    YICES_STATUS_IDLE
+ *    YICES_STATUS_SEARCHING
+ *    YICES_STATUS_UNKNOWN
+ *    YICES_STATUS_SAT
+ *    YICES_STATUS_UNSAT
+ *    YICES_STATUS_INTERRUPTED
  *
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_context_status(context_t *ctx);
@@ -3084,7 +3084,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_context_status(context_t *ctx);
 
 /*
  * Reset: remove all assertions and restore ctx's
- * status to STATUS_IDLE.
+ * status to YICES_STATUS_IDLE.
  */
 __YICES_DLLSPEC__ extern void yices_reset_context(context_t *ctx);
 
@@ -3097,7 +3097,7 @@ __YICES_DLLSPEC__ extern void yices_reset_context(context_t *ctx);
  * Error report:
  * - if the context is not configured to support push/pop
  *   code = CTX_OPERATION_NOT_SUPPORTED
- * - if the context status is STATUS_UNSAT or STATUS_SEARCHING or STATUS_INTERRUPTED
+ * - if the context status is YICES_STATUS_UNSAT or YICES_STATUS_SEARCHING or YICES_STATUS_INTERRUPTED
  *   code = CTX_INVALID_OPERATION
  */
 __YICES_DLLSPEC__ extern int32_t yices_push(context_t *ctx);
@@ -3112,7 +3112,7 @@ __YICES_DLLSPEC__ extern int32_t yices_push(context_t *ctx);
  * - if the context is not configured to support push/pop
  *   code = CTX_OPERATION_NOT_SUPPORTED
  * - if there's no matching push (i.e., the context stack is empty)
- *   or if the context's status is STATUS_SEARCHING
+ *   or if the context's status is YICES_STATUS_SEARCHING
  *   code = CTX_INVALID_OPERATION
  */
 __YICES_DLLSPEC__ extern int32_t yices_pop(context_t *ctx);
@@ -3170,15 +3170,15 @@ __YICES_DLLSPEC__ extern int32_t yices_context_disable_option(context_t *ctx, co
 
 /*
  * Assert formula t in ctx
- * - ctx status must be STATUS_IDLE or STATUS_UNSAT or STATUS_SAT or STATUS_UNKNOWN
+ * - ctx status must be YICES_STATUS_IDLE or YICES_STATUS_UNSAT or YICES_STATUS_SAT or YICES_STATUS_UNKNOWN
  * - t must be a boolean term
  *
- * If ctx's status is STATUS_UNSAT, nothing is done.
+ * If ctx's status is YICES_STATUS_UNSAT, nothing is done.
  *
- * If ctx's status is STATUS_IDLE, STATUS_SAT, or STATUS_UNKNOWN, then
+ * If ctx's status is YICES_STATUS_IDLE, YICES_STATUS_SAT, or YICES_STATUS_UNKNOWN, then
  * the formula is simplified and  asserted in the context. The context
- * status is changed  to STATUS_UNSAT if the formula  is simplified to
- * 'false' or to STATUS_IDLE otherwise.
+ * status is changed  to YICES_STATUS_UNSAT if the formula  is simplified to
+ * 'false' or to YICES_STATUS_IDLE otherwise.
  *
  * This returns 0 if there's no error or -1 if there's an error.
  *
@@ -3190,9 +3190,9 @@ __YICES_DLLSPEC__ extern int32_t yices_context_disable_option(context_t *ctx, co
  *   code = TYPE_MISMATCH
  *   term1 = t
  *   type1 = bool (expected type)
- * if ctx's status is not STATUS_IDLE or STATUS_UNSAT or STATUS_SAT or STATUS_UNKNOWN
+ * if ctx's status is not YICES_STATUS_IDLE or YICES_STATUS_UNSAT or YICES_STATUS_SAT or YICES_STATUS_UNKNOWN
  *   code = CTX_INVALID_OPERATION
- * if ctx's status is neither STATUS_IDLE nor STATUS_UNSAT, and the context is
+ * if ctx's status is neither YICES_STATUS_IDLE nor YICES_STATUS_UNSAT, and the context is
  * not configured for multiple checks
  *   code = CTX_OPERATION_NOT_SUPPORTED
  *
@@ -3204,7 +3204,7 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formula(context_t *ctx, term_t t);
 
 /*
  * Assert an array of n formulas t[0 ... n-1]
- * - ctx's status must be STATUS_IDLE or STATUS_UNSAT or STATUS_SAT or STATUS_UNKNOWN
+ * - ctx's status must be YICES_STATUS_IDLE or YICES_STATUS_UNSAT or YICES_STATUS_SAT or YICES_STATUS_UNKNOWN
  * - all t[i]'s must be valid boolean terms.
  *
  * The function returns -1 on error, 0 otherwise.
@@ -3227,27 +3227,29 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
  *
  * The behavior and returned value depend on ctx's current status.
  *
- * 1) If ctx's status is STATUS_SAT, STATUS_UNSAT, or STATUS_UNKNOWN, the function
- *    does nothing and just returns the status.
+ * 1) If ctx's status is YICES_STATUS_SAT, YICES_STATUS_UNSAT, or YICES_STATUS_UNKNOWN, the function
+ *    - YICES_STATUS_UNSAT: the context is not satisfiable
+ *    - YICES_STATUS_UNKNOWN: satisfiability can't be proved or disproved
+ *    - YICES_STATUS_SAT: the context is satisfiable
  *
- * 2) If ctx's status is STATUS_IDLE, then the solver searches for a
+ * 2) If ctx's status is YICES_STATUS_IDLE, then the solver searches for a
  *    satisfying assignment. If param != NULL, the search parameters
  *    defined by params are used.
  *
  *    The function returns one of the following codes:
- *    - STATUS_SAT: the context is satisfiable
- *    - STATUS_UNSAT: the context is not satisfiable
- *    - STATUS_UNKNOWN: satisfiability can't be proved or disproved
- *    - STATUS_INTERRUPTED: the search was interrupted
+ *    - YICES_STATUS_SAT: the context is satisfiable
+ *    - YICES_STATUS_UNSAT: the context is not satisfiable
+ *    - YICES_STATUS_UNKNOWN: satisfiability can't be proved or disproved
+ *    - YICES_STATUS_INTERRUPTED: the search was interrupted
  *
  *    The returned status is also stored as the new ctx's status flag,
  *    with the following exception. If the context was built with
  *    mode = INTERACTIVE and the search was interrupted, then the
- *    function returns STATUS_INTERRUPTED but the ctx's state is restored to
+ *    function returns YICES_STATUS_INTERRUPTED but the ctx's state is restored to
  *    what it was before the call to 'yices_check_context' and the
- *    status flag is reset to STATUS_IDLE.
+ *    status flag is reset to YICES_STATUS_IDLE.
  *
- * 3) Otherwise, the function does nothing and returns 'STATUS_ERROR',
+ * 3) Otherwise, the function does nothing and returns 'YICES_STATUS_ERROR',
  *    it also sets the yices error report (code = CTX_INVALID_OPERATION).
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context(context_t *ctx, const param_t *params);
@@ -3266,7 +3268,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context(context_t *ctx, const 
  * - the assumptions t[0] ... t[n-1] must all be valid Boolean terms
  *
  * This function behaves the same as the previous function.
- * If it returns STATUS_UNSAT, then one can construct an unsat core by
+ * If it returns YICES_STATUS_UNSAT, then one can construct an unsat core by
  * calling function yices_get_unsat_core. The unsat core is a subset of t[0] ... t[n-1]
  * that's inconsistent with ctx.
  */
@@ -3294,7 +3296,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  *
  * NOTE: if t[i] does not have a value in mdl, then a default value is picked for v_i.
  *
- * If this function returns STATUS_UNSAT and the context supports
+ * If this function returns YICES_STATUS_UNSAT and the context supports
  * model interpolation, then one can construct a model interpolant by
  * calling function yices_get_model_interpolant.
  *
@@ -3306,7 +3308,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  * If the context does not have the MCSAT solver enabled
  *   code = CTX_OPERATION_NOT_SUPPORTED
  *
- * If the resulting status is STATUS_SAT and context does not support multichecks
+ * If the resulting status is YICES_STATUS_SAT and context does not support multichecks
  *   code = CTX_OPERATION_NOT_SUPPORTED
  *
  *
@@ -3342,7 +3344,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *
  *
  * NOTE: if t[i] does not have a value in mdl, then a default value is picked for v_i.
  *
- * If this function returns STATUS_UNSAT and the context supports
+ * If this function returns YICES_STATUS_UNSAT and the context supports
  * model interpolation, then one can construct a model interpolant by
  * calling function yices_get_model_interpolant.
  *
@@ -3354,7 +3356,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *
  * If the context does not have the MCSAT solver enabled
  *   code = CTX_OPERATION_NOT_SUPPORTED
  *
- * If the resulting status is STATUS_SAT and context does not support multichecks
+ * If the resulting status is YICES_STATUS_SAT and context does not support multichecks
  *   code = CTX_OPERATION_NOT_SUPPORTED
  *
  *
@@ -3377,7 +3379,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model_and_hint(co
  *
  * NOTE: This will overwrite the previously set ordering.
  *
- * Returns STATUS_ERROR if mcsat context is not enabled, otherwise returns STATUS_IDLE
+ * Returns YICES_STATUS_ERROR if mcsat context is not enabled, otherwise returns YICES_STATUS_IDLE
  *
  * Error codes:
  *
@@ -3399,7 +3401,7 @@ __YICES_DLLSPEC__ extern smt_status_t yices_mcsat_set_fixed_var_order(context_t 
  * - t is an array of n terms
  *
  *
- * Returns STATUS_ERROR if mcsat context is not enabled, otherwise returns STATUS_IDLE
+ * Returns YICES_STATUS_ERROR if mcsat context is not enabled, otherwise returns YICES_STATUS_IDLE
  *
  * Error codes:
  *
@@ -3433,13 +3435,13 @@ __YICES_DLLSPEC__ extern smt_status_t yices_mcsat_set_initial_var_order(context_
  * - ctx->ctx_A must be a context initialized with support for MCSAT and interpolation.
  * - ctx->ctx_B can be another context (not necessarily with MCSAT support)
  *
- * If this function returns STATUS_UNSAT, then an interpolant is returned in ctx->interpolant.
+ * If this function returns YICES_STATUS_UNSAT, then an interpolant is returned in ctx->interpolant.
  *
- * If this function returns STATUS_SAT and build_model is true, then
+ * If this function returns YICES_STATUS_SAT and build_model is true, then
  * a model is returned in ctx->model. This model must be freed when no-longer needed by
  * calling yices_free_model.
  *
- * If something is wrong, the function returns STATUS_ERROR and sets the yices error report
+ * If something is wrong, the function returns YICES_STATUS_ERROR and sets the yices error report
  * (code = CTX_INVALID_OPERATION).
  *
  * Since 2.6.4.
@@ -3449,18 +3451,18 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_interpolation(int
 /*
  * Add a blocking clause: this is intended to help enumerate different models
  * for a set of assertions.
- * - if ctx's status is STATUS_SAT or STATUS_UNKNOWN, then a new clause is added to ctx
+ * - if ctx's status is YICES_STATUS_SAT or YICES_STATUS_UNKNOWN, then a new clause is added to ctx
  *   to remove the current truth assignment from the search space. After this
  *   clause is added, the next call to yices_check_context will either produce
- *   a different truth assignment (hence a different model) or return STATUS_UNSAT.
+ *   a different truth assignment (hence a different model) or return YICES_STATUS_UNSAT.
  *
- * - ctx's status flag is updated to STATUS_IDLE (if the new clause is not empty) or
- *   to STATUS_UNSAT (if the new clause is the empty clause).
+ * - ctx's status flag is updated to YICES_STATUS_IDLE (if the new clause is not empty) or
+ *   to YICES_STATUS_UNSAT (if the new clause is the empty clause).
  *
  * Return code: 0 if there's no error, -1 if there's an error.
  *
  * Error report:
- * if ctx's status is different from STATUS_SAT or STATUS_UNKNOWN
+ * if ctx's status is different from YICES_STATUS_SAT or YICES_STATUS_UNKNOWN
  *    code = CTX_INVALID_OPERATION
  * if ctx is not configured to support multiple checks
  *    code = CTX_OPERATION_NOT_SUPPORTED
@@ -3473,7 +3475,7 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_blocking_clause(context_t *ctx);
  * - this can be called from a signal handler to stop the search,
  *   after a call to yices_check_context to interrupt the solver.
  *
- * If ctx's status is STATUS_SEARCHING, then the current search is
+ * If ctx's status is YICES_STATUS_SEARCHING, then the current search is
  * interrupted. Otherwise, the function does nothing.
  */
 __YICES_DLLSPEC__ extern void yices_stop_search(context_t *ctx);
@@ -3553,13 +3555,13 @@ __YICES_DLLSPEC__ extern void yices_free_param_record(param_t *param);
  * and returns 0. Otherwise, it sets an error core an returns -1.
  *
  * This is intended to be used after a call to
- * yices_check_context_with_assumptions that returned STATUS_UNSAT. In
+ * yices_check_context_with_assumptions that returned YICES_STATUS_UNSAT. In
  * this case, the function builds an unsat core, which is a subset of
  * the assumptions. If there were no assumptions or if the context is UNSAT
  * for another reason, an empty core is returned (i.e., v->size is set to 0).
  *
  * Error code:
- * - CTX_INVALID_OPERATION if the context's status is not STATUS_UNSAT.
+ * - CTX_INVALID_OPERATION if the context's status is not YICES_STATUS_UNSAT.
  */
 __YICES_DLLSPEC__ extern int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v);
 
@@ -3572,14 +3574,14 @@ __YICES_DLLSPEC__ extern int32_t yices_get_unsat_core(context_t *ctx, term_vecto
  * Otherwise, it sets an error code and return NULL_TERM.
  *
  * This is intended to be used after a call to
- * yices_check_context_with_model that returned STATUS_UNSAT. In this
+ * yices_check_context_with_model that returned YICES_STATUS_UNSAT. In this
  * case, the function builds an model interpolant. The model
  * interpolant is a clause implied by the current context that is
  * false in the model provides to yices_check_context_with_model.
  *
  * Error code:
  * - CTX_OPERATION_NOT_SUPPORTED if the context is not configured with model interpolation
- * - CTX_INVALID_OPERATION if the context's status is not STATUS_UNSAT.
+ * - CTX_INVALID_OPERATION if the context's status is not YICES_STATUS_UNSAT.
  *
  * Since 2.6.4.
  */
@@ -3597,9 +3599,9 @@ __YICES_DLLSPEC__ extern term_t yices_get_model_interpolant(context_t *ctx);
  *   the uninterpreted terms that have been eliminated by simplification:
  *   keep_subst = 0 means don't keep substitutions,
  *   keep_subst != 0 means keep them
- * - ctx status must be STATUS_SAT or STATUS_UNKNOWN
+ * - ctx status must be YICES_STATUS_SAT or YICES_STATUS_UNKNOWN
  *
- * The function returns NULL if the status isn't SAT or STATUS_UNKNOWN
+ * The function returns NULL if the status isn't SAT or YICES_STATUS_UNKNOWN
  * and sets an error report (code = CTX_INVALID_OPERATION).
  *
  * When assertions are added to the context, the simplifications may
@@ -3614,7 +3616,7 @@ __YICES_DLLSPEC__ extern term_t yices_get_model_interpolant(context_t *ctx);
  *    (bg-gt z 0b000)
  *
  * uninterpreted term 'x' gets eliminated. Then a call to 'check_context' will
- * return STATUS_SAT and we can ask for a model 'M'
+ * return YICES_STATUS_SAT and we can ask for a model 'M'
  * - if 'keep_subst' is false then the value of 'x' in 'M' is unavailable.
  * - if 'keep_subst' is true then the value of 'x' in 'M' is computed,
  *   based on the value of 'y' and 'z' in 'M'.
@@ -3760,6 +3762,58 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_bv_mpz(model_t *model, term_t v
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n, const int32_t a[]);
 
+/*
+ * Assign a scalar value to a scalar or uninterpreted uninterpreted term.
+ * - var = scalar or uninterpreted uninterpreted term
+ * - val = scalar constant index
+ * - var must be an uninterpreted term of scalar or uninterpreted type
+ *   (and var must not have a value in model).
+ *
+ * The value val must be a valid constant index for the type of var:
+ * - if var has scalar type of cardinality n, then val must be between 0 and n-1
+ * - if var has uninterpreted type, then val can be any non-negative integer
+ *
+ * Since 2.7.0.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_scalar(model_t *model, term_t var, int32_t val);
+/*
+ * Assign a double value to a real uninterpreted term in the model.
+ * - model: pointer to the model in which the assignment is made
+ * - var: the uninterpreted term of real type to assign a value to
+ * - val: the double value to assign to var
+ *
+ * Requirements:
+ *   - var must be an uninterpreted term of real type
+ *   - var must not already have a value in model
+ *
+ * Returns:
+ *   - 0 on success
+ *   - -1 on error
+ *
+ * Error codes:
+ *   - INVALID_TERM if var is not a valid real uninterpreted term or is already assigned
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_double(model_t *model, term_t var, double val);
+
+/*
+ * Assign a float value to a real uninterpreted term in the model.
+ * - model: pointer to the model in which the assignment is made
+ * - var: the uninterpreted term of real type to assign a value to
+ * - val: the float value to assign to var
+ *
+ * Requirements:
+ *   - var must be an uninterpreted term of real type
+ *   - var must not already have a value in model
+ *
+ * Returns:
+ *   - 0 on success
+ *   - -1 on error
+ *
+ * Error codes:
+ *   - INVALID_TERM if var is not a valid real uninterpreted term or is already assigned
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_float(model_t *model, term_t var, float val);
+
 
 
 
@@ -3806,9 +3860,9 @@ __YICES_DLLSPEC__ extern void yices_model_collect_defined_terms(model_t *mdl, te
  * asserts f in this context and checks whether the context is satisfiable.
  *
  * The return value is
- *   STATUS_SAT if f is satisfiable,
- *   STATUS_UNSAT if f is not satisifiable
- *   STATUS_ERROR if something goes wrong
+ *   YICES_STATUS_SAT if f is satisfiable,
+ *   YICES_STATUS_UNSAT if f is not satisifiable
+ *   YICES_STATUS_ERROR if something goes wrong
  *
  * If the formula is satisfiable and model != NULL, then a model of f is returned in *model.
  * That model must be deleted when no-longer needed by calling yices_free_model.
@@ -3824,7 +3878,7 @@ __YICES_DLLSPEC__ extern void yices_model_collect_defined_terms(model_t *mdl, te
  * If delegate is NULL, the default SAT solver is used.
  *
  * Support for "cadical" and "cryptominisat" must be enabled at compilation
- * time. The "y2sat" solver is always available. The function will return STATUS_ERROR
+ * time. The "y2sat" solver is always available. The function will return YICES_STATUS_ERROR
  * and store an error code if the requested delegate is not available.
  *
  * Error codes:
@@ -3900,7 +3954,7 @@ __YICES_DLLSPEC__ extern int32_t yices_has_delegate(const char *delegate);
  *
  * The bit-vector solver applies various simplifications and preprocessing that may detect
  * that f is SAT or UNSAT without generating a CNF. In this case, the function does not
- * produce a DIMACS file and the formula status (either STATUS_SAT or STATUS_UNSAT) is
+ * produce a DIMACS file and the formula status (either YICES_STATUS_SAT or YICES_STATUS_UNSAT) is
  * returned in variable *status.
  *
  * If simplify_cnf is non-zero, it is also possible for CNF simplification to detect
@@ -4880,6 +4934,34 @@ __YICES_DLLSPEC__ extern char *yices_term_to_string(term_t t, uint32_t width, ui
  * when no longer needed by calling yices_free_string.
  */
 __YICES_DLLSPEC__ extern char *yices_model_to_string(model_t *mdl, uint32_t width, uint32_t height, uint32_t offset);
+
+
+/*
+ * Assign a value term to an uninterpreted symbol in the model.
+ * - var = uninterpreted symbol
+ * - value = constant term (primitive or tuple type)
+ * - var must not have a value in model
+ * - value's type must be a subtype of var's type
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.7.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_term(model_t *model, term_t var, term_t value);
+
+
+/*
+ * Assign a yval_t value to an uninterpreted symbol in the model.
+ * - var = uninterpreted symbol
+ * - yval = value descriptor (possibly from another model)
+ * - var must not have a value in model
+ * - yval must be compatible with var's type
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.7.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_yval(model_t *model, term_t var, const yval_t *yval);
 
 
 #ifdef __cplusplus

@@ -127,16 +127,16 @@ extern void delete_delegate(delegate_t *delegate);
 /*
  * Export the clauses from core to the delegate
  * then check satsfiability:
- * - return STATUS_SAT/STATUS_UNSAT if that works
- * - return STATUS_UNKNOWN if the delegate fails
+ * - return YICES_STATUS_SAT/YICES_STATUS_UNSAT if that works
+ * - return YICES_STATUS_UNKNOWN if the delegate fails
  */
 extern smt_status_t solve_with_delegate(delegate_t *delegate, smt_core_t *core);
 
 /*
  * Export the clauses from the core to the delegate
  * then appply delegate's CNF-level preprocessing
- * - return STATUS_SAT/STATUS_UNSAT if that solves the problem
- * - return STATUS_UNKNOWN otherwise (or if the delegate does not support this)
+ * - return YICES_STATUS_SAT/YICES_STATUS_UNSAT if that solves the problem
+ * - return YICES_STATUS_UNKNOWN otherwise (or if the delegate does not support this)
  */
 extern smt_status_t preprocess_with_delegate(delegate_t *delegate, smt_core_t *core);
 

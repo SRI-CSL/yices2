@@ -17,48 +17,48 @@
  */
 
 #include "mcsat/tracing.h"
-#include "mcsat/nra/nra_plugin_internal.h"
+#include "mcsat/na/na_plugin_internal.h"
 
-void nra_plugin_get_constraint_variables(nra_plugin_t* nra, term_t constraint, int_mset_t* vars_out) {
+void na_plugin_get_constraint_variables(na_plugin_t* na, term_t constraint, int_mset_t* vars_out) {
 
-  term_table_t* terms = nra->ctx->terms;
+  term_table_t* terms = na->ctx->terms;
 
   term_t atom = unsigned_term(constraint);
-  term_kind_t atom_kind = term_kind(nra->ctx->terms, atom);
+  term_kind_t atom_kind = term_kind(na->ctx->terms, atom);
 
   switch (atom_kind) {
   case ARITH_EQ_ATOM:
   case ARITH_GE_ATOM:
-    nra_plugin_get_term_variables(nra, arith_atom_arg(terms, atom), vars_out);
+    na_plugin_get_term_variables(na, arith_atom_arg(terms, atom), vars_out);
     break;
   case EQ_TERM:
   case ARITH_BINEQ_ATOM:
-    nra_plugin_get_term_variables(nra, composite_term_arg(terms, atom, 0), vars_out);
-    nra_plugin_get_term_variables(nra, composite_term_arg(terms, atom, 1), vars_out);
+    na_plugin_get_term_variables(na, composite_term_arg(terms, atom, 0), vars_out);
+    na_plugin_get_term_variables(na, composite_term_arg(terms, atom, 1), vars_out);
     break;
   case ARITH_ROOT_ATOM:
-    nra_plugin_get_term_variables(nra, arith_root_atom_desc(terms, atom)->p, vars_out);
+    na_plugin_get_term_variables(na, arith_root_atom_desc(terms, atom)->p, vars_out);
     break;
   default:
     // We're fine, just a variable, arithmetic term to eval, or a foreign term
-    nra_plugin_get_term_variables(nra, constraint, vars_out);
-    int_mset_add(vars_out, variable_db_get_variable(nra->ctx->var_db, constraint));
+    na_plugin_get_term_variables(na, constraint, vars_out);
+    int_mset_add(vars_out, variable_db_get_variable(na->ctx->var_db, constraint));
     break;
   }
 }
 
-void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars_out) {
+void na_plugin_get_term_variables(na_plugin_t* na, term_t t, int_mset_t* vars_out) {
 
   // The term table
-  term_table_t* terms = nra->ctx->terms;
+  term_table_t* terms = na->ctx->terms;
 
   // Variable database
-  variable_db_t* var_db = nra->ctx->var_db;
+  variable_db_t* var_db = na->ctx->var_db;
 
 
-  if (ctx_trace_enabled(nra->ctx, "mcsat::new_term")) {
-    ctx_trace_printf(nra->ctx, "nra_plugin_get_variables: ");
-    ctx_trace_term(nra->ctx, t);
+  if (ctx_trace_enabled(na->ctx, "mcsat::new_term")) {
+    ctx_trace_printf(na->ctx, "na_plugin_get_variables: ");
+    ctx_trace_term(na->ctx, t);
   }
 
   term_kind_t kind = term_kind(terms, t);
@@ -109,53 +109,53 @@ void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars
   }
 }
 
-void nra_plugin_note_conflict(nra_plugin_t* nra, variable_t variable) {
-  if (nra->conflict_variable == variable_null) {
-    nra->conflict_variable = variable;
+void na_plugin_note_conflict(na_plugin_t* na, variable_t variable) {
+  if (na->conflict_variable == variable_null) {
+    na->conflict_variable = variable;
   }
 }
 
-void nra_plugin_note_int_conflict(nra_plugin_t* nra, variable_t variable) {
-  if (nra->conflict_variable_int == variable_null) {
-    nra->conflict_variable_int = variable;
+void na_plugin_note_int_conflict(na_plugin_t* na, variable_t variable) {
+  if (na->conflict_variable_int == variable_null) {
+    na->conflict_variable_int = variable;
   }
 }
 
-int nra_plugin_is_conflict_pending(nra_plugin_t* nra) {
-  bool conflict_var_set = nra->conflict_variable != variable_null || nra->conflict_variable_int != variable_null;
-  return conflict_var_set && trail_is_consistent(nra->ctx->trail);
+int na_plugin_is_conflict_pending(na_plugin_t* na) {
+  bool conflict_var_set = na->conflict_variable != variable_null || na->conflict_variable_int != variable_null;
+  return conflict_var_set && trail_is_consistent(na->ctx->trail);
 }
 
-void nra_plugin_report_pending_conflict(nra_plugin_t* nra, trail_token_t* prop) {
-  if (!nra_plugin_is_conflict_pending(nra)) {
+void na_plugin_report_pending_conflict(na_plugin_t* na, trail_token_t* prop) {
+  if (!na_plugin_is_conflict_pending(na)) {
     return;
   }
 
-  if (nra->conflict_variable != variable_null) {
-    nra_plugin_report_conflict(nra, prop, nra->conflict_variable);
-  } else if (nra->conflict_variable_int != variable_null) {
-    nra_plugin_report_int_conflict(nra, prop, nra->conflict_variable_int);
+  if (na->conflict_variable != variable_null) {
+    na_plugin_report_conflict(na, prop, na->conflict_variable);
+  } else if (na->conflict_variable_int != variable_null) {
+    na_plugin_report_int_conflict(na, prop, na->conflict_variable_int);
   } else {
     assert(0);
   }
 }
 
-void nra_plugin_report_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable) {
+void na_plugin_report_conflict(na_plugin_t* na, trail_token_t* prop, variable_t variable) {
   prop->conflict(prop);
-  nra->conflict_variable = variable;
-  (*nra->stats.conflicts) ++;
+  na->conflict_variable = variable;
+  (*na->stats.conflicts) ++;
 }
 
-void nra_plugin_report_int_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable) {
+void na_plugin_report_int_conflict(na_plugin_t* na, trail_token_t* prop, variable_t variable) {
   prop->conflict(prop);
-  nra->conflict_variable_int = variable;
-  (*nra->stats.conflicts_int) ++;
+  na->conflict_variable_int = variable;
+  (*na->stats.conflicts_int) ++;
 }
 
-void nra_plugin_report_assumption_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable, const mcsat_value_t* value) {
+void na_plugin_report_assumption_conflict(na_plugin_t* na, trail_token_t* prop, variable_t variable, const mcsat_value_t* value) {
   prop->conflict(prop);
-  nra->conflict_variable_assumption = variable;
+  na->conflict_variable_assumption = variable;
   assert(value->type == VALUE_LIBPOLY);
-  lp_value_assign(&nra->conflict_variable_value, &value->lp_value);
-  (*nra->stats.conflicts_assumption) ++;
+  lp_value_assign(&na->conflict_variable_value, &value->lp_value);
+  (*na->stats.conflicts_assumption) ++;
 }

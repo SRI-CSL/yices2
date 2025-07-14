@@ -754,9 +754,9 @@ static void print_results(void) {
   }
 
   resu = context.core->status;
-  if (resu == STATUS_SAT) {
+  if (resu == YICES_STATUS_SAT) {
     printf("sat\n");
-  } else if (resu == STATUS_UNSAT) {
+  } else if (resu == YICES_STATUS_UNSAT) {
     printf("unsat\n");
   } else {
     printf("unknown\n");
@@ -776,9 +776,9 @@ static void print_results(void) {
 
   resu = context.core->status;
 
-  if (resu == STATUS_SAT) {
+  if (resu == YICES_STATUS_SAT) {
     printf("sat\n");
-  } else if (resu == STATUS_UNSAT) {
+  } else if (resu == YICES_STATUS_UNSAT) {
     printf("unsat\n");
   } else {
     printf("unknown\n");
@@ -1305,7 +1305,7 @@ static int process_benchmark(void) {
     }
     print_results();
 
-    if ((simple_model || full_model) && (code == STATUS_SAT || code == STATUS_UNKNOWN)) {
+    if ((simple_model || full_model) && (code == YICES_STATUS_SAT || code == YICES_STATUS_UNKNOWN)) {
       model_t *model;
 
       /*

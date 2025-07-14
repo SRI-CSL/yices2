@@ -421,29 +421,29 @@ Contexts
    Context state::
 
      typedef enum smt_status {
-       STATUS_IDLE,
-       STATUS_SEARCHING,
-       STATUS_UNKNOWN,
-       STATUS_SAT,
-       STATUS_UNSAT,
+       YICES_STATUS_IDLE,
+       YICES_STATUS_SEARCHING,
+       YICES_STATUS_UNKNOWN,
+       YICES_STATUS_SAT,
+       YICES_STATUS_UNSAT,
        YICES_STATUS_INTERRUPTED,
-       STATUS_ERROR
+       YICES_STATUS_ERROR
      } smt_status_t;
 
    The type :c:type:`smt_status_t` enumerates the possible states of a
    context. It is also the type returned by the function that checks
    whether a context is satisfiable. The following codes are defined:
 
-   .. c:enum:: STATUS_IDLE
+   .. c:enum:: YICES_STATUS_IDLE
 
       Initial context state.
 
       In this state, it is possible to assert formulas in the context.
-      After assertions, the state may change to :c:enum:`STATUS_UNSAT` if
+      After assertions, the state may change to :c:enum:`YICES_STATUS_UNSAT` if
       the assertions are trivially unsatisfiable. Otherwise, the state
-      remains :c:enum:`STATUS_IDLE`.
+      remains :c:enum:`YICES_STATUS_IDLE`.
 
-   .. c:enum:: STATUS_SEARCHING
+   .. c:enum:: YICES_STATUS_SEARCHING
 
       State during search.
 
@@ -451,18 +451,18 @@ Contexts
       :c:func:`yices_check_context`.  It remains in this state until
       either the solver completes or the search is interrupted.
       
-   .. c:enum:: STATUS_UNKNOWN
+   .. c:enum:: YICES_STATUS_UNKNOWN
 
       State entered when the search terminates but is inconclusive.
 
       This may happen if the context's solver is not complete for the specific
       logic used. For example, the logic may have quantifiers.
 
-   .. c:enum:: STATUS_SAT
+   .. c:enum:: YICES_STATUS_SAT
 
       State entered when the search terminates and the assertions are satisfiable.
 
-   .. c:enum:: STATUS_UNSAT
+   .. c:enum:: YICES_STATUS_UNSAT
 
       State entered when the assertions are known to be unsatisfiable.
 
@@ -474,11 +474,11 @@ Contexts
 
       State entered when the search is interrupted.
 
-      When a context is in the state :c:enum:`STATUS_SEARCHING` then the search
+      When a context is in the state :c:enum:`YICES_STATUS_SEARCHING` then the search
       can be interrupted through a call to :c:func:`yices_stop_search`. This
       moves the context's state to :c:enum:`YICES_STATUS_INTERRUPTED`.
 
-   .. c:enum:: STATUS_ERROR
+   .. c:enum:: YICES_STATUS_ERROR
 
       This is an error code. It is returned by functions that operate on a
       context when the operation cannot be performed.
@@ -674,7 +674,7 @@ Error Reports
 
    The following error codes are defined:
 
-   .. c:enum:: NO_ERROR
+   .. c:enum:: YICES_NO_ERROR
 
       Everything is fine.
 
@@ -1126,7 +1126,6 @@ Error Reports
    .. c:enum:: MDL_GEN_FAILED
 
       Model generalization failed for some other reason.
-
 
    .. c:enum:: YVAL_INVALID_OP
  

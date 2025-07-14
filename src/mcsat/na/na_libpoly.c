@@ -16,9 +16,9 @@
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include "nra_libpoly.h"
+#include "na_libpoly.h"
 
-#include "mcsat/nra/nra_plugin_internal.h"
+#include "mcsat/na/na_plugin_internal.h"
 #include "mcsat/utils/lp_utils.h"
 #include "mcsat/tracing.h"
 
@@ -28,66 +28,66 @@
 #include <poly/interval.h>
 #include <poly/assignment.h>
 
-lp_polynomial_t* lp_polynomial_from_term_nra(nra_plugin_t* nra, term_t t, lp_integer_t* c) {
-  if (ctx_trace_enabled(nra->ctx, "nra::terms")) {
-    ctx_trace_printf(nra->ctx, "lp_polynomial_from_term: t = ");
-    ctx_trace_term(nra->ctx, t);
+lp_polynomial_t* lp_polynomial_from_term_na(na_plugin_t* na, term_t t, lp_integer_t* c) {
+  if (ctx_trace_enabled(na->ctx, "na::terms")) {
+    ctx_trace_printf(na->ctx, "lp_polynomial_from_term: t = ");
+    ctx_trace_term(na->ctx, t);
   }
 
-  lp_polynomial_t* result = lp_polynomial_from_term(&nra->lp_data, t, nra->ctx->terms, c);
+  lp_polynomial_t* result = lp_polynomial_from_term(&na->lp_data, t, na->ctx->terms, c);
 
-  if (ctx_trace_enabled(nra->ctx, "nra::terms")) {
-    ctx_trace_printf(nra->ctx, "lp_polynomial_from_term: result = ");
-    lp_polynomial_print(result, ctx_trace_out(nra->ctx));
-    ctx_trace_printf(nra->ctx, "\n");
-  }
-
-  return result;
-}
-
-term_t lp_polynomial_to_yices_term_nra(nra_plugin_t *nra, const lp_polynomial_t *lp_p) {
-  if (ctx_trace_enabled(nra->ctx, "nra::terms")) {
-    ctx_trace_printf(nra->ctx, "lp_polynomial_to_yices_term(");
-    lp_polynomial_print(lp_p, ctx_trace_out(nra->ctx));
-    ctx_trace_printf(nra->ctx, ")\n");
-  }
-
-  term_t result = lp_polynomial_to_yices_arith_term(&nra->lp_data, lp_p, nra->ctx->terms, &nra->buffer);
-
-  if (ctx_trace_enabled(nra->ctx, "nra::terms")) {
-    ctx_trace_printf(nra->ctx, "lp_polynomial_to_yices_term(");
-    lp_polynomial_print(lp_p, ctx_trace_out(nra->ctx));
-    ctx_trace_printf(nra->ctx, ") => [%d] ", result);
-    ctx_trace_term(nra->ctx, result);
+  if (ctx_trace_enabled(na->ctx, "na::terms")) {
+    ctx_trace_printf(na->ctx, "lp_polynomial_from_term: result = ");
+    lp_polynomial_print(result, ctx_trace_out(na->ctx));
+    ctx_trace_printf(na->ctx, "\n");
   }
 
   return result;
 }
 
-void nra_poly_constraint_add(nra_plugin_t *nra, variable_t constraint_var) {
-  if (poly_constraint_db_has(nra->constraint_db, constraint_var)) {
+term_t lp_polynomial_to_yices_term_na(na_plugin_t *na, const lp_polynomial_t *lp_p) {
+  if (ctx_trace_enabled(na->ctx, "na::terms")) {
+    ctx_trace_printf(na->ctx, "lp_polynomial_to_yices_term(");
+    lp_polynomial_print(lp_p, ctx_trace_out(na->ctx));
+    ctx_trace_printf(na->ctx, ")\n");
+  }
+
+  term_t result = lp_polynomial_to_yices_arith_term(&na->lp_data, lp_p, na->ctx->terms, &na->buffer);
+
+  if (ctx_trace_enabled(na->ctx, "na::terms")) {
+    ctx_trace_printf(na->ctx, "lp_polynomial_to_yices_term(");
+    lp_polynomial_print(lp_p, ctx_trace_out(na->ctx));
+    ctx_trace_printf(na->ctx, ") => [%d] ", result);
+    ctx_trace_term(na->ctx, result);
+  }
+
+  return result;
+}
+
+void na_poly_constraint_add(na_plugin_t *na, variable_t constraint_var) {
+  if (poly_constraint_db_has(na->constraint_db, constraint_var)) {
     // Already added
     return;
   }
 
-  poly_constraint_t* cstr = nra_poly_constraint_create(nra, constraint_var);
+  poly_constraint_t* cstr = na_poly_constraint_create(na, constraint_var);
 
   if (poly_constraint_is_root_constraint(cstr)) {
-    (*nra->stats.constraint_root) ++;
+    (*na->stats.constraint_root) ++;
   } else {
-    (*nra->stats.constraint_regular) ++;
+    (*na->stats.constraint_regular) ++;
   }
 
-  if (ctx_trace_enabled(nra->ctx, "mcsat::new_term")) {
-    ctx_trace_printf(nra->ctx, "poly_constraint_add: ");
-    poly_constraint_print(cstr, ctx_trace_out(nra->ctx));
-    ctx_trace_printf(nra->ctx, "\n");
+  if (ctx_trace_enabled(na->ctx, "mcsat::new_term")) {
+    ctx_trace_printf(na->ctx, "poly_constraint_add: ");
+    poly_constraint_print(cstr, ctx_trace_out(na->ctx));
+    ctx_trace_printf(na->ctx, "\n");
   }
 
-  poly_constraint_db_add_constraint(nra->constraint_db, constraint_var, cstr);
+  poly_constraint_db_add_constraint(na->constraint_db, constraint_var, cstr);
 }
 
-poly_constraint_t* nra_poly_constraint_create(nra_plugin_t *nra, variable_t constraint_var) {
+poly_constraint_t* na_poly_constraint_create(na_plugin_t *na, variable_t constraint_var) {
   // assert(poly_constraint_db_check(db));
   term_t constraint_var_term;
 
@@ -98,8 +98,8 @@ poly_constraint_t* nra_poly_constraint_create(nra_plugin_t *nra, variable_t cons
   lp_sign_condition_t sgn_condition;
 
   // Context
-  variable_db_t* var_db = nra->ctx->var_db;
-  term_table_t* terms = nra->ctx->terms;
+  variable_db_t* var_db = na->ctx->var_db;
+  term_table_t* terms = na->ctx->terms;
 
   // Get the term of the variable
   constraint_var_term = variable_db_get_term(var_db, constraint_var);
@@ -109,14 +109,14 @@ poly_constraint_t* nra_poly_constraint_create(nra_plugin_t *nra, variable_t cons
   case ARITH_EQ_ATOM: {
     // p == 0
     term_t t1 = arith_atom_arg(terms, constraint_var_term);
-    cstr_polynomial = lp_polynomial_from_term_nra(nra, t1, NULL);
+    cstr_polynomial = lp_polynomial_from_term_na(na, t1, NULL);
     sgn_condition = LP_SGN_EQ_0;
     break;
   }
   case ARITH_GE_ATOM: {
     // p >= 0
     term_t t1 = arith_atom_arg(terms, constraint_var_term);
-    cstr_polynomial = lp_polynomial_from_term_nra(nra, t1, NULL);
+    cstr_polynomial = lp_polynomial_from_term_na(na, t1, NULL);
     sgn_condition = LP_SGN_GE_0;
     break;
   }
@@ -129,8 +129,8 @@ poly_constraint_t* nra_poly_constraint_create(nra_plugin_t *nra, variable_t cons
     lp_integer_t t1_c, t2_c;
     lp_integer_construct(&t1_c);
     lp_integer_construct(&t2_c);
-    lp_polynomial_t* t1_p = lp_polynomial_from_term_nra(nra, t1, &t1_c);
-    lp_polynomial_t* t2_p = lp_polynomial_from_term_nra(nra, t2, &t2_c);
+    lp_polynomial_t* t1_p = lp_polynomial_from_term_na(na, t1, &t1_c);
+    lp_polynomial_t* t2_p = lp_polynomial_from_term_na(na, t2, &t2_c);
     //  t1_p/t1_c = t2_p/t2_c
     //  t1_p*t2_c - t2_p*t1_c
     lp_integer_neg(lp_Z, &t1_c, &t1_c);
@@ -149,9 +149,9 @@ poly_constraint_t* nra_poly_constraint_create(nra_plugin_t *nra, variable_t cons
   }
   case ARITH_ROOT_ATOM: {
     root_atom_t* r = arith_root_atom_desc(terms, constraint_var_term);
-    cstr_polynomial = lp_polynomial_from_term_nra(nra, r->p, NULL);
-    assert(variable_db_has_variable(nra->ctx->var_db, r->x));
-    cstr_root_variable = lp_data_get_lp_variable_from_term(&nra->lp_data, r->x);
+    cstr_polynomial = lp_polynomial_from_term_na(na, r->p, NULL);
+    assert(variable_db_has_variable(na->ctx->var_db, r->x));
+    cstr_root_variable = lp_data_get_lp_variable_from_term(&na->lp_data, r->x);
     cstr_root_index = r->k;
     switch (r->r) {
     case ROOT_ATOM_LT:
@@ -185,10 +185,10 @@ poly_constraint_t* nra_poly_constraint_create(nra_plugin_t *nra, variable_t cons
     lp_integer_construct_from_int(lp_Z, &t1_c, 1);
     lp_integer_construct(&t2_c);
     lp_polynomial_t* t1_p = lp_polynomial_alloc();
-    term_t t = variable_db_get_term(nra->ctx->var_db, constraint_var);
-    lp_variable_t constraint_lp_var = lp_data_get_lp_variable_from_term(&nra->lp_data, t);
-    lp_polynomial_construct_simple(t1_p, nra->lp_data.lp_ctx, &t1_c, constraint_lp_var, 1);
-    lp_polynomial_t* t2_p = lp_polynomial_from_term_nra(nra, constraint_var_term, &t2_c);
+    term_t t = variable_db_get_term(na->ctx->var_db, constraint_var);
+    lp_variable_t constraint_lp_var = lp_data_get_lp_variable_from_term(&na->lp_data, t);
+    lp_polynomial_construct_simple(t1_p, na->lp_data.lp_ctx, &t1_c, constraint_lp_var, 1);
+    lp_polynomial_t* t2_p = lp_polynomial_from_term_na(na, constraint_var_term, &t2_c);
     //  t1_p/t1_c = t2_p/t2_c
     //  t1_p*t2_c - t2_p*t1_c
     lp_integer_neg(lp_Z, &t1_c, &t1_c);
@@ -215,8 +215,8 @@ poly_constraint_t* nra_poly_constraint_create(nra_plugin_t *nra, variable_t cons
   }
 }
 
-const mcsat_value_t* nra_poly_constraint_db_approximate(nra_plugin_t* nra, variable_t constraint_var) {
-  poly_constraint_db_t* db = nra->constraint_db;
+const mcsat_value_t* na_poly_constraint_db_approximate(na_plugin_t* na, variable_t constraint_var) {
+  poly_constraint_db_t* db = na->constraint_db;
   const mcsat_value_t* result = NULL;
 
   // Get the constraints
@@ -227,26 +227,26 @@ const mcsat_value_t* nra_poly_constraint_db_approximate(nra_plugin_t* nra, varia
   }
 
   // Reset the interval assignment
-  lp_interval_assignment_t* m = nra->lp_data.lp_interval_assignment;
+  lp_interval_assignment_t* m = na->lp_data.lp_interval_assignment;
   lp_interval_assignment_reset(m);
 
   // Set up the assignment x -> I(x)
-  assert(watch_list_manager_has_constraint(&nra->wlm, constraint_var));
-  variable_list_ref_t var_list_ref = watch_list_manager_get_list_of(&nra->wlm, constraint_var);
-  variable_t* vars = watch_list_manager_get_list(&nra->wlm, var_list_ref);
+  assert(watch_list_manager_has_constraint(&na->wlm, constraint_var));
+  variable_list_ref_t var_list_ref = watch_list_manager_get_list_of(&na->wlm, constraint_var);
+  variable_t* vars = watch_list_manager_get_list(&na->wlm, var_list_ref);
   for (; *vars != variable_null; vars++) {
     variable_t x = *vars;
-    term_t t = variable_db_get_term(nra->ctx->var_db, x);
-    lp_variable_t x_lp = lp_data_get_lp_variable_from_term(&nra->lp_data, t);
+    term_t t = variable_db_get_term(na->ctx->var_db, x);
+    lp_variable_t x_lp = lp_data_get_lp_variable_from_term(&na->lp_data, t);
     lp_interval_t x_interval;
     lp_interval_construct_full(&x_interval);
-    feasible_set_db_approximate_value(nra->feasible_set_db, x, &x_interval);
-    if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
-      ctx_trace_printf(nra->ctx, " ");
-      ctx_trace_term(nra->ctx, variable_db_get_term(nra->ctx->var_db, x));
-      ctx_trace_printf(nra->ctx, " ");
-      lp_interval_print(&x_interval, ctx_trace_out(nra->ctx));
-      ctx_trace_printf(nra->ctx, "\n");
+    feasible_set_db_approximate_value(na->feasible_set_db, x, &x_interval);
+    if (ctx_trace_enabled(na->ctx, "mcsat::na::learn")) {
+      ctx_trace_printf(na->ctx, " ");
+      ctx_trace_term(na->ctx, variable_db_get_term(na->ctx->var_db, x));
+      ctx_trace_printf(na->ctx, " ");
+      lp_interval_print(&x_interval, ctx_trace_out(na->ctx));
+      ctx_trace_printf(na->ctx, "\n");
     }
     lp_interval_assignment_set_interval(m, x_lp, &x_interval);
     lp_interval_destruct(&x_interval);
@@ -256,11 +256,11 @@ const mcsat_value_t* nra_poly_constraint_db_approximate(nra_plugin_t* nra, varia
   lp_interval_t value;
   lp_interval_construct_full(&value);
   lp_polynomial_interval_value(cstr->polynomial, m, &value);
-  if (ctx_trace_enabled(nra->ctx, "mcsat::nra::learn")) {
-    poly_constraint_print(cstr, ctx_trace_out(nra->ctx));
-    ctx_trace_printf(nra->ctx, " -> ");
-    lp_interval_print(&value, ctx_trace_out(nra->ctx));
-    ctx_trace_printf(nra->ctx, "\n");
+  if (ctx_trace_enabled(na->ctx, "mcsat::na::learn")) {
+    poly_constraint_print(cstr, ctx_trace_out(na->ctx));
+    ctx_trace_printf(na->ctx, " -> ");
+    lp_interval_print(&value, ctx_trace_out(na->ctx));
+    ctx_trace_printf(na->ctx, "\n");
   }
 
   lp_sign_condition_t pos = cstr->sgn_condition;
