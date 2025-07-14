@@ -3248,7 +3248,7 @@ static void validate_unsat_core(smt2_globals_t *g) {
       fflush(stdout);
     } else {
       status = check_context(g->ctx, &g->parameters);
-      if (status != STATUS_UNSAT) {
+      if (status != YICES_STATUS_UNSAT) {
         printf("**** BUG: INVALID UNSAT CORE ****\n");
         fflush(stdout);
       }
