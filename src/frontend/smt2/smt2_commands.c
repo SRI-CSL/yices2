@@ -5357,24 +5357,24 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
     print_string_value(ematchmode2string[g->ef_client.ef_parameters.ematch_term_mode]);
     break;
 
-  case PARAM_MCSAT_NRA_BOUND:
-    print_boolean_value(g->mcsat_options.nra_bound);
+  case PARAM_MCSAT_NA_BOUND:
+    print_boolean_value(g->mcsat_options.na_bound);
     break;
 
-  case PARAM_MCSAT_NRA_BOUND_MAX:
-    print_int32_value(g->mcsat_options.nra_bound_max);
+  case PARAM_MCSAT_NA_BOUND_MAX:
+    print_int32_value(g->mcsat_options.na_bound_max);
     break;
 
-  case PARAM_MCSAT_NRA_BOUND_MIN:
-    print_int32_value(g->mcsat_options.nra_bound_min);
+  case PARAM_MCSAT_NA_BOUND_MIN:
+    print_int32_value(g->mcsat_options.na_bound_min);
     break;
 
-  case PARAM_MCSAT_NRA_MGCD:
-    print_boolean_value(g->mcsat_options.nra_mgcd);
+  case PARAM_MCSAT_NA_MGCD:
+    print_boolean_value(g->mcsat_options.na_mgcd);
     break;
 
-  case PARAM_MCSAT_NRA_NLSAT:
-    print_boolean_value(g->mcsat_options.nra_nlsat);
+  case PARAM_MCSAT_NA_NLSAT:
+    print_boolean_value(g->mcsat_options.na_nlsat);
     break;
 
   case PARAM_MCSAT_RAND_DEC_FREQ:
@@ -6111,52 +6111,52 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
     }
     break;
 
-  case PARAM_MCSAT_NRA_MGCD:
+  case PARAM_MCSAT_NA_MGCD:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      g->mcsat_options.nra_mgcd = tt;
+      g->mcsat_options.na_mgcd = tt;
       context = g->ctx;
       if (context != NULL) {
-        g->ctx->mcsat_options.nra_mgcd = tt;
+        g->ctx->mcsat_options.na_mgcd = tt;
       }
     }
     break;
 
-  case PARAM_MCSAT_NRA_NLSAT:
+  case PARAM_MCSAT_NA_NLSAT:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      g->mcsat_options.nra_nlsat = tt;
+      g->mcsat_options.na_nlsat = tt;
       context = g->ctx;
       if (context != NULL) {
-        g->ctx->mcsat_options.nra_nlsat = tt;
+        g->ctx->mcsat_options.na_nlsat = tt;
       }
     }
     break;
 
-  case PARAM_MCSAT_NRA_BOUND:
+  case PARAM_MCSAT_NA_BOUND:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      g->mcsat_options.nra_bound = tt;
+      g->mcsat_options.na_bound = tt;
       context = g->ctx;
       if (context != NULL) {
-        context->mcsat_options.nra_bound = tt;
+        context->mcsat_options.na_bound = tt;
       }
     }
     break;
 
-  case PARAM_MCSAT_NRA_BOUND_MIN:
+  case PARAM_MCSAT_NA_BOUND_MIN:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->mcsat_options.nra_bound_min = n;
+      g->mcsat_options.na_bound_min = n;
       context = g->ctx;
       if (context != NULL) {
-        context->mcsat_options.nra_bound_min = n;
+        context->mcsat_options.na_bound_min = n;
       }
     }
     break;
 
-  case PARAM_MCSAT_NRA_BOUND_MAX:
+  case PARAM_MCSAT_NA_BOUND_MAX:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->mcsat_options.nra_bound_max = n;
+      g->mcsat_options.na_bound_max = n;
       context = g->ctx;
       if (context != NULL) {
-        context->mcsat_options.nra_bound_max = n;
+        context->mcsat_options.na_bound_max = n;
       }
     }
     break;
