@@ -27,11 +27,11 @@
 #include "mcsat/utils/int_mset.h"
 #include "mcsat/utils/lp_data.h"
 #include "mcsat/utils/lp_constraint_db.h"
-#include "mcsat/nra/feasible_set_db.h"
+#include "mcsat/na/feasible_set_db.h"
 
 #include "terms/term_manager.h"
 
-struct nra_plugin_s {
+struct na_plugin_s {
 
   /** The plugin interface */
   plugin_t plugin_interface;
@@ -117,31 +117,31 @@ struct nra_plugin_s {
  * Gets all the arithmetic variables from a non-atom t and adds their corresponding
  * mcsat variable to vars_out.
  */
-void nra_plugin_get_term_variables(nra_plugin_t* nra, term_t t, int_mset_t* vars_out);
+void na_plugin_get_term_variables(na_plugin_t* na, term_t t, int_mset_t* vars_out);
 
 /**
  * Returns all arithmetic variables from a constraint (term) c and adds their corresponding
  * mcsat variable to vars_out. Returns false otherwise.
  */
-void nra_plugin_get_constraint_variables(nra_plugin_t* nra, term_t c, int_mset_t* vars_out);
+void na_plugin_get_constraint_variables(na_plugin_t* na, term_t c, int_mset_t* vars_out);
 
 /** Notes a conflict without reporting it yet */
-void nra_plugin_note_conflict(nra_plugin_t* nra, variable_t variable);
+void na_plugin_note_conflict(na_plugin_t* na, variable_t variable);
 
 /** Notes an int conflict without reporting it yet */
-void nra_plugin_note_int_conflict(nra_plugin_t* nra, variable_t variable);
+void na_plugin_note_int_conflict(na_plugin_t* na, variable_t variable);
 
 /** Returns true if a conflict is noted but not reported */
-int nra_plugin_is_conflict_pending(nra_plugin_t* nra);
+int na_plugin_is_conflict_pending(na_plugin_t* na);
 
 /** Report any noted real or int conflict */
-void nra_plugin_report_pending_conflict(nra_plugin_t* nra, trail_token_t* prop);
+void na_plugin_report_pending_conflict(na_plugin_t* na, trail_token_t* prop);
 
 /** Report a conflict (variable is the one with an empty feasible set) */
-void nra_plugin_report_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable);
+void na_plugin_report_conflict(na_plugin_t* na, trail_token_t* prop, variable_t variable);
 
 /** Report a conflict (variable is the one with an empty int feasible set) */
-void nra_plugin_report_int_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable);
+void na_plugin_report_int_conflict(na_plugin_t* na, trail_token_t* prop, variable_t variable);
 
 /** Report a conflict (variable is the with value not in feasible set) */
-void nra_plugin_report_assumption_conflict(nra_plugin_t* nra, trail_token_t* prop, variable_t variable, const mcsat_value_t* value);
+void na_plugin_report_assumption_conflict(na_plugin_t* na, trail_token_t* prop, variable_t variable, const mcsat_value_t* value);
