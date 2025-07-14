@@ -57,7 +57,7 @@ static smt_status_t simple_check(context_t *ctx) {
   result = yices_check_context(ctx, NULL);
 
   switch (result) {
-  case STATUS_SAT:
+  case YICES_STATUS_SAT:
     printf("SATISFIABLE\n");
     full_model = yices_get_model(ctx, true);
     if (full_model != NULL) {
@@ -71,7 +71,7 @@ static smt_status_t simple_check(context_t *ctx) {
     }
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     printf("UNSATISFIABLE\n");
     interpolant = yices_get_model_interpolant(ctx);
     if (interpolant != NULL_TERM) {
@@ -84,7 +84,7 @@ static smt_status_t simple_check(context_t *ctx) {
     }
     break;
 
-  case STATUS_ERROR:
+  case YICES_STATUS_ERROR:
     fprintf(stderr, "Check failed\n");
     yices_print_error(stderr);
     exit(1);
@@ -122,7 +122,7 @@ static smt_status_t check_with_model(context_t *ctx, model_t *model, uint32_t n,
   result = yices_check_context_with_model(ctx, NULL, model, n, t);
   
   switch (result) {
-  case STATUS_SAT:
+  case YICES_STATUS_SAT:
     printf("SATISFIABLE\n");
     full_model = yices_get_model(ctx, true);
     if (full_model != NULL) {
@@ -136,7 +136,7 @@ static smt_status_t check_with_model(context_t *ctx, model_t *model, uint32_t n,
     }
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     printf("UNSATISFIABLE\n");
     interpolant = yices_get_model_interpolant(ctx);
     if (interpolant != NULL_TERM) {
@@ -149,7 +149,7 @@ static smt_status_t check_with_model(context_t *ctx, model_t *model, uint32_t n,
     }
     break;
     
-  case STATUS_ERROR:
+  case YICES_STATUS_ERROR:
     fprintf(stderr, "Check with model failed\n");
     yices_print_error(stderr);
     exit(1);
@@ -193,7 +193,7 @@ static void run_issue233(void) {
   }
 
   stat = simple_check(ctx);
-  if (stat != STATUS_SAT) {
+  if (stat != YICES_STATUS_SAT) {
     fprintf(stderr, "Incorrect answer from check-sat: expected SAT\n");
     exit(1);
   }
@@ -207,13 +207,13 @@ static void run_issue233(void) {
   }
 
   stat = check_with_model(ctx, model, 1, &x);
-  if (stat != STATUS_UNSAT) {
+  if (stat != YICES_STATUS_UNSAT) {
     fprintf(stderr, "Incorrect answer from check-with-model: expected UNSAT\n");
     exit(1);
   }
 
   stat = simple_check(ctx);
-  if (stat != STATUS_SAT) {
+  if (stat != YICES_STATUS_SAT) {
     fprintf(stderr, "Incorrect answer from check-sat: expected SAT\n");
     exit(1);
   }
