@@ -911,8 +911,8 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
-    // keep binary clauses
-    for (i = 0; i < bp->lemmas.size; ++ i) {
+    // keep binary clauses for a little longer -- one more round
+    for (i = 0; bp->gc_round % 2 != 0 && i < bp->lemmas.size; ++ i) {
       clause_ref = bp->lemmas.data[i];
       assert(clause_db_is_clause(db, clause_ref, true));
       c = clause_db_get_clause(&bp->clause_db, clause_ref);
