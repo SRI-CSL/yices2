@@ -3,9 +3,11 @@
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/12768/badge.svg)](https://scan.coverity.com/projects/sri-csl-yices2)
 [![Coverage Status](https://coveralls.io/repos/github/SRI-CSL/yices2/badge.svg?branch=master)](https://coveralls.io/github/SRI-CSL/yices2?branch=master)
 
-# Yices 2
+<img width="100" style="display: block; margin: auto;" src="https://avatars.githubusercontent.com/u/8029212"/>
 
-Yices 2 is a solver for [Satisfiability Modulo
+# SRI Yices 2
+
+SRI Yices 2 is a solver for [Satisfiability Modulo
 Theories](https://en.wikipedia.org/wiki/Satisfiability_modulo_theories)
 (SMT) problems. Yices 2 can process input written in the SMT-LIB language, or in Yices' own specification language.
 We also provide a [C API](https://github.com/SRI-CSL/yices2/blob/master/src/include/yices.h) 
@@ -45,9 +47,8 @@ Running Yices on the above problem gives a solution
 ```
 > yices-smt2 lra.smt2
 sat
-(model
-  (define-fun x () Real 2.0)
-  (define-fun y () Real (- 1.0)))
+((define-fun x () Real 2.0)
+ (define-fun y () Real (- 1.0)))
 ```
 
 #### Bit-Vectors
@@ -73,9 +74,8 @@ Running Yices on the above problem gives
 ```
 > yices-smt2 bv.smt2
 sat
-(model
-  (define-fun x () (_ BitVec 32) #b01000000000000000000000000000000)
-  (define-fun y () (_ BitVec 32) #b01000000000000000000000000000000))
+((define-fun x () (_ BitVec 32) #b01000000000000000000000000000000)
+ (define-fun y () (_ BitVec 32) #b01000000000000000000000000000000))
 ```
 
 #### Non-Linear Arithmetic
@@ -100,9 +100,8 @@ Running Yices on the above problem gives
 
 ```
 sat
-(model
-  (define-fun x () Real 0.894427)
-  (define-fun y () Real 0.447214))
+((define-fun x () Real 0.894427)
+ (define-fun y () Real 0.447214))
 ```
 
 ## Installing Prebuilt Binaries

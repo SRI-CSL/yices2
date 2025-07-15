@@ -1464,7 +1464,7 @@ void init_smt_core(smt_core_t *s, uint32_t n, void *th,
   s->th_smt = *smt;   // ditto
   s->bool_only = false;
 
-  s->status = STATUS_IDLE;
+  s->status = YICES_STATUS_IDLE;
 
   switch (mode) {
   case SMT_MODE_BASIC:
@@ -1673,7 +1673,7 @@ void reset_smt_core(smt_core_t *s) {
   uint32_t i, n;
   clause_t **cl;
 
-  s->status = STATUS_IDLE;
+  s->status = YICES_STATUS_IDLE;
 
   // reset buffers
   ivector_reset(&s->buffer);
@@ -1793,17 +1793,17 @@ static void extend_smt_core(smt_core_t *s, uint32_t n) {
  * - factor must be between 0 and 1.0
  */
 void set_var_decay_factor(smt_core_t *s, double factor) {
-  assert(s->status != STATUS_SEARCHING && 0.0 < factor && factor < 1.0);
+  assert(s->status != YICES_STATUS_SEARCHING && 0.0 < factor && factor < 1.0);
   s->heap.inv_act_decay = 1/factor;
 }
 
 void set_clause_decay_factor(smt_core_t *s, float factor) {
-  assert(s->status != STATUS_SEARCHING && 0.0F < factor && factor < 1.0F);
+  assert(s->status != YICES_STATUS_SEARCHING && 0.0F < factor && factor < 1.0F);
   s->inv_cla_decay = 1/factor;
 }
 
 void set_randomness(smt_core_t *s, float random_factor) {
-  assert(s->status != STATUS_SEARCHING && 0.0F <= random_factor && random_factor < 1.0F);
+  assert(s->status != YICES_STATUS_SEARCHING && 0.0F <= random_factor && random_factor < 1.0F);
   s->scaled_random = (uint32_t)(random_factor * VAR_RANDOM_SCALE);
 }
 
@@ -2048,7 +2048,7 @@ void decide_literal(smt_core_t *s, literal_t l) {
   uint32_t k;
   bvar_t v;
 
-  assert(s->status == STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
+  assert(s->status == YICES_STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
   assert(literal_is_unassigned(s, l));
 
   // Increase decision level
@@ -3704,7 +3704,7 @@ literal_t get_next_assumption(smt_core_t *s) {
 void save_conflicting_assumption(smt_core_t *s, literal_t l) {
   assert(literal_value(s, l) == VAL_FALSE);
   s->bad_assumption = l;
-  s->status = STATUS_UNSAT;
+  s->status = YICES_STATUS_UNSAT;
 }
 
 
@@ -3835,7 +3835,7 @@ void build_unsat_core(smt_core_t *s, ivector_t *v) {
   int_queue_t queue;
   literal_t l;
 
-  assert(s->status == STATUS_UNSAT);
+  assert(s->status == YICES_STATUS_UNSAT);
   ivector_reset(v);
   l = s->bad_assumption;
   if (l != null_literal) {
@@ -4217,10 +4217,10 @@ static bool preprocess_clause(smt_core_t *s, uint32_t *n, literal_t *a) {
  *  if s->status is not IDLE or SEARCHING or INTERRUPTED).
  */
 static bool on_the_fly(smt_core_t *s) {
-  assert((s->status == STATUS_IDLE && s->decision_level == s->base_level) ||
-         (s->status == STATUS_SEARCHING && s->decision_level >= s->base_level) ||
+  assert((s->status == YICES_STATUS_IDLE && s->decision_level == s->base_level) ||
+         (s->status == YICES_STATUS_SEARCHING && s->decision_level >= s->base_level) ||
          (s->status == YICES_STATUS_INTERRUPTED && s->decision_level >= s->base_level));
-  return s->status != STATUS_IDLE;
+  return s->status != YICES_STATUS_IDLE;
 }
 
 /*
@@ -4898,7 +4898,7 @@ static inline bval_t unsafe_literal_value(smt_core_t *s, literal_t l) {
 /*
  * Variant of literal_is_unassigned (same reason)
  */
-static inline bval_t unsafe_literal_is_unassigned(smt_core_t *s, literal_t l) {
+static inline bool unsafe_literal_is_unassigned(smt_core_t *s, literal_t l) {
   assert(end_learned <= l && l <= (int32_t) s->nlits);
   return bval_is_undef(s->value[var_of(l)]);
 }
@@ -5233,11 +5233,11 @@ void smt_push(smt_core_t *s) {
   /*
    * Reset assignment and status
    */
-  if (s->status == STATUS_UNKNOWN || s->status == STATUS_SAT) {
+  if (s->status == YICES_STATUS_UNKNOWN || s->status == YICES_STATUS_SAT) {
     smt_clear(s);
   }
 
-  assert(s->status == STATUS_IDLE && s->decision_level == s->base_level);
+  assert(s->status == YICES_STATUS_IDLE && s->decision_level == s->base_level);
 
   /*
    * Save current state:
@@ -5486,7 +5486,7 @@ void smt_pop(smt_core_t *s) {
    * Abort if push_pop is not enabled or if there's no pushed state
    */
   assert((s->option_flag & PUSH_POP_MASK) != 0 && s->base_level > 0 &&
-         s->status != YICES_STATUS_INTERRUPTED && s->status != STATUS_SEARCHING);
+         s->status != YICES_STATUS_INTERRUPTED && s->status != YICES_STATUS_SEARCHING);
 
   // We need to backtrack before calling the pop function of th_solver
   backtrack_to_base_level(s);
@@ -5516,7 +5516,7 @@ void smt_pop(smt_core_t *s) {
   gate_table_pop(&s->gates);
 
   // reset status
-  s->status = STATUS_IDLE;
+  s->status = YICES_STATUS_IDLE;
 }
 
 static void smt_interrupt_push(smt_core_t *s) {
@@ -5538,9 +5538,9 @@ static void smt_interrupt_pop(smt_core_t *s) {
  * - we just call pop
  */
 void smt_cleanup(smt_core_t *s) {
-  assert((s->status == YICES_STATUS_INTERRUPTED || s->status == STATUS_UNSAT)
+  assert((s->status == YICES_STATUS_INTERRUPTED || s->status == YICES_STATUS_UNSAT)
          && (s->option_flag & CLEAN_INTERRUPT_MASK) != 0);
-  s->status = STATUS_IDLE; // make sure pop does not abort
+  s->status = YICES_STATUS_IDLE; // make sure pop does not abort
   smt_interrupt_pop(s);
 }
 
@@ -5549,7 +5549,7 @@ void smt_cleanup(smt_core_t *s) {
  * Clear the current boolean assignment and reset status to IDLE
  */
 void smt_clear(smt_core_t *s) {
-  assert(s->status == STATUS_SAT || s->status == STATUS_UNKNOWN);
+  assert(s->status == YICES_STATUS_SAT || s->status == YICES_STATUS_UNKNOWN);
 
   // Give a chance to the theory solver to cleanup its own state
   s->th_ctrl.clear(s->th_solver);
@@ -5572,7 +5572,7 @@ void smt_clear(smt_core_t *s) {
       s->assumptions = NULL;
       s->bad_assumption = null_literal;
     }
-    s->status = STATUS_IDLE;
+    s->status = YICES_STATUS_IDLE;
   }
 }
 
@@ -5583,8 +5583,8 @@ void smt_clear(smt_core_t *s) {
 void smt_clear_unsat(smt_core_t *s) {
   smt_status_t saved_status;
 
-  assert(s->status == STATUS_UNSAT);
-  saved_status = STATUS_UNSAT;
+  assert(s->status == YICES_STATUS_UNSAT);
+  saved_status = YICES_STATUS_UNSAT;
 
   /*
    * Remove assumptions by backtracking to the base_level
@@ -5592,16 +5592,19 @@ void smt_clear_unsat(smt_core_t *s) {
   if (s->has_assumptions) {
     backtrack_to_base_level(s);
 
+    // if assumptions didn't contribute the unsat result, don't clear the status
+    if (s->bad_assumption != null_literal) {
+      // status returns to IDLE
+      s->status = YICES_STATUS_IDLE;
+      saved_status = YICES_STATUS_IDLE;
+    }
+
     // cleanup
     s->has_assumptions = false;
     s->num_assumptions = 0;
     s->assumption_index = 0;
     s->assumptions = NULL;
     s->bad_assumption = null_literal;
-
-    // status returns to IDLE
-    s->status = STATUS_IDLE;
-    saved_status = STATUS_IDLE;
   }
 
   assert(s->decision_level == s->base_level);
@@ -5628,7 +5631,7 @@ void smt_clear_unsat(smt_core_t *s) {
  * be deleted when the solver backtracks to a lower decision level
  */
 void smt_checkpoint(smt_core_t *s) {
-  assert(s->status == STATUS_SEARCHING ||
+  assert(s->status == YICES_STATUS_SEARCHING ||
          s->status == YICES_STATUS_INTERRUPTED);
   push_checkpoint(&s->checkpoints, s->decision_level, s->nvars);
   s->cp_flag = false;
@@ -5956,7 +5959,7 @@ static void purge_all_dynamic_atoms(smt_core_t *s) {
  * New round of assertions
  */
 void internalization_start(smt_core_t *s) {
-  assert(s->status == STATUS_IDLE && s->decision_level == s->base_level);
+  assert(s->status == YICES_STATUS_IDLE && s->decision_level == s->base_level);
 
 #if TRACE
   printf("\n---> DPLL START\n");
@@ -5976,7 +5979,7 @@ void internalization_start(smt_core_t *s) {
  * - this is used to detect early inconsistencies during internalization
  */
 bool base_propagate(smt_core_t *s) {
-  assert(s->status == STATUS_IDLE && s->decision_level == s->base_level);
+  assert(s->status == YICES_STATUS_IDLE && s->decision_level == s->base_level);
 
 #if TRACE
   printf("\n---> DPLL BASE PROPAGATE\n");
@@ -5998,7 +6001,7 @@ bool base_propagate(smt_core_t *s) {
   }
 
   assert(s->inconsistent);
-  s->status = STATUS_UNSAT;
+  s->status = YICES_STATUS_UNSAT;
   return false;
 }
 
@@ -6018,7 +6021,7 @@ bool base_propagate(smt_core_t *s) {
  *   enable cleanup after interrupt (this uses push)
  */
 void start_search(smt_core_t *s, uint32_t n, const literal_t *a) {
-  assert(s->status == STATUS_IDLE && s->decision_level == s->base_level);
+  assert(s->status == YICES_STATUS_IDLE && s->decision_level == s->base_level);
 
 #if TRACE
   printf("\n---> DPLL START\n");
@@ -6033,7 +6036,7 @@ void start_search(smt_core_t *s, uint32_t n, const literal_t *a) {
     smt_interrupt_push(s);
   }
 
-  s->status = STATUS_SEARCHING;
+  s->status = YICES_STATUS_SEARCHING;
   s->inconsistent = false;
   s->theory_conflict = false;
   s->conflict = NULL;
@@ -6074,7 +6077,7 @@ void start_search(smt_core_t *s, uint32_t n, const literal_t *a) {
  *   calling smt_cleanup(s)
  */
 void stop_search(smt_core_t *s) {
-  if (s->status == STATUS_SEARCHING) {
+  if (s->status == YICES_STATUS_SEARCHING) {
     s->status = YICES_STATUS_INTERRUPTED;
   }
 }
@@ -6096,14 +6099,14 @@ void stop_search(smt_core_t *s) {
  * - false on early exit (i.e., max_conflict reached)
  */
 static bool smt_core_process(smt_core_t *s, uint64_t max_conflicts) {
-  while (s->status == STATUS_SEARCHING) {
+  while (s->status == YICES_STATUS_SEARCHING) {
     if (s->inconsistent) {
       resolve_conflict(s);
       if (s->inconsistent) {
         // conflict could not be resolved: unsat problem
         // the lemma queue may be non-empty so we must clear it here
         reset_lemma_queue(&s->lemmas);
-        s->status = STATUS_UNSAT;
+        s->status = YICES_STATUS_UNSAT;
       }
       // decay activities after every conflict
       s->cla_inc *= s->inv_cla_decay;
@@ -6131,7 +6134,7 @@ static bool smt_core_process(smt_core_t *s, uint64_t max_conflicts) {
   }
 
   // try to simplify at the base level
-  if (s->status == STATUS_SEARCHING &&
+  if (s->status == YICES_STATUS_SEARCHING &&
       s->decision_level == s->base_level &&
       s->stack.top > s->simplify_bottom &&
       s->stats.propagations >= s->simplify_props + s->simplify_threshold) {
@@ -6169,9 +6172,9 @@ bool smt_bounded_process(smt_core_t *s, uint64_t max_conflicts) {
  *   is done.
  */
 void smt_final_check(smt_core_t *s) {
-  assert(s->status == STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
+  assert(s->status == YICES_STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
 
-  if (s->status == STATUS_SEARCHING) {
+  if (s->status == YICES_STATUS_SEARCHING) {
     switch (s->th_ctrl.final_check(s->th_solver)) {
     case FCHECK_CONTINUE:
       /*
@@ -6184,10 +6187,10 @@ void smt_final_check(smt_core_t *s) {
        * Otherwise: update status to stop the search
        */
     case FCHECK_SAT:
-      s->status = STATUS_SAT;
+      s->status = YICES_STATUS_SAT;
       break;
     case FCHECK_UNKNOWN:
-      s->status = STATUS_UNKNOWN;
+      s->status = YICES_STATUS_UNKNOWN;
       break;
     }
   }
@@ -6206,7 +6209,7 @@ bool smt_easy_sat(smt_core_t *s) {
   assert(s->bool_only);
 
   for (;;) {
-    assert(s->status == STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
+    assert(s->status == YICES_STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
     smt_propagation(s);
     assert(empty_lemma_queue(&s->lemmas));
     assert(! s->cp_flag);
@@ -6221,7 +6224,7 @@ bool smt_easy_sat(smt_core_t *s) {
 
     l = select_unassigned_literal(s);
     if (l == null_literal) {
-      s->status = STATUS_SAT;
+      s->status = YICES_STATUS_SAT;
       return true;
     }
     decide_literal(s, l);
@@ -6333,7 +6336,7 @@ static void partial_restart(smt_core_t *s, uint32_t k) {
  */
 void smt_restart(smt_core_t *s) {
 
-  assert(s->status == STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
+  assert(s->status == YICES_STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL RESTART\n");
@@ -6355,7 +6358,7 @@ void smt_partial_restart(smt_core_t *s) {
   bvar_t x;
   uint32_t i, k, n;
 
-  assert(s->status == STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
+  assert(s->status == YICES_STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL PARTIAL RESTART\n");
@@ -6407,7 +6410,7 @@ void smt_partial_restart_var(smt_core_t *s) {
   bvar_t x;
   uint32_t i, n;
 
-  assert(s->status == STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
+  assert(s->status == YICES_STATUS_SEARCHING || s->status == YICES_STATUS_INTERRUPTED);
 
 #if TRACE
   printf("\n---> DPLL PARTIAL RESTART (VARIANT)\n");

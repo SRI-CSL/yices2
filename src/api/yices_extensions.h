@@ -33,101 +33,6 @@
 #include "terms/terms.h"
 #include "utils/int_array_hsets.h"
 
-
-/*
- * TYPE VARIABLES/MACROS
- */
-
-/*
- * Create a type variable of the given id
- */
-extern type_t yices_type_variable(uint32_t id);
-
-/*
- * Create a type constructor:
- * - name = its name
- * - n = arity
- * return -1 if there's an error or the macro id otherwise
- *
- * Error codes:
- * if n == 0
- *   code = POS_INT_REQUIRED
- *   badval = n
-, * if n > TYPE_MACRO_MAX_ARITY
- *   code = TOO_MANY_MACRO_PARAMS
- *   badval = n
- */
-extern int32_t yices_type_constructor(const char *name, uint32_t n);
-
-/*
- * Create a type macro:
- * - name = its name
- * - n = arity
- * - vars = array of n distinct type variables
- * - body = type
- *
- * return -1 if there's an error or the macro id otherwise
- *
- * Error codes:
- * if n == 0
- *   code = POS_INT_REQUIRED
- *   badval = n
- * if n > TYPE_MACRO_MAX_ARITY
- *   code = TOO_MANY_MACRO_PARAMS
- *   badval = n
- * if body or one of vars[i] is not a valid type
- *   code = INVALID_TYPE
- *   type1 = body or vars[i]
- * if vars[i] is not a type variable
- *   code = TYPE_VAR_REQUIRED
- *   type1 = vars[i]
- * if the same variable occurs twice or more in vars
- *   code = DUPLICATE_TYPE_VAR
- *   type1 = the duplicate variable
- */
-extern int32_t yices_type_macro(const char *name, uint32_t n, type_t *vars, type_t body);
-
-
-/*
- * Instance of a macro or constructor
- * - cid = constructor or macro id
- * - n = number of arguments
- * - tau[0 ... n-1] = argument types
- *
- * return NULL_TYPE if there's an error
- *
- * Error reports:
- * if cid is not a valid macro or constructor id
- *   code = INVALID_MACRO
- *   badval = cid
- * if n is not the same as the macro/constructor arity
- *   code = WRONG_NUMBER_OF_ARGUMENTS
- *   badval = n
- * if one of tau[i] is not a valid type
- *   code = INVALID_TYPE
- *   type1 = tau[i]
- */
-extern type_t yices_instance_type(int32_t cid, uint32_t n, type_t tau[]);
-
-/*
- * Get the macro id for a given name
- * - return -1 if there's no macro or constructor with that name
- */
-extern int32_t yices_get_macro_by_name(const char *name);
-
-/*
- * Remove the mapping of name --> macro id
- * - no change if no such mapping exists
- */
-extern void yices_remove_type_macro_name(const char *name);
-
-/*
- * Remove a macro with the given id
- * - id must be a valid macro index (non-negative)
- */
-extern void yices_delete_type_macro(int32_t id);
-
-
 /*
  * BUFFER ALLOCATION/FREE
  */
@@ -234,6 +139,15 @@ extern term_t arith_buffer_get_gt0_atom(rba_buffer_t *b);
  */
 extern term_t arith_buffer_get_lt0_atom(rba_buffer_t *b);
 
+/*
+ * similar to arith_buffer_get_term, but for finite fields
+ */
+extern term_t arith_ff_buffer_get_term(rba_buffer_t *b, rational_t *mod);
+
+/*
+ * similar to arith_buffer_get_eq0_term, but for finite fields
+ */
+extern term_t arith_ff_buffer_get_eq0_atom(rba_buffer_t *b, rational_t *mod);
 
 /*
  * Convert b to a term then reset b.
@@ -293,6 +207,10 @@ extern term_t yices_bvconst_term(uint32_t n, uint32_t *v);
  */
 extern term_t yices_bvconst64_term(uint32_t n, uint64_t c);
 
+/*
+ * Convert a finite field constant to a term
+ */
+extern term_t yices_ffconst_term(rational_t *q, rational_t *mod);
 
 /*
  * Convert rational q to a term
@@ -333,6 +251,20 @@ extern bool yices_check_boolean_term(term_t t);
  *   term1 = t
  */
 extern bool yices_check_arith_term(term_t t);
+
+/*
+ * Check whether t is a valid finite field arithmetic term
+ * - if not set the internal error report:
+ *
+ * If t is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = t
+ *   index = -1
+ * If t is not an arithmetic term;
+ *   code = ARITHTERM_REQUIRED
+ *   term1 = t
+ */
+extern bool yices_check_arith_ff_term(term_t t);
 
 
 /*

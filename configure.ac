@@ -578,7 +578,7 @@ if test -z "$1"; then
        if test -f $ldir/libgmp.a; then
           AC_MSG_RESULT(found)
           testlib=$ldir/libgmp.a
-	  CSL_CHECK_GMP($testlib,$testincludedir)
+          CSL_CHECK_GMP($testlib,$testincludedir)
           if test $run_ok = yes; then
             STATIC_GMP=$testlib
             STATIC_GMP_INCLUDE_DIR=$testincludedir

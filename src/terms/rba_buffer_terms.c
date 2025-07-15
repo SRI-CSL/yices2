@@ -36,19 +36,21 @@ void rba_buffer_add_term(rba_buffer_t *b, term_table_t *table, term_t t) {
   int32_t i;
 
   assert(b->ptbl == table->pprods);
-  assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
+  assert(pos_term(t) && good_term(table, t) && (is_arithmetic_term(table, t) || is_finitefield_term(table, t)));
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     rba_buffer_add_pp(b, pprod_for_idx(table, i));
     break;
 
   case ARITH_CONSTANT:
+  case ARITH_FF_CONSTANT:
     rba_buffer_add_const(b, rational_for_idx(table, i));
     break;
 
   case ARITH_POLY:
+  case ARITH_FF_POLY:
     p = polynomial_for_idx(table, i);
     v = pprods_for_poly(table, p);
     rba_buffer_add_monarray(b, p->mono, v);
@@ -73,19 +75,21 @@ void rba_buffer_sub_term(rba_buffer_t *b, term_table_t *table, term_t t) {
   int32_t i;
 
   assert(b->ptbl == table->pprods);
-  assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
+  assert(pos_term(t) && good_term(table, t) && (is_arithmetic_term(table, t) || is_finitefield_term(table, t)));
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     rba_buffer_sub_pp(b, pprod_for_idx(table, i));
     break;
 
   case ARITH_CONSTANT:
+  case ARITH_FF_CONSTANT:
     rba_buffer_sub_const(b, rational_for_idx(table, i));
     break;
 
   case ARITH_POLY:
+  case ARITH_FF_POLY:
     p = polynomial_for_idx(table, i);
     v = pprods_for_poly(table, p);
     rba_buffer_sub_monarray(b, p->mono, v);
@@ -110,19 +114,21 @@ void rba_buffer_mul_term(rba_buffer_t *b, term_table_t *table, term_t t) {
   int32_t i;
 
   assert(b->ptbl == table->pprods);
-  assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
+  assert(pos_term(t) && good_term(table, t) && (is_arithmetic_term(table, t) || is_finitefield_term(table, t)));
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     rba_buffer_mul_pp(b, pprod_for_idx(table, i));
     break;
 
   case ARITH_CONSTANT:
+  case ARITH_FF_CONSTANT:
     rba_buffer_mul_const(b, rational_for_idx(table, i));
     break;
 
   case ARITH_POLY:
+  case ARITH_FF_POLY:
     p = polynomial_for_idx(table, i);
     v = pprods_for_poly(table, p);
     rba_buffer_mul_monarray(b, p->mono, v);
@@ -148,15 +154,16 @@ void rba_buffer_add_const_times_term(rba_buffer_t *b, term_table_t *table, ratio
   int32_t i;
 
   assert(b->ptbl == table->pprods);
-  assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
+  assert(pos_term(t) && good_term(table, t) && (is_arithmetic_term(table, t) || is_finitefield_term(table, t)));
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     rba_buffer_add_mono(b, a, pprod_for_idx(table, i));
     break;
 
   case ARITH_CONSTANT:
+  case ARITH_FF_CONSTANT:
     q_init(&q);
     q_set(&q, a);
     q_mul(&q, rational_for_idx(table, i));
@@ -165,6 +172,7 @@ void rba_buffer_add_const_times_term(rba_buffer_t *b, term_table_t *table, ratio
     break;
 
   case ARITH_POLY:
+  case ARITH_FF_POLY:
     p = polynomial_for_idx(table, i);
     v = pprods_for_poly(table, p);
     rba_buffer_add_const_times_monarray(b, p->mono, v, a);
@@ -193,16 +201,17 @@ void rba_buffer_mul_term_power(rba_buffer_t *b, term_table_t *table, term_t t, u
   int32_t i;
 
   assert(b->ptbl == table->pprods);
-  assert(pos_term(t) && good_term(table, t) && is_arithmetic_term(table, t));
+  assert(pos_term(t) && good_term(table, t) && (is_arithmetic_term(table, t) || is_finitefield_term(table, t)));
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     r = pprod_exp(b->ptbl, pprod_for_idx(table, i), d); // r = t^d
     rba_buffer_mul_pp(b, r);
     break;
 
   case ARITH_CONSTANT:
+  case ARITH_FF_CONSTANT:
     q_init(&q);
     q_set_one(&q);
     q_mulexp(&q, rational_for_idx(table, i), d); // q = t^d
@@ -211,6 +220,7 @@ void rba_buffer_mul_term_power(rba_buffer_t *b, term_table_t *table, term_t t, u
     break;
 
   case ARITH_POLY:
+  case ARITH_FF_POLY:
     p = polynomial_for_idx(table, i);
     v = pprods_for_poly(table, p);
     init_rba_buffer(&aux, b->ptbl);

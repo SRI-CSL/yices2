@@ -5714,7 +5714,8 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
 
   // mcsat options default
   init_mcsat_options(&ctx->mcsat_options);
-
+  init_ivector(&ctx->mcsat_var_order, CTX_DEFAULT_VECTOR_SIZE);
+  init_ivector(&ctx->mcsat_initial_var_order, CTX_DEFAULT_VECTOR_SIZE);
   /*
    * Allocate and initialize the solvers and core
    * NOTE: no theory solver yet if arch is AUTO_IDL or AUTO_RDL
@@ -5773,6 +5774,8 @@ void delete_context(context_t *ctx) {
 
   delete_gate_manager(&ctx->gate_manager);
   /* delete_mcsat_options(&ctx->mcsat_options); // if used then the same memory is freed twice */
+  delete_ivector(&ctx->mcsat_var_order);
+  delete_ivector(&ctx->mcsat_initial_var_order);
 
   delete_intern_tbl(&ctx->intern);
   delete_ivector(&ctx->top_eqs);
@@ -5826,6 +5829,9 @@ void reset_context(context_t *ctx) {
   }
 
   reset_gate_manager(&ctx->gate_manager);
+
+  ivector_reset(&ctx->mcsat_var_order);
+  ivector_reset(&ctx->mcsat_initial_var_order);
 
   reset_intern_tbl(&ctx->intern);
   ivector_reset(&ctx->top_eqs);
@@ -6209,7 +6215,7 @@ int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
 
   assert(ctx->arch == CTX_ARCH_AUTO_IDL ||
          ctx->arch == CTX_ARCH_AUTO_RDL ||
-         smt_status(ctx->core) == STATUS_IDLE);
+         smt_status(ctx->core) == YICES_STATUS_IDLE);
   assert(!context_quant_enabled(ctx));
 
   code = context_process_assertions(ctx, n, f);
@@ -6223,10 +6229,10 @@ int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
       ctx->options = 0;
     }
 
-    if( smt_status(ctx->core) != STATUS_UNSAT) {
+    if( smt_status(ctx->core) != YICES_STATUS_UNSAT) {
       // force UNSAT in the core
       add_empty_clause(ctx->core);
-      ctx->core->status = STATUS_UNSAT;
+      ctx->core->status = YICES_STATUS_UNSAT;
     }
   }
 
@@ -6248,7 +6254,7 @@ int32_t quant_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
   int32_t code;
 
   assert(context_quant_enabled(ctx));
-  assert(smt_status(ctx->core) == STATUS_SEARCHING);
+  assert(smt_status(ctx->core) == YICES_STATUS_SEARCHING);
 
   code = context_process_assertions(ctx, n, f);
   if (code == TRIVIALLY_UNSAT) {
@@ -6261,10 +6267,10 @@ int32_t quant_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
       ctx->options = 0;
     }
 
-    if( smt_status(ctx->core) != STATUS_UNSAT) {
+    if( smt_status(ctx->core) != YICES_STATUS_UNSAT) {
       // force UNSAT in the core
       add_empty_clause(ctx->core);
-      ctx->core->status = STATUS_UNSAT;
+      ctx->core->status = YICES_STATUS_UNSAT;
     }
   }
 
@@ -6607,8 +6613,8 @@ int32_t assert_blocking_clause(context_t *ctx) {
   uint32_t i, n;
   int32_t code;
 
-  assert(smt_status(ctx->core) == STATUS_SAT ||
-         smt_status(ctx->core) == STATUS_UNKNOWN);
+  assert(smt_status(ctx->core) == YICES_STATUS_SAT ||
+         smt_status(ctx->core) == YICES_STATUS_UNKNOWN);
 
   // get decision literals and build the blocking clause
   v = &ctx->aux_vector;
@@ -6631,10 +6637,10 @@ int32_t assert_blocking_clause(context_t *ctx) {
   code = CTX_NO_ERROR;
   if (n == 0) {
     code = TRIVIALLY_UNSAT;
-    ctx->core->status = STATUS_UNSAT;
+    ctx->core->status = YICES_STATUS_UNSAT;
   }
 
-  assert(n == 0 || smt_status(ctx->core) == STATUS_IDLE);
+  assert(n == 0 || smt_status(ctx->core) == YICES_STATUS_IDLE);
 
   return code;
 }
@@ -6688,3 +6694,4 @@ void context_gc_mark(context_t *ctx) {
     mcsat_gc_mark(ctx->mcsat);
   }
 }
+

@@ -25,6 +25,7 @@
 #include <inttypes.h>
 
 #include "terms/pprod_table.h"
+#include "terms/terms.h"
 
 
 /*
@@ -77,25 +78,25 @@ static void print_pprod_table(FILE *f, pprod_table_t *table) {
   int32_t l;
 
   fprintf(f, "pprod_table %p\n", table);
-  fprintf(f, "  size = %"PRIu32"\n", table->size);
-  fprintf(f, "  nelems = %"PRIu32"\n", table->nelems);
-  fprintf(f, "  free_idx = %"PRId32"\n", table->free_idx);
+  fprintf(f, "  size = %"PRIu32"\n", table->pprods.size);
+  fprintf(f, "  nelems = %"PRIu32"\n", indexed_table_nelems(&table->pprods));
+  fprintf(f, "  free_idx = %"PRId32"\n", table->pprods.free_idx);
   fprintf(f, "  content:\n");
-  n = table->nelems;
+  n = indexed_table_nelems(&table->pprods);
   for (i=0; i<n; i++) {
-    p = table->data[i];
+    p = indexed_table_elem(pprod_table_elem_t, &table->pprods, i)->pprod;
     if (!has_int_tag(p)) {
       fprintf(f, "  data[%"PRIu32"] = ", i);
       print_varexp_array(f, p->prod, p->len);
       fprintf(f, "\n");
     }
   }
-  if (table->free_idx >= 0) {
+  if (table->pprods.free_idx >= 0) {
     fprintf(f, "  free list:");
-    l = table->free_idx;
+    l = table->pprods.free_idx;
     do {
       fprintf(f, " %"PRId32, l);
-      l = untag_i32(table->data[l]);
+      l = untag_i32(indexed_table_elem(pprod_table_elem_t, &table->pprods, l)->pprod);
     } while (l >= 0);
     fprintf(f, "\n");
   }

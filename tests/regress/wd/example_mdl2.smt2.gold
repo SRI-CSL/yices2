@@ -1,6 +1,5 @@
 sat
-(model
-  (define-fun a () (_ BitVec 4) (_ bv5 4)))
+((define-fun a () (_ BitVec 4) (_ bv5 4)))
 ((a (_ bv5 4))
  (b (_ bv5 8))
  (c (_ bv5 80)))

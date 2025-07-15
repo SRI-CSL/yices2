@@ -35,7 +35,7 @@ int main(void) {
   term_t check = yices_arith_eq_atom(yices_int32(1), one);
   yices_assert_formula(ctx, check);
   smt_status_t stat = yices_check_context(ctx, NULL);
-  assert(stat == STATUS_SAT);
+  assert(stat == YICES_STATUS_SAT);
   model_t* mdl = yices_get_model(ctx, 1);
   term_t val;
   assert(yices_get_bool_value(mdl, check, &val) == 0);

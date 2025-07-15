@@ -76,6 +76,9 @@ static const char * const code2string[NUM_TSTACK_ERRORS] = {
   "number cannot be converted to a bitvector",
   "error in bitvector arithmetic operation",
   "error in bitvector operation",
+  "invalid finite field constant",
+  "invalid finite field order",
+  "incompatible finite field sizes",
   "incompatible types in define",
   "strings are not terms",
   "variable values are not matching",
@@ -103,6 +106,7 @@ static const char * const opcode2smt_string[NUM_BASE_OPCODES] = {
   "let",
 
   "bitvector type",
+  "finite field type", // not in SMT2
   "scalar type",   // not in SMT
   "tuple type",    // not in SMT
   "function type",
@@ -200,6 +204,10 @@ static const char * const opcode2smt_string[NUM_BASE_OPCODES] = {
   "divides",     // not in SMT
   "is_int",      // not in SMT
 
+  "ff constant", // not in SMT
+  "ff.add",      // not in SMT
+  "ff.mul",      // not in SMT
+
   "build term",
   "build type",
 };
@@ -221,6 +229,7 @@ static const char * const opcode2yices_string[NUM_YICES_OPCODES] = {
   "let",
 
   "bitvector type",
+  "finite field type",
   "scalar type",
   "tuple type",
   "function type",
@@ -317,6 +326,11 @@ static const char * const opcode2yices_string[NUM_YICES_OPCODES] = {
   "mod",
   "divides",
   "is_int",
+
+  "ff constant",
+  "ff-add",
+  "ff-mul",
+
   "build term",
   "build type",
 
@@ -455,6 +469,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
   case TSTACK_DIVIDE_BY_ZERO:
   case TSTACK_NON_CONSTANT_DIVISOR:
   case TSTACK_INVALID_BVCONSTANT:
+  case TSTACK_INVALID_FFCONSTANT:
   case TSTACK_INCOMPATIBLE_BVSIZES:
   case TSTACK_BVARITH_ERROR:
   case TSTACK_BVLOGIC_ERROR:
@@ -492,7 +507,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
  * - severity 2: means bug in term_stack or Yices parser
  */
 static const uint8_t severity[NUM_YICES_ERRORS] = {
-  2, // NO_ERROR (should never be raised)
+  2, // YICES_NO_ERROR (should never be raised)
   2, // INVALID_TYPE
   2, // INVALID_TERM
   2, // INVALID_CONSTANT_INDEX (bug in scalar-type construction)

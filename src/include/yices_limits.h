@@ -32,7 +32,7 @@
 #include <stdint.h>
 
 /*
- * Maximal number of types or terms
+ * Maximal number of types or terms.
  */
 #define YICES_MAX_TYPES (UINT32_MAX/8)
 #define YICES_MAX_TERMS (UINT32_MAX/8)
@@ -59,6 +59,12 @@
  * Maximal bitvector size
  */
 #define YICES_MAX_BVSIZE (UINT32_MAX/16)
+
+
+/*
+ * Maximal arity for type macros
+ */
+#define TYPE_MACRO_MAX_ARITY 128
 
 
 #endif

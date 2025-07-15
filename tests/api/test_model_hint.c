@@ -119,11 +119,14 @@ static void check_with_sat_model(bool use_hint) {
   smt_status_t status;
   if (use_hint) {
     status = check_with_model_and_hint(ctx, model, assertion, 1, vars, 0);
-    assert(status == STATUS_SAT);
   } else {
     status = check_with_model_and_hint(ctx, model, assertion, 1, vars, 1);
-    assert(status == STATUS_SAT);
   }
+
+  if (status != YICES_STATUS_SAT) {
+    assert(false);
+  }
+  
   yices_free_model(model);
   yices_free_context(ctx);
 }
@@ -149,10 +152,14 @@ static void check_with_unsat_model(bool use_hint) {
   smt_status_t status;
   if (use_hint) {
     status = check_with_model_and_hint(ctx, model, assertion, 1, vars, 0);
-    assert(status == STATUS_SAT);
+    if (status != YICES_STATUS_SAT) {
+      assert(false);
+    }
   } else {
     status = check_with_model_and_hint(ctx, model, assertion, 1, vars, 1);
-    assert(status == STATUS_UNSAT);
+    if (status != YICES_STATUS_UNSAT) {
+      assert(false);
+    }
   }
   yices_free_model(model);
   yices_free_context(ctx);
@@ -171,7 +178,10 @@ static void check_sat_with_empty_model(void) {
 
   smt_status_t status;
   status = check_with_model_and_hint(ctx, model, assertion, 0, vars, 0);
-  assert(status == STATUS_SAT);
+  if (status != YICES_STATUS_SAT) {
+    assert(false);
+  }
+
   yices_free_model(model);
   yices_free_context(ctx);
 }
@@ -189,7 +199,9 @@ static void check_unsat_with_empty_model(void) {
 
   smt_status_t status;
   status = check_with_model_and_hint(ctx, model, assertion, 0, vars, 0);
-  assert(status == STATUS_UNSAT);
+  if (status != YICES_STATUS_UNSAT) {
+    assert(false);
+  }
 
   yices_free_model(model);
   yices_free_context(ctx);
@@ -215,17 +227,19 @@ static void check_unsat_with_model(bool use_hint) {
   smt_status_t status;
   if (use_hint) {
     status = check_with_model_and_hint(ctx, model, assertion, 1, vars, 0);
-    assert(status == STATUS_UNSAT);
   } else {
     status = check_with_model_and_hint(ctx, model, assertion, 1, vars, 1);
-    assert(status == STATUS_UNSAT);
+  }
+
+  if (status != YICES_STATUS_UNSAT) {
+    assert(false);
   }
 
   yices_free_model(model);
   yices_free_context(ctx);
 }
 
-void check_simple() {
+void check_simple(void) {
   context_t *ctx;
   model_t *model;
   term_t vars[2];
@@ -244,28 +258,31 @@ void check_simple() {
 
   smt_status_t status;
   status = check_with_model_and_hint(ctx, model, assertion, 1, vars, 0);
-  assert(status == STATUS_SAT);
+  if (status != YICES_STATUS_SAT) {
+    assert(false);
+  }
 
   yices_free_model(model);
   yices_free_context(ctx);
 }
 
 int main(void) {  
-  yices_init();
-  if (yices_has_mcsat()) {
-    printf("MCSAT supported\n");
-    check_simple();
-    check_with_sat_model(false);
-    check_with_sat_model(true);
-    check_with_unsat_model(false);
-    check_with_unsat_model(true);
-    check_sat_with_empty_model();
-    check_unsat_with_empty_model();
-    check_unsat_with_model(false);
-    check_unsat_with_model(true);
-  } else {
-    printf("MCSAT not supported\n");   
+  if (!yices_has_mcsat()) {
+    return 1; // skipped
   }
+  
+  yices_init();
+  
+  check_simple();
+  check_with_sat_model(false);
+  check_with_sat_model(true);
+  check_with_unsat_model(false);
+  check_with_unsat_model(true);
+  check_sat_with_empty_model();
+  check_unsat_with_empty_model();
+  check_unsat_with_model(false);
+  check_unsat_with_model(true);
+
   yices_exit();
 
   return 0;

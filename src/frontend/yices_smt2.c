@@ -97,6 +97,7 @@ static tstack_t stack;
 static bool incremental;
 static bool interactive;
 static bool smt2_model_format;
+static bool dump_models;
 static bool bvdecimal;
 static bool show_stats;
 static int32_t verbosity;
@@ -107,12 +108,15 @@ static char *dimacsfile;
 
 // mcsat options
 static bool mcsat;
-static bool mcsat_nra_mgcd;
-static bool mcsat_nra_nlsat;
-static bool mcsat_nra_bound;
-static int32_t mcsat_nra_bound_min;
-static int32_t mcsat_nra_bound_max;
+static double mcsat_rand_dec_freq;
+static int32_t mcsat_rand_dec_seed;
+static bool mcsat_na_mgcd;
+static bool mcsat_na_nlsat;
+static bool mcsat_na_bound;
+static int32_t mcsat_na_bound_min;
+static int32_t mcsat_na_bound_max;
 static int32_t mcsat_bv_var_size;
+static bool mcsat_partial_restart;
 
 static pvector_t trace_tags;
 
@@ -155,17 +159,21 @@ typedef enum optid {
   incremental_opt,         // enable incremental mode
   interactive_opt,         // enable interactive mode
   yicesformat_opt,         // use the Yices model format for models
+  dump_model_opt,          // print model on sat result
   bvdecimal_opt,           // use (_ bv<xxx> n) for bit-vector constants
   timeout_opt,             // give a timeout
   delegate_opt,            // use an external sat solver
   dimacs_opt,              // bitblast then export to DIMACS
   mcsat_opt,               // enable mcsat
-  mcsat_nra_mgcd_opt,      // use the mgcd instead psc in projection
-  mcsat_nra_nlsat_opt,     // use the nlsat projection instead of brown single-cell
-  mcsat_nra_bound_opt,     // search by increasing bound
-  mcsat_nra_bound_min_opt, // set initial bound
-  mcsat_nra_bound_max_opt, // set maximal bound
+  mcsat_rand_dec_freq_opt, // random decision frequency when making a decision in mcsat
+  mcsat_rand_dec_seed_opt, // seed for random decisions 
+  mcsat_na_mgcd_opt,      // use the mgcd instead psc in projection
+  mcsat_na_nlsat_opt,     // use the nlsat projection instead of brown single-cell
+  mcsat_na_bound_opt,     // search by increasing bound
+  mcsat_na_bound_min_opt, // set initial bound
+  mcsat_na_bound_max_opt, // set maximal bound
   mcsat_bv_var_size_opt,   // set size of bitvector variables
+  mcsat_partial_restart_opt, // enable partial restart heuristic in MCSAT
   trace_opt,               // enable a trace tag
   show_ef_help_opt,        // print help about the ef options
   ematch_en_opt,                    // enable ematching
@@ -204,16 +212,20 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "incremental", '\0', FLAG_OPTION, incremental_opt },
   { "interactive", '\0', FLAG_OPTION, interactive_opt },
   { "yices-model-format", '\0', FLAG_OPTION, yicesformat_opt },
+  { "dump-models", '\0', FLAG_OPTION, dump_model_opt},
   { "bvconst-in-decimal", '\0', FLAG_OPTION, bvdecimal_opt },
   { "delegate", '\0', MANDATORY_STRING, delegate_opt },
   { "dimacs", '\0', MANDATORY_STRING, dimacs_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
-  { "mcsat-nra-mgcd", '\0', FLAG_OPTION, mcsat_nra_mgcd_opt },
-  { "mcsat-nra-nlsat", '\0', FLAG_OPTION, mcsat_nra_nlsat_opt },
-  { "mcsat-nra-bound", '\0', FLAG_OPTION, mcsat_nra_bound_opt },
-  { "mcsat-nra-bound-min", '\0', MANDATORY_INT, mcsat_nra_bound_min_opt },
-  { "mcsat-nra-bound-max", '\0', MANDATORY_INT, mcsat_nra_bound_max_opt },
+  { "mcsat-rand-dec-freq", '\0', MANDATORY_FLOAT, mcsat_rand_dec_freq_opt },
+  { "mcsat-rand-dec-seed", '\0', MANDATORY_INT, mcsat_rand_dec_seed_opt },
+  { "mcsat-na-mgcd", '\0', FLAG_OPTION, mcsat_na_mgcd_opt },
+  { "mcsat-na-nlsat", '\0', FLAG_OPTION, mcsat_na_nlsat_opt },
+  { "mcsat-na-bound", '\0', FLAG_OPTION, mcsat_na_bound_opt },
+  { "mcsat-na-bound-min", '\0', MANDATORY_INT, mcsat_na_bound_min_opt },
+  { "mcsat-na-bound-max", '\0', MANDATORY_INT, mcsat_na_bound_max_opt },
   { "mcsat-bv-var-size", '\0', MANDATORY_INT, mcsat_bv_var_size_opt },
+  { "mcsat-partial-restart", '\0', FLAG_OPTION, mcsat_partial_restart_opt },
   { "trace", 't', MANDATORY_STRING, trace_opt },
   { "ef-help", '0', FLAG_OPTION, show_ef_help_opt },
   { "ematch", '\0', FLAG_OPTION, ematch_en_opt },
@@ -268,6 +280,7 @@ static void print_help(const char *progname) {
          "    --incremental             Enable support for push/pop\n"
          "    --interactive             Run in interactive mode (ignored if a filename is given)\n"
          "    --yices-model-format      Display models in the Yices model format (default = false)\n"
+         "    --dump-models             Display models on sat result (default = false)\n"
          "    --bvconst-in-decimal      Display bit-vector constants as decimal numbers (default = false)\n"
          "    --delegate=<satsolver>    Use an external SAT solver (can be cadical, cryptominisat, kissat, or y2sat)\n"
          "    --dimacs=<filename>       Bitblast and export to a file (in DIMACS format)\n"
@@ -285,12 +298,15 @@ static void print_mcsat_help(const char *progname) {
   printf("Usage: %s [option] filename\n"
          "    or %s [option]\n\n", progname, progname);
   printf("MCSat options:\n"
-         "    --mcsat-nra-mgcd          Use model-based GCD instead of PSC for projection\n"
-         "    --mcsat-nra-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
-         "    --mcsat-nra-bound         Search by increasing the bound on variable magnitude\n"
-         "    --mcsat-nra-bound-min=<B> Set initial lower bound\n"
-         "    --mcsat-nra-bound-max=<B> Set maximal bound for search\n"
-         "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search"
+	 "    --mcsat-rand-dec-freq=<B> Set the random decision frequency [0,1] (default = 0.02)\n"
+	 "    --mcsat-rand-dec-seed=<B> Set the random decision seed (postive value)\n"
+         "    --mcsat-na-mgcd          Use model-based GCD instead of PSC for projection\n"
+         "    --mcsat-na-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
+         "    --mcsat-na-bound         Search by increasing the bound on variable magnitude\n"
+         "    --mcsat-na-bound-min=<B> Set initial lower bound\n"
+         "    --mcsat-na-bound-max=<B> Set maximal bound for search\n"
+         "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search\n"
+         "    --mcsat-partial-restart   Enable partial restart heuristic in MCSAT search"
          "\n");
   fflush(stdout);
 }
@@ -375,6 +391,7 @@ static void parse_command_line(int argc, char *argv[]) {
   incremental = false;
   interactive = false;
   smt2_model_format = true;
+  dump_models = false;
   bvdecimal = false;
   show_stats = false;
   verbosity = 0;
@@ -383,12 +400,15 @@ static void parse_command_line(int argc, char *argv[]) {
   dimacsfile = NULL;
 
   mcsat = false;
-  mcsat_nra_mgcd = false;
-  mcsat_nra_nlsat = false;
-  mcsat_nra_bound = false;
-  mcsat_nra_bound_min = -1;
-  mcsat_nra_bound_max = -1;
+  mcsat_rand_dec_freq = -1;
+  mcsat_rand_dec_seed = -1;
+  mcsat_na_mgcd = false;
+  mcsat_na_nlsat = false;
+  mcsat_na_bound = false;
+  mcsat_na_bound_min = -1;
+  mcsat_na_bound_max = -1;
   mcsat_bv_var_size = -1;
+  mcsat_partial_restart = false;
 
   init_pvector(&trace_tags, 5);
 
@@ -471,15 +491,15 @@ static void parse_command_line(int argc, char *argv[]) {
         break;
 
       case nthreads_opt:
-	v = elem.i_value;
-	if (v < 0) {
-	  fprintf(stderr, "%s: the number of threads must be non-negative\n", parser.command_name);
-	  print_usage(parser.command_name);
-	  code = YICES_EXIT_USAGE;
-	  goto exit;
-	}
-	nthreads = v;
-	break;
+        v = elem.i_value;
+        if (v < 0) {
+          fprintf(stderr, "%s: the number of threads must be non-negative\n", parser.command_name);
+          print_usage(parser.command_name);
+          code = YICES_EXIT_USAGE;
+          goto exit;
+        }
+        nthreads = v;
+        break;
 	
       case incremental_opt:
         incremental = true;
@@ -527,6 +547,10 @@ static void parse_command_line(int argc, char *argv[]) {
         smt2_model_format = false;
         break;
 
+      case dump_model_opt:
+        dump_models = true;
+        break;
+
       case bvdecimal_opt:
         bvdecimal = true;
         break;
@@ -536,37 +560,53 @@ static void parse_command_line(int argc, char *argv[]) {
         mcsat  = true;
         break;
 
-      case mcsat_nra_mgcd_opt:
+      case mcsat_rand_dec_freq_opt:
         if (! yices_has_mcsat()) goto no_mcsat;
-        mcsat_nra_mgcd = true;
+        if (! validate_double_option(&parser, &elem, 0.0, false, 1.0, false)) goto bad_usage;
+        mcsat_rand_dec_freq = elem.d_value;
         break;
 
-      case mcsat_nra_nlsat_opt:
-        if (! yices_has_mcsat()) goto no_mcsat;
-        mcsat_nra_nlsat = true;
-        break;
-
-      case mcsat_nra_bound_opt:
-        if (! yices_has_mcsat()) goto no_mcsat;
-        mcsat_nra_bound = true;
-        break;
-
-      case mcsat_nra_bound_min_opt:
+      case mcsat_rand_dec_seed_opt:
         if (! yices_has_mcsat()) goto no_mcsat;
         if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
-        mcsat_nra_bound_min = elem.i_value;
+        mcsat_rand_dec_seed = elem.i_value;
         break;
 
-      case mcsat_nra_bound_max_opt:
+      case mcsat_na_mgcd_opt:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        mcsat_na_mgcd = true;
+        break;
+
+      case mcsat_na_nlsat_opt:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        mcsat_na_nlsat = true;
+        break;
+
+      case mcsat_na_bound_opt:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        mcsat_na_bound = true;
+        break;
+
+      case mcsat_na_bound_min_opt:
         if (! yices_has_mcsat()) goto no_mcsat;
         if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
-        mcsat_nra_bound_max = elem.i_value;
+        mcsat_na_bound_min = elem.i_value;
+        break;
+
+      case mcsat_na_bound_max_opt:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
+        mcsat_na_bound_max = elem.i_value;
         break;
 
       case mcsat_bv_var_size_opt:
         if (! yices_has_mcsat()) goto no_mcsat;
         if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) goto bad_usage;
         mcsat_bv_var_size = elem.i_value;
+        break;
+
+      case mcsat_partial_restart_opt:
+        mcsat_partial_restart = true;
         break;
 
       case show_ef_help_opt:
@@ -721,7 +761,17 @@ static void parse_command_line(int argc, char *argv[]) {
   exit(code);
 }
 
-static void setup_mcsat(void) {
+static void setup_options(void) {
+  aval_t aval_true;
+
+  aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "true");
+
+  if (dump_models) {
+    smt2_set_option(":dump-models", aval_true);
+  }
+}
+
+static void setup_options_mcsat(void) {
   aval_t aval_true;
 
   if (mcsat) {
@@ -730,35 +780,56 @@ static void setup_mcsat(void) {
 
   aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "true");
 
-  if (mcsat_nra_mgcd) {
-    smt2_set_option(":yices-mcsat-nra-mgcd", aval_true);
-  }
-
-  if (mcsat_nra_nlsat) {
-    smt2_set_option(":yices-mcsat-nra-nlsat", aval_true);
-  }
-
-  if (mcsat_nra_bound) {
-    smt2_set_option(":yices-mcsat-nra-bound", aval_true);
-  }
-
-  if (mcsat_nra_bound_min >= 0) {
-    aval_t aval_bound_min;
+  if (mcsat_rand_dec_freq >= 0) {
+    aval_t aval_rand;
     rational_t q;
     q_init(&q);
-    q_set32(&q, mcsat_nra_bound_min);
-    aval_bound_min = attr_vtbl_rational(__smt2_globals.avtbl, &q);
-    smt2_set_option(":yices-mcsat-nra-bound-min", aval_bound_min);
+    // accurate upto 3 decimal places
+    q_set_int32(&q, (int32_t)(mcsat_rand_dec_freq*1000), 1000);
+    aval_rand = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-mcsat-rand-dec-freq", aval_rand);
     q_clear(&q);
   }
 
-  if (mcsat_nra_bound_max >= 0) {
+  if (mcsat_rand_dec_seed >= 0) {
+    aval_t aval_seed;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, mcsat_rand_dec_seed);
+    aval_seed = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-mcsat-rand-dec-seed", aval_seed);
+    q_clear(&q);
+  }
+
+  if (mcsat_na_mgcd) {
+    smt2_set_option(":yices-mcsat-na-mgcd", aval_true);
+  }
+
+  if (mcsat_na_nlsat) {
+    smt2_set_option(":yices-mcsat-na-nlsat", aval_true);
+  }
+
+  if (mcsat_na_bound) {
+    smt2_set_option(":yices-mcsat-na-bound", aval_true);
+  }
+
+  if (mcsat_na_bound_min >= 0) {
+    aval_t aval_bound_min;
+    rational_t q;
+    q_init(&q);
+    q_set32(&q, mcsat_na_bound_min);
+    aval_bound_min = attr_vtbl_rational(__smt2_globals.avtbl, &q);
+    smt2_set_option(":yices-mcsat-na-bound-min", aval_bound_min);
+    q_clear(&q);
+  }
+
+  if (mcsat_na_bound_max >= 0) {
     aval_t aval_bound_max;
     rational_t q;
     q_init(&q);
-    q_set32(&q, mcsat_nra_bound_max);
+    q_set32(&q, mcsat_na_bound_max);
     aval_bound_max = attr_vtbl_rational(__smt2_globals.avtbl, &q);
-    smt2_set_option(":yices-mcsat-nra-bound-max", aval_bound_max);
+    smt2_set_option(":yices-mcsat-na-bound-max", aval_bound_max);
     q_clear(&q);
   }
 
@@ -771,9 +842,13 @@ static void setup_mcsat(void) {
     smt2_set_option(":yices-mcsat-bv-var-size", aval_bv_var_size);
     q_clear(&q);
   }
+
+  if (mcsat_partial_restart) {
+    smt2_set_option(":yices-mcsat-partial-restart", aval_true);
+  }
 }
 
-static void setup_ef(void) {
+static void setup_options_ef(void) {
   aval_t aval_true, aval_false;
 
   aval_true = attr_vtbl_symbol(__smt2_globals.avtbl, "true");
@@ -1100,8 +1175,9 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  setup_mcsat();
-  setup_ef();
+  setup_options();
+  setup_options_mcsat();
+  setup_options_ef();
 
   while (smt2_active()) {
     if (prompt) {
@@ -1113,9 +1189,9 @@ int main(int argc, char *argv[]) {
     if (code < 0) {
       // syntax error
       if (interactive) {
-	flush_lexer(&lexer);
+        flush_lexer(&lexer);
       } else {
-	break; // exit
+        break; // exit
       }
     }
   }

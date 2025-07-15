@@ -121,6 +121,13 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
     composite_for_noncomposite.arg[0] = arith_ge_arg(terms, t);
     return (composite_term_t*)&composite_for_noncomposite;
   }
+  case ARITH_FF_BINEQ_ATOM:
+    return arith_ff_bineq_atom_desc(terms, t);
+  case ARITH_FF_EQ_ATOM: {
+    composite_for_noncomposite.arity = 1;
+    composite_for_noncomposite.arg[0] = arith_ff_eq_arg(terms, t);
+    return (composite_term_t*)&composite_for_noncomposite;
+  }
   case APP_TERM:           // application of an uninterpreted function
     return app_term_desc(terms, t);
   case ARITH_RDIV:          // division: (/ x y)
@@ -252,7 +259,7 @@ term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* c
 }
 
 /**
- * Returns true if we should purify t as an argument of a function.
+ * Returns purified version of t if we should purify t as an argument of a function.
  * Any new equalities are added to output.
  */
 static inline
@@ -263,14 +270,14 @@ term_t preprocessor_purify(preprocessor_t* pre, term_t t, ivector_t* out) {
   // Negated terms must be purified
   if (is_pos_term(t)) {
     // We don't purify variables
-    term_kind_t t_kind = term_kind(terms, t);
-    switch (t_kind) {
+    switch (term_kind(terms, t)) {
     case UNINTERPRETED_TERM:
       // Variables are already pure
       return t;
     case CONSTANT_TERM:
       return t;
     case ARITH_CONSTANT:
+    case ARITH_FF_CONSTANT:
     case BV64_CONSTANT:
     case BV_CONSTANT:
       // Constants are also pure (except for false)
@@ -422,6 +429,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case BOOL_TYPE:
     case INT_TYPE:
     case REAL_TYPE:
+    case FF_TYPE:
     case UNINTERPRETED_TYPE:
     case FUNCTION_TYPE:
     case BITVECTOR_TYPE:
@@ -439,8 +447,10 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case BV64_CONSTANT:    // compact bitvector constant (64 bits at most)
     case BV_CONSTANT:      // generic bitvector constant (more than 64 bits)
     case ARITH_CONSTANT:   // rational constant
+    case ARITH_FF_CONSTANT:   // finite field constant
       current_pre = current;
       break;
+
     case UNINTERPRETED_TERM:  // (i.e., global variables, can't be bound).
       current_pre = current;
       // Unless we want special slicing
@@ -474,9 +484,10 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case OR_TERM:            // n-ary OR
     case XOR_TERM:           // n-ary XOR
     case ARITH_EQ_ATOM:      // equality (t == 0)
-    case ARITH_BINEQ_ATOM:   // equality: (t1 == t2)  (between two arithmetic terms)
+    case ARITH_BINEQ_ATOM:   // equality (t1 == t2)  (between two arithmetic terms)
     case ARITH_GE_ATOM:      // inequality (t >= 0)
-    case BV_ARRAY:
+    case ARITH_FF_EQ_ATOM:   // finite field equality (t == 0)
+    case ARITH_FF_BINEQ_ATOM: // finite field equality (t1 == t2)  (between two arithmetic terms)
     case BV_DIV:
     case BV_REM:
     case BV_SMOD:
@@ -504,14 +515,19 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       bool is_equality =
           current_kind == EQ_TERM ||
           current_kind == BV_EQ_ATOM ||
+          current_kind == ARITH_EQ_ATOM ||
           current_kind == ARITH_BINEQ_ATOM ||
-          current_kind == ARITH_EQ_ATOM;
+          current_kind == ARITH_FF_EQ_ATOM ||
+          current_kind == ARITH_FF_BINEQ_ATOM;
       // don't rewrite if the equality is between Boolean terms
       bool is_boolean = is_boolean_type(term_type(pre->terms, desc->arg[0]));
 
       term_t eq_solve_var = NULL_TERM;
       if (is_assertion && is_equality && !is_boolean) {
-        if (current == t) {
+	bool is_lhs_rhs_mixed = desc->arity > 1 &&
+	  term_type_kind(pre->terms, desc->arg[0]) != term_type_kind(pre->terms, desc->arg[1]);
+	// don't rewrite if equality is between mixed terms, e.g. between int and real terms
+	if (!is_lhs_rhs_mixed && current == t) {
           eq_solve_var = preprocessor_get_eq_solved_var(pre, t);
           if (eq_solve_var == NULL_TERM) {
             term_t lhs = desc->arg[0];
@@ -582,6 +598,50 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
           } else {
             current_pre = mk_composite(pre, current_kind, n, children.data);
           }
+        }
+      }
+
+      delete_ivector(&children);
+
+      break;
+    }
+
+    case BV_ARRAY:
+    {
+      composite_term_t* desc = get_composite(terms, current_kind, current);
+      bool children_done = true;
+      bool children_same = true;
+
+      n = desc->arity;
+
+      ivector_t children;
+      init_ivector(&children, n);
+
+      for (i = 0; i < n; ++ i) {
+        term_t child = desc->arg[i];
+        term_t child_pre = preprocessor_get(pre, child);
+        if (child_pre == NULL_TERM) {
+          children_done = false;
+          ivector_push(pre_stack, child);
+        } else {
+          if (is_arithmetic_literal(terms, child_pre) || child_pre == false_term) {
+            // purify if arithmetic literal, i.e. a = 0 where a is of integer type
+            child_pre = preprocessor_purify(pre, child_pre, out);
+          }
+          if (child_pre != child) {
+            children_same = false;
+          }
+        }
+        if (children_done) {
+          ivector_push(&children, child_pre);
+        }
+      }
+
+      if (children_done) {
+        if (children_same) {
+          current_pre = current;
+        } else {
+          current_pre = mk_composite(pre, current_kind, n, children.data);
         }
       }
 
@@ -886,6 +946,48 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       break;
     }
 
+    case ARITH_FF_POLY:    // polynomial with finite field coefficients
+    {
+      polynomial_t* p = finitefield_poly_term_desc(terms, current);
+      const rational_t *mod = finitefield_term_order(terms, current);
+
+      bool children_done = true;
+      bool children_same = true;
+
+      n = p->nterms;
+
+      ivector_t children;
+      init_ivector(&children, n);
+
+      for (i = 0; i < n; ++ i) {
+        term_t x = p->mono[i].var;
+        term_t x_pre = (x == const_idx ? const_idx : preprocessor_get(pre, x));
+
+        if (x_pre != const_idx) {
+          if (x_pre == NULL_TERM) {
+            children_done = false;
+            ivector_push(pre_stack, x);
+          } else if (x_pre != x) {
+            children_same = false;
+          }
+        }
+
+        if (children_done) { ivector_push(&children, x_pre); }
+      }
+
+      if (children_done) {
+        if (children_same) {
+          current_pre = current;
+        } else {
+          current_pre = mk_arith_ff_poly(tm, p, n, children.data, mod);
+        }
+      }
+
+      delete_ivector(&children);
+
+      break;
+    }
+
     // FOLLOWING ARE UNINTEPRETED, SO WE PURIFY THE ARGUMENTS
 
     case APP_TERM:           // application of an uninterpreted function
@@ -998,11 +1100,6 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
     case DISTINCT_TERM:
     {
       composite_term_t* desc = get_composite(terms, current_kind, current);
-
-      // Arrays not supported yet
-      if (term_type_kind(terms, desc->arg[0]) == FUNCTION_TYPE) {
-        longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
-      }
 
       bool children_done = true;
       n = desc->arity;

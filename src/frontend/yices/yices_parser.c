@@ -115,31 +115,32 @@ static void export_syntax_error(lexer_t *lex, int32_t expected_token) {
 
 /*
  * Table for conversion of tstack error codes to yices error codes
- * (NO_ERROR means a bug)
+ * (YICES_NO_ERROR means a bug)
  */
 static error_code_t const tstack_error2yices_error[NUM_TSTACK_ERRORS] = {
-  NO_ERROR,                     //  TSTACK_NO_ERROR
-  NO_ERROR,                     //  TSTACK_INTERNAL_ERROR
-  NO_ERROR,                     //  TSTACK_OP_NOT_IMPLEMENTED
+  YICES_NO_ERROR,                     //  TSTACK_NO_ERROR
+  YICES_NO_ERROR,                     //  TSTACK_INTERNAL_ERROR
+  YICES_NO_ERROR,                     //  TSTACK_OP_NOT_IMPLEMENTED
   UNDEFINED_TERM_NAME,          //  TSTACK_UNDEF_TERM
   UNDEFINED_TYPE_NAME,          //  TSTACK_UNDEF_TYPE
-  NO_ERROR,                     //  TSTACK_UNDEF_MACRO  // TODO find proper code
+
+  YICES_NO_ERROR,                     //  TSTACK_UNDEF_MACRO  // TODO find proper code
   INVALID_RATIONAL_FORMAT,      //  TSTACK_RATIONAL_FORMAT
   INVALID_FLOAT_FORMAT,         //  TSTACK_FLOAT_FORMAT
   INVALID_BVBIN_FORMAT,         //  TSTACK_BVBIN_FORMAT
   INVALID_BVHEX_FORMAT,         //  TSTACK_BVHEX_FORMAT
   REDEFINED_TYPE_NAME,          //  TSTACK_TYPENAME_REDEF
   REDEFINED_TERM_NAME,          //  TSTACK_TERMNAME_REDEF
-  NO_ERROR,                     //  TSTACK_MACRO_REDEF  // TODO find proper code
+  YICES_NO_ERROR,                     //  TSTACK_MACRO_REDEF  // TODO find proper code
   DUPLICATE_NAME_IN_SCALAR,     //  TSTACK_DUPLICATE_SCALAR_NAME
   DUPLICATE_VAR_NAME,           //  TSTACK_DUPLICATE_VAR_NAME
-  NO_ERROR,                     //  TSTACK_DUPLICATE_TYPE_VAR_NAME  // TODO find proper code
-  NO_ERROR,                     //  TSTACK_INVALID_OP
+  YICES_NO_ERROR,                     //  TSTACK_DUPLICATE_TYPE_VAR_NAME  // TODO find proper code
+  YICES_NO_ERROR,                     //  TSTACK_INVALID_OP
   WRONG_NUMBER_OF_ARGUMENTS,    //  TSTACK_INVALID_FRAME
   INTEGER_OVERFLOW,             //  TSTACK_INTEGER_OVERFLOW
   NONNEG_INT_REQUIRED,          //  TSTACK_NEGATIVE_EXPONENT
   INTEGER_REQUIRED,             //  TSTACK_NOT_AN_INTEGER
-  NO_ERROR,                     //  TSTACK_NOT_A_STRING  // TODO find proper code
+  YICES_NO_ERROR,                     //  TSTACK_NOT_A_STRING  // TODO find proper code
   SYMBOL_REQUIRED,              //  TSTACK_NOT_A_SYMBOL
   RATIONAL_REQUIRED,            //  TSTACK_NOT_A_RATIONAL
   TYPE_REQUIRED,                //  TSTACK_NOT_A_TYPE
@@ -151,12 +152,15 @@ static error_code_t const tstack_error2yices_error[NUM_TSTACK_ERRORS] = {
   INVALID_BVCONSTANT,           //  TSTACK_INVALID_BVCONSTANT
   BVARITH_ERROR,                //  TSTACK_BVARITH_ERROR
   BVARITH_ERROR,                //  TSTACK_BVLOGIC_ERROR
+  INVALID_FFCONSTANT,           //  TSTACK_INVALID_FFCONSTANT
+  INVALID_FFSIZE,               //  TSTACK_INVALID_FFSIZE
+  INCOMPATIBLE_FFSIZES,         //  TSTACK_INCOMPATIBLE_FFSIZES
   TYPE_MISMATCH_IN_DEF,         //  TSTACK_TYPE_ERROR_IN_DEFTERM
-  NO_ERROR,                     //  TSTACK_STRINGS_ARE_NOT_TERMS
-  NO_ERROR,                     // TSTACK_VARIABLES_VALUES_NOT_MATCHING,  // TODO find proper code
-  NO_ERROR,                     // TSTACK_NOT_A_CONSTANT,  // TODO find proper code
-  NO_ERROR,                     // TSTACK_NOT_A_VARIABLE,  // TODO find proper code
-  NO_ERROR,                     //  TSTACK_YICES_ERROR
+  YICES_NO_ERROR,                     //  TSTACK_STRINGS_ARE_NOT_TERMS
+  YICES_NO_ERROR,                     //  TSTACK_VARIABLES_VALUES_NOT_MATCHING,  // TODO find proper code
+  YICES_NO_ERROR,                     //  TSTACK_NOT_A_CONSTANT,  // TODO find proper code
+  YICES_NO_ERROR,                     //  TSTACK_NOT_A_VARIABLE,  // TODO find proper code
+  YICES_NO_ERROR,                     //  TSTACK_YICES_ERROR
 };
 
 
@@ -171,7 +175,7 @@ static void export_tstack_error(tstack_t *tstack, tstack_error_t exception) {
   error->column = tstack->error_loc.column;
   if (exception != TSTACK_YICES_ERROR) {
     error->code = tstack_error2yices_error[exception];
-    if (error->code == NO_ERROR) {
+    if (error->code == YICES_NO_ERROR) {
       report_bug("Internal error");
     }
   }

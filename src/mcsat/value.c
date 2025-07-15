@@ -23,6 +23,8 @@
 #include "utils/memalloc.h"
 #include "utils/hash_functions.h"
 
+#include "api/yices_api_lock_free.h"
+
 const mcsat_value_t mcsat_value_none = { VALUE_NONE, { true } };
 const mcsat_value_t mcsat_value_true = { VALUE_BOOLEAN, { true } };
 const mcsat_value_t mcsat_value_false = { VALUE_BOOLEAN, { false } };
@@ -118,8 +120,19 @@ void mcsat_value_construct_from_constant_term(mcsat_value_t* t_value, term_table
     break;
   }
   case CONSTANT_TERM: {
-    assert(t == true_term || t == false_term);
-    mcsat_value_construct_bool(t_value, t == true_term);
+    // Boolean terms case
+    if (t == true_term || t == false_term) {
+      mcsat_value_construct_bool(t_value, t == true_term);
+    } else {
+      // scalar case
+      int32_t int_value;
+      _o_yices_scalar_const_value(t, &int_value);
+      rational_t q;
+      q_init(&q);
+      q_set32(&q, int_value);
+      mcsat_value_construct_rational(t_value, &q);
+      q_clear(&q);
+    }
     break;
   }
   case ARITH_CONSTANT: {
@@ -391,12 +404,17 @@ value_t mcsat_value_to_value(const mcsat_value_t* mcsat_value, type_table_t *typ
         (void) ok; // unused in release build
         assert(ok);
         value = vtbl_mk_const(vtbl, type, id, NULL);
-      } else {
+      } else if (kind == REAL_TYPE || kind == INT_TYPE) {
         value = vtbl_mk_rational(vtbl, &q);
+      } else if (kind == FF_TYPE) {
+        value = vtbl_mk_finitefield(vtbl, &q, ff_type_size(types, type));
+      } else {
+        assert(false);
       }
       q_clear(&q);
       lp_rational_destruct(&lp_q);
     } else {
+      assert(is_real_type(type));
       value = vtbl_mk_algebraic(vtbl, (void*) &mcsat_value->lp_value.value.a);
     }
     break;
@@ -433,6 +451,18 @@ void mcsat_value_construct_from_value(mcsat_value_t* mcsat_value, value_table_t*
     lp_value_construct(&value_lp, LP_VALUE_ALGEBRAIC, a);
     mcsat_value_construct_lp_value(mcsat_value, &value_lp);
     lp_value_destruct(&value_lp);
+    break;
+  }
+  case FINITEFIELD_VALUE: {
+    value_ff_t* value_ff = vtbl_finitefield(vtbl, v);
+    mpz_t value_mpz;
+    mpz_init(value_mpz);
+    q_get_mpz(&value_ff->value, value_mpz);
+    lp_value_t value_lp;
+    lp_value_construct(&value_lp, LP_VALUE_INTEGER, value_mpz);
+    mcsat_value_construct_lp_value(mcsat_value, &value_lp);
+    lp_value_destruct(&value_lp);
+    mpz_clear(value_mpz);
     break;
   }
   case BITVECTOR_VALUE: {

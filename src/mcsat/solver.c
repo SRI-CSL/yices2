@@ -43,9 +43,10 @@
 
 #include "mcsat/bool/bool_plugin.h"
 #include "mcsat/ite/ite_plugin.h"
-#include "mcsat/nra/nra_plugin.h"
 #include "mcsat/uf/uf_plugin.h"
 #include "mcsat/bv/bv_plugin.h"
+#include "mcsat/ff/ff_plugin.h"
+#include "mcsat/na/na_plugin.h"
 
 #include "mcsat/preprocessor.h"
 
@@ -57,6 +58,7 @@
 
 #include "yices.h"
 #include <inttypes.h>
+#include <math.h>
 
 /**
  * Notification of new variables for the main solver.
@@ -230,7 +232,10 @@ struct mcsat_solver_s {
   uint32_t plugins_count;
 
   /** Variable to decide on first */
-  variable_t top_decision_var;
+  ivector_t top_decision_vars;
+
+  /** Variables hinted by the plugins to decide next */
+  int_queue_t hinted_decision_vars;
 
   /** The queue for variable decisions */
   var_queue_t var_queue;
@@ -239,6 +244,7 @@ struct mcsat_solver_s {
   struct {
     bool restart;
     bool gc_calls;
+    bool recache;
   } pending_requests_all;
 
   /** Any pending requests */
@@ -271,12 +277,16 @@ struct mcsat_solver_s {
     statistic_int_t* decisions;
     // Restarts performed
     statistic_int_t* restarts;
+    // Partial restarts performed
+    statistic_int_t* partial_restarts;
     // Conflicts handled
     statistic_int_t* conflicts;
     // Average conflict size
     statistic_avg_t* avg_conflict_size;
     // GC calls
     statistic_int_t* gc_calls;
+    // Recache calls
+    statistic_int_t* recaches;
   } solver_stats;
 
   struct {
@@ -284,6 +294,8 @@ struct mcsat_solver_s {
     uint32_t restart_interval;
     // Type of weight to use for restart counter
     lemma_weight_type_t lemma_restart_weight_type;
+    // recache interval
+    uint32_t recache_interval;
     // Random decision frequency
     double random_decision_freq;
     // Random decision seed
@@ -297,8 +309,9 @@ struct mcsat_solver_s {
   uint32_t bool_plugin_id;
   uint32_t uf_plugin_id;
   uint32_t ite_plugin_id;
-  uint32_t nra_plugin_id;
+  uint32_t na_plugin_id;
   uint32_t bv_plugin_id;
+  uint32_t ff_plugin_id;
 };
 
 static
@@ -321,14 +334,18 @@ void mcsat_stats_init(mcsat_solver_t* mcsat) {
   mcsat->solver_stats.gc_calls = statistics_new_int(&mcsat->stats, "mcsat::gc_calls");
   mcsat->solver_stats.lemmas = statistics_new_int(&mcsat->stats, "mcsat::lemmas");
   mcsat->solver_stats.restarts = statistics_new_int(&mcsat->stats, "mcsat::restarts");
+  mcsat->solver_stats.partial_restarts = statistics_new_int(&mcsat->stats, "mcsat::partial_restarts");
+  mcsat->solver_stats.recaches = statistics_new_int(&mcsat->stats, "mcsat::recaches");
 }
 
 static
-void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
+void mcsat_heuristics_init(mcsat_solver_t* mcsat, const param_t *params) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
-  mcsat->heuristic_params.random_decision_freq = 0;
-  mcsat->heuristic_params.random_decision_seed = 0;
+  mcsat->heuristic_params.recache_interval = 300;
+  // Use params for random decision parameters
+  mcsat->heuristic_params.random_decision_freq = params->randomness;
+  mcsat->heuristic_params.random_decision_seed = params->random_seed;
 }
 
 static
@@ -355,9 +372,10 @@ bool mcsat_evaluates_at(const mcsat_evaluator_interface_t* self, term_t t, int_m
   kind = term_kind(mcsat->terms, t);
   bool is_equality = false;
   switch (kind) {
-  case BV_EQ_ATOM:
   case EQ_TERM:
+  case BV_EQ_ATOM:
   case ARITH_BINEQ_ATOM:
+  case ARITH_FF_BINEQ_ATOM:
     is_equality = true;
     break;
   default:
@@ -563,7 +581,7 @@ void trail_token_definition_lemma(trail_token_t* token, term_t lemma, term_t t) 
   ivector_push(&tk->ctx->mcsat->plugin_definition_vars, t);
 }
 
-/** Concstruct the trail token */
+/** Construct the trail token */
 static inline
 void trail_token_construct(plugin_trail_token_t* token, mcsat_plugin_context_t* ctx, variable_t x) {
   token->token_interface.add = trail_token_add;
@@ -612,6 +630,12 @@ void mcsat_request_gc(mcsat_solver_t* mcsat) {
 }
 
 static
+void mcsat_request_recache(mcsat_solver_t* mcsat) {
+  mcsat->pending_requests = true;
+  mcsat->pending_requests_all.recache = true;
+}
+
+static
 void mcsat_plugin_context_restart(plugin_context_t* self) {
   mcsat_plugin_context_t* mctx;
 
@@ -628,9 +652,18 @@ void mcsat_plugin_context_gc(plugin_context_t* self) {
 }
 
 static inline
-void mcsat_set_top_decision(mcsat_solver_t* mcsat, variable_t x) {
-  assert(mcsat->top_decision_var == variable_null);
-  mcsat->top_decision_var = x;
+void mcsat_add_top_decision(mcsat_solver_t* mcsat, variable_t x) {
+  for (int i = 0; i < mcsat->top_decision_vars.size; ++i) {
+    if (mcsat->top_decision_vars.data[i] == x) {
+      return;
+    }
+  }
+  ivector_push(&mcsat->top_decision_vars, x);
+}
+
+static inline
+void mcsat_add_decision_hint(mcsat_solver_t* mcsat, variable_t x) {
+  int_queue_push(&mcsat->hinted_decision_vars, x);
 }
 
 static inline
@@ -685,8 +718,25 @@ static
 void mcsat_plugin_context_request_top_decision(plugin_context_t* self, variable_t x) {
   mcsat_plugin_context_t* mctx;
   mctx = (mcsat_plugin_context_t*) self;
-  mcsat_set_top_decision(mctx->mcsat, x);
- }
+  mcsat_add_top_decision(mctx->mcsat, x);
+}
+
+static
+void mcsat_plugin_context_hint_next_decision(plugin_context_t* self, variable_t x) {
+  mcsat_plugin_context_t* mctx;
+  mctx = (mcsat_plugin_context_t*) self;
+  mcsat_add_decision_hint(mctx->mcsat, x);
+}
+
+/*
+ * Provide hint to the trail cache.
+ */
+static
+void mcsat_plugin_context_hint_value(plugin_context_t* self, variable_t x, const mcsat_value_t* val) {
+  mcsat_plugin_context_t* mctx;
+  mctx = (mcsat_plugin_context_t*) self;
+  trail_set_cached_value(mctx->mcsat->trail, x, val);
+}
 
 static
 void mcsat_plugin_context_decision_calls(plugin_context_t* self, type_kind_t type) {
@@ -718,6 +768,8 @@ void mcsat_plugin_context_construct(mcsat_plugin_context_t* ctx, mcsat_solver_t*
   ctx->ctx.bump_variable_n = mcsat_plugin_context_bump_variable_n;
   ctx->ctx.cmp_variables = mcsat_plugin_context_cmp_variables;
   ctx->ctx.request_top_decision = mcsat_plugin_context_request_top_decision;
+  ctx->ctx.hint_next_decision = mcsat_plugin_context_hint_next_decision;
+  ctx->ctx.hint_value = mcsat_plugin_context_hint_value;
   ctx->mcsat = mcsat;
   ctx->plugin_name = plugin_name;
 }
@@ -782,8 +834,9 @@ void mcsat_add_plugins(mcsat_solver_t* mcsat) {
   mcsat->bool_plugin_id = mcsat_add_plugin(mcsat, bool_plugin_allocator, "bool_plugin");
   mcsat->uf_plugin_id = mcsat_add_plugin(mcsat, uf_plugin_allocator, "uf_plugin");
   mcsat->ite_plugin_id = mcsat_add_plugin(mcsat, ite_plugin_allocator, "ite_plugin");
-  mcsat->nra_plugin_id = mcsat_add_plugin(mcsat, nra_plugin_allocator, "nra_plugin");
+  mcsat->na_plugin_id = mcsat_add_plugin(mcsat, na_plugin_allocator, "na_plugin");
   mcsat->bv_plugin_id = mcsat_add_plugin(mcsat, bv_plugin_allocator, "bv_plugin");
+  mcsat->ff_plugin_id = mcsat_add_plugin(mcsat, ff_plugin_allocator, "ff_plugin");
 }
 
 static
@@ -801,7 +854,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   mcsat->types = ctx->types;
   mcsat->terms = ctx->terms;
   mcsat->terms_size_on_solver_entry = 0;
-  mcsat->status = STATUS_IDLE;
+  mcsat->status = YICES_STATUS_IDLE;
   mcsat->inconsistent_push_calls = 0;
 
   // New term manager
@@ -860,11 +913,13 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   preprocessor_construct(&mcsat->preprocessor, mcsat->terms, mcsat->exception, &mcsat->ctx->mcsat_options);
 
   // The variable queue
-  mcsat->top_decision_var = variable_null;
+  init_ivector(&mcsat->top_decision_vars, 0);
+  init_int_queue(&mcsat->hinted_decision_vars, 0);
   var_queue_construct(&mcsat->var_queue);
 
   mcsat->pending_requests_all.restart = false;
   mcsat->pending_requests_all.gc_calls = false;
+  mcsat->pending_requests_all.recache = false;
   mcsat->pending_requests = false;
 
   mcsat->variable_in_conflict = variable_null;
@@ -919,6 +974,8 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   variable_db_destruct(mcsat->var_db);
   safe_free(mcsat->var_db);
   preprocessor_destruct(&mcsat->preprocessor);
+  delete_ivector(&mcsat->top_decision_vars);
+  delete_int_queue(&mcsat->hinted_decision_vars);
   var_queue_destruct(&mcsat->var_queue);
   delete_ivector(&mcsat->plugin_lemmas);
   delete_ivector(&mcsat->plugin_definition_lemmas);
@@ -994,17 +1051,20 @@ void mcsat_pop_internal(mcsat_solver_t* mcsat) {
     var_queue_insert(&mcsat->var_queue, unassigned->data[i]);
   }
   ivector_reset(unassigned);
+
+  // remove all the hints
+  int_queue_reset(&mcsat->hinted_decision_vars);
 }
 
 static
-void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level);
+void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level, bool update_cache);
 
 static
 void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal);
 
 void mcsat_push(mcsat_solver_t* mcsat) {
 
-  assert(mcsat->status == STATUS_IDLE); // We must have clear before
+  assert(mcsat->status == YICES_STATUS_IDLE); // We must have clear before
 
   if (trace_enabled(mcsat->ctx->trace, "mcsat::push")) {
     mcsat_trace_printf(mcsat->ctx->trace, "mcsat::push start\n");
@@ -1052,7 +1112,7 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
 
   if (mcsat->inconsistent_push_calls > 0) {
     mcsat->inconsistent_push_calls --;
-    mcsat->status = STATUS_IDLE;
+    mcsat->status = YICES_STATUS_IDLE;
     return;
   }
 
@@ -1060,7 +1120,7 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   uint32_t new_base_level = trail_pop_base_level(mcsat->trail);
 
   // Backtrack solver
-  mcsat_backtrack_to(mcsat, new_base_level);
+  mcsat_backtrack_to(mcsat, new_base_level, false);
 
   // Internal stuff pop
   uint32_t assertion_vars_size = 0;
@@ -1103,7 +1163,7 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   }
 
   // Set the status back to idle
-  mcsat->status = STATUS_IDLE;
+  mcsat->status = YICES_STATUS_IDLE;
   mcsat->interpolant = NULL_TERM;
 
   if (trace_enabled(mcsat->ctx->trace, "mcsat::pop")) {
@@ -1117,8 +1177,8 @@ void mcsat_clear(mcsat_solver_t* mcsat) {
   // - Pop internal to base level
   mcsat->assumption_i = 0;
   mcsat->assumptions_decided_level = -1;
-  mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
-  mcsat->status = STATUS_IDLE;
+  mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, true);
+  mcsat->status = YICES_STATUS_IDLE;
   mcsat->interpolant = NULL_TERM; // BD
 }
 
@@ -1159,7 +1219,7 @@ void mcsat_get_kind_owners(mcsat_solver_t* mcsat, term_t t, int_mset_t* owners) 
 }
 
 
-static void mcsat_process_registeration_queue(mcsat_solver_t* mcsat) {
+static void mcsat_process_registration_queue(mcsat_solver_t* mcsat) {
   term_t t;
   uint32_t i, plugin_i;
   plugin_t* plugin;
@@ -1247,13 +1307,16 @@ void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal) {
     gc_info_mark(&gc_vars, var);
     if (trace_enabled(mcsat->ctx->trace, "mcsat::gc")) {
       mcsat_trace_printf(mcsat->ctx->trace, "mcsat_gc(): marking ");
-       trace_term_ln(mcsat->ctx->trace, mcsat->terms, variable_db_get_term(mcsat->var_db, var));
+      trace_term_ln(mcsat->ctx->trace, mcsat->terms, variable_db_get_term(mcsat->var_db, var));
     }
   }
 
-  // Mark the top decision variable if any
-  if (mcsat->top_decision_var != variable_null) {
-    gc_info_mark(&gc_vars, mcsat->top_decision_var);
+  // Mark the decision hints if there are any
+  for (i = 0; i < int_queue_size(&mcsat->hinted_decision_vars); ++ i) {
+    gc_info_mark(&gc_vars, int_queue_at(&mcsat->hinted_decision_vars, i));
+  }
+  for (i = 0; i < mcsat->top_decision_vars.size; ++i) {
+    gc_info_mark(&gc_vars, mcsat->top_decision_vars.data[i]);
   }
 
   // Mark the trail variables as needed
@@ -1354,7 +1417,7 @@ void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal) {
 }
 
 static
-void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level) {
+void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level, bool update_cache) {
   assert((int32_t) level >= mcsat->assumptions_decided_level);
   while (mcsat->trail->decision_level > level) {
 
@@ -1372,6 +1435,54 @@ void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level) {
     // Pop the plugins
     mcsat_pop_internal(mcsat);
   }
+
+  // save target cache (when backtracking)
+  if (update_cache) trail_update_extra_cache(mcsat->trail);
+}
+
+static 
+uint32_t mcsat_partial_restart_level(mcsat_solver_t *mcsat) {
+  // If heap is empty, we go to base level
+  if (var_queue_is_empty(&mcsat->var_queue)) {
+    return mcsat->trail->decision_level_base;
+  }
+
+  uint32_t base = mcsat->trail->decision_level_base;
+  uint32_t n = mcsat->trail->decision_level;
+  uint32_t target_level = UINT32_MAX;
+  variable_t x = mcsat->var_queue.heap[1];
+  double ax = var_queue_get_activity(&mcsat->var_queue, x);
+  // Most active unassigned variable in the heap
+  while (!var_queue_is_empty(&mcsat->var_queue)) {
+    x = var_queue_pop(&mcsat->var_queue);
+    if (!trail_has_value(mcsat->trail, x)) {
+      ax = var_queue_get_activity(&mcsat->var_queue, x);
+      var_queue_insert(&mcsat->var_queue, x);
+      break;
+    }
+  }
+
+  // Scan the trail for decision variables
+  for (uint32_t i = 0; i < mcsat->trail->elements.size; ++i) {
+    variable_t v = mcsat->trail->elements.data[i];
+    if (trail_get_assignment_type(mcsat->trail, v) == DECISION) {
+      uint32_t level = trail_get_level(mcsat->trail, v);
+      if (level > base && level <= n) {
+        double v_activity = var_queue_get_activity(&mcsat->var_queue, v);
+        //printf("  Level %u: decision var %d (activity %g)\n", level, v, v_activity);
+        if (v_activity < ax) {
+          //printf("  Backtracking to level %u\n", level - 1);
+          target_level = level - 1;
+          break;
+        }
+      }
+    }
+  }
+  if (target_level != UINT32_MAX) {
+    return target_level;
+  }
+
+  return base;
 }
 
 static
@@ -1381,15 +1492,33 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
     // Restarts
     if (mcsat->pending_requests_all.restart) {
+      // save target cache before restart
+      trail_update_extra_cache(mcsat->trail);
+
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         mcsat_trace_printf(mcsat->ctx->trace, "restarting\n");
       }
-      mcsat->assumptions_decided_level = -1;
-      mcsat->assumption_i = 0;
-      mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
+
+      // Determine the backtrack level for restart:
+      // If partial_restart is enabled, use mcsat_partial_restart_level to compute the level.
+      // Otherwise, perform a full restart by backtracking to the base level.
+      uint32_t backtrack_level = mcsat->trail->decision_level_base;
+      if (mcsat->ctx->mcsat_options.partial_restart) {
+        backtrack_level = mcsat_partial_restart_level(mcsat);
+      }
+      if (backtrack_level == mcsat->trail->decision_level_base) {
+        mcsat->assumptions_decided_level = -1;
+        mcsat->assumption_i = 0;
+      }
+      mcsat_backtrack_to(mcsat, backtrack_level, false);
       mcsat->pending_requests_all.restart = false;
-      (*mcsat->solver_stats.restarts) ++;
-      mcsat_notify_plugins(mcsat, MCSAT_SOLVER_RESTART);
+      // notify if backtracked to base level
+      if (backtrack_level == mcsat->trail->decision_level_base) {
+        (*mcsat->solver_stats.restarts) ++;
+        mcsat_notify_plugins(mcsat, MCSAT_SOLVER_RESTART);
+      } else {
+        (*mcsat->solver_stats.partial_restarts) ++;
+      }
     }
 
     // GC
@@ -1400,6 +1529,13 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       mcsat_gc(mcsat, false);
       mcsat->pending_requests_all.gc_calls = false;
       (*mcsat->solver_stats.gc_calls) ++;
+    }
+
+    // recache target cache
+    if (mcsat->pending_requests_all.recache) {
+      mcsat->pending_requests_all.recache = false;
+      trail_recache(mcsat->trail, (*mcsat->solver_stats.recaches));
+      (*mcsat->solver_stats.recaches) ++;
     }
 
     // All services
@@ -1488,7 +1624,7 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
   // Add the terms
   f_pos = unsigned_term(f);
   f_pos_var = variable_db_get_variable(mcsat->var_db, f_pos);
-  mcsat_process_registeration_queue(mcsat);
+  mcsat_process_registration_queue(mcsat);
 
   // Remember the assertion
   ivector_push(&mcsat->assertion_vars, f_pos_var);
@@ -1644,7 +1780,7 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bo
     }
 
     // Process any newly registered variables
-    mcsat_process_registeration_queue(mcsat);
+    mcsat_process_registration_queue(mcsat);
 
     // Check if the literal has value (only negative allowed)
     if (trail_has_value(mcsat->trail, disjunct_pos_var)) {
@@ -1666,7 +1802,7 @@ void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bo
   if (unassigned.size == 1) {
     // UIP, just make sure we're not going below assumptions
     if ((int32_t) top_level >= mcsat->assumptions_decided_level) {
-      mcsat_backtrack_to(mcsat, top_level);
+      mcsat_backtrack_to(mcsat, top_level, false);
     }
   } else {
     // Non-UIP, we're already below, and we'll split on a new term, that's enough
@@ -1760,7 +1896,7 @@ void propagation_check(const ivector_t* reasons, term_t x, term_t subst) {
    }
    smt_status_t result = yices_check_context(ctx, NULL);
    (void) result;
-   assert(result == STATUS_UNSAT);
+   assert(result == YICES_STATUS_UNSAT);
    yices_free_context(ctx);
    yices_free_config(config);
 }
@@ -2021,7 +2157,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
         }
       }
     }
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = YICES_STATUS_UNSAT;
     mcsat->variable_in_conflict = variable_null;
     delete_ivector(&reason);
     return;
@@ -2049,7 +2185,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   conflict_level = conflict_get_level(&conflict);
   // Backtrack max(base, assumptions, conflict)
   backtrack_level = mcsat_compute_backtrack_level(mcsat, conflict_level);
-  mcsat_backtrack_to(mcsat, backtrack_level);
+  mcsat_backtrack_to(mcsat, backtrack_level, false);
 
   // Analyze while at least one variable at conflict level
   while (true) {
@@ -2165,7 +2301,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       conflict_recompute_level_info(&conflict);
       conflict_level = conflict_get_level(&conflict);
       backtrack_level = mcsat_compute_backtrack_level(mcsat, conflict_level);
-      mcsat_backtrack_to(mcsat, backtrack_level);
+      mcsat_backtrack_to(mcsat, backtrack_level, false);
     }
   }
 
@@ -2175,19 +2311,19 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   }
 
   if (mcsat_conflict_with_assumptions(mcsat, conflict_level)) {
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = YICES_STATUS_UNSAT;
     if (mcsat->ctx->mcsat_options.model_interpolation) {
       mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
     }
     mcsat->assumptions_decided_level = -1;
-    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base);
+    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
   } else if (conflict_level <= mcsat->trail->decision_level_base) {
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = YICES_STATUS_UNSAT;
   } else {
     assert(conflict_get_top_level_vars_count(&conflict) == 1);
     // We should still be in conflict, so back out
     assert(conflict.level == mcsat->trail->decision_level);
-    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level - 1);
+    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level - 1, true);
 
     // Get the literals
     conflict_disjuncts = conflict_get_literals(&conflict);
@@ -2245,7 +2381,7 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
       break;
     }
 
-    // The variable (should exists already)
+    // The variable (should exist already)
     var_term = assumptions[mcsat->assumption_i];
     var = variable_db_get_variable_if_exists(mcsat->var_db, var_term);
     assert(var != variable_null);
@@ -2313,46 +2449,108 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
 }
 
 /**
+ * Finds the correct plugin for var and asks it to make a decision.
+ * Returns true if a decision was made on var.
+ */
+static
+bool mcsat_decide_var(mcsat_solver_t* mcsat, variable_t var, bool force_decision) {
+  // must be a valid variable that is not yet decided upon
+  assert(var != variable_null);
+  assert(!trail_has_value(mcsat->trail, var));
+
+  uint32_t i;
+  plugin_t* plugin;
+  plugin_trail_token_t decision_token;
+  bool made_decision = false;
+
+  // Get the owner that will decide that value of the variable
+  i = mcsat->decision_makers[variable_db_get_type_kind(mcsat->var_db, var)];
+  assert(i != MCSAT_MAX_PLUGINS);
+  // Construct the token
+  trail_token_construct(&decision_token, mcsat->plugins[i].plugin_ctx, var);
+  // Decide
+  if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
+    mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): with %s\n", mcsat->plugins[i].plugin_name);
+    mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): variable ");
+    variable_db_print_variable(mcsat->var_db, var, trace_out(mcsat->ctx->trace));
+    mcsat_trace_printf(mcsat->ctx->trace, "\n");
+  }
+  plugin = mcsat->plugins[i].plugin;
+
+  // Ask the owner to decide
+  mcsat_push_internal(mcsat);
+  assert(plugin->decide);
+  plugin->decide(plugin, var, (trail_token_t*) &decision_token, force_decision);
+
+  if (decision_token.used == 0) {
+    // If not decided, remember and go on
+    made_decision = false;
+    mcsat_pop_internal(mcsat);
+  } else {
+    made_decision = true;
+    // Decided, we can continue with the search
+    (*mcsat->solver_stats.decisions)++;
+    // Plugins are not allowed to cheat and decide on another variable
+    assert(trail_has_value(mcsat->trail, var));
+    if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
+      FILE* out = trace_out(mcsat->ctx->trace);
+      fprintf(out, "mcsat_decide(): value = ");
+      mcsat_value_print(trail_get_value(mcsat->trail, var), out);
+      fprintf(out, "\n");
+    }
+  }
+
+  // a forced decision implies a made decision
+  assert(!force_decision || made_decision);
+  return made_decision;
+}
+
+/**
  * Decides a variable using one of the plugins. Returns true if a variable
  * has been decided, or a conflict detected.
  */
 static
 bool mcsat_decide(mcsat_solver_t* mcsat) {
 
-  uint32_t i;
-  variable_t var;
-  plugin_t* plugin;
-  plugin_trail_token_t decision_token;
+  assert(!mcsat->trail->inconsistent);
 
   ivector_t skipped_variables; // Variables we took from the queue but plugin didn't decide
   init_ivector(&skipped_variables, 0);
 
-  assert(!mcsat->trail->inconsistent);
-
+  variable_t var;
+  bool aux_choice; // indicates that var was not taken from the queue
   bool force_decision = false;
-  while (true) {
+  double rand_freq = mcsat->heuristic_params.random_decision_freq;
 
-    // Use the variable a plugin requested
-    var = mcsat->top_decision_var;
-    if (var != variable_null && trail_has_value(mcsat->trail, var)) {
+  while (true) {
+    var = variable_null;
+    aux_choice = true;
+
+    // Use the top variables first
+    for (uint32_t i = 0; i < mcsat->top_decision_vars.size; ++i) {
+      var = mcsat->top_decision_vars.data[i];
+      assert(var != variable_null);
+      if (!trail_has_value(mcsat->trail, var)) {
+        force_decision = true;
+        break;
+      }
       var = variable_null;
     }
 
-    // If there is an order that was passed in, try that
+    // If there is a fixed order that was passed in, try that
     if (var == variable_null) {
-      const ivector_t* order = mcsat->ctx->mcsat_options.var_order;
-      if (order != NULL) {
-        uint32_t i;
+      const ivector_t* order = &mcsat->ctx->mcsat_var_order;
+      if (order->size > 0) {
         if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
           FILE* out = trace_out(mcsat->ctx->trace);
           fprintf(out, "mcsat_decide(): var_order is ");
-          for (i = 0; i < order->size; ++ i) {
+          for (uint32_t i = 0; i < order->size; ++ i) {
             term_print_to_file(out, mcsat->ctx->terms, order->data[i]);
             fprintf(out, " ");
           }
           fprintf(out, "\n");
         }
-        for (i = 0; var == variable_null && i < order->size; ++i) {
+        for (uint32_t i = 0; var == variable_null && i < order->size; ++i) {
           term_t ovar_term = order->data[i];
           variable_t ovar = variable_db_get_variable_if_exists(mcsat->var_db, ovar_term);
           if (ovar == variable_null) continue; // Some variables are not used
@@ -2364,18 +2562,33 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
       }
     }
 
-    // Random decision:
+    // then try the variables a plugin requested
     if (var == variable_null) {
+      while (!int_queue_is_empty(&mcsat->hinted_decision_vars)) {
+        var = int_queue_pop(&mcsat->hinted_decision_vars);
+        assert(var != variable_null);
+        if (!trail_has_value(mcsat->trail, var)) {
+          force_decision = true;
+          break;
+        }
+        var = variable_null;
+      }
+    }
+
+    // Random decision
+    if (var == variable_null && rand_freq > 0.0) {
       double* seed = &mcsat->heuristic_params.random_decision_seed;
-      double freq = mcsat->heuristic_params.random_decision_freq;
-      if (drand(seed) < freq && !var_queue_is_empty(&mcsat->var_queue)) {
+      if (drand(seed) < rand_freq && !var_queue_is_empty(&mcsat->var_queue)) {
         var = var_queue_random(&mcsat->var_queue, seed);
         if (trail_has_value(mcsat->trail, var)) {
           var = variable_null;
-        } else {
-          // fprintf(stderr, "random\n");
         }
       }
+    }
+
+    if (var == variable_null) {
+      // No auxiliary choice performed
+      aux_choice = false;
     }
 
     // Use the queue
@@ -2385,7 +2598,7 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
       // If already assigned go on
       if (trail_has_value(mcsat->trail, var)) {
         if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
-          FILE* out = trace_out(mcsat->ctx->trace);
+          FILE *out = trace_out(mcsat->ctx->trace);
           fprintf(out, "mcsat_decide(): skipping ");
           variable_db_print_variable(mcsat->var_db, var, out);
           fprintf(out, "\n");
@@ -2396,53 +2609,21 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
     }
 
     if (var != variable_null) {
-      // Get the owner that will decide that value of the variable
-      i = mcsat->decision_makers[variable_db_get_type_kind(mcsat->var_db, var)];
-      assert(i != MCSAT_MAX_PLUGINS);
-      // Construct the token
-      trail_token_construct(&decision_token, mcsat->plugins[i].plugin_ctx, var);
-      // Decide
-      if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
-        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): with %s\n", mcsat->plugins[i].plugin_name);
-        mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide(): variable ");
-        variable_db_print_variable(mcsat->var_db, var, trace_out(mcsat->ctx->trace));
-        mcsat_trace_printf(mcsat->ctx->trace, "\n");
-      }
-      plugin = mcsat->plugins[i].plugin;
-
-      // Ask the owner to decide
-      mcsat_push_internal(mcsat);
-      assert(plugin->decide);
-      plugin->decide(plugin, var, (trail_token_t*) &decision_token, force_decision);
-
-      if (decision_token.used == 0) {
-        // If not decided, remember and go on
-        ivector_push(&skipped_variables, var);
-        mcsat_pop_internal(mcsat);
-      } else {
-        // Decided, we can continue with the search
-        (*mcsat->solver_stats.decisions)++;
-        // If plugin decided to cheat by deciding on another variable, put it back
-        if (!trail_has_value(mcsat->trail, var)) {
-          var_queue_insert(&mcsat->var_queue, var);
-        } else {
-          if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
-            FILE* out = trace_out(mcsat->ctx->trace);
-            fprintf(out, "mcsat_decide(): value = ");
-            mcsat_value_print(trail_get_value(mcsat->trail, var), out);
-            fprintf(out, "\n");
-          }
-        }
+      bool made_decision = mcsat_decide_var(mcsat, var, force_decision);
+      if (made_decision) {
         break;
+      } else if (!aux_choice) {
+        ivector_push(&skipped_variables, var);
       }
     } else {
+      assert(!aux_choice);
       // No variables left to decide
       if (skipped_variables.size == 0) {
         // Didn't skip any, we're done
         break;
       } else {
         // Put the skipped back in the queue, and continue but force next decision
-        for (i = 0; i < skipped_variables.size; ++ i) {
+        for (uint32_t i = 0; i < skipped_variables.size; ++ i) {
           var_queue_insert(&mcsat->var_queue, skipped_variables.data[i]);
         }
         ivector_reset(&skipped_variables);
@@ -2457,7 +2638,7 @@ bool mcsat_decide(mcsat_solver_t* mcsat) {
     // the decided score
     assert(var != variable_null);
     double var_score = var_queue_get_activity(&mcsat->var_queue, var);
-    for (i = 0; i < skipped_variables.size; ++ i) {
+    for (uint32_t i = 0; i < skipped_variables.size; ++ i) {
       variable_t skipped_var = skipped_variables.data[i];
       var_queue_set_activity(&mcsat->var_queue, skipped_var, var_score);
       var_queue_insert(&mcsat->var_queue, skipped_var);
@@ -2531,30 +2712,45 @@ void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_fi
 
   value_table_t* vtbl = model_get_vtbl(mdl);
 
-  mcsat_push(mcsat);
+  trail_clear_cache(mcsat->trail);
+  trail_update_extra_cache(mcsat->trail);
 
-  uint32_t i;
-  for (i = 0; i < n_mdl_filter; ++i) {
+  for (uint32_t i = 0; i < n_mdl_filter; ++i) {
     term_t x = mdl_filter[i];
     assert(term_kind(mcsat->terms, x) == UNINTERPRETED_TERM || term_kind(mcsat->terms, x) == VARIABLE);
     assert(is_pos_term(x));
 
-    variable_t x_var = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
-    if (trail_has_value(mcsat->trail, x_var)) {
-      continue;
-    }
-
-    uint32_t plugin_i = mcsat->decision_makers[variable_db_get_type_kind(mcsat->var_db, x_var)];
+    variable_t x_var = variable_db_get_variable(mcsat->var_db, unsigned_term(x));    
     value_t x_value = model_get_term_value(mdl, x);
     mcsat_value_t value;
+
     mcsat_value_construct_from_value(&value, vtbl, x_value);
     assert(x_value >= 0);
-    trail_add_propagation(mcsat->trail, x_var, &value, plugin_i, mcsat->trail->decision_level);
-    mcsat_value_destruct(&value);
-    mcsat_process_registeration_queue(mcsat);
+
+    trail_set_cached_value(mcsat->trail, x_var, &value);
   }
 
-  mcsat_pop(mcsat);
+  mcsat_process_registration_queue(mcsat);
+}
+
+static
+void mcsat_set_initial_var_order(mcsat_solver_t* mcsat) {
+  const ivector_t* vars = &mcsat->ctx->mcsat_initial_var_order;
+  uint32_t n = vars->size;
+  if (n == 0) {
+    return;
+  }
+
+  assert(vars != NULL);
+
+  uint32_t i;
+  for (i = 0; i < n; ++i) {
+    term_t x = vars->data[i];
+    assert(term_kind(mcsat->terms, x) == UNINTERPRETED_TERM || term_kind(mcsat->terms, x) == VARIABLE);
+    variable_t v = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
+    int_queue_push(&mcsat->hinted_decision_vars, v);
+    mcsat_process_registration_queue(mcsat);
+  }
 }
 
 void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uint32_t n_assumptions, const term_t assumptions[]) {
@@ -2584,7 +2780,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       // Make sure the variable is registered (maybe it doesn't appear in assertions)
       variable_t x_var = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
       ivector_push(&mcsat->assumption_vars, x_var);
-      mcsat_process_registeration_queue(mcsat);
+      mcsat_process_registration_queue(mcsat);
     }
   }
 
@@ -2596,12 +2792,12 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   mcsat->assumptions_model = mdl;
 
   // Start the search
-  mcsat->status = STATUS_SEARCHING;
+  mcsat->status = YICES_STATUS_SEARCHING;
 
   // If we're already unsat, just return
   if (!mcsat_is_consistent(mcsat)) {
     mcsat->interpolant = false_term;
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = YICES_STATUS_UNSAT;
     assert(int_queue_is_empty(&mcsat->registration_queue));
     goto solve_done;
   }
@@ -2612,15 +2808,22 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   }
 
   // Remember existing terms
-  mcsat->terms_size_on_solver_entry = mcsat->terms->nelems;
+  mcsat->terms_size_on_solver_entry = nterms(mcsat->terms);
 
   // Initialize for search
-  mcsat_heuristics_init(mcsat);
+  mcsat_heuristics_init(mcsat, params);
   mcsat_notify_plugins(mcsat, MCSAT_SOLVER_START);
+
+  // set initial variable order
+  mcsat_set_initial_var_order(mcsat);
 
   // Initialize the Luby sequence with interval 10
   restart_resource = 0;
   luby_init(&luby, mcsat->heuristic_params.restart_interval);
+
+  // recache parameters
+  uint32_t recache_limit = (*mcsat->solver_stats.conflicts) + mcsat->heuristic_params.recache_interval;
+  uint32_t recache_round = 0;
 
   // Whether to run learning
   bool learning = true;
@@ -2632,6 +2835,14 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       restart_resource = 0;
       luby_next(&luby);
       mcsat_request_restart(mcsat);
+
+    } else if ((*mcsat->solver_stats.conflicts) > recache_limit) {
+      // recache
+      ++recache_round;
+      mcsat_request_recache(mcsat);
+      double l = log10(recache_round + 9);
+      recache_limit = (*mcsat->solver_stats.conflicts) +
+	(recache_round * l * l * l *  mcsat->heuristic_params.recache_interval);
     }
 
     // Process any outstanding requests
@@ -2676,7 +2887,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     }
 
     // Nothing to decide, we're satisfiable
-    mcsat->status = STATUS_SAT;
+    mcsat->status = YICES_STATUS_SAT;
     if (trace_enabled(mcsat->ctx->trace, "mcsat::model::check")) {
       mcsat_check_model(mcsat, true);
     }
@@ -2691,7 +2902,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     // If at level 0 we're unsat
     if (n_assumptions == 0 && trail_is_at_base_level(mcsat->trail)) {
       mcsat->interpolant = false_term;
-      mcsat->status = STATUS_UNSAT;
+      mcsat->status = YICES_STATUS_UNSAT;
       break;
     }
 
@@ -2699,22 +2910,26 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     mcsat_analyze_conflicts(mcsat, &restart_resource);
 
     // Analysis might have discovered base level conflict
-    if (mcsat->status == STATUS_UNSAT) {
+    if (mcsat->status == YICES_STATUS_UNSAT) {
+      if (n_assumptions == 0) {
+        mcsat->interpolant = false_term;
+      }
       break;
     }
 
+    // update the variable selection heuristic
     var_queue_decay_activities(&mcsat->var_queue);
   }
 
   if (mcsat->stop_search) {
-    if (mcsat->status == STATUS_SEARCHING) {
+    if (mcsat->status == YICES_STATUS_SEARCHING) {
       mcsat->status = YICES_STATUS_INTERRUPTED;
     }
     mcsat->stop_search = false;
   }
 
   // Make sure any additional terms are registered
-  mcsat_process_registeration_queue(mcsat);
+  mcsat_process_registration_queue(mcsat);
 
 solve_done:
 
@@ -2822,7 +3037,7 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
     term_kind_t x_kind = term_kind(mcsat->terms, x_term);
 
     if (x_kind == UNINTERPRETED_TERM &&
-	term_type_kind(mcsat->terms, x_term) != FUNCTION_TYPE) {
+        term_type_kind(mcsat->terms, x_term) != FUNCTION_TYPE) {
 
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         mcsat_trace_printf(mcsat->ctx->trace, "var = ");
@@ -2841,7 +3056,7 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
         mcsat_trace_printf(mcsat->ctx->trace, "\n");
       }
 
-      // Setup the yices value
+      // Set up the yices value
       value_t x_value = mcsat_value_to_value(x_value_mcsat, mcsat->types, x_type, vtbl);
 
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {

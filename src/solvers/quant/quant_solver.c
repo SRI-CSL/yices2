@@ -607,7 +607,7 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
   intern = &ctx->intern;
   instbl = &em->instbl;
   t = cnstr->t;
-  term_cost = ctx->terms->nelems;
+  term_cost = nterms(ctx->terms);
 
   assert(midx < instbl->ninstances);
   inst = instbl->data + midx;
@@ -652,7 +652,7 @@ static bool ematch_cnstr_instantiate(quant_solver_t *solver, uint32_t cidx, patt
 
   t = term_substitution(solver, keys, values, n, t);
 
-  term_cost = ctx->terms->nelems - term_cost;
+  term_cost = nterms(ctx->terms) - term_cost;
   if (term_cost > 0) {
     cnstr_learner_update_term_reward(&solver->cnstr_learner, term_cost, cidx);
   }
@@ -690,11 +690,11 @@ static void ematch_add_quant_cnstr(quant_solver_t *solver, uint32_t cidx, term_t
 
   assert(cidx < solver->qtbl.nquant);
   cnstr = solver->qtbl.data + cidx;
-//  term_cost = ctx->terms->nelems;
+//  term_cost = nterms(ctx->terms);
 
   quant_assert_formulas(ctx, 1, &t);
 
-//  term_cost = ctx->terms->nelems - term_cost;
+//  term_cost = nterms(ctx->terms) - term_cost;
 //  if (term_cost > 0) {
 //    learner_update_term_reward(&solver->learner, term_cost, cidx);
 //  }
@@ -803,11 +803,11 @@ static void ematch_process_cnstr(quant_solver_t *solver, uint32_t cidx) {
 
       for (i=0; i<n; i++) {
         status = smt_status(solver->core);
-        if (status != STATUS_SEARCHING) {
+        if (status != YICES_STATUS_SEARCHING) {
 #if TRACE
           printf("\nSMT status: %d\n", status);
 #endif
-          assert(status == STATUS_UNSAT);
+          assert(status == YICES_STATUS_UNSAT);
           goto done;
         } else if (ematch_reached_instance_limit(solver)) {
 #if TRACE
@@ -1006,11 +1006,11 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
   assert(n == solver->round_instances.size);
   for(i=0; i<n; i++) {
     status = smt_status(solver->core);
-    if (status != STATUS_SEARCHING) {
+    if (status != YICES_STATUS_SEARCHING) {
 #if TRACE
       printf("\nSMT status: %d\n", status);
 #endif
-      assert(status == STATUS_UNSAT);
+      assert(status == YICES_STATUS_UNSAT);
       break;
     }
     ematch_add_quant_cnstr(solver, solver->round_cnstrs.data[i], solver->round_instances.data[i]);

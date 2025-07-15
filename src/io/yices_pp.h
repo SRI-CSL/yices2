@@ -56,6 +56,7 @@ typedef enum pp_atom_type {
   PP_UINT32_ATOM,     // unsigned integer
   PP_DOUBLE_ATOM,     // double number
   PP_RATIONAL_ATOM,   // rational
+  PP_FINITEFIELD_ATOM, // finite field
   PP_BV64_ATOM,       // bitvector constant stored in a 64bit unsigned integer
   PP_BV_ATOM,         // bitvector constant stored in an array of words
   PP_BV_ZERO_ATOM,    // bitvector constant 0b00...00
@@ -89,6 +90,11 @@ typedef struct pp_id_s {
   int32_t index;
   bool cloned;
 } pp_id_t;
+
+typedef struct pp_ff_s {
+  mpz_t value;
+  mpz_t mod;
+} pp_ff_t;
 
 typedef struct pp_bv64_s {
   uint64_t bv;
@@ -139,6 +145,7 @@ typedef struct pp_atom_s {
     uint32_t u32;
     double dbl;
     rational_t rat;
+    pp_ff_t ff;
     pp_bv64_t bv64;
     pp_bv_t bv;
     pp_qstr_t qstr;
@@ -168,8 +175,10 @@ typedef enum {
   PP_OPEN,               // empty label, no parenthesis, HMT layout
   PP_OPEN_PAR,           // empty label, open parenthesis, HMT layout
   PP_OPEN_VPAR,          // empty label, open parenthesis, V layout
+  PP_OPEN_TPAR,          // empty label, open parenthesis, T layout
 
   PP_OPEN_BV_TYPE,
+  PP_OPEN_FF_TYPE,
   PP_OPEN_FUN_TYPE,
   PP_OPEN_TUPLE_TYPE,
 
@@ -240,7 +249,8 @@ typedef enum {
   // more for the SMT2 model syntax
   PP_OPEN_SMT2_BV_DEC, // (_ bv... ..)
   PP_OPEN_SMT2_BV_TYPE, // (_ BitVec ...)
-  PP_OPEN_SMT2_MODEL,   // (model ...)
+  PP_OPEN_SMT2_FF_DEC, // (_ ff... ..)
+  PP_OPEN_SMT2_FF_TYPE, // (_ FiniteField ...)
   PP_OPEN_SMT2_DEF,     // (define-fun ...)
   PP_OPEN_SMT2_STORE,   // (store <array> <index> <value>)
   PP_OPEN_SMT2_AS_CONST,  // (as const <type> <value>)  (for constant arrays. type is the array type).
@@ -390,9 +400,10 @@ extern void pp_int32(yices_pp_t *printer, int32_t x);
 extern void pp_uint32(yices_pp_t *printer, uint32_t x);
 extern void pp_mpz(yices_pp_t *printer, mpz_t z);
 extern void pp_mpq(yices_pp_t *printer, mpq_t q);
-extern void pp_rational(yices_pp_t *printer, rational_t *q);
+extern void pp_rational(yices_pp_t *printer, const rational_t *q);
 extern void pp_bv64(yices_pp_t *printer, uint64_t bv, uint32_t n);
-extern void pp_algebraic(yices_pp_t *printer, void *a);
+extern void pp_finitefield(yices_pp_t *printer, const value_ff_t *v);
+extern void pp_algebraic(yices_pp_t *printer, const void *a);
 
 /*
  * String and bv atoms without cloning

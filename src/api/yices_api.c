@@ -85,6 +85,7 @@
 #include "model/map_to_model.h"
 #include "model/model_queries.h"
 #include "model/models.h"
+#include "model/term_to_val.h"
 #include "model/val_to_term.h"
 
 #include "solvers/cdcl/delegate.h"
@@ -1054,7 +1055,7 @@ EXPORTED void yices_init(void) {
   // setup the TLS and error report structure
   init_yices_error();
   error = get_yices_error();
-  error->code = NO_ERROR;
+  error->code = YICES_NO_ERROR;
 
   // prepare the global table
   init_globals(&__yices_globals);
@@ -1210,7 +1211,7 @@ static void set_error_code(error_code_t code) {
  * Clear the last error report
  */
 EXPORTED void yices_clear_error(void) {
-  set_error_code(NO_ERROR);
+  set_error_code(YICES_NO_ERROR);
 }
 
 
@@ -1577,6 +1578,17 @@ static inline void type_vector_push(type_vector_t *v, type_t tau) {
  * Otherwise they return false and set the error code and diagnostic data.
  */
 
+// Check whether n (as mpz) is positive
+static bool check_positive_mpz(mpz_t n) {
+  if (mpz_sgn(n) != 1) {
+    error_report_t *error = get_yices_error();
+    error->code = POS_INT_REQUIRED;
+    error->badval = mpz_fits_slong_p(n) ? mpz_get_si(n) : -1;
+    return false;
+  }
+  return true;
+}
+
 // Check whether n is positive
 static bool check_positive(uint32_t n) {
   if (n == 0) {
@@ -1911,6 +1923,21 @@ static bool check_integer_term(term_manager_t *mngr, term_t t) {
   return true;
 }
 #endif
+
+// Check whether t is a finitefield term, t must be valid.
+static bool check_arith_ff_term(term_manager_t *mngr, term_t t) {
+  term_table_t *tbl;
+
+  tbl = term_manager_get_terms(mngr);
+
+  if (! is_finitefield_term(tbl, t)) {
+    error_report_t *error = get_yices_error();
+    error->code = ARITHTERM_REQUIRED;
+    error->term1 = t;
+    return false;
+  }
+  return true;
+}
 
 // Check whether t is a real term, t must be valid.
 static bool check_real_term(term_manager_t *mngr, term_t t) {
@@ -2637,11 +2664,11 @@ static bool check_all_distinct(term_table_t *terms, uint32_t n, const term_t *va
   result = true;
   if (n > 1) {
 
-    if (n > terms->live_terms) {
+    if (n > live_terms(terms)) {
       /*
        * there must be duplicates
        * we check this first just to be safe
-       * since n <= terms->live_terms <= YICES_MAX_TERMS,
+       * since n <= live_terms <= YICES_MAX_TERMS,
        * we know that n * sizeof(term_t) fits in 32bits
        * (which matters when we call safe_malloc(n * sizeof(term_t)).
        */
@@ -2740,6 +2767,7 @@ static bool check_elim_vars(term_manager_t *mngr, uint32_t n, const term_t *var)
     case BOOL_TYPE:
     case INT_TYPE:
     case REAL_TYPE:
+    case FF_TYPE:
     case BITVECTOR_TYPE:
     case SCALAR_TYPE:
       break;
@@ -2838,6 +2866,16 @@ type_t _o_yices_bv_type(uint32_t size) {
     return NULL_TYPE;
   }
   return bv_type(__yices_globals.types, size);
+}
+
+type_t _o_yices_ff_type(mpz_t order) {
+  if (! check_positive_mpz(order)) {
+    return NULL_TYPE;
+  }
+  if (! mpz_probab_prime_p(order, 18)) {
+    return NULL_TYPE;
+  }
+  return ff_type(__yices_globals.types, order);
 }
 
 EXPORTED type_t yices_new_uninterpreted_type(void) {
@@ -2945,7 +2983,7 @@ EXPORTED type_t yices_function_type3(type_t tau1, type_t tau2, type_t tau3, type
 /*
  * Type variable with the given id
  */
-type_t yices_type_variable(uint32_t id) {
+EXPORTED type_t yices_type_variable(uint32_t id) {
   return type_variable(__yices_globals.types, id);
 }
 
@@ -2955,7 +2993,7 @@ type_t yices_type_variable(uint32_t id) {
  * - n = arity
  * return -1 if there's an error or the macro id otherwise
  */
-int32_t yices_type_constructor(const char *name, uint32_t n) {
+EXPORTED int32_t yices_type_constructor(const char *name, uint32_t n) {
   char *clone;
 
   if (! check_macro_arity(n)) {
@@ -2974,7 +3012,7 @@ int32_t yices_type_constructor(const char *name, uint32_t n) {
  *
  * return -1 if there's an error or the macro id otherwise
  */
-int32_t yices_type_macro(const char *name, uint32_t n, type_t *vars, type_t body) {
+EXPORTED int32_t yices_type_macro(const char *name, uint32_t n, type_t *vars, type_t body) {
   char *clone;
 
   if (! check_macro_arity(n) ||
@@ -2998,7 +3036,7 @@ int32_t yices_type_macro(const char *name, uint32_t n, type_t *vars, type_t body
  *
  * return NULL_TYPE if there's an error
  */
-type_t yices_instance_type(int32_t cid, uint32_t n, type_t tau[]) {
+EXPORTED type_t yices_instance_type(int32_t cid, uint32_t n, type_t tau[]) {
   type_macro_t *macro;
 
   macro = type_macro(__yices_globals.types, cid);
@@ -3029,7 +3067,7 @@ type_t yices_instance_type(int32_t cid, uint32_t n, type_t tau[]) {
  * Get the macro id for a given name
  * - return -1 if there's no macro or constructor with that name
  */
-int32_t yices_get_macro_by_name(const char *name) {
+EXPORTED int32_t yices_get_macro_by_name(const char *name) {
   return get_type_macro_by_name(__yices_globals.types, name);
 }
 
@@ -3038,7 +3076,7 @@ int32_t yices_get_macro_by_name(const char *name) {
  * Remove the mapping of name --> macro id
  * - no change if no such mapping exists
  */
-void yices_remove_type_macro_name(const char *name) {
+EXPORTED void yices_remove_type_macro_name(const char *name) {
   remove_type_macro_name(__yices_globals.types, name);
 }
 
@@ -3046,7 +3084,7 @@ void yices_remove_type_macro_name(const char *name) {
  * Remove a macro with the given id
  * - id must be a valid macro index (non-negative)
  */
-void yices_delete_type_macro(int32_t id) {
+EXPORTED void yices_delete_type_macro(int32_t id) {
   delete_type_macro(__yices_globals.types, id);
 }
 
@@ -7192,6 +7230,19 @@ int32_t _o_yices_rational_const_value(term_t t, mpq_t q) {
   return 0;
 }
 
+EXPORTED int32_t yices_finitefield_const_value(term_t t, mpz_t z) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_finitefield_const_value(t, z));
+}
+
+int32_t _o_yices_finitefield_const_value(term_t t, mpz_t z) {
+  if (! check_good_term(__yices_globals.manager, t) ||
+      ! check_constructor(__yices_globals.terms, t, YICES_ARITH_FF_CONSTANT)) {
+    return -1;
+  }
+  arith_ff_const_value(__yices_globals.terms, t, z);
+  return 0;
+}
+
 
 /*
  * Components of a sum t
@@ -7206,7 +7257,8 @@ EXPORTED int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *t
 
 int32_t _o_yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term) {
   if (! check_good_term(__yices_globals.manager, t) ||
-      ! check_constructor(__yices_globals.terms, t, YICES_ARITH_SUM) ||
+      !(check_constructor(__yices_globals.terms, t, YICES_ARITH_SUM) ||
+        check_constructor(__yices_globals.terms, t, YICES_ARITH_FF_SUM)) ||
       ! check_child_idx(__yices_globals.terms, t, i)) {
     return -1;
   }
@@ -7283,6 +7335,14 @@ term_t arith_buffer_get_lt0_atom(rba_buffer_t *b) {
   return mk_arith_lt0(__yices_globals.manager, b);
 }
 
+term_t arith_ff_buffer_get_term(rba_buffer_t *b, rational_t *mod) {
+  return mk_arith_ff_term(__yices_globals.manager, b, mod);
+}
+
+term_t arith_ff_buffer_get_eq0_atom(rba_buffer_t *b, rational_t *mod) {
+  return mk_arith_ff_eq0(__yices_globals.manager, b, mod);
+}
+
 term_t bvlogic_buffer_get_term(bvlogic_buffer_t *b) {
   return mk_bvlogic_term(__yices_globals.manager, b);
 }
@@ -7307,6 +7367,10 @@ term_t yices_bvconst_term(uint32_t n, uint32_t *v) {
 term_t yices_bvconst64_term(uint32_t n, uint64_t c) {
   assert(1 <= n && n <= 64 && c == norm64(c, n));
   return bv64_constant(__yices_globals.terms, n, c);
+}
+
+term_t yices_ffconst_term(rational_t *q, rational_t *mod) {
+  return arith_ff_constant(__yices_globals.terms, q, mod);
 }
 
 term_t yices_rational_term(rational_t *q) {
@@ -7351,6 +7415,21 @@ bool yices_check_arith_term(term_t t) {
   return check_good_term(__yices_globals.manager, t) && check_arith_term(__yices_globals.manager, t);
 }
 
+/*
+ * Check whether t is a valid finite field arithmetic term
+ * - if not set the internal error report:
+ *
+ * If t is not a valid term:
+ *   code = INVALID_TERM
+ *   term1 = t
+ *   index = -1
+ * If t is not an arithmetic term;
+ *   code = ARITHTERM_REQUIRED
+ *   term1 = t
+ */
+bool yices_check_arith_ff_term(term_t t) {
+  return check_good_term(__yices_globals.manager, t) && check_arith_ff_term(__yices_globals.manager, t);
+}
 
 /*
  * Check for degree overflow in the product (b * t)
@@ -7369,7 +7448,7 @@ bool yices_check_mul_term(rba_buffer_t *b, term_t t) {
 
   tbl = __yices_globals.terms;
 
-  assert(good_term(tbl, t) && is_arithmetic_term(tbl, t));
+  assert(good_term(tbl, t) && (is_arithmetic_term(tbl, t) || is_finitefield_term(tbl, t)));
 
   d1 = rba_buffer_degree(b);
   d2 = term_degree(tbl, t);
@@ -8494,34 +8573,34 @@ EXPORTED int32_t yices_push(context_t *ctx) {
   }
 
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case YICES_STATUS_UNKNOWN:
+  case YICES_STATUS_SAT:
     context_clear(ctx);
     break;
 
-  case STATUS_IDLE:
+  case YICES_STATUS_IDLE:
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     // try to remove assumptions
     context_clear_unsat(ctx);
-    if (context_status(ctx) == STATUS_IDLE) {
+    if (context_status(ctx) == YICES_STATUS_IDLE) {
       break;
     }
-    assert(context_status(ctx) == STATUS_UNSAT);
+    assert(context_status(ctx) == YICES_STATUS_UNSAT);
     // fall through
   case YICES_STATUS_INTERRUPTED:
-  case STATUS_SEARCHING:
+  case YICES_STATUS_SEARCHING:
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
 
-  case STATUS_ERROR:
+  case YICES_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
     return -1;
   }
 
-  assert(context_status(ctx) == STATUS_IDLE);
+  assert(context_status(ctx) == YICES_STATUS_IDLE);
   context_push(ctx);
 
   return 0;
@@ -8553,31 +8632,31 @@ EXPORTED int32_t yices_pop(context_t *ctx) {
   }
 
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case YICES_STATUS_UNKNOWN:
+  case YICES_STATUS_SAT:
   case YICES_STATUS_INTERRUPTED:
     context_clear(ctx);
     break;
 
-  case STATUS_IDLE:
+  case YICES_STATUS_IDLE:
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     context_clear_unsat(ctx);
     break;
 
-  case STATUS_SEARCHING:
+  case YICES_STATUS_SEARCHING:
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
 
-  case STATUS_ERROR:
+  case YICES_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
     return -1;
   }
 
-  assert(context_status(ctx) == STATUS_IDLE ||
-	 context_status(ctx) == STATUS_UNSAT);
+  assert(context_status(ctx) == YICES_STATUS_IDLE ||
+	 context_status(ctx) == YICES_STATUS_UNSAT);
   context_pop(ctx);
 
   return 0;
@@ -8590,7 +8669,7 @@ EXPORTED int32_t yices_pop(context_t *ctx) {
  * into the corresponding yices_error value.
  */
 static const error_code_t intern_code2error[NUM_INTERNALIZATION_ERRORS] = {
-  NO_ERROR,                  // CTX_NO_ERROR
+  YICES_NO_ERROR,                  // CTX_NO_ERROR
   INTERNAL_EXCEPTION,        // INTERNAL_ERROR
   INTERNAL_EXCEPTION,        // TYPE_ERROR. Should not happen if the assertions are type correct
   CTX_FREE_VAR_IN_FORMULA,
@@ -8677,8 +8756,8 @@ int32_t _o_yices_assert_formula(context_t *ctx, term_t t) {
   }
 
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case YICES_STATUS_UNKNOWN:
+  case YICES_STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
       set_error_code(CTX_OPERATION_NOT_SUPPORTED);
       return -1;
@@ -8686,30 +8765,30 @@ int32_t _o_yices_assert_formula(context_t *ctx, term_t t) {
     context_clear(ctx);
     break;
 
-  case STATUS_IDLE:
+  case YICES_STATUS_IDLE:
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     // try to remove assumptions
     context_clear_unsat(ctx);
-    if (context_status(ctx) == STATUS_UNSAT) {
+    if (context_status(ctx) == YICES_STATUS_UNSAT) {
       // nothing to do
       return 0;
     }
     break;
 
-  case STATUS_SEARCHING:
+  case YICES_STATUS_SEARCHING:
   case YICES_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
 
-  case STATUS_ERROR:
+  case YICES_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
     return -1;
   }
 
-  assert(context_status(ctx) == STATUS_IDLE);
+  assert(context_status(ctx) == YICES_STATUS_IDLE);
 
   code = _o_assert_formula(ctx, t);
   if (code < 0) {
@@ -8751,8 +8830,8 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
   }
 
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case YICES_STATUS_UNKNOWN:
+  case YICES_STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
       set_error_code(CTX_OPERATION_NOT_SUPPORTED);
       return -1;
@@ -8760,30 +8839,30 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
     context_clear(ctx);
     break;
 
-  case STATUS_IDLE:
+  case YICES_STATUS_IDLE:
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     // try to remove assumptions
     context_clear_unsat(ctx);
-    if (context_status(ctx) == STATUS_UNSAT) {
+    if (context_status(ctx) == YICES_STATUS_UNSAT) {
       // nothing to do
       return 0;
     }
     break;
 
-  case STATUS_SEARCHING:
+  case YICES_STATUS_SEARCHING:
   case YICES_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
 
-  case STATUS_ERROR:
+  case YICES_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
     return -1;
   }
 
-  assert(context_status(ctx) == STATUS_IDLE);
+  assert(context_status(ctx) == YICES_STATUS_IDLE);
 
   code = assert_formulas(ctx, n, t);
   if (code < 0) {
@@ -8815,8 +8894,8 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
  */
 EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case YICES_STATUS_UNKNOWN:
+  case YICES_STATUS_SAT:
     if (context_supports_multichecks(ctx)) {
       assert_blocking_clause(ctx);
       return 0;
@@ -8825,14 +8904,14 @@ EXPORTED int32_t yices_assert_blocking_clause(context_t *ctx) {
       return -1;
     }
 
-  case STATUS_UNSAT:
-  case STATUS_IDLE:
-  case STATUS_SEARCHING:
+  case YICES_STATUS_UNSAT:
+  case YICES_STATUS_IDLE:
+  case YICES_STATUS_SEARCHING:
   case YICES_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
 
-  case STATUS_ERROR:
+  case YICES_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
     return -1;
@@ -9009,21 +9088,21 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
 
   stat = context_status(ctx);
   switch (stat) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case YICES_STATUS_UNKNOWN:
+  case YICES_STATUS_SAT:
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     // remove assumptions if any
     context_clear_unsat(ctx);
-    if (context_status(ctx) == STATUS_UNSAT) {
+    if (context_status(ctx) == YICES_STATUS_UNSAT) {
       // no assumptions removed: still unsat
       break;
     }
-    assert(context_status(ctx) == STATUS_IDLE);
+    assert(context_status(ctx) == YICES_STATUS_IDLE);
 
     // fall through intended
-  case STATUS_IDLE:
+  case YICES_STATUS_IDLE:
     if (params == NULL) {
       yices_default_params_for_context(ctx, &default_params);
       params = &default_params;
@@ -9034,16 +9113,16 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
     }
     break;
 
-  case STATUS_SEARCHING:
+  case YICES_STATUS_SEARCHING:
   case YICES_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
-    stat = STATUS_ERROR;
+    stat = YICES_STATUS_ERROR;
     break;
 
-  case STATUS_ERROR:
+  case YICES_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
-    stat = STATUS_ERROR;
+    stat = YICES_STATUS_ERROR;
     break;
   }
 
@@ -9071,47 +9150,47 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
   literal_t l;
 
   if (!_o_unsat_core_check_assumptions(n, a)) {
-    return STATUS_ERROR; // Bad assumptions
+    return YICES_STATUS_ERROR; // Bad assumptions
   }
 
   // cleanup
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case YICES_STATUS_UNKNOWN:
+  case YICES_STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
       set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-      return STATUS_ERROR;
+      return YICES_STATUS_ERROR;
     }
     context_clear(ctx);
     break;
 
-  case STATUS_IDLE:
+  case YICES_STATUS_IDLE:
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     if (! context_supports_multichecks(ctx)) {
       set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-      return STATUS_ERROR;
+      return YICES_STATUS_ERROR;
     }
     // try to remove the previous assumptions if any
     context_clear_unsat(ctx);
-    if (context_status(ctx) == STATUS_UNSAT) {
-      return STATUS_UNSAT;
+    if (context_status(ctx) == YICES_STATUS_UNSAT) {
+      return YICES_STATUS_UNSAT;
     }
     break;
 
-  case STATUS_SEARCHING:
+  case YICES_STATUS_SEARCHING:
   case YICES_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
 
-  case STATUS_ERROR:
+  case YICES_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
   }
 
-  assert(context_status(ctx) == STATUS_IDLE);
+  assert(context_status(ctx) == YICES_STATUS_IDLE);
 
   // convert the assumptions to n literals
   init_ivector(&assumptions, n);
@@ -9120,7 +9199,7 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
     if (l < 0) {
       // error when converting a[i] to a literal
       convert_internalization_error(l);
-      stat = STATUS_ERROR;
+      stat = YICES_STATUS_ERROR;
       yices_release_mutex();
       goto cleanup;
     }
@@ -9180,49 +9259,49 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
 
   if (! context_has_mcsat(ctx)) {
     set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
   }
 
   if (! good_terms_for_check_with_model(n, t)) {
     // this sets the error code already (to VARIABLE_REQUIRED)
     // but Dejan created another error code that means the same thing here.
     set_error_code(MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED);
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
   }
 
   // cleanup
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case YICES_STATUS_UNKNOWN:
+  case YICES_STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
       set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-      return STATUS_ERROR;
+      return YICES_STATUS_ERROR;
     }
     context_clear(ctx);
     break;
 
-  case STATUS_IDLE:
+  case YICES_STATUS_IDLE:
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     context_clear_unsat(ctx);
-    if (context_status(ctx) == STATUS_UNSAT) {
-      return STATUS_UNSAT;
+    if (context_status(ctx) == YICES_STATUS_UNSAT) {
+      return YICES_STATUS_UNSAT;
     }
     break;
 
-  case STATUS_SEARCHING:
+  case YICES_STATUS_SEARCHING:
   case YICES_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
 
-  case STATUS_ERROR:
+  case YICES_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
   }
 
-  assert(context_status(ctx) == STATUS_IDLE);
+  assert(context_status(ctx) == YICES_STATUS_IDLE);
 
   // set parameters
   if (params == NULL) {
@@ -9257,51 +9336,51 @@ EXPORTED smt_status_t yices_check_context_with_model_and_hint(context_t *ctx, co
 
   if (! context_has_mcsat(ctx)) {
     set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
   }
 
   if (! good_terms_for_check_with_model(n, t)) {
     // this sets the error code already (to VARIABLE_REQUIRED)
     // but Dejan created another error code that means the same thing here.
     set_error_code(MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED);
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
   }
 
   assert(m <= n);
 
   // cleanup
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case YICES_STATUS_UNKNOWN:
+  case YICES_STATUS_SAT:
     if (! context_supports_multichecks(ctx)) {
       set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-      return STATUS_ERROR;
+      return YICES_STATUS_ERROR;
     }
     context_clear(ctx);
     break;
 
-  case STATUS_IDLE:
+  case YICES_STATUS_IDLE:
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     context_clear_unsat(ctx);
-    if (context_status(ctx) == STATUS_UNSAT) {
-      return STATUS_UNSAT;
+    if (context_status(ctx) == YICES_STATUS_UNSAT) {
+      return YICES_STATUS_UNSAT;
     }
     break;
 
-  case STATUS_SEARCHING:
+  case YICES_STATUS_SEARCHING:
   case YICES_STATUS_INTERRUPTED:
     set_error_code(CTX_INVALID_OPERATION);
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
 
-  case STATUS_ERROR:
+  case YICES_STATUS_ERROR:
   default:
     set_error_code(INTERNAL_EXCEPTION);
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
   }
 
-  assert(context_status(ctx) == STATUS_IDLE);
+  assert(context_status(ctx) == YICES_STATUS_IDLE);
 
   // set parameters
   if (params == NULL) {
@@ -9318,7 +9397,50 @@ EXPORTED smt_status_t yices_check_context_with_model_and_hint(context_t *ctx, co
   return stat;
 }
 
+/*
+ * Set a fixed variable ordering for making mcsat decisions.
+ *
+ * NOTE: This will overwrite the previously set ordering.
+ */
+EXPORTED smt_status_t yices_mcsat_set_fixed_var_order(context_t *ctx, uint32_t n, const term_t t[]) {
 
+  if (! context_has_mcsat(ctx)) {
+    set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+    return YICES_STATUS_ERROR;
+  }
+
+  if (! good_terms_for_check_with_model(n, t)) {
+    set_error_code(VARIABLE_REQUIRED);
+    return YICES_STATUS_ERROR;
+  }
+
+  ivector_t *order = &ctx->mcsat_var_order;
+  ivector_copy(order, t, n);
+
+  return YICES_STATUS_IDLE;
+}
+
+/*
+ * Set an initial variable ordering for making mcsat decisions.
+ *
+ */
+EXPORTED smt_status_t yices_mcsat_set_initial_var_order(context_t *ctx, uint32_t n, const term_t t[]) {
+
+  if (! context_has_mcsat(ctx)) {
+    set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+    return YICES_STATUS_ERROR;
+  }
+
+  if (! good_terms_for_check_with_model(n, t)) {
+    set_error_code(VARIABLE_REQUIRED);
+    return YICES_STATUS_ERROR;
+  }
+
+  ivector_t *order = &ctx->mcsat_initial_var_order;
+  ivector_copy(order, t, n);
+
+  return YICES_STATUS_IDLE;
+}
 
 /*
  * CHECK SAT AND COMPUTE INTERPOLANT
@@ -9326,24 +9448,24 @@ EXPORTED smt_status_t yices_check_context_with_model_and_hint(context_t *ctx, co
 EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_context_t *ctx, const param_t *params, int32_t build_model) {
   int32_t ret = 0;
   model_t *model = NULL;
-  smt_status_t result = STATUS_UNKNOWN;
+  smt_status_t result = YICES_STATUS_UNKNOWN;
   ivector_t model_vars, interpolants;
 
   // The context must stupport interpolation
   if (! context_supports_model_interpolation(ctx->ctx_A)) {
     set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
   }
 
   // Push A and B so we can revert
   ret = yices_push(ctx->ctx_A);
   if (ret) {
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
   }
   ret = yices_push(ctx->ctx_B);
   if (ret) {
     yices_pop(ctx->ctx_A);
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
   }
 
   // Search: find models of B and refute with B
@@ -9356,14 +9478,14 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
     result = yices_check_context(ctx->ctx_B, params);
 
     // UNSAT, interrupts and errors, we're done
-    if (result != STATUS_SAT) {
+    if (result != YICES_STATUS_SAT) {
       break;
     }
 
     // B is satisfiable, refute
     model = yices_get_model(ctx->ctx_B, 1);
     if (model == NULL) {
-      result = STATUS_ERROR;
+      result = YICES_STATUS_ERROR;
       break;
     }
 
@@ -9378,14 +9500,14 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
     result = yices_check_context_with_model(ctx->ctx_A, params, model, model_vars.size, model_vars.data);
 
     // SAT, interrupts and errors, we're done
-    if (result != STATUS_UNSAT) {
+    if (result != YICES_STATUS_UNSAT) {
       break;
     }
 
     // UNSAT, get the interpolant
     term_t model_interpolant = yices_get_model_interpolant(ctx->ctx_A);
     if (model_interpolant == NULL_TERM) {
-      result = STATUS_ERROR;
+      result = YICES_STATUS_ERROR;
       break;
     }
     ivector_push(&interpolants, model_interpolant);
@@ -9416,23 +9538,23 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
     model = NULL;
   }
 
-  if (result == STATUS_UNSAT) {
+  if (result == YICES_STATUS_UNSAT) {
     // Construct the interpolant if UNSAT
     ctx->interpolant = yices_and(interpolants.size, interpolants.data);
-  } else if (result == STATUS_SAT && build_model) {
+  } else if (result == YICES_STATUS_SAT && build_model) {
     // Construct the model if SAT and asked
     ctx->model = yices_get_model(ctx->ctx_A, true);
   }
 
   // Pop both contexts
-  if (result != STATUS_ERROR) {
+  if (result != YICES_STATUS_ERROR) {
     ret = yices_pop(ctx->ctx_B);
     if (ret) {
-      result = STATUS_ERROR;
+      result = YICES_STATUS_ERROR;
     } else {
       ret = yices_pop(ctx->ctx_A);
       if (ret) {
-        result = STATUS_ERROR;
+        result = YICES_STATUS_ERROR;
       }
     }
   }
@@ -9459,7 +9581,7 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
  * INTERRUPTED. Otherwise, the function does nothing.
  */
 EXPORTED void yices_stop_search(context_t *ctx) {
-  if (context_status(ctx) == STATUS_SEARCHING) {
+  if (context_status(ctx) == YICES_STATUS_SEARCHING) {
     context_stop_search(ctx);
   }
 }
@@ -9476,7 +9598,7 @@ EXPORTED void yices_stop_search(context_t *ctx) {
  * - returns -1 if there's an error
  */
 EXPORTED int32_t yices_get_unsat_core(context_t *ctx, term_vector_t *v) {
-  if (context_status(ctx) != STATUS_UNSAT) {
+  if (context_status(ctx) != YICES_STATUS_UNSAT) {
     set_error_code(CTX_INVALID_OPERATION);
     return -1;
   }
@@ -9509,7 +9631,7 @@ EXPORTED term_t yices_get_model_interpolant(context_t *ctx) {
   result = NULL_TERM;
   if (! context_supports_model_interpolation(ctx)) {
     set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-  } else if (context_status(ctx) != STATUS_UNSAT) {
+  } else if (context_status(ctx) != YICES_STATUS_UNSAT) {
     set_error_code(CTX_INVALID_OPERATION);
   } else {
     result = context_get_unsat_model_interpolant(ctx);
@@ -9548,8 +9670,8 @@ model_t *_o_yices_get_model(context_t *ctx, int32_t keep_subst) {
   assert(ctx != NULL);
 
   switch (context_status(ctx)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case YICES_STATUS_UNKNOWN:
+  case YICES_STATUS_SAT:
     mdl = alloc_model();
     init_model(mdl, __yices_globals.terms, (keep_subst != 0));
     context_build_model(mdl, ctx);
@@ -9842,7 +9964,7 @@ EXPORTED int32_t yices_pp_term_values_fd(int fd, model_t *mdl, uint32_t n, const
  * - the mapping is defined by two arrays var[] and map[]
  * - every element of var must be an uninterpreted term
  *   every element of map must be a constant of primitive or tuple type
- *   map[i]'s type must be a subtype of var[i]
+ *   map[i]'s type must be a subtype of var[i]'s type
  * - there must not be duplicates in array var
  *
  * The function returns NULL and set up the error report if something
@@ -10012,6 +10134,77 @@ int32_t _o_yices_model_set_mpq(model_t *model, term_t var, mpq_t val) {
   return yices_model_set_q(model, var, &r0);
 }
 
+EXPORTED int32_t yices_model_set_double(model_t *model, term_t var, double val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_double(model, var, val));
+}
+
+int32_t _o_yices_model_set_double(model_t *model, term_t var, double val) {
+  q_set_double(&r0, val);
+  return yices_model_set_q(model, var, &r0);
+}
+
+EXPORTED int32_t yices_model_set_float(model_t *model, term_t var, float val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_float(model, var, val));
+}
+
+int32_t _o_yices_model_set_float(model_t *model, term_t var, float val) {
+  q_set_float(&r0, val);
+  return yices_model_set_q(model, var, &r0);
+}
+
+EXPORTED int32_t yices_model_set_term(model_t *model, term_t var, term_t value) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_term(model, var, value));
+}
+
+int32_t _o_yices_model_set_term(model_t *model, term_t var, term_t value) {
+  term_converter_t convert;
+  value_t v;
+  type_t tau;
+  if (! check_good_term(__yices_globals.manager, var) ||
+      ! check_uninterpreted(__yices_globals.terms, var) ||
+      ! check_unassigned_in_model(model, var) ||
+      ! check_good_term(__yices_globals.manager, value) ||
+      ! is_constant_term(__yices_globals.terms, value)) {
+    return -1;
+  }
+  tau = term_type(__yices_globals.terms, var);
+  if (! is_subtype(__yices_globals.types, term_type(__yices_globals.terms, value), tau)) {
+    set_error_code(TYPE_MISMATCH);
+    return -1;
+  }
+  init_term_converter(&convert, __yices_globals.terms, &model->vtbl);
+  v = convert_term_to_val(&convert, value);
+  delete_term_converter(&convert);
+  model_map_term(model, var, v);
+  return 0;
+}
+
+EXPORTED int32_t yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_yval(model, var, yval));
+}
+
+int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) {
+  value_table_t *vtbl;
+  value_t v;
+  
+  if (! check_good_term(__yices_globals.manager, var) ||
+      ! check_uninterpreted(__yices_globals.terms, var) ||
+      ! check_unassigned_in_model(model, var)) {
+    return -1;
+  }
+
+  vtbl = model_get_vtbl(model);
+  v = yval->node_id;
+  
+  // Check that the yval is a valid object
+  if (! good_object(vtbl, v)) {
+    set_error_code(TYPE_MISMATCH);
+    return -1;
+  }
+
+  model_map_term(model, var, v);
+  return 0;
+}
 
 EXPORTED int32_t yices_model_set_algebraic_number(model_t *model, term_t var, const lp_algebraic_number_t *val) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_model_set_algebraic_number(model, var, val));
@@ -10198,6 +10391,50 @@ int32_t _o_yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n,
 
 
 /*
+ * Assign a value to a scalar or uninterpreted variable.
+ * - var must be an uninterpreted term of scalar or uninterpreted type
+ * - var must not have a value in model
+ * - val is the index of the constant to assign
+ *   (with the same meaning as in function yices_constant):
+ *   - if var has type tau and tau is a scalar type of size n then
+ *     val must be between 0 and n-1
+ *   - if var has an uninterpreted type, then val can be any non-negative integer
+ *
+ * Return -1 if there's an error and set the error report.
+ * Return 0 otherwise.
+ *
+ * Error report:
+ * - code = INVALID_TERM if var is not valid
+ * - code = MDL_UNINT_REQUIRED if var is not uninterpreted
+ * - code = MDL_DUPLICATE_VAR if var already has a value in model
+ * - code = TYPE_MISMATCH if var is not scalar or uninterpreted
+ * - code = INVALID_CONSTANT_INDEX if val is negative or too large for scalar type
+ */
+EXPORTED int32_t yices_model_set_scalar(model_t *model, term_t var, int32_t val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_scalar(model, var, val));
+}
+
+int32_t _o_yices_model_set_scalar(model_t *model, term_t var, int32_t val) {
+  type_t tau;
+
+  if (! check_good_term(__yices_globals.manager, var) ||
+      ! check_uninterpreted(__yices_globals.terms, var) ||
+      ! check_unassigned_in_model(model, var)) {
+    return -1;
+  }
+
+  tau = term_type(__yices_globals.terms, var);
+  if (! check_good_constant(__yices_globals.types, tau, val)) {
+    return -1;
+  }
+
+  model_map_term(model, var, vtbl_mk_const(&model->vtbl, tau, val, NULL));
+
+  return 0;
+}
+
+
+/*
  * Export the list of uninterpreted terms that have a value in mdl.
  * - the variables are stored in term_vector v
  */
@@ -10338,7 +10575,7 @@ static bool check_delegate(const char *delegate) {
  * error code for Yices.
  */
 static const error_code_t efcode2yices_error[NUM_EF_CODES] = {
-  NO_ERROR,                     // EF_NO_ERROR
+  YICES_NO_ERROR,                     // EF_NO_ERROR
   CTX_EF_ASSERTIONS_CONTAIN_UF, // EF_UNINTERPRETED_FUN
   CTX_EF_NOT_EXISTS_FORALL,     // EF_NESTED_QUANTIFIER
   CTX_EF_HIGH_ORDER_VARS,       // EF_HIGH_ORDER_UVAR
@@ -10369,7 +10606,7 @@ static smt_status_t yices_ef_check_formulas(const term_t f[], uint32_t n, smt_lo
   if (efc.efcode != EF_NO_ERROR) {
     // error in preprocessing. no efsolver created
     set_error_code(efcode2yices_error[efc.efcode]);
-    stat = STATUS_ERROR;
+    stat = YICES_STATUS_ERROR;
 
   } else {
 
@@ -10383,15 +10620,15 @@ static smt_status_t yices_ef_check_formulas(const term_t f[], uint32_t n, smt_lo
       model = ef_export_model(&efc, &ef_code);
       assert(ef_code == EFMODEL_CODE_NO_ERROR);
       *result = model;
-      stat = STATUS_SAT;
+      stat = YICES_STATUS_SAT;
       break;
 
     case EF_STATUS_UNSAT:
-      stat = STATUS_UNSAT;
+      stat = YICES_STATUS_UNSAT;
       break;
 
     case EF_STATUS_UNKNOWN:
-      stat = STATUS_UNKNOWN;
+      stat = YICES_STATUS_UNKNOWN;
       break;
 
     case EF_STATUS_INTERRUPTED:
@@ -10405,13 +10642,13 @@ static smt_status_t yices_ef_check_formulas(const term_t f[], uint32_t n, smt_lo
 	assert(error == -2);
 	set_error_code(CTX_EF_INTERNAL_ERROR);
       }
-      stat = STATUS_ERROR;
+      stat = YICES_STATUS_ERROR;
       break;
 
     case EF_STATUS_ASSERT_ERROR:
       assert(error < 0);
       yices_internalization_error(error);
-      stat = STATUS_ERROR;
+      stat = YICES_STATUS_ERROR;
       break;
 
     case EF_STATUS_PROJECTION_ERROR:
@@ -10420,13 +10657,13 @@ static smt_status_t yices_ef_check_formulas(const term_t f[], uint32_t n, smt_lo
       } else {
 	set_error_code(CTX_EF_INTERNAL_ERROR);
       }
-      stat = STATUS_ERROR;
+      stat = YICES_STATUS_ERROR;
       break;
 
     default:
       // todo: give more precise diagnostic
       set_error_code(CTX_EF_INTERNAL_ERROR);
-      stat = STATUS_ERROR;
+      stat = YICES_STATUS_ERROR;
       break;
     }
   }
@@ -10461,7 +10698,7 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
     logic = smt_logic_code(logic_name);
     if (logic == SMT_UNKNOWN) {
       set_error_code(CTX_UNKNOWN_LOGIC);
-      return STATUS_ERROR;
+      return YICES_STATUS_ERROR;
     }
     if (logic_is_supported_by_ef(logic)) {
       return yices_ef_check_formulas(f, n, logic, result);
@@ -10470,7 +10707,7 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
     if (! logic_is_supported(logic) ||
 	(! yices_has_mcsat() && logic_requires_mcsat(logic))) {
       set_error_code(CTX_LOGIC_NOT_SUPPORTED);
-      return STATUS_ERROR;
+      return YICES_STATUS_ERROR;
     }
 
     arch = arch_for_logic(logic);
@@ -10480,16 +10717,16 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
 
   // validate the delegate if given
   if (logic == QF_BV && delegate != NULL && !check_delegate(delegate)) {
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
   }
 
   // check for trivial unsat then trivial sat
   if (trivially_false_assertions(f, n)) {
-    return STATUS_UNSAT;
+    return YICES_STATUS_UNSAT;
   }
 
   if (trivially_true_assertions(f, n, result)) {
-    return STATUS_SAT;
+    return YICES_STATUS_SAT;
   }
 
   // initialize the context and assert the formulas
@@ -10502,7 +10739,7 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
   if (code < 0) {
     // error in assert_formulas
     convert_internalization_error(code);
-    status = STATUS_ERROR;
+    status = YICES_STATUS_ERROR;
     goto cleanup;
   }
 
@@ -10515,7 +10752,7 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
   }
 
   // get the model
-  if (status == STATUS_SAT && result != NULL) {
+  if (status == YICES_STATUS_SAT && result != NULL) {
     // yices_get_model takes the lock so we don't
     // need to do it ourselves.
     model = yices_get_model(&context, true);
@@ -10591,7 +10828,7 @@ static smt_status_t yices_do_check_formulas(const term_t f[], uint32_t n, const 
  */
 EXPORTED smt_status_t yices_check_formula(term_t f, const char *logic, model_t **model, const char *delegate) {
   if (! yices_assert_formula_checks(f)) {
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
   }
   return yices_do_check_formulas(&f, 1, logic, model, delegate);
 }
@@ -10606,7 +10843,7 @@ EXPORTED smt_status_t yices_check_formula(term_t f, const char *logic, model_t *
  */
 EXPORTED smt_status_t yices_check_formulas(const term_t f[], uint32_t n, const char *logic, model_t **model, const char *delegate) {
   if (! yices_assert_formulas_checks(n, f)) {
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
   }
   return yices_do_check_formulas(f, n, logic, model, delegate);
 }
@@ -10629,12 +10866,12 @@ static int32_t yices_do_export_to_dimacs(const term_t f[], uint32_t n, const cha
   int32_t code;
 
   if (trivially_false_assertions(f, n)) {
-    *status = STATUS_UNSAT;
+    *status = YICES_STATUS_UNSAT;
     return 0;
   }
 
   if (trivially_true_assertions(f, n, NULL)) {
-    *status = STATUS_SAT;
+    *status = YICES_STATUS_SAT;
     return 0;
   }
 
@@ -10656,7 +10893,7 @@ static int32_t yices_do_export_to_dimacs(const term_t f[], uint32_t n, const cha
   }
 
   if (code == TRIVIALLY_UNSAT) {
-    *status = STATUS_UNSAT;
+    *status = YICES_STATUS_UNSAT;
     code = 0;
     goto done;
   }
@@ -10737,7 +10974,7 @@ EXPORTED int32_t yices_export_formulas_to_dimacs(const term_t f[], uint32_t n, c
 #define NUM_EVAL_ERROR_CODES ((-MDL_EVAL_FORMULA_FALSE) + 1)
 
 static const error_code_t eval_error2code[NUM_EVAL_ERROR_CODES] = {
-  NO_ERROR,              // v = 0
+  YICES_NO_ERROR,              // v = 0
   EVAL_FAILED,           // v = null_value (-1)
   INTERNAL_EXCEPTION,    // v = MDL_EVAL_INTERNAL_ERROR (-2)
   EVAL_UNKNOWN_TERM,     // v = MDL_EVAL_UNKNOWN_TERM (-3)
@@ -12069,7 +12306,7 @@ int32_t _o_yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a
 #define NUM_GEN_ERROR_CODES ((-GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM)+1)
 
 static const error_code_t gen_error2code[NUM_GEN_ERROR_CODES] = {
-  NO_ERROR,                  // 0
+  YICES_NO_ERROR,                  // 0
   MDL_GEN_FAILED,            // NULL_TERM,
   INTERNAL_EXCEPTION,        // GEN_EVAL_INTERNAL_ERROR
   EVAL_UNKNOWN_TERM,         // GEN_EVAL_UNKNOWN_TERM
@@ -12320,7 +12557,7 @@ EXPORTED uint32_t yices_num_terms(void) {
 }
 
 uint32_t _o_yices_num_terms(void) {
-  return __yices_globals.terms->live_terms;
+  return live_terms(__yices_globals.terms);
 }
 
 EXPORTED uint32_t yices_num_types(void) {
@@ -12328,7 +12565,7 @@ EXPORTED uint32_t yices_num_types(void) {
 }
 
 uint32_t _o_yices_num_types(void) {
-  return __yices_globals.types->live_types;
+  return live_types(__yices_globals.types);
 }
 
 

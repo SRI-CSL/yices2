@@ -115,6 +115,8 @@ static const char * const smt2_keyword_string[NUM_SMT2_KEYWORDS] = {
   ":regular-output-channel",  // SMT2_KW_REGULAR_OUTPUT
   ":reproducible-resource-limit",  // SMT2_KW_REPRODUCIBLE_RESOURCE_LIMIT
   ":verbosity",               // SMT2_KW_VERBOSITY
+  ":dump-models",             // SMT2_KW_DUMP_MODELS
+  ":timeout",                 // SMT2_KW_TIMEOUT
 
   ":all-statistics",          // SMT2_KW_ALL_STATISTICS
   ":assertion-stack-levesl",  // SMT2_KM_ASSERTIONS_STACK_LEVELS
@@ -208,6 +210,9 @@ static const char * const smt2_symbol_string[NUM_SMT2_SYMBOLS] = {
   "bvsle",                   // SMT2_SYM_BVSLE
   "bvsgt",                   // SMT2_SYM_BVSGT
   "bvsge",                   // SMT2_SYM_BVSGE
+  "FiniteField",             // SMT2_SYM_FINITEFIELD
+  "ff.add",                  // SMT2_SYM_FFADD
+  "ff.mul",                  // SMT2_SYM_FFMUL
 
   // errors
   "<invalid-bv-constant>",   // SMT2_SYM_INVALID_BV_CONSTANT,
@@ -395,6 +400,12 @@ static void smt2_activate_bv(void) {
   active_symbol[SMT2_SYM_BVSGE] = true;
 }
 
+static void smt2_activate_ff(void) {
+  active_symbol[SMT2_SYM_FINITEFIELD] = true;
+  active_symbol[SMT2_SYM_FF_CONSTANT] = true;
+  active_symbol[SMT2_SYM_FFADD] = true;
+  active_symbol[SMT2_SYM_FFMUL] = true;
+}
 
 /*
  * Select the built-in symbols for a given logic
@@ -425,6 +436,10 @@ void smt2_lexer_activate_logic(smt_logic_t logic) {
   case ARITH_LIRA:
   case ARITH_NIRA:
     smt2_activate_mixed_arith();
+    break;
+
+  case ARITH_FFA:
+    smt2_activate_ff();
     break;
 
   case ARITH_NONE:
@@ -1145,8 +1160,35 @@ static smt2_symbol_t string_to_bv_constant(const char *s, uint32_t n) {
   return sym;
 }
 
-
 /*
+ * Check whether s is of the form 'ff<digits>'
+ * - n = length of s
+ * - return code:
+ *   SMT2_SYM_FF_CONSTANT if s is of the form 'ff<numeral>'
+ *   SMT2_SYM_UNKNOWN otherwise (not a ffconstant)
+ */
+static smt2_symbol_t string_to_ff_constant(const char *s, uint32_t n) {
+  uint32_t i;
+  smt2_symbol_t sym;
+
+  sym = SMT2_SYM_UNKNOWN;
+  if (n >= 3 && s[0] == 'f' && s[1] == 'f') {
+    // could be a negative number
+    i = (n >= 4 && s[2] == '-') ? 3 : 2;
+    while (i<n) {
+      if (!isdigit((int) s[i++])) {
+        goto done; // not of the form ff<digits>
+      }
+    }
+    sym = SMT2_SYM_FF_CONSTANT;
+  }
+
+  done:
+  return sym;
+}
+
+
+/**
  * Convert a string s to a symbol code
  * - n = length of s
  * - return SMT2_SYM_UNKNOWN if s is not a predefined symbol,
@@ -1158,6 +1200,13 @@ static smt2_symbol_t string_to_bv_constant(const char *s, uint32_t n) {
  *   returned id is SMT2_SYM_BV_CONSTANT
  * - if the string starts with 'bv' but the rest is not <numeral>, then
  *   the returned if is SMT2_SYM_INVALID_BV_CONSTANT
+ *
+ * Special treatment for finite field constants, when the finite field
+ * theory is active:
+ * - if the string is of the form 'ff<numeral>' then the
+ *   returned id is SMT2_SYM_FF_CONSTANT
+ * - if the string starts with 'ff' but the rest is not <numeral>, then
+ *   the returned if is SMT2_SYM_INVALID_FF_CONSTANT
  */
 smt2_symbol_t smt2_string_to_symbol(const char *s, uint32_t n) {
   const keyword_t *kw;
@@ -1166,8 +1215,11 @@ smt2_symbol_t smt2_string_to_symbol(const char *s, uint32_t n) {
   sym = SMT2_SYM_UNKNOWN;
   kw = in_smt2_sym(s, n);
   if (kw == NULL) {
-    if (active_symbol[SMT2_SYM_BV_CONSTANT]) {
+    if (active_symbol[SMT2_SYM_BV_CONSTANT] && sym == SMT2_SYM_UNKNOWN) {
       sym = string_to_bv_constant(s, n);
+    }
+    if (active_symbol[SMT2_SYM_FF_CONSTANT] && sym == SMT2_SYM_UNKNOWN) {
+      sym = string_to_ff_constant(s, n);
     }
   } else if (active_symbol[kw->tk]) {
     sym = kw->tk;

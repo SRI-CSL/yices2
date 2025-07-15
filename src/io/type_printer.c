@@ -103,6 +103,11 @@ static void print_type_recur(FILE *f, type_table_t *tbl, type_t tau, int32_t lev
       case BITVECTOR_TYPE:
         fprintf(f, "(bitvector %"PRIu32")", bv_type_size(tbl, tau));
         break;
+      case FF_TYPE:
+        fprintf(f, "(finitefield ");
+        q_print(f, ff_type_size(tbl, tau));
+        fprintf(f, ")");
+        break;
       case SCALAR_TYPE:
         fprintf(f, "(enum!%"PRId32" %"PRIu32")", tau, scalar_type_cardinal(tbl, tau));
         break;
@@ -250,10 +255,10 @@ static uint32_t max_name_length(type_table_t *tbl) {
   uint32_t max, l, n, i;
 
   max = 0;
-  n = tbl->nelems;
+  n = ntypes(tbl);
   for (i=0; i<n; i++) {
     if (type_kind(tbl, i) != UNUSED_TYPE) {
-      name = tbl->name[i];
+      name = type_name(tbl, i);
       if (name != NULL) {
         l = strlen(name);
         if (l > max) {
@@ -311,7 +316,7 @@ void print_type_table(FILE *f, type_table_t *tbl) {
     name_size = 20;
   }
 
-  n = tbl->nelems;
+  n = ntypes(tbl);
   for (i=0; i<n; i++) {
     if (type_kind(tbl, i) != UNUSED_TYPE) {
       // id, flags, card
@@ -332,6 +337,11 @@ void print_type_table(FILE *f, type_table_t *tbl) {
         break;
       case BITVECTOR_TYPE:
         fprintf(f, "(bitvector %"PRIu32")\n", bv_type_size(tbl, i));
+        break;
+      case FF_TYPE:
+        fprintf(f, "(finitefield");
+        q_print(f, ff_type_size(tbl, i));
+        fprintf(f, ")\n");
         break;
       case SCALAR_TYPE:
         fprintf(f, "(enum, card = %"PRIu32")\n", scalar_type_cardinal(tbl, i));
@@ -389,7 +399,7 @@ void print_type_macros(FILE *f, type_table_t *tbl) {
 
   mtbl = tbl->macro_tbl;
   if (mtbl != NULL) {
-    n = mtbl->nelems;
+    n = type_macro_nelems(mtbl);
     for (i=0; i<n; i++) {
       if (good_type_macro(mtbl, i)) {
         print_macro_def(f, tbl, i);
@@ -444,6 +454,12 @@ static void pp_type_recur(yices_pp_t *printer, type_table_t *tbl, type_t tau, in
       case BITVECTOR_TYPE:
         pp_open_block(printer, PP_OPEN_BV_TYPE);
         pp_uint32(printer, bv_type_size(tbl, tau));
+        pp_close_block(printer, true);
+        break;
+
+      case FF_TYPE:
+        pp_open_block(printer, PP_OPEN_FF_TYPE);
+        pp_rational(printer, ff_type_size(tbl, tau));
         pp_close_block(printer, true);
         break;
 
@@ -535,7 +551,7 @@ void pp_type_table(FILE *f, type_table_t *tbl) {
 
   init_yices_pp(&printer, f, &area, PP_VMODE, 0);
 
-  n = tbl->nelems;
+  n = ntypes(tbl);
   for (i=0; i<n; i++) {
     if (type_kind(tbl, i) != UNUSED_TYPE) {
       fprintf(f, "type[%"PRIu32"]: ", i);

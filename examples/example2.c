@@ -79,7 +79,7 @@ int main(void) {
   }
 
   switch (yices_check_context(ctx, NULL)) { // NULL means default heuristics
-  case STATUS_SAT:
+  case YICES_STATUS_SAT:
     // build the model and print it
     printf("Satisfiable\n");
     mdl = yices_get_model(ctx, true);
@@ -94,18 +94,18 @@ int main(void) {
     yices_free_model(mdl);
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     printf("Unsatisfiable\n");
     break;
 
-  case STATUS_UNKNOWN:
+  case YICES_STATUS_UNKNOWN:
     printf("Status is unknown\n");
     break;
 
-  case STATUS_IDLE:
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
-  case STATUS_ERROR:
+  case YICES_STATUS_IDLE:
+  case YICES_STATUS_SEARCHING:
+  case YICES_STATUS_INTERRUPTED:
+  case YICES_STATUS_ERROR:
     // these codes should not be returned
     printf("Bug: unexpected status returned\n");
     break;

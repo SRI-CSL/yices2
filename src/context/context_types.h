@@ -727,6 +727,10 @@ struct context_s {
 
   // options for the mcsat solver
   mcsat_options_t mcsat_options;
+  // fixed ordering for forcing mcsat assignment order
+  ivector_t mcsat_var_order;
+  // initial ordering for forcing mcsat assignment order
+  ivector_t mcsat_initial_var_order;
 
   // flag for enabling adding quant instances
   bool en_quant;
@@ -783,6 +787,7 @@ enum {
   MCSAT_EXCEPTION_UNSUPPORTED_THEORY = -22,
   // new code: added 2021/06/29
   HIGH_ORDER_FUN_NOT_SUPPORTED = -23,
+  CONTEXT_UNSUPPORTED_THEORY = -24,
 };
 
 

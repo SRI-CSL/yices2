@@ -446,6 +446,20 @@ static value_t eval_arith_bineq(evaluator_t *eval, composite_term_t *eq) {
   return vtbl_mk_bool(eval->vtbl, result);
 }
 
+static value_t eval_finitefield_bineq(evaluator_t *eval, composite_term_t *eq) {
+  value_t v1, v2;
+
+  assert(eq->arity == 2);
+
+  v1 = eval_term(eval, eq->arg[0]);
+  v2 = eval_term(eval, eq->arg[1]);
+
+  assert(object_is_finitefield(eval->vtbl, v1));
+  assert(object_is_finitefield(eval->vtbl, v2));
+
+  return vtbl_mk_bool(eval->vtbl, v1 == v2);
+}
+
 /*
  * Compute division when one of the arguments is algebraic and return the result.
  */
@@ -695,19 +709,31 @@ static value_t eval_arith_pprod_algebraic(evaluator_t *eval, pprod_t *p) {
 #endif
 
 /*
+ * Finite field atom: t == 0
+ */
+static value_t eval_arith_ff_eq(evaluator_t *eval, term_t t) {
+  value_t v;
+
+  v = eval_term(eval, t);
+  assert(object_is_finitefield(eval->vtbl, v));
+
+  value_ff_t *v_ff = vtbl_finitefield(eval->vtbl, v);
+  return vtbl_mk_bool(eval->vtbl, q_is_zero(&v_ff->value));
+}
+
+/*
  * Power product: arithmetic
  */
 static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p) {
   rational_t prod;
-  uint32_t i, n;
   term_t t;
   value_t o;
 
   q_init(&prod);
   q_set_one(&prod);
 
-  n = p->len;
-  for (i=0; i<n; i++) {
+  uint32_t n = p->len;
+  for (uint32_t i=0; i<n; i++) {
     t = p->prod[i].var;
     o = eval_term(eval, t);
     // prod[i] is v ^ k so q := q * (o ^ k)
@@ -728,6 +754,38 @@ static value_t eval_arith_pprod(evaluator_t *eval, pprod_t *p) {
 
   o = vtbl_mk_rational(eval->vtbl, &prod);
 
+  clear_rational(&prod);
+
+  return o;
+}
+
+/*
+ * Power product: finite field arithmetic
+ */
+static value_t eval_arith_ff_pprod(evaluator_t *eval, pprod_t *p, const rational_t *mod) {
+  rational_t prod;
+  term_t t;
+  value_t o;
+
+  assert(mod && q_is_integer(mod));
+
+  q_init(&prod);
+  q_set_one(&prod);
+
+  uint32_t n = p->len;
+  for (uint32_t i=0; i<n; i++) {
+    t = p->prod[i].var;
+    o = eval_term(eval, t);
+    assert(object_is_finitefield(eval->vtbl, o));
+    value_ff_t *v_ff = vtbl_finitefield(eval->vtbl, o);
+    assert(q_eq(&v_ff->mod, mod));
+    // prod[i] is v ^ k so q := q * (o ^ k)
+    q_mulexp(&prod, &v_ff->value, p->prod[i].exp);
+  }
+
+  assert(q_is_integer(&prod));
+  q_integer_rem(&prod, mod);
+  o = vtbl_mk_finitefield(eval->vtbl, &prod, mod);
   clear_rational(&prod);
 
   return o;
@@ -811,6 +869,40 @@ static value_t eval_arith_poly(evaluator_t *eval, polynomial_t *p) {
 
   // convert sum to an object
   v = vtbl_mk_rational(eval->vtbl, &sum);
+
+  clear_rational(&sum);
+
+  return v;
+}
+
+static value_t eval_arith_ff_poly(evaluator_t *eval, polynomial_t *p, const rational_t *mod) {
+  rational_t sum;
+  uint32_t i, n;
+  term_t t;
+  value_t v;
+  value_ff_t *v_ff;
+
+  q_init(&sum); // sum = 0
+
+  n = p->nterms;
+  for (i=0; i<n; i++) {
+    t = p->mono[i].var;
+    if (t == const_idx) {
+      q_add(&sum, &p->mono[i].coeff);
+    } else {
+      v = eval_term(eval, t);
+      assert(object_is_finitefield(eval->vtbl, v));
+      v_ff = vtbl_finitefield(eval->vtbl, v);
+      assert(q_eq(&v_ff->mod, mod));
+      q_addmul(&sum, &p->mono[i].coeff, &v_ff->value); // sum := sum + coeff * aux
+    }
+  }
+
+  // convert sum to an object
+  assert(q_is_integer(&sum));
+  assert(q_is_integer(mod));
+  q_integer_rem(&sum, mod);
+  v = vtbl_mk_finitefield(eval->vtbl, &sum, mod);
 
   clear_rational(&sum);
 
@@ -1530,6 +1622,10 @@ static value_t eval_uninterpreted(evaluator_t *eval, term_t t) {
   return v;
 }
 
+static inline const rational_t* arith_get_mod(term_table_t *table, term_t t) {
+  type_t tau = term_type(table, t);
+  return is_finite_type(table->types, tau) ? ff_type_size(table->types, tau) : NULL;
+}
 
 
 /*
@@ -1572,6 +1668,12 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
 
       case ARITH_CONSTANT:
         v = vtbl_mk_rational(eval->vtbl, rational_term_desc(terms, t));
+        break;
+
+      case ARITH_FF_CONSTANT:
+        assert(arith_get_mod(terms, t) && q_is_pos(arith_get_mod(terms, t)));
+        assert(q_lt(finitefield_term_desc(terms, t), arith_get_mod(terms, t)));
+        v = vtbl_mk_finitefield(eval->vtbl, finitefield_term_desc(terms, t), arith_get_mod(terms, t));
         break;
 
       case BV64_CONSTANT:
@@ -1621,9 +1723,13 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         break;
 
       case ARITH_ROOT_ATOM:
-	// not supported (but don't crash if we see them)
-	v = vtbl_mk_unknown(eval->vtbl);
-	break;
+        // not supported (but don't crash if we see them)
+        v = vtbl_mk_unknown(eval->vtbl);
+        break;
+
+      case ARITH_FF_EQ_ATOM:
+        v = eval_arith_ff_eq(eval, arith_ff_eq_arg(terms, t));
+        break;
 
       case ITE_TERM:
       case ITE_SPECIAL:
@@ -1689,6 +1795,10 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
         v = eval_arith_divides(eval, arith_divides_atom_desc(terms, t));
         break;
 
+      case ARITH_FF_BINEQ_ATOM:
+        v = eval_finitefield_bineq(eval, arith_ff_bineq_atom_desc(terms, t));
+        break;
+
       case BV_ARRAY:
         v = eval_bv_array(eval, bvarray_term_desc(terms, t));
         break;
@@ -1748,14 +1858,22 @@ static value_t eval_term(evaluator_t *eval, term_t t) {
       case POWER_PRODUCT:
         if (is_bitvector_term(terms, t)) {
           v = eval_bv_pprod(eval, pprod_term_desc(terms, t), term_bitsize(terms, t));
-        } else {
-          assert(is_arithmetic_term(terms, t));
+        } else if (is_arithmetic_term(terms, t)) {
           v = eval_arith_pprod(eval, pprod_term_desc(terms, t));
+        } else if (is_finitefield_term(terms, t)) {
+          v = eval_arith_ff_pprod(eval, pprod_term_desc(terms, t), arith_get_mod(terms, t));
+        } else {
+          assert(false);
+          v = vtbl_mk_unknown(eval->vtbl);
         }
         break;
 
       case ARITH_POLY:
         v = eval_arith_poly(eval, poly_term_desc(terms, t));
+        break;
+
+      case ARITH_FF_POLY:
+        v = eval_arith_ff_poly(eval, finitefield_poly_term_desc(terms, t), arith_get_mod(terms, t));
         break;
 
       case BV64_POLY:

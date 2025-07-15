@@ -75,13 +75,13 @@ typedef struct param_s param_t;
  * Context status code
  */
 typedef enum smt_status {
-  STATUS_IDLE,
-  STATUS_SEARCHING,
-  STATUS_UNKNOWN,
-  STATUS_SAT,
-  STATUS_UNSAT,
+  YICES_STATUS_IDLE,
+  YICES_STATUS_SEARCHING,
+  YICES_STATUS_UNKNOWN,
+  YICES_STATUS_SAT,
+  YICES_STATUS_UNSAT,
   YICES_STATUS_INTERRUPTED, /* renaming because of a clash with windows defined symbol */
-  STATUS_ERROR
+  YICES_STATUS_ERROR
 } smt_status_t;
 
 
@@ -135,6 +135,7 @@ typedef enum term_constructor {
   // atomic terms
   YICES_BOOL_CONSTANT,       // boolean constant
   YICES_ARITH_CONSTANT,      // rational constant
+  YICES_ARITH_FF_CONSTANT,   // finite field rational constant
   YICES_BV_CONSTANT,         // bitvector constant
   YICES_SCALAR_CONSTANT,     // constant of uninterpreted/scalar
   YICES_VARIABLE,            // variable in quantifiers
@@ -184,6 +185,7 @@ typedef enum term_constructor {
   // sums
   YICES_BV_SUM,              // sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
   YICES_ARITH_SUM,           // sum of pairs a * t where a is a rational (and t is an arithmetic term)
+  YICES_ARITH_FF_SUM,        // sum of pairs a * t where a is an finite field constant (and t is an finite field arithmetic term)
 
   // products
   YICES_POWER_PRODUCT        // power products: (t1^d1 * ... * t_n^d_n)
@@ -239,6 +241,7 @@ typedef enum yval_tag {
   YVAL_BOOL,
   YVAL_RATIONAL,
   YVAL_ALGEBRAIC,
+  YVAL_FINITEFIELD,  // TODO establish me in API
   YVAL_BV,
   YVAL_SCALAR,
   YVAL_TUPLE,
@@ -297,7 +300,7 @@ typedef enum yices_gen_mode {
  *   that depends on the error code.
  */
 typedef enum error_code {
-  NO_ERROR = 0,
+  YICES_NO_ERROR = 0,
 
   /*
    * Errors in type or term construction
@@ -344,6 +347,8 @@ typedef enum error_code {
   BAD_TYPE_DECREF,         // added 2013/10/03
   INVALID_TYPE_OP,         // added 2014/12/03
   INVALID_TERM_OP,         // added 2014/12/04
+  INVALID_FFSIZE,          // added 2024/05/20
+  INCOMPATIBLE_FFSIZES,    // added 2024/05/20
 
   /*
    * Parser errors
@@ -367,6 +372,7 @@ typedef enum error_code {
   TYPE_MISMATCH_IN_DEF,
   ARITH_ERROR,
   BVARITH_ERROR,
+  INVALID_FFCONSTANT,
 
 
   /*
@@ -498,7 +504,7 @@ typedef enum error_code {
  *
  *  error code                 meaningful fields
  *
- *  NO_ERROR                   none
+ *  YICES_NO_ERROR             none
  *
  *  INVALID_TYPE               type1
  *  INVALID_TERM               term1

@@ -205,7 +205,7 @@ extern int32_t assert_blocking_clause(context_t *ctx);
  * - parameters = search and heuristic parameters to use
  * - if parameters is NULL, the default values are used
  *
- * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
+ * return status: either YICES_STATUS_UNSAT, YICES_STATUS_SAT, YICES_STATUS_UNKNOWN,
  * YICES_STATUS_INTERRUPTED (these codes are defined in smt_core.h)
  */
 extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
@@ -218,10 +218,10 @@ extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
  * - a = array of n literals = n assumptions
  * - each a[i] must be defined in ctx->core
  *
- * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
+ * return status: either YICES_STATUS_UNSAT, YICES_STATUS_SAT, YICES_STATUS_UNKNOWN,
  * YICES_STATUS_INTERRUPTED
  *
- * If status is STATUS_UNSAT then the assumptions are inconsistent
+ * If status is YICES_STATUS_UNSAT then the assumptions are inconsistent
  */
 extern smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *parameters, uint32_t n, const literal_t *a);
 
@@ -234,10 +234,10 @@ extern smt_status_t check_context_with_assumptions(context_t *ctx, const param_t
  * - model = model to assume
  * - t = variables to use from the model (size = n)
  *
- * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
+ * return status: either YICES_STATUS_UNSAT, YICES_STATUS_SAT, YICES_STATUS_UNKNOWN,
  * YICES_STATUS_INTERRUPTED
  *
- * If status is STATUS_UNSAT then the context and model are inconsistent
+ * If status is YICES_STATUS_UNSAT then the context and model are inconsistent
  */
 extern smt_status_t check_context_with_model(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]);
 
@@ -252,16 +252,16 @@ extern smt_status_t check_context_with_model(context_t *ctx, const param_t *para
  * - t = variables to use from the model (size = n)
  * - m = number of terms in t to be used as assumption
  *
- * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
+ * return status: either YICES_STATUS_UNSAT, YICES_STATUS_SAT, YICES_STATUS_UNKNOWN,
  * YICES_STATUS_INTERRUPTED
  *
- * If status is STATUS_UNSAT then the context and model are inconsistent
+ * If status is YICES_STATUS_UNSAT then the context and model are inconsistent
  */
 extern smt_status_t check_context_with_model_and_hint(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[], uint32_t m);
 
 
 /*
- * Build a model: the context's status must be STATUS_SAT or STATUS_UNKNOWN
+ * Build a model: the context's status must be YICES_STATUS_SAT or YICES_STATUS_UNKNOWN
  * - model must be initialized (and empty)
  * - the model maps a value to every uninterpreted terms present in ctx's
  *   internalization tables
@@ -286,7 +286,7 @@ extern void clean_solver_models(context_t *ctx);
 
 
 /*
- * Build an unsat core: the context's status must be STATUS_UNSAT
+ * Build an unsat core: the context's status must be YICES_STATUS_UNSAT
  * - the unsat core is returned in vector *v
  * - if there are no assumption, the core is empty
  * - otherwise, the core is constructed from the bad_assumption
@@ -340,8 +340,8 @@ extern void context_clear(context_t *ctx);
  *   is restored to what it was at the start of search
  * - otherwise, this does nothing.
  *
- * On exit, the context's status can be either STATUS_IDLE
- * (if assumptions were removed) or STATUS_UNSAT otherwise.
+ * On exit, the context's status can be either YICES_STATUS_IDLE
+ * (if assumptions were removed) or YICES_STATUS_UNSAT otherwise.
  *
  * NOTE: Call this before context_pop(ctx) if the context status
  * is unsat.
@@ -447,11 +447,11 @@ extern int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f);
 
 /*
  * Read the status: returns one of
- *  STATUS_IDLE        (before check_context)
- *  STATUS_SEARCHING   (during check_context)
- *  STATUS_UNKNOWN
- *  STATUS_SAT
- *  STATUS_UNSAT
+ *  YICES_STATUS_IDLE        (before check_context)
+ *  YICES_STATUS_SEARCHING   (during check_context)
+ *  YICES_STATUS_UNKNOWN
+ *  YICES_STATUS_SAT
+ *  YICES_STATUS_UNSAT
  *  YICES_STATUS_INTERRUPTED
  */
 static inline smt_status_t context_status(context_t *ctx) {
@@ -492,7 +492,6 @@ extern bval_t context_bool_term_value(context_t *ctx, term_t t);
  * next call to term_table_gc).
  */
 extern void context_gc_mark(context_t *ctx);
-
 
 
 #endif /* __CONTEXT_H */

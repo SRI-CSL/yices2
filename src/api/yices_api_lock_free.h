@@ -51,6 +51,8 @@ extern type_t _o_yices_real_type(void);
 
 extern type_t _o_yices_bv_type(uint32_t size);
 
+extern type_t _o_yices_ff_type(mpz_t order);
+
 extern type_t _o_yices_new_uninterpreted_type(void);
 
 extern type_t _o_yices_new_scalar_type(uint32_t card);
@@ -501,6 +503,8 @@ extern int32_t _o_yices_scalar_const_value(term_t t, int32_t *val);
 
 extern int32_t _o_yices_rational_const_value(term_t t, mpq_t q);
 
+extern int32_t _o_yices_finitefield_const_value(term_t t, mpz_t z);
+
 extern int32_t _o_yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term);
 
 extern int32_t _o_yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term);
@@ -641,6 +645,16 @@ extern int32_t _o_yices_model_set_bv_uint64(model_t *model, term_t var, uint64_t
 extern int32_t _o_yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val);
 
 extern int32_t _o_yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n, const int32_t a[]);
+
+extern int32_t _o_yices_model_set_scalar(model_t *model, term_t var, int32_t val);
+
+extern int32_t _o_yices_model_set_term(model_t *model, term_t var, term_t value);
+
+extern int32_t _o_yices_model_set_double(model_t *model, term_t var, double val);
+
+extern int32_t _o_yices_model_set_float(model_t *model, term_t var, float val);
+
+extern int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval);
 
 /************************
  *  VALUES IN A MODEL   *

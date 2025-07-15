@@ -374,12 +374,12 @@ void value_hmap_reset(value_hmap_t *hmap) {
 /*
  * First non-empty record in the table, starting from p
  */
-static value_hmap_pair_t *value_hmap_get_next(value_hmap_t *hmap, value_hmap_pair_t *p) {
+static value_hmap_pair_t *value_hmap_get_next(const value_hmap_t *hmap, value_hmap_pair_t *p) {
   value_hmap_pair_t *end;
 
   end = hmap->data + hmap->size;
   while (p < end) {
-    if (p->key != VALUE_HMAP_EMPTY_KEY) return p;
+    if (value_hmap_valid_key(p->key)) return p;
     p ++;
   }
 
@@ -390,7 +390,7 @@ static value_hmap_pair_t *value_hmap_get_next(value_hmap_t *hmap, value_hmap_pai
 /*
  * Get the first non-empty record or NULL if the table is empty
  */
-value_hmap_pair_t *value_hmap_first_record(value_hmap_t *hmap) {
+value_hmap_pair_t *value_hmap_first_record(const value_hmap_t *hmap) {
   return value_hmap_get_next(hmap, hmap->data);
 }
 
@@ -398,11 +398,10 @@ value_hmap_pair_t *value_hmap_first_record(value_hmap_t *hmap) {
 /*
  * Next record after p or NULL
  */
-value_hmap_pair_t *value_hmap_next_record(value_hmap_t *hmap, value_hmap_pair_t *p) {
+value_hmap_pair_t *value_hmap_next_record(const value_hmap_t *hmap, value_hmap_pair_t *p) {
   assert(p != NULL && p<hmap->data + hmap->size && p->key != VALUE_HMAP_EMPTY_KEY);
   return value_hmap_get_next(hmap, p+1);
 }
-
 
 
 /*
@@ -437,6 +436,25 @@ void value_hmap_remove_records(value_hmap_t *hmap, void *aux, value_hmap_filter_
 }
 
 
+/*
+ * Updates the value of the records
+ * - calls f(aux, p) on every record p stored in hmap
+ * - p->val is set according to the return value of f(aux, p)
+ */
+void value_hmap_update_records(value_hmap_t *hmap, void *aux, value_hmap_map_t f) {
+  value_hmap_pair_t *d;
+  uint32_t i, n;
+
+  n = hmap->size;
+  d = hmap->data;
+  for (i=0; i<n; i++) {
+    if (value_hmap_valid_key(d->key)) {
+      d->val = (int32_t) f(aux, d);
+    }
+    d ++;
+  }
+}
+
 
 /*
  * Iterator: call f(aux, p) on every record p
@@ -448,7 +466,7 @@ void value_hmap_iterate(value_hmap_t *hmap, void *aux, value_hmap_iterator_t f) 
   n = hmap->size;
   d = hmap->data;
   for (i=0; i<n; i++) {
-    if (d->key != VALUE_HMAP_DELETED_KEY && d->key != VALUE_HMAP_EMPTY_KEY) {
+    if (value_hmap_valid_key(d->key)) {
       f(aux, d);
     }
     d ++;

@@ -93,7 +93,7 @@ static void simple_test(void) {
   }
 
   switch (yices_check_context(ctx, NULL)) { // call check_context, NULL means 'use default heuristics'
-  case STATUS_SAT:
+  case YICES_STATUS_SAT:
     printf("The formula is satisfiable\n");
     model = yices_get_model(ctx, 1);  // get the model
     if (model == NULL) {
@@ -125,18 +125,18 @@ static void simple_test(void) {
     }
     break;
       
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     printf("The formula is not satisfiable\n");
     break;
 
-  case STATUS_UNKNOWN:
+  case YICES_STATUS_UNKNOWN:
     printf("The status is unknown\n");
     break;
 
-  case STATUS_IDLE:
-  case STATUS_SEARCHING:
-  case STATUS_INTERRUPTED:
-  case STATUS_ERROR:
+  case YICES_STATUS_IDLE:
+  case YICES_STATUS_SEARCHING:
+  case YICES_STATUS_INTERRUPTED:
+  case YICES_STATUS_ERROR:
     fprintf(stderr, "Error in check_context\n");
     yices_print_error(stderr);
     break;

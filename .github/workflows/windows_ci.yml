@@ -17,7 +17,7 @@ jobs:
     steps:
     - run: git config --global core.autocrlf input
 
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Install Cygwin Dependencies
       uses: cygwin/cygwin-install-action@v4
@@ -65,4 +65,5 @@ jobs:
         CYGWIN: winsymlinks:native
       run: >-
         export PATH=/tools/dynamic_gmp/bin:/tools/static_gmp/bin:$PATH &&
-        make OPTION=mingw64 MODE=${{ matrix.mode }} check-api
+        make OPTION=mingw64 MODE=${{ matrix.mode }} check-api &&
+        make OPTION=mingw64 MODE=${{ matrix.mode }} test

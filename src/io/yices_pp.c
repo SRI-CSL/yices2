@@ -161,13 +161,15 @@ static const pp_standard_block_t standard_block[NUM_STANDARD_BLOCKS] = {
 /*
  * Table of non-standard blocks
  */
-#define NUM_NONSTANDARD_BLOCKS 15
+#define NUM_NONSTANDARD_BLOCKS 18
 
 static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = {
   { PP_OPEN, "", PP_HMT_LAYOUT, 0, 1, 1 },
   { PP_OPEN_PAR, "", PP_HMT_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
   { PP_OPEN_VPAR, "", PP_V_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
+  { PP_OPEN_TPAR, "", PP_T_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
   { PP_OPEN_BV_TYPE, "bitvector", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
+  { PP_OPEN_FF_TYPE, "finitefield", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_CONST_DEF, "constant", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_UNINT_DEF, "unint", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
   { PP_OPEN_VAR_DEF,   "var", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0 },
@@ -177,7 +179,8 @@ static const pp_nonstandard_block_t nonstandard_block[NUM_NONSTANDARD_BLOCKS] = 
   { PP_OPEN_FUNCTION, "function ", PP_V_LAYOUT, PP_TOKEN_PAR_MASK, 1, 1 },
   { PP_OPEN_SMT2_BV_DEC, "_ bv", PP_H_LAYOUT, PP_TOKEN_PAR_MASK, 0, 0 },
   { PP_OPEN_SMT2_BV_TYPE, "_ BitVec", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0},
-  { PP_OPEN_SMT2_MODEL, "model", PP_T_LAYOUT, PP_TOKEN_DEF_MASK, 2, 2 },
+  { PP_OPEN_SMT2_FF_DEC, "_ ff", PP_H_LAYOUT, PP_TOKEN_PAR_MASK, 0, 0 },
+  { PP_OPEN_SMT2_FF_TYPE, "_ FiniteField", PP_H_LAYOUT, PP_TOKEN_DEF_MASK, 0, 0},
   { PP_OPEN_SMT2_DEF, "define-fun", PP_HMT_LAYOUT, PP_TOKEN_DEF_MASK, 2, 2 },
 };
 
@@ -284,8 +287,17 @@ static void build_mpq(string_buffer_t *b, mpq_t q) {
   string_buffer_close(b);
 }
 
-static void build_rational(string_buffer_t *b, rational_t *q) {
+static void build_rational(string_buffer_t *b, const rational_t *q) {
   string_buffer_append_rational(b, q);
+  string_buffer_close(b);
+}
+
+static void build_finitefield(string_buffer_t *b, mpz_t value, mpz_t mod) {
+  string_buffer_append_char(b, '#');
+  string_buffer_append_char(b, 'f');
+  string_buffer_append_mpz(b, value);
+  string_buffer_append_char(b, 'm');
+  string_buffer_append_mpz(b, mod);
   string_buffer_close(b);
 }
 
@@ -463,6 +475,10 @@ static const char *get_string(yices_pp_t *printer, pp_atomic_token_t *tk) {
     build_rational(buffer, &atm->data.rat);
     s = buffer->data;
     break;
+  case PP_FINITEFIELD_ATOM:
+    build_finitefield(buffer, atm->data.ff.value, atm->data.ff.mod);
+    s = buffer->data;
+    break;
   case PP_BV64_ATOM:
     build_bv64(buffer, atm->data.bv64.bv, atm->data.bv64.nbits);
     s = buffer->data;
@@ -546,6 +562,11 @@ static void free_atomic_token(yices_pp_t *printer, pp_atomic_token_t *tk) {
   switch (tk->user_tag) {
   case PP_RATIONAL_ATOM:
     q_clear(&atm->data.rat);
+    break;
+
+  case PP_FINITEFIELD_ATOM:
+    mpz_clear(atm->data.ff.value);
+    mpz_clear(atm->data.ff.mod);
     break;
 
   case PP_STRING_ATOM:
@@ -1004,7 +1025,7 @@ void pp_mpq(yices_pp_t *printer, mpq_t q) {
   pp_push_token(&printer->pp, tk);
 }
 
-void pp_rational(yices_pp_t *printer, rational_t *q) {
+void pp_rational(yices_pp_t *printer, const rational_t *q) {
   pp_atom_t *atom;
   void *tk;
   string_buffer_t *buffer;
@@ -1024,7 +1045,32 @@ void pp_rational(yices_pp_t *printer, rational_t *q) {
   pp_push_token(&printer->pp, tk);
 }
 
-void pp_algebraic(yices_pp_t *printer, void *a) {
+void pp_finitefield(yices_pp_t *printer, const value_ff_t *v) {
+  pp_atom_t *atom;
+  void *tk;
+  string_buffer_t *buffer;
+  uint32_t n;
+
+  buffer = &printer->buffer;
+  assert(string_buffer_length(buffer) == 0);
+  build_rational(buffer, &v->value);
+  build_rational(buffer, &v->mod);
+  n = string_buffer_length(buffer);
+  string_buffer_reset(buffer);
+
+  atom = new_atom(printer);
+  // finite field constants are printed as #f...m... so
+  // the length is n+3
+  tk = init_atomic_token(&atom->tk, n+3, PP_FINITEFIELD_ATOM);
+  mpz_init(atom->data.ff.value);
+  mpz_init(atom->data.ff.mod);
+  q_get_mpz(&v->value, atom->data.ff.value);
+  q_get_mpz(&v->mod, atom->data.ff.mod);
+
+  pp_push_token(&printer->pp, tk);
+}
+
+void pp_algebraic(yices_pp_t *printer, const void *a) {
 #ifdef HAVE_MCSAT
   pp_atom_t *atom;
   void *tk;
@@ -1366,6 +1412,9 @@ void pp_object(yices_pp_t *printer, value_table_t *table, value_t c) {
     break;
   case ALGEBRAIC_VALUE:
     pp_algebraic(printer, table->desc[c].ptr);
+    break;
+  case FINITEFIELD_VALUE:
+    pp_finitefield(printer, table->desc[c].ptr);
     break;
   case BITVECTOR_VALUE:
     pp_bitvector(printer, table->desc[c].ptr);

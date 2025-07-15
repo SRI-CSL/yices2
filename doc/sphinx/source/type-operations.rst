@@ -326,3 +326,166 @@ The following functions give access to attributes and components of a type.
    - *v->data[i]* contains the *i*-th child.
 
    If *tau* is an atomic type, then *v->size* is set to 0 and *v->data* is empty.
+
+Type Macros
+-----------
+
+Yices supports type macros and type constructors, which are uninterpreted type 
+constructors that can be instantiated with type arguments.
+
+The following functions are available for working with type macros:
+
+.. c:function:: type_t yices_type_variable(uint32_t id)
+
+   Creates a type variable with the given id.
+
+   **Parameter**
+
+   - *id* is the identifier for the type variable
+
+   **Returns**
+
+   A type variable of type :c:type:`type_t`
+
+.. c:function:: int32_t yices_type_constructor(const char *name, uint32_t n)
+
+   Creates a type constructor with the given name and arity.
+
+   **Parameters**
+
+   - *name* is the name of the type constructor
+   - *n* is the arity (number of type parameters). It must be positive and no more than
+     :c:macro:`TYPE_MACRO_MAX_ARITY`
+
+   **Returns**
+
+   The constructor's id (a non-negative integer) or -1 if there's an error
+
+   **Error reports**
+
+   - If *n* is zero:
+
+     -- error code: :c:enum:`POS_INT_REQUIRED`
+
+     -- badval := 0
+
+   - If *n* is more than :c:macro:`TYPE_MACRO_MAX_ARITY`:
+
+     -- error code: :c:enum:`TOO_MANY_MACRO_PARAMS`
+
+     -- badval := *n*
+
+.. c:function:: int32_t yices_type_macro(const char *name, uint32_t n, type_t *vars, type_t body)
+
+   Creates a type macro with the given name, arity, type variables, and body.
+
+   **Parameters**
+
+   - *name* is the name of the type macro
+   - *n* is the arity (number of type parameters)
+   - *vars* is an array of *n* distinct type variables
+   - *body* is the type expression that defines the macro
+
+   **Returns**
+
+   The macro's id (a non-negative integer) or -1 if there's an error
+
+   **Error reports**
+
+   - If *n* is zero:
+
+     -- error code: :c:enum:`POS_INT_REQUIRED`
+
+     -- badval := 0
+
+   - If *n* is more than :c:macro:`TYPE_MACRO_MAX_ARITY`:
+
+     -- error code: :c:enum:`TOO_MANY_MACRO_PARAMS`
+
+     -- badval := *n*
+
+   - If *body* or one of *vars[i]* is not a valid type:
+
+     -- error code: :c:enum:`INVALID_TYPE`
+
+     -- type1 := *body* or *vars[i]*
+
+   - If *vars[i]* is not a type variable:
+
+     -- error code: :c:enum:`TYPE_VAR_REQUIRED`
+
+     -- type1 := *vars[i]*
+
+   - If the same variable occurs twice or more in *vars*:
+
+     -- error code: :c:enum:`DUPLICATE_TYPE_VAR`
+
+     -- type1 := the duplicate variable
+
+.. c:function:: type_t yices_instance_type(int32_t cid, uint32_t n, type_t tau[])
+
+   Creates an instance of a type macro or constructor by applying it to type arguments.
+
+   **Parameters**
+
+   - *cid* is the constructor or macro id
+   - *n* is the number of arguments
+   - *tau* is an array of *n* argument types
+
+   **Returns**
+
+   The resulting type or :c:macro:`NULL_TYPE` if there's an error
+
+   **Error reports**
+
+   - If *cid* is not a valid macro or constructor id:
+
+     -- error code: :c:enum:`INVALID_MACRO`
+
+     -- badval := *cid*
+
+   - If *n* is not the same as the macro/constructor arity:
+
+     -- error code: :c:enum:`WRONG_NUMBER_OF_ARGUMENTS`
+
+     -- badval := *n*
+
+   - If one of *tau[i]* is not a valid type:
+
+     -- error code: :c:enum:`INVALID_TYPE`
+
+     -- type1 := *tau[i]*
+
+.. c:function:: int32_t yices_get_macro_by_name(const char *name)
+
+   Gets the macro id for a given name.
+
+   **Parameter**
+
+   - *name* is the name of the macro or constructor
+
+   **Returns**
+
+   The macro's id (a non-negative integer) or -1 if there's no macro or constructor with that name
+
+.. c:function:: void yices_remove_type_macro_name(const char *name)
+
+   Removes the mapping of a name to a macro id.
+
+   **Parameter**
+
+   - *name* is the name of the macro or constructor
+
+   No change is made if no such mapping exists.
+
+.. c:function:: void yices_delete_type_macro(int32_t id)
+
+   Removes a macro with the given id.
+
+   **Parameter**
+
+   - *id* must be a valid macro index (non-negative)
+
+.. c:macro:: TYPE_MACRO_MAX_ARITY
+
+   The maximum arity allowed for type macros and constructors. This is defined as 128.

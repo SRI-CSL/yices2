@@ -43,9 +43,6 @@ typedef struct weq_graph_s {
   /** Array terms */
   ivector_t array_terms;
 
-  /** Array eq terms */
-  ivector_t array_eq_terms;
-
   /** Select terms */
   ivector_t select_terms;
 
@@ -60,6 +57,9 @@ typedef struct weq_graph_s {
 
   /** Value eq_node_id to term (one rep term) */
   int_hmap_t val_id_term_map;
+
+  /** not weakly equivalent cache [array, array, index] -> 1 */
+  tuple_hmap_t not_weak_eq_i_cache;
 
   /** Weak path equalities **/
   ivector_t path_cond;
@@ -96,9 +96,6 @@ void weq_graph_pop(weq_graph_t* weq);
 /** add array term */
 void weq_graph_add_array_term(weq_graph_t* weq, term_t arr);
 
-/** add array equality term */
-void weq_graph_add_array_eq_term(weq_graph_t* weq, term_t arr_eq);
-
 /** add array select term */
 void weq_graph_add_select_term(weq_graph_t* weq, term_t sel);
 
@@ -113,6 +110,9 @@ void weq_graph_clear(weq_graph_t* weq);
 
 /** Return array update index lemma term */
 term_t weq_graph_get_array_update_idx_lemma(weq_graph_t* weq, term_t update_term);
+
+/** Check if all select and arrays terms are fully assigned */
+bool weq_graph_is_all_assigned(weq_graph_t* weq);
 
 /** Check for array conflicts */
 void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict);

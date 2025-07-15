@@ -27,6 +27,8 @@
 #include "utils/int_array_sort2.h"
 #include "mcsat/utils/scope_holder.h"
 
+#include <math.h>
+
 typedef struct {
 
   /** The plugin interface */
@@ -80,6 +82,9 @@ typedef struct {
   /** GC info for clause removal */
   gc_info_t gc_clauses;
 
+  /** GC round */
+  uint32_t gc_round;
+
   struct {
 
     /** Score increase per bump (multiplicative) */
@@ -92,7 +97,7 @@ typedef struct {
     /** Limit on lemma clauses before we ask for gc */
     uint32_t lemma_limit_init;
     /** Increase of the lemma limit after gc */
-    float lemma_limit_factor;
+    float lemma_limit_interval;
 
     /** bump factor for bool vars -- geq 1. Higher number means more weightage **/
     uint32_t bool_var_bump_factor;
@@ -128,10 +133,10 @@ void bool_plugin_heuristics_init(bool_plugin_t* bp) {
 
   // Clause database compact
   bp->heuristic_params.lemma_limit_init = 1000;
-  bp->heuristic_params.lemma_limit_factor = 1.1;
+  bp->heuristic_params.lemma_limit_interval = 100;
 
   // Bool var scoring
-  bp->heuristic_params.bool_var_bump_factor = 5;
+  bp->heuristic_params.bool_var_bump_factor = 20;
 }
 
 static
@@ -398,10 +403,10 @@ void bool_plugin_rescale_clause_scores(bool_plugin_t* bp) {
     clause = bp->lemmas.data[i];
     tag = clause_db_get_tag(&bp->clause_db, clause);
     assert(tag->type == CLAUSE_LEMMA);
-    tag->score /= bp->heuristic_params.lemma_limit_factor;
+    tag->score /= bp->heuristic_params.clause_score_limit;
   }
 
-  bp->heuristic_params.clause_score_bump_factor /= bp->heuristic_params.lemma_limit_factor;
+  bp->heuristic_params.clause_score_bump_factor /= bp->heuristic_params.clause_score_limit;
 }
 
 static
@@ -866,6 +871,7 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
 
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
   clause_db_t* db = &bp->clause_db;
+  const mcsat_trail_t* trail = bp->ctx->trail;
 
   uint32_t i;
   float act_threshold;
@@ -905,13 +911,16 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
-    // keep binary clauses
-    for (i = 0; i < bp->lemmas.size; ++ i) {
+    // keep binary clauses for a little longer -- one more round
+    for (i = 0; bp->gc_round % 2 != 0 && i < bp->lemmas.size; ++ i) {
       clause_ref = bp->lemmas.data[i];
       assert(clause_db_is_clause(db, clause_ref, true));
       c = clause_db_get_clause(&bp->clause_db, clause_ref);
-      if (c->size <= 2) {
-	gc_info_mark(&bp->gc_clauses, clause_ref);
+      if (c->size == 2) {
+        if (!literal_is_true(c->literals[0], trail) &&
+            !literal_is_true(c->literals[1], trail)) {
+          gc_info_mark(&bp->gc_clauses, clause_ref);
+        }
       }
     }
   }
@@ -1004,12 +1013,14 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   case MCSAT_SOLVER_START:
     // Re-initialize the heuristics
     bp->lemmas_limit = bp->heuristic_params.lemma_limit_init;
+    bp->gc_round = 0;
     break;
   case MCSAT_SOLVER_RESTART:
     // Check if clause compaction needed
     if (bp->lemmas.size > bp->lemmas_limit) {
       bp->ctx->request_gc(bp->ctx);
-      bp->lemmas_limit *= bp->heuristic_params.lemma_limit_factor;
+      bp->gc_round++;
+      bp->lemmas_limit += bp->heuristic_params.lemma_limit_interval * sqrt(bp->gc_round);
     }
     break;
   case MCSAT_SOLVER_CONFLICT:

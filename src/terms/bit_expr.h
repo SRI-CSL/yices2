@@ -46,6 +46,7 @@
 #include <stdbool.h>
 #include <assert.h>
 
+#include "utils/indexed_table.h"
 #include "utils/int_hash_tables.h"
 #include "utils/int_vectors.h"
 
@@ -167,10 +168,15 @@ typedef struct select_node_s {
   int32_t var;
 } select_node_t;
 
-typedef union node_desc_u {
-  int32_t var;
-  select_node_t sel;
-  bit_t c[2];
+typedef struct node_desc_s {
+  union {
+    indexed_table_elem_t elem;
+    int32_t var;
+    select_node_t sel;
+    bit_t c[2];
+  };
+  int32_t map;
+  uint8_t kind;
 } node_desc_t;
 
 
@@ -199,12 +205,7 @@ typedef union node_desc_u {
  * - when the counter is zero we reset the whole table
  */
 typedef struct node_table_s {
-  uint8_t *kind;
-  node_desc_t *desc;
-  int32_t *map;
-  uint32_t size;
-  uint32_t nelems;
-  int32_t free_idx;
+  indexed_table_t nodes;
 
   uint32_t ref_counter;
 
@@ -243,7 +244,9 @@ extern void delete_node_table(node_table_t *table);
  */
 extern void reset_node_table(node_table_t *table);
 
-
+static inline uint32_t node_table_nelems(const node_table_t *table) {
+  return indexed_table_nelems(&table->nodes);
+}
 
 
 /*
@@ -362,16 +365,20 @@ static inline void node_table_clear_refcount(node_table_t *table) {
  * ACCESS TO THE TABLE
  */
 static inline bool valid_node(node_table_t *table, node_t x) {
-  return 0 <= x && x < table->nelems;
+  return 0 <= x && x < node_table_nelems(table);
+}
+
+static inline node_desc_t *node_table_elem(node_table_t *table, node_t x) {
+  return indexed_table_elem(node_desc_t, &table->nodes, x);
 }
 
 static inline node_kind_t node_kind(node_table_t *table, node_t x) {
   assert(valid_node(table, x));
-  return table->kind[x];
+  return node_table_elem(table, x)->kind;
 }
 
 static inline bool good_node(node_table_t *table, node_t x) {
-  return valid_node(table, x) && table->kind[x] != UNUSED_NODE;
+  return valid_node(table, x) && node_kind(table, x) != UNUSED_NODE;
 }
 
 static inline bool is_constant_node(node_table_t *table, node_t x) {
@@ -414,12 +421,12 @@ static inline bool is_nonleaf_node(node_table_t *table, node_t x) {
  */
 static inline int32_t map_of_node(node_table_t *table, node_t x) {
   assert(good_node(table, x));
-  return table->map[x];
+  return node_table_elem(table, x)->map;
 }
 
 static inline void set_map_of_node(node_table_t *table, node_t x, int32_t v) {
   assert(good_node(table, x));
-  table->map[x] = v;
+  node_table_elem(table, x)->map = v;
 }
 
 
@@ -429,7 +436,7 @@ static inline void set_map_of_node(node_table_t *table, node_t x, int32_t v) {
  */
 static inline int32_t var_of_node(node_table_t *table, node_t x) {
   assert(is_variable_node(table, x));
-  return table->desc[x].var;
+  return node_table_elem(table, x)->var;
 }
 
 
@@ -438,7 +445,7 @@ static inline int32_t var_of_node(node_table_t *table, node_t x) {
  */
 static inline select_node_t *select_of_node(node_table_t *table, node_t x) {
   assert(is_select_node(table, x));
-  return &table->desc[x].sel;
+  return &node_table_elem(table, x)->sel;
 }
 
 static inline int32_t var_of_select_node(node_table_t *table, node_t x) {
@@ -457,13 +464,13 @@ static inline uint32_t index_of_select_node(node_table_t *table, node_t x) {
  */
 static inline bit_t *children_of_node(node_table_t *table, node_t x) {
   assert(is_nonleaf_node(table, x));
-  return table->desc[x].c;
+  return node_table_elem(table, x)->c;
 }
 
 // child 0 or 1
 static inline bit_t child_of_node(node_table_t *table, node_t x, uint32_t k) {
-  assert(is_nonleaf_node(table, x) && k < 2);
-  return table->desc[x].c[k];
+  assert(k < 2);
+  return children_of_node(table, x)[k];
 }
 
 // left child = child 0, right child = child 1

@@ -196,7 +196,7 @@ static int32_t test_dl_profiling(smt_benchmark_t *bench) {
     print_internalization_code(code);
   }
 
-  printf("term table: %"PRIu32" elements\n", context.terms->nelems);
+  printf("term table: %"PRIu32" elements\n", nterms(context.terms));
 
   profile = context.dl_profile;
   if (profile != NULL) {

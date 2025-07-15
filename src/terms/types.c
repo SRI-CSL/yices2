@@ -100,20 +100,12 @@ static inline void delete_descriptor(type_macro_t *d) {
  *   on the first addition.
  */
 static void init_type_mtbl(type_mtbl_t *table, uint32_t n) {
-  void **tmp;
+  static const indexed_table_vtbl_t vtbl = {
+    .elem_size = sizeof(type_mtbl_elem_t),
+    .max_elems = TYPE_MACRO_MAX_SIZE,
+  };
 
-  tmp = NULL;
-  if (n > 0) {
-    if (n > TYPE_MACRO_MAX_SIZE) {
-      out_of_memory();
-    }
-    tmp = (void **) safe_malloc(n * sizeof(void*));
-  }
-
-  table->data = tmp;
-  table->size = n;
-  table->nelems = 0;
-  table->free_idx = -1;
+  indexed_table_init(&table->macros, n, &vtbl);
 
   init_stbl(&table->stbl, 0);
   init_tuple_hmap(&table->cache, 0);
@@ -121,24 +113,33 @@ static void init_type_mtbl(type_mtbl_t *table, uint32_t n) {
   stbl_set_finalizer(&table->stbl, macro_name_finalizer);
 }
 
+static void type_mtbl_clear_elem(indexed_table_elem_t *elem,
+				 index_t i,
+				 void *data) {
+  ((type_mtbl_elem_t *) elem)->data = NULL;
+}
+
+static void type_mtbl_delete_macros(type_mtbl_t *table) {
+  /* Clear elements used for the free list. */
+  indexed_table_for_each_free_elem(&table->macros,
+				   type_mtbl_clear_elem,
+				   /*data=*/NULL);
+
+  /* Remove all of the macros. */
+  uint32_t i;
+  for (i=0; i<type_macro_nelems(table); i++) {
+    type_macro_t *m = type_macro_unchecked(table, i);
+    if (m)
+      delete_descriptor(m);
+  }
+}
 
 /*
  * Delete the table and its content
  */
 static void delete_type_mtbl(type_mtbl_t *table) {
-  void *p;
-  uint32_t i, n;
-
-  n = table->nelems;
-  for (i=0; i<n; i++) {
-    p = table->data[i];
-    if (! has_int_tag(p)) {
-      delete_descriptor(p);
-    }
-  }
-
-  safe_free(table->data);
-  table->data = NULL;
+  type_mtbl_delete_macros(table);
+  indexed_table_destroy(&table->macros);
 
   delete_stbl(&table->stbl);
   delete_tuple_hmap(&table->cache);
@@ -149,19 +150,8 @@ static void delete_type_mtbl(type_mtbl_t *table) {
  * Empty the table: delete all macros and macro instances
  */
 static void reset_type_mtbl(type_mtbl_t *table) {
-  void *p;
-  uint32_t i, n;
-
-  n = table->nelems;
-  for (i=0; i<n; i++) {
-    p = table->data[i];
-    if (! has_int_tag(p)) {
-      delete_descriptor(p);
-    }
-  }
-
-  table->nelems = 0;
-  table->free_idx = -1;
+  type_mtbl_delete_macros(table);
+  indexed_table_clear(&table->macros);
 
   reset_stbl(&table->stbl);
   reset_tuple_hmap(&table->cache);
@@ -169,51 +159,13 @@ static void reset_type_mtbl(type_mtbl_t *table) {
 
 
 /*
- * Make the table larger
- * - if this is the first allocation: allocate a data array of default size
- * - otherwise, make the data array 50% larger
- */
-static void extend_type_mtbl(type_mtbl_t *table) {
-  void **tmp;
-  uint32_t n;
-
-  n = table->size;
-  if (n == 0) {
-    n = TUPLE_HMAP_DEF_SIZE;
-    assert(n <= TYPE_MACRO_MAX_SIZE);
-    tmp = (void **) safe_malloc(n * sizeof(void*));
-  } else {
-    n ++;
-    n += n>>1;
-    if (n > TYPE_MACRO_MAX_SIZE) {
-      out_of_memory();
-    }
-    tmp = (void **) safe_realloc(table->data, n * sizeof(void*));
-  }
-
-  table->data = tmp;
-  table->size = n;
-}
-
-
-/*
  * Get a macro index
  */
-static int32_t allocate_macro_id(type_mtbl_t *table) {
-  int32_t i;
+static inline int32_t allocate_macro_id(type_mtbl_t *table,
+					type_macro_t *d) {
+  int32_t i = indexed_table_alloc(&table->macros);
 
-  i = table->free_idx;
-  if (i >= 0) {
-    assert(i < table->nelems);
-    table->free_idx = untag_i32(table->data[i]);
-  } else {
-    i = table->nelems;
-    table->nelems ++;
-    if (i >= table->size) {
-      extend_type_mtbl(table);
-      assert(i < table->size);
-    }
-  }
+  indexed_table_elem(type_mtbl_elem_t, &table->macros, i)->data = d;
 
   return i;
 }
@@ -224,10 +176,8 @@ static int32_t allocate_macro_id(type_mtbl_t *table) {
  * - this must be the index of a live descriptor
  */
 static void free_macro_id(type_mtbl_t *table, int32_t id) {
-  assert(good_type_macro(table, id));
-  delete_descriptor(table->data[id]);
-  table->data[id] = tag_i32(table->free_idx);
-  table->free_idx = id;
+  delete_descriptor(type_macro_def(table, id));
+  indexed_table_free(&table->macros, id);
 }
 
 
@@ -247,7 +197,6 @@ static void typename_finalizer(stbl_rec_t *r) {
   string_decref(r->string);
 }
 
-
 /*
  * Initialize table, with initial size = n.
  */
@@ -257,17 +206,15 @@ static void type_table_init(type_table_t *table, uint32_t n) {
     out_of_memory();
   }
 
-  table->kind = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
-  table->desc = (type_desc_t *) safe_malloc(n * sizeof(type_desc_t));
-  table->card = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
-  table->flags = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
-  table->name = (char **) safe_malloc(n * sizeof(char *));
-  table->depth = (uint32_t *) safe_malloc(n * sizeof(uint32_t));
+  /* The indexed_table_elem_t must be first. */
+  assert(offsetof(type_desc_t, elem) == 0);
 
-  table->size = n;
-  table->nelems = 0;
-  table->free_idx = NULL_TYPE;
-  table->live_types = 0;
+  static const indexed_table_vtbl_t vtbl = {
+    .elem_size = sizeof(type_desc_t),
+    .max_elems = YICES_MAX_TYPES,
+  };
+  
+  indexed_table_init(&table->types, n, &vtbl);
 
   init_int_htbl(&table->htbl, 0); // use default size
   init_stbl(&table->stbl, 0);     // default size too
@@ -286,52 +233,23 @@ static void type_table_init(type_table_t *table, uint32_t n) {
 
 
 /*
- * Extend the table: make it 50% larger
- */
-static void type_table_extend(type_table_t *table) {
-  uint32_t n;
-
-  /*
-   * new size = 1.5 * (old_size + 1) approximately
-   * this computation can't overflow since old_size < YICES_MAX_TYPE
-   * this also ensures that new size > old size (even if old_size <= 1).
-   */
-  n = table->size + 1;
-  n += n >> 1;
-  if (n > YICES_MAX_TYPES) {
-    out_of_memory();
-  }
-
-  table->kind = (uint8_t *) safe_realloc(table->kind, n * sizeof(uint8_t));
-  table->desc = (type_desc_t *) safe_realloc(table->desc, n * sizeof(type_desc_t));
-  table->card = (uint32_t *) safe_realloc(table->card, n * sizeof(uint32_t));
-  table->flags = (uint8_t *) safe_realloc(table->flags, n * sizeof(uint8_t));
-  table->name = (char **) safe_realloc(table->name, n * sizeof(char *));
-  table->depth = (uint32_t *) safe_realloc(table->depth, n * sizeof(uint32_t));
-
-  table->size = n;
-}
-
-
-/*
  * Get a free type id and initializes its name to NULL.
  * The other fields are not initialized.
  */
-static type_t allocate_type_id(type_table_t *table) {
-  type_t i;
+static type_t allocate_type_id(type_table_t *table,
+			       type_kind_t kind,
+			       uint32_t card,
+			       uint32_t depth,
+			       uint8_t flags) {
+  type_t i = indexed_table_alloc(&table->types);
 
-  i = table->free_idx;
-  if (i >= 0) {
-    table->free_idx = table->desc[i].next;
-  } else {
-    i = table->nelems;
-    table->nelems ++;
-    if (i >= table->size) {
-      type_table_extend(table);
-    }
-  }
-  table->name[i] = NULL;
-  table->live_types ++;
+  *type_desc(table, i) = (type_desc_t) {
+    .kind = kind,
+    .card = card,
+    .depth = depth,
+    .flags = flags,
+    .name = NULL
+  };
 
   return i;
 }
@@ -341,7 +259,9 @@ static type_t allocate_type_id(type_table_t *table) {
  * Erase type i: free its descriptor and add i to the free list
  */
 static void erase_type(type_table_t *table, type_t i) {
-  switch (table->kind[i]) {
+  type_desc_t *desc = type_desc(table, i);
+  
+  switch (desc->kind) {
   case UNUSED_TYPE: // already deleted
   case BOOL_TYPE:
   case INT_TYPE:
@@ -353,24 +273,26 @@ static void erase_type(type_table_t *table, type_t i) {
   case UNINTERPRETED_TYPE:
     break;
 
+  case FF_TYPE:
+    q_clear((rational_t*)type_desc(table, i)->ptr);
+    safe_free(type_desc(table, i)->ptr);
+    break;
+
   case TUPLE_TYPE:
   case FUNCTION_TYPE:
   case INSTANCE_TYPE:
-    safe_free(table->desc[i].ptr);
+    safe_free(desc->ptr);
     break;
   }
 
-  if (table->name[i] != NULL) {
-    string_decref(table->name[i]);
-    table->name[i] = NULL;
+  if (desc->name != NULL) {
+    string_decref(desc->name);
+    desc->name = NULL;
   }
 
-  table->kind[i] = UNUSED_TYPE;
-  table->desc[i].next = table->free_idx;
-  table->free_idx = i;
+  desc->kind = UNUSED_TYPE;
 
-  assert(table->live_types > 0);
-  table->live_types --;
+  indexed_table_free(&table->types, i);
 }
 
 
@@ -578,29 +500,20 @@ static inline uint32_t depth_instance_type(type_table_t *table, uint32_t n, cons
 static void add_primitive_types(type_table_t *table) {
   type_t i;
 
-  i = allocate_type_id(table);
+  i = allocate_type_id(table, BOOL_TYPE, /*card=*/2, /*depth=*/0,
+		       SMALL_TYPE_FLAGS);
+  type_desc(table, i)->ptr = NULL;
   assert(i == bool_id);
-  table->kind[i] = BOOL_TYPE;
-  table->desc[i].ptr = NULL;
-  table->card[i] = 2;
-  table->flags[i] = SMALL_TYPE_FLAGS;
-  table->depth[i] = 0;
 
-  i = allocate_type_id(table);
+  i = allocate_type_id(table, INT_TYPE, /*card=*/UINT32_MAX, /*depth=*/0,
+		       INFINITE_TYPE_FLAGS | TYPE_IS_MINIMAL_MASK);
+  type_desc(table, i)->ptr = NULL;
   assert(i == int_id);
-  table->kind[i] = INT_TYPE;
-  table->desc[i].ptr = NULL;
-  table->card[i] = UINT32_MAX;
-  table->flags[i] = (INFINITE_TYPE_FLAGS | TYPE_IS_MINIMAL_MASK);
-  table->depth[i] = 0;
 
-  i = allocate_type_id(table);
+  i = allocate_type_id(table, REAL_TYPE, /*card=*/UINT32_MAX, /*depth=*/0,
+		       INFINITE_TYPE_FLAGS | TYPE_IS_MAXIMAL_MASK);
+  type_desc(table, i)->ptr = NULL;
   assert(i == real_id);
-  table->kind[i] = REAL_TYPE;
-  table->desc[i].ptr = NULL;
-  table->card[i] = UINT32_MAX;
-  table->flags[i] = (INFINITE_TYPE_FLAGS | TYPE_IS_MAXIMAL_MASK);
-  table->depth[i] = 0;
 }
 
 
@@ -611,25 +524,42 @@ static void add_primitive_types(type_table_t *table) {
  * - k must be positive and no more than YICES_MAX_BVSIZE
  */
 static type_t new_bitvector_type(type_table_t *table, uint32_t k) {
-  type_t i;
-
   assert(0 < k && k <= YICES_MAX_BVSIZE);
 
-  i = allocate_type_id(table);
-  table->kind[i] = BITVECTOR_TYPE;
-  table->desc[i].integer = k;
-  table->depth[i] = 0;
-  if (k < 32) {
-    table->card[i] = ((uint32_t) 1) << k;
-    table->flags[i] = SMALL_TYPE_FLAGS;
-  } else {
-    table->card[i] = UINT32_MAX;
-    table->flags[i] = LARGE_TYPE_FLAGS;
-  }
+  type_t i = allocate_type_id(table, BITVECTOR_TYPE,
+			      /*card=*/k < 32 ? ((uint32_t) 1) << k : UINT32_MAX,
+			      /*depth=*/0,
+			      k < 32 ? SMALL_TYPE_FLAGS : LARGE_TYPE_FLAGS);
+  type_desc(table, i)->integer = k;
 
   return i;
 }
 
+/*
+ * Add type (FiniteField k) and return its id
+ * - k must be positive
+ */
+static type_t new_finite_field_type(type_table_t *table, const rational_t *order) {
+  assert(q_is_integer(order) && q_is_pos(order));
+
+  rational_t *mod = safe_malloc(sizeof(rational_t));
+  q_init(mod);
+  q_set(mod, order);
+
+  mpz_t z;
+  mpz_init(z);
+  q_get_mpz(mod, z);
+
+  bool small = mpz_fits_ulong_p(z);
+  type_t i = allocate_type_id(table, FF_TYPE,
+      /*card=*/small ? mpz_get_ui(z) : UINT32_MAX,
+      /*depth=*/0,
+      /*flags=*/small ? SMALL_TYPE_FLAGS : LARGE_TYPE_FLAGS);
+  type_desc(table, i)->ptr = mod;
+
+  mpz_clear(z);
+  return i;
+}
 
 /*
  * Add a scalar type and return its id
@@ -637,20 +567,11 @@ static type_t new_bitvector_type(type_table_t *table, uint32_t k) {
  * - k must be positive.
  */
 type_t new_scalar_type(type_table_t *table, uint32_t k) {
-  type_t i;
-
   assert(k > 0);
 
-  i = allocate_type_id(table);
-  table->kind[i] = SCALAR_TYPE;
-  table->desc[i].integer = k;
-  table->card[i] = k;
-  table->depth[i] = 0;
-  if (k == 1) {
-    table->flags[i] = UNIT_TYPE_FLAGS;
-  } else {
-    table->flags[i] = SMALL_TYPE_FLAGS;
-  }
+  type_t i = allocate_type_id(table, SCALAR_TYPE, /*card=*/k, /*depth=*/0,
+			      k == 1 ? UNIT_TYPE_FLAGS : SMALL_TYPE_FLAGS);
+  type_desc(table, i)->integer = k;
 
   return i;
 }
@@ -661,14 +582,10 @@ type_t new_scalar_type(type_table_t *table, uint32_t k) {
  * - the type is infinite and both minimal and maximal
  */
 type_t new_uninterpreted_type(type_table_t *table) {
-  type_t i;
-
-  i = allocate_type_id(table);
-  table->kind[i] = UNINTERPRETED_TYPE;
-  table->desc[i].ptr = NULL;
-  table->card[i] = UINT32_MAX;
-  table->flags[i] = (INFINITE_TYPE_FLAGS | TYPE_IS_MAXIMAL_MASK | TYPE_IS_MINIMAL_MASK);
-  table->depth[i] = 0;
+  type_t i = allocate_type_id(table, UNINTERPRETED_TYPE, /*card=*/UINT32_MAX,
+			      /*depth=*/0,
+			      /*flags=*/INFINITE_TYPE_FLAGS | TYPE_IS_MAXIMAL_MASK | TYPE_IS_MINIMAL_MASK);
+  type_desc(table, i)->ptr = NULL;
 
   return i;
 }
@@ -680,7 +597,6 @@ type_t new_uninterpreted_type(type_table_t *table) {
 static type_t new_tuple_type(type_table_t *table, uint32_t n, const type_t *e) {
   tuple_type_t *d;
   uint64_t card;
-  type_t i;
   uint32_t j, flag;
 
   assert(0 < n && n <= YICES_MAX_ARITY);
@@ -688,10 +604,6 @@ static type_t new_tuple_type(type_table_t *table, uint32_t n, const type_t *e) {
   d = (tuple_type_t *) safe_malloc(sizeof(tuple_type_t) + n * sizeof(type_t));
   d->nelem = n;
   for (j=0; j<n; j++) d->elem[j] = e[j];
-
-  i = allocate_type_id(table);
-  table->kind[i] = TUPLE_TYPE;
-  table->desc[i].ptr = d;
 
   /*
    * set flags and card
@@ -725,9 +637,11 @@ static type_t new_tuple_type(type_table_t *table, uint32_t n, const type_t *e) {
   }
 
   assert(0 < card && card <= UINT32_MAX);
-  table->card[i] = card;
-  table->flags[i] = flag;
-  table->depth[i] = depth_tuple_type(table, n, e);
+
+  type_t i = allocate_type_id(table, TUPLE_TYPE, card,
+			      depth_tuple_type(table, n, e),
+			      flag);
+  type_desc(table, i)->ptr = d;
 
   return i;
 }
@@ -739,7 +653,6 @@ static type_t new_tuple_type(type_table_t *table, uint32_t n, const type_t *e) {
 static type_t new_function_type(type_table_t *table, uint32_t n, const type_t *e, type_t r) {
   function_type_t *d;
   uint64_t card;
-  type_t i;
   uint32_t j, flag, rflag, minmax;
 
   assert(0 < n && n <= YICES_MAX_ARITY);
@@ -748,10 +661,6 @@ static type_t new_function_type(type_table_t *table, uint32_t n, const type_t *e
   d->range = r;
   d->ndom = n;
   for (j=0; j<n; j++) d->domain[j] = e[j];
-
-  i = allocate_type_id(table);
-  table->kind[i] = FUNCTION_TYPE;
-  table->desc[i].ptr = d;
 
   /*
    * Three of the function type's flags are inherited from the range:
@@ -807,9 +716,11 @@ static type_t new_function_type(type_table_t *table, uint32_t n, const type_t *e
   }
 
   assert(0 < card && card <= UINT32_MAX);
-  table->card[i] = card;
-  table->flags[i] = flag;
-  table->depth[i] = depth_function_type(table, n, e, r);
+
+  type_t i = allocate_type_id(table, FUNCTION_TYPE, card,
+			      depth_function_type(table, n, e, r),
+			      flag);
+  type_desc(table, i)->ptr = d;
 
   return i;
 }
@@ -819,14 +730,9 @@ static type_t new_function_type(type_table_t *table, uint32_t n, const type_t *e
  * Add a new type variable of the given id
  */
 static type_t new_type_variable(type_table_t *table, uint32_t id) {
-  type_t i;
-
-  i = allocate_type_id(table);
-  table->kind[i] = VARIABLE_TYPE;
-  table->desc[i].integer = id;
-  table->card[i] = UINT32_MAX;         // card is not defined
-  table->flags[i] = FREE_TYPE_FLAGS;
-  table->depth[i] = 0;
+  type_t i = allocate_type_id(table, VARIABLE_TYPE, /*card=*/UINT32_MAX,
+			      /*depth=*/0, FREE_TYPE_FLAGS);
+  type_desc(table, i)->integer = id;
 
   return i;
 }
@@ -843,7 +749,6 @@ static type_t new_type_variable(type_table_t *table, uint32_t id) {
  */
 static type_t new_instance_type(type_table_t *table, int32_t cid, uint32_t n, const type_t *param) {
   instance_type_t *d;
-  type_t i;
   uint32_t j, flag;
 
   assert(0 < n && n <= YICES_MAX_ARITY);
@@ -856,19 +761,17 @@ static type_t new_instance_type(type_table_t *table, int32_t cid, uint32_t n, co
     d->param[j] = param[j];
   }
 
-  i = allocate_type_id(table);
-  table->kind[i] = INSTANCE_TYPE;
-  table->desc[i].ptr = d;
-  table->card[i] = UINT32_MAX;
-
   flag = type_flags_conjunct(table, n, param);
   assert((flag & TYPE_IS_GROUND_MASK) || flag == FREE_TYPE_FLAGS);
   if (flag & TYPE_IS_GROUND_MASK) {
     // set flags as for uninterpreted types
     flag = (INFINITE_TYPE_FLAGS | TYPE_IS_MAXIMAL_MASK | TYPE_IS_MINIMAL_MASK);
   }
-  table->flags[i] = flag;
-  table->depth[i] = depth_instance_type(table, n, param);
+
+  type_t i = allocate_type_id(table, INSTANCE_TYPE, /*card=*/UINT32_MAX,
+			      depth_instance_type(table, n, param),
+			      flag);
+  type_desc(table, i)->ptr = d;
 
   return i;
 }
@@ -887,6 +790,12 @@ typedef struct bv_type_hobj_s {
   type_table_t *tbl;
   uint32_t size;
 } bv_type_hobj_t;
+
+typedef struct ff_type_hobj_s {
+  int_hobj_t m;
+  type_table_t *tbl;
+  const rational_t *order;
+} ff_type_hobj_t;
 
 typedef struct tuple_type_hobj_s {
   int_hobj_t m;
@@ -925,6 +834,11 @@ static uint32_t hash_bv_type(bv_type_hobj_t *p) {
   return jenkins_hash_pair(p->size, 0, 0x7838abe2);
 }
 
+static uint32_t hash_ff_type(ff_type_hobj_t *p) {
+  assert(q_is_integer(p->order));
+  return jenkins_hash_pair(q_hash_numerator(p->order), 0, 0x78210bea);
+}
+
 static uint32_t hash_tuple_type(tuple_type_hobj_t *p) {
   return jenkins_hash_intarray2(p->elem, p->n, 0x8193ea92);
 }
@@ -954,6 +868,11 @@ static uint32_t hash_instance_type(instance_type_hobj_t *p) {
  */
 static uint32_t hash_bvtype(int32_t size) {
   return jenkins_hash_pair(size, 0, 0x7838abe2);
+}
+
+static uint32_t hash_fftype(rational_t *order) {
+  assert(q_is_integer(order));
+  return jenkins_hash_pair(q_hash_numerator(order), 0, 0x78210bea);
 }
 
 static uint32_t hash_tupletype(tuple_type_t *p) {
@@ -986,7 +905,14 @@ static bool eq_bv_type(bv_type_hobj_t *p, type_t i) {
   type_table_t *table;
 
   table = p->tbl;
-  return table->kind[i] == BITVECTOR_TYPE && table->desc[i].integer == p->size;
+  return type_desc(table, i)->kind == BITVECTOR_TYPE && type_desc(table, i)->integer == p->size;
+}
+
+static bool eq_ff_type(ff_type_hobj_t *p, type_t i) {
+  type_table_t *table;
+
+  table = p->tbl;
+  return type_kind(table, i) == FF_TYPE && q_eq(type_desc(table, i)->ptr, p->order);
 }
 
 static bool eq_tuple_type(tuple_type_hobj_t *p, type_t i) {
@@ -995,9 +921,9 @@ static bool eq_tuple_type(tuple_type_hobj_t *p, type_t i) {
   int32_t j;
 
   table = p->tbl;
-  if (table->kind[i] != TUPLE_TYPE) return false;
+  if (type_desc(table, i)->kind != TUPLE_TYPE) return false;
 
-  d = (tuple_type_t *) table->desc[i].ptr;
+  d = (tuple_type_t *) type_desc(table, i)->ptr;
   if (d->nelem != p->n) return false;
 
   for (j=0; j<p->n; j++) {
@@ -1013,9 +939,9 @@ static bool eq_function_type(function_type_hobj_t *p, type_t i) {
   int32_t j;
 
   table = p->tbl;
-  if (table->kind[i] != FUNCTION_TYPE) return false;
+  if (type_desc(table, i)->kind != FUNCTION_TYPE) return false;
 
-  d = (function_type_t *) table->desc[i].ptr;
+  d = (function_type_t *) type_desc(table, i)->ptr;
   if (d->range != p->range || d->ndom != p->n) return false;
 
   for (j=0; j<p->n; j++) {
@@ -1029,7 +955,7 @@ static bool eq_type_var(type_var_hobj_t *p, type_t i) {
   type_table_t *table;
 
   table = p->tbl;
-  return table->kind[i] == VARIABLE_TYPE && table->desc[i].integer == p->id;
+  return type_desc(table, i)->kind == VARIABLE_TYPE && type_desc(table, i)->integer == p->id;
 }
 
 static bool eq_instance_type(instance_type_hobj_t *p, type_t i) {
@@ -1038,9 +964,9 @@ static bool eq_instance_type(instance_type_hobj_t *p, type_t i) {
   uint32_t j;
 
   table = p->tbl;
-  if (table->kind[i] != INSTANCE_TYPE) return false;
+  if (type_desc(table, i)->kind != INSTANCE_TYPE) return false;
 
-  d = (instance_type_t *) table->desc[i].ptr;
+  d = (instance_type_t *) type_desc(table, i)->ptr;
   if (d->cid != p->cid || d->arity != p->arity) return false;
 
   for (j=0; j<p->arity; j++) {
@@ -1056,6 +982,10 @@ static bool eq_instance_type(instance_type_hobj_t *p, type_t i) {
  */
 static type_t build_bv_type(bv_type_hobj_t *p) {
   return new_bitvector_type(p->tbl, p->size);
+}
+
+static type_t build_ff_type(ff_type_hobj_t *p) {
+  return new_finite_field_type(p->tbl, p->order);
 }
 
 static type_t build_tuple_type(tuple_type_hobj_t *p) {
@@ -1097,39 +1027,25 @@ void delete_type_table(type_table_t *table) {
   uint32_t i;
 
   // decrement refcount for all names
-  for (i=0; i<table->nelems; i++) {
-    if (table->name[i] != NULL) {
-      string_decref(table->name[i]);
+  for (i=0; i<ntypes(table); i++) {
+    if (type_desc(table, i)->name != NULL) {
+      string_decref(type_desc(table, i)->name);
     }
   }
 
   // delete all allocated descriptors
-  for (i=0; i<table->nelems; i++) {
-    switch (table->kind[i]) {
+  for (i=0; i<ntypes(table); i++) {
+    switch (type_desc(table, i)->kind) {
     case TUPLE_TYPE:
     case FUNCTION_TYPE:
     case INSTANCE_TYPE:
-      safe_free(table->desc[i].ptr);
+      safe_free(type_desc(table, i)->ptr);
       break;
 
     default:
       break;
     }
   }
-
-  safe_free(table->kind);
-  safe_free(table->desc);
-  safe_free(table->card);
-  safe_free(table->flags);
-  safe_free(table->name);
-  safe_free(table->depth);
-
-  table->kind = NULL;
-  table->desc = NULL;
-  table->card = NULL;
-  table->flags = NULL;
-  table->name = NULL;
-  table->depth = NULL;
 
   delete_int_htbl(&table->htbl);
   delete_stbl(&table->stbl);
@@ -1157,6 +1073,8 @@ void delete_type_table(type_table_t *table) {
     safe_free(table->macro_tbl);
     table->macro_tbl = NULL;
   }
+
+  indexed_table_destroy(&table->types);
 }
 
 
@@ -1167,19 +1085,19 @@ void reset_type_table(type_table_t *table) {
   uint32_t i;
 
   // decrement ref counts
-  for (i=0; i<table->nelems; i++) {
-    if (table->name[i] != NULL) {
-      string_decref(table->name[i]);
+  for (i=0; i<ntypes(table); i++) {
+    if (type_desc(table, i)->name != NULL) {
+      string_decref(type_desc(table, i)->name);
     }
   }
 
   // delete descriptors
-  for (i=0; i<table->nelems; i++) {
-    switch (table->kind[i]) {
+  for (i=0; i<ntypes(table); i++) {
+    switch (type_desc(table, i)->kind) {
     case TUPLE_TYPE:
     case FUNCTION_TYPE:
     case INSTANCE_TYPE:
-      safe_free(table->desc[i].ptr);
+      safe_free(type_desc(table, i)->ptr);
       break;
 
     default:
@@ -1203,9 +1121,7 @@ void reset_type_table(type_table_t *table) {
     reset_type_mtbl(table->macro_tbl);
   }
 
-  table->nelems = 0;
-  table->free_idx = NULL_TYPE;
-  table->live_types = 0;
+  indexed_table_clear(&table->types);
   add_primitive_types(table);
 }
 
@@ -1224,6 +1140,36 @@ type_t bv_type(type_table_t *table, uint32_t size) {
   bv_hobj.tbl = table;
   bv_hobj.size = size;
   return int_htbl_get_obj(&table->htbl, &bv_hobj.m);
+}
+
+/*
+ * FiniteField type
+ * - order must be a positive prime
+ */
+type_t ff_type(type_table_t *table, mpz_t order) {
+  rational_t mod;
+
+  q_init(&mod);
+  q_set_mpz(&mod, order);
+  type_t result = ff_type_r(table, &mod);
+  q_clear(&mod);
+  return result;
+}
+
+/*
+ * The same as above, but accepts a rational_t
+ */
+type_t ff_type_r(type_table_t *table, const rational_t *order) {
+  ff_type_hobj_t ff_hobj;
+
+  assert(q_is_integer(order) && q_is_pos(order));
+
+  ff_hobj.m.hash = (hobj_hash_t) hash_ff_type;
+  ff_hobj.m.eq = (hobj_eq_t) eq_ff_type;
+  ff_hobj.m.build = (hobj_build_t) build_ff_type;
+  ff_hobj.tbl = table;
+  ff_hobj.order = order; // build_ff_type copies the mod on creation
+  return int_htbl_get_obj(&table->htbl, &ff_hobj.m);
 }
 
 /*
@@ -1794,6 +1740,7 @@ bool type_matcher_add_constraint(type_matcher_t *matcher, type_t tau, type_t sig
   case BOOL_TYPE:
   case INT_TYPE:
   case BITVECTOR_TYPE:
+  case FF_TYPE:
   case SCALAR_TYPE:
   case UNINTERPRETED_TYPE:
     // tau is a minimal type to (sigma subtype of tau) is the same as tau == sigma
@@ -2005,8 +1952,8 @@ bool types_match(type_table_t *table, type_t tau, type_t sigma, int_hmap_t *subs
  *   in memalloc.h).
  */
 void set_type_name(type_table_t *table, type_t i, char *name) {
-  if (table->name[i] == NULL) {
-    table->name[i] = name;
+  if (type_desc(table, i)->name == NULL) {
+    type_desc(table, i)->name = name;
     string_incref(name);
   }
   stbl_add(&table->stbl, name, i);
@@ -2035,12 +1982,12 @@ void remove_type_name(type_table_t *table, const char *name) {
 void clear_type_name(type_table_t *table, type_t t) {
   char *name;
 
-  name = table->name[t];
+  name = type_desc(table, t)->name;
   if (name != NULL) {
     if (stbl_find(&table->stbl, name) == t) {
       stbl_remove(&table->stbl, name);
     }
-    table->name[t] = NULL;
+    type_desc(table, t)->name = NULL;
     string_decref(name);
   }
 }
@@ -2131,20 +2078,27 @@ static type_t cheap_sup(type_table_t *table, type_t tau1, type_t tau2) {
     return real_id;
   }
 
-  switch (table->kind[tau1]) {
+  switch (type_desc(table, tau1)->kind) {
   case TUPLE_TYPE:
-    if (table->kind[tau2] != TUPLE_TYPE ||
+    if (type_desc(table, tau2)->kind != TUPLE_TYPE ||
         tuple_type_arity(table, tau1) != tuple_type_arity(table, tau2)) {
       return NULL_TYPE;
     }
     break;
 
   case FUNCTION_TYPE:
-    if (table->kind[tau2] != FUNCTION_TYPE ||
+    if (type_desc(table, tau2)->kind != FUNCTION_TYPE ||
         function_type_arity(table, tau1) != function_type_arity(table, tau2)) {
       return NULL_TYPE;
     }
     break;
+
+  case FF_TYPE:
+    // a finite field of size any is less than any other finite field type
+    if (ff_type_size_any(table, tau1)) return tau2;
+    if (ff_type_size_any(table, tau2)) return tau1;
+    assert(q_neq(ff_type_size(table, tau1), ff_type_size(table, tau2))); // otherwise, it was the same type
+    return NULL_TYPE;
 
   default:
     return NULL_TYPE;
@@ -2266,7 +2220,7 @@ type_t super_type(type_table_t *table, type_t tau1, type_t tau2) {
       /*
        * The result is not in the cache.
        */
-      if (table->kind[tau1] == TUPLE_TYPE) {
+      if (type_desc(table, tau1)->kind == TUPLE_TYPE) {
         tup1 = tuple_type_desc(table, tau1);
         tup2 = tuple_type_desc(table, tau2);
         assert(tup1->nelem == tup2->nelem);
@@ -2313,16 +2267,16 @@ static type_t cheap_inf(type_table_t *table, type_t tau1, type_t tau2) {
     return int_id;
   }
 
-  switch (table->kind[tau1]) {
+  switch (type_desc(table, tau1)->kind) {
   case TUPLE_TYPE:
-    if (table->kind[tau2] != TUPLE_TYPE ||
+    if (type_desc(table, tau2)->kind != TUPLE_TYPE ||
         tuple_type_arity(table, tau1) != tuple_type_arity(table, tau2)) {
       return NULL_TYPE;
     }
     break;
 
   case FUNCTION_TYPE:
-    if (table->kind[tau2] != FUNCTION_TYPE ||
+    if (type_desc(table, tau2)->kind != FUNCTION_TYPE ||
         function_type_arity(table, tau1) != function_type_arity(table, tau2)) {
       return NULL_TYPE;
     }
@@ -2434,7 +2388,7 @@ type_t inf_type(type_table_t *table, type_t tau1, type_t tau2) {
       /*
        * The result is not in the cache.
        */
-      if (table->kind[tau1] == TUPLE_TYPE) {
+      if (type_desc(table, tau1)->kind == TUPLE_TYPE) {
         tup1 = tuple_type_desc(table, tau1);
         tup2 = tuple_type_desc(table, tau2);
         assert(tup1->nelem == tup2->nelem);
@@ -2542,7 +2496,7 @@ type_t max_super_type(type_table_t *table, type_t tau) {
       aux = r->val;
     } else {
       // max is not in the cache
-      if (table->kind[tau] == TUPLE_TYPE) {
+      if (type_desc(table, tau)->kind == TUPLE_TYPE) {
         aux = max_tuple_super_type(table, tuple_type_desc(table, tau));
       } else {
         aux = max_function_super_type(table, function_type_desc(table,tau));
@@ -2622,10 +2576,8 @@ int32_t add_type_macro(type_table_t *table, char *name, uint32_t n, const type_t
 
   assert(body != NULL_TYPE);
 
-  i = allocate_macro_id(mtbl);
   d = new_descriptor(name, n, vars, body);
-  assert(! has_int_tag(d));
-  mtbl->data[i] = d;
+  i = allocate_macro_id(mtbl, d);
 
   stbl_add(&mtbl->stbl, name, i);
   string_incref(name);
@@ -2646,10 +2598,8 @@ int32_t add_type_constructor(type_table_t *table, char *name, uint32_t n) {
 
   mtbl = get_macro_table(table);
 
-  i = allocate_macro_id(mtbl);
   d = new_constructor(name, n);
-  assert(! has_int_tag(d));
-  mtbl->data[i] = d;
+  i = allocate_macro_id(mtbl, d);
 
   stbl_add(&mtbl->stbl, name, i);
   string_incref(name);
@@ -2687,7 +2637,7 @@ type_macro_t *type_macro(type_table_t *table, int32_t id) {
   mtbl = table->macro_tbl;
   macro = NULL;
   if (mtbl != NULL && good_type_macro(mtbl, id)) {
-    macro = mtbl->data[id];
+    macro = type_macro_unchecked(mtbl, id);
   }
 
   return macro;
@@ -2736,9 +2686,9 @@ void delete_type_macro(type_table_t *table, int32_t id) {
 
   mtbl = table->macro_tbl;
 
-  assert(mtbl != NULL && good_type_macro(mtbl, id));
+  assert(mtbl != NULL);
 
-  macro = mtbl->data[id];
+  macro = type_macro_def(mtbl, id);
   stbl_remove(&mtbl->stbl, macro->name);
   tuple_hmap_gc(&mtbl->cache, &id, keep_cached_tuple_alive);
   free_macro_id(mtbl, id);
@@ -2774,9 +2724,6 @@ type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, const
   type_t result;
 
 
-  // id is a good macro with arity n
-  assert(type_macro(table, id)->arity == n);
-
   /*
    * By default, we use a buffer of 10 integers to store id + actuals
    * If more is needed, a larger array is allocated here.
@@ -2793,7 +2740,7 @@ type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, const
 
   mtbl = table->macro_tbl;
   assert(mtbl != NULL);
-  d = mtbl->data[id];
+  d = type_macro_def(mtbl, id);
   assert(d->arity == n);
   if (d->body == NULL_TYPE) {
     // type constructor: new instance
@@ -2832,25 +2779,29 @@ type_t instantiate_type_macro(type_table_t *table, int32_t id, uint32_t n, const
 static void erase_hcons_type(type_table_t *table, type_t i) {
   uint32_t k;
 
-  switch (table->kind[i]) {
+  switch (type_desc(table, i)->kind) {
   case BITVECTOR_TYPE:
-    k = hash_bvtype(table->desc[i].integer);
+    k = hash_bvtype(type_desc(table, i)->integer);
+    break;
+
+  case FF_TYPE:
+    k = hash_fftype((rational_t *)type_desc(table, i)->ptr);
     break;
 
   case VARIABLE_TYPE:
-    k = hash_typevar(table->desc[i].integer);
+    k = hash_typevar(type_desc(table, i)->integer);
     break;
 
   case TUPLE_TYPE:
-    k = hash_tupletype(table->desc[i].ptr);
+    k = hash_tupletype(type_desc(table, i)->ptr);
     break;
 
   case FUNCTION_TYPE:
-    k = hash_funtype(table->desc[i].ptr);
+    k = hash_funtype(type_desc(table, i)->ptr);
     break;
 
   case INSTANCE_TYPE:
-    k = hash_instancetype(table->desc[i].ptr);
+    k = hash_instancetype(type_desc(table, i)->ptr);
     break;
 
   default:
@@ -2888,11 +2839,11 @@ static void mark_reachable_types(type_table_t *table, type_t ptr, type_t i) {
   instance_type_t *inst;
   uint32_t n, j;
 
-  assert(type_is_marked(table, i) &&  table->kind[i] != UNUSED_TYPE);
+  assert(type_is_marked(table, i) &&  type_desc(table, i)->kind != UNUSED_TYPE);
 
-  switch (table->kind[i]) {
+  switch (type_desc(table, i)->kind) {
   case TUPLE_TYPE:
-    tup = table->desc[i].ptr;
+    tup = type_desc(table, i)->ptr;
     n = tup->nelem;
     for (j=0; j<n; j++) {
       mark_and_explore(table, ptr, tup->elem[j]);
@@ -2900,7 +2851,7 @@ static void mark_reachable_types(type_table_t *table, type_t ptr, type_t i) {
     break;
 
   case FUNCTION_TYPE:
-    fun = table->desc[i].ptr;
+    fun = type_desc(table, i)->ptr;
     mark_and_explore(table, ptr, fun->range);
     n = fun->ndom;
     for (j=0; j<n; j++) {
@@ -2909,7 +2860,7 @@ static void mark_reachable_types(type_table_t *table, type_t ptr, type_t i) {
     break;
 
   case INSTANCE_TYPE:
-    inst = table->desc[i].ptr;
+    inst = type_desc(table, i)->ptr;
     n = inst->arity;
     for (j=0; j<n; j++) {
       mark_and_explore(table, ptr, inst->param[j]);
@@ -2930,7 +2881,7 @@ static void mark_reachable_types(type_table_t *table, type_t ptr, type_t i) {
 static void mark_live_types(type_table_t *table) {
   uint32_t i, n;
 
-  n = table->nelems;
+  n = ntypes(table);
   for (i=0; i<n; i++) {
     if (type_is_marked(table, i)) {
       mark_reachable_types(table, i, i);
@@ -3036,7 +2987,7 @@ void type_table_gc(type_table_t *table, bool keep_named)  {
   }
 
   // delete every unmarked type
-  n = table->nelems;
+  n = ntypes(table);
   for (i=0; i<n; i++) {
     if (! type_is_marked(table, i)) {
       erase_hcons_type(table, i);

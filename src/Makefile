@@ -133,6 +133,7 @@ core_src_c := \
 	exists_forall/ef_skolemize.c \
 	exists_forall/efsolver.c \
 	frontend/smt2/attribute_values.c \
+	frontend/smt2/smt2_lexer.c \
 	frontend/yices/yices_lexer.c \
 	frontend/yices/yices_parser.c \
 	io/concrete_value_printer.c \
@@ -281,6 +282,7 @@ core_src_c := \
 	utils/generic_heap.c \
 	utils/hash_functions.c \
 	utils/index_vectors.c \
+	utils/indexed_table.c \
 	utils/int_array_hsets.c \
 	utils/int_array_sort2.c \
 	utils/int_array_sort.c \
@@ -348,12 +350,16 @@ mcsat_src_c := \
 	mcsat/model.c \
 	mcsat/trail.c \
 	mcsat/conflict.c \
+	mcsat/unit_info.c \
 	mcsat/gc.c \
 	mcsat/eq/equality_graph.c \
 	mcsat/eq/merge_queue.c \
 	mcsat/weq/weak_eq_graph.c \
 	mcsat/utils/int_mset.c \
 	mcsat/utils/int_lset.c \
+	mcsat/utils/lp_data.c \
+	mcsat/utils/lp_utils.c \
+	mcsat/utils/lp_constraint_db.c \
 	mcsat/utils/value_hash_map.c \
 	mcsat/utils/value_vector.c \
 	mcsat/utils/scope_holder.c \
@@ -364,12 +370,16 @@ mcsat_src_c := \
 	mcsat/bool/cnf.c \
 	mcsat/bool/bcp_watch_manager.c \
 	mcsat/bool/bool_plugin.c \
-	mcsat/nra/nra_plugin.c \
-	mcsat/nra/nra_plugin_internal.c \
-	mcsat/nra/nra_plugin_explain.c \
-	mcsat/nra/libpoly_utils.c \
-	mcsat/nra/poly_constraint.c \
-	mcsat/nra/feasible_set_db.c \
+	mcsat/na/na_plugin.c \
+	mcsat/na/na_plugin_internal.c \
+	mcsat/na/na_plugin_explain.c \
+	mcsat/na/na_libpoly.c \
+	mcsat/na/feasible_set_db.c \
+	mcsat/ff/ff_plugin.c \
+	mcsat/ff/ff_plugin_internal.c \
+	mcsat/ff/ff_plugin_explain.c \
+	mcsat/ff/ff_libpoly.c \
+	mcsat/ff/ff_feasible_set_db.c \
 	mcsat/ite/ite_plugin.c \
 	mcsat/bv/bv_plugin.c \
 	mcsat/bv/bv_bdd_manager.c \
@@ -422,7 +432,6 @@ extra_src_c := \
 	frontend/smt2/parenthesized_expr.c \
 	frontend/smt2/smt2_commands.c \
 	frontend/smt2/smt2_expressions.c \
-	frontend/smt2/smt2_lexer.c \
 	frontend/smt2/smt2_model_printer.c \
 	frontend/smt2/smt2_parser.c \
 	frontend/smt2/smt2_printer.c \

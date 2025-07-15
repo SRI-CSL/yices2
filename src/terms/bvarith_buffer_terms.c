@@ -99,7 +99,7 @@ void bvarith_buffer_add_term(bvarith_buffer_t *b, term_table_t *table, term_t t)
          term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     bvarith_buffer_add_pp(b, pprod_for_idx(table, i));
     break;
@@ -153,7 +153,7 @@ void bvarith_buffer_sub_term(bvarith_buffer_t *b, term_table_t *table, term_t t)
          term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     bvarith_buffer_sub_pp(b, pprod_for_idx(table, i));
     break;
@@ -207,7 +207,7 @@ void bvarith_buffer_mul_term(bvarith_buffer_t *b, term_table_t *table, term_t t)
          term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     bvarith_buffer_mul_pp(b, pprod_for_idx(table, i));
     break;
@@ -259,7 +259,7 @@ void bvarith_buffer_add_const_times_term(bvarith_buffer_t *b, term_table_t *tabl
          term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     bvarith_buffer_add_mono(b, a, pprod_for_idx(table, i));
     break;
@@ -322,7 +322,7 @@ void bvarith_buffer_mul_term_power(bvarith_buffer_t *b, term_table_t *table, ter
          term_bitsize(table, t) == b->bitsize);
 
   i = index_of(t);
-  switch (table->kind[i]) {
+  switch (kind_for_idx(table, i)) {
   case POWER_PRODUCT:
     r = pprod_exp(b->ptbl, pprod_for_idx(table, i), d); // r = t^d
     bvarith_buffer_mul_pp(b, r);
