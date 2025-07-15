@@ -719,6 +719,23 @@ tests/regress/mantis/0032.smt2
 tests/regress/mantis/0035.smt2
 tests/regress/mantis/0036.smt2
 tests/regress/mantis/0037.smt2 [ --incremental ]
+tests/regress/mcsat/arrays/arr1.smt2 [ --mcsat ]
+tests/regress/mcsat/arrays/arrays_extensionality_no_selects_unsat.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/arrays/arrays_extensionality_no_selects.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/arrays/arrays0.smt2 [ --mcsat ]
+tests/regress/mcsat/arrays/arrays1.smt2 [ --mcsat ]
+tests/regress/mcsat/arrays/arrays2.smt2 [ --mcsat ]
+tests/regress/mcsat/arrays/arrays3.smt2 [ --mcsat ]
+tests/regress/mcsat/arrays/arrays4.smt2 [ --mcsat ]
+tests/regress/mcsat/arrays/aviad_true-alloca_true-termination.c.i.partial.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/arrays/bool-array.smt2 [ --mcsat ]
+tests/regress/mcsat/arrays/example_weqa.smt2 [ --mcsat ]
+tests/regress/mcsat/arrays/linux-4.0-rc1---kernel--locking--locktorture.ko.cil_smt-query.1.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/arrays/read_over_weak_eq_lemma_2.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/arrays/read_over_weak_eq_lemma.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/arrays/storecomm_t2_np_sf_ai_00060_009.cvc.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/arrays/trivially_unsat.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/arrays/unsat_with_decisions.smt2 [ --mcsat --incremental ]
 tests/regress/mcsat/bool/bool_00.smt2 [ --mcsat ]
 tests/regress/mcsat/bool/bool_01.smt2 [ --mcsat ]
 tests/regress/mcsat/bool/bool_02.smt2 [ --mcsat ]
@@ -761,12 +778,43 @@ tests/regress/mcsat/bool/bool_random_200vars.07.smt2 [ --mcsat ]
 tests/regress/mcsat/bool/bool_random_200vars.08.smt2 [ --mcsat ]
 tests/regress/mcsat/bool/bool_random_200vars.09.smt2 [ --mcsat ]
 tests/regress/mcsat/bool/bool_random_200vars.10.smt2 [ --mcsat ]
-tests/regress/mcsat/ite/ite_00.smt2
-tests/regress/mcsat/ite/ite_01.smt2
-tests/regress/mcsat/ite/ite_02.smt2
-tests/regress/mcsat/ite/ite_03.smt2
+tests/regress/mcsat/bv/bin_libmsrpc_vc1225397.smt2 [ --mcsat ]
+tests/regress/mcsat/bv/simple_processors_002_002_0008.smt2 [ --mcsat --mcsat-bv-var-size=8 ]
+tests/regress/mcsat/bv/test_bvarray_bool2.smt2 [ --mcsat ]
+tests/regress/mcsat/bv/try5_small_true_functions_flanagansaxe_mv.dev_info_compare.il.flanagansaxe.smt2 [ --mcsat ]
+tests/regress/mcsat/bv/unconstrained05.smt2 [ --mcsat ]
+tests/regress/mcsat/bv/uum4.smt2 [ --mcsat ]
+tests/regress/mcsat/bv/xinetd_xinetd_vc18132.smt2 [ --mcsat ]
+tests/regress/mcsat/bv/y.smt2 [ --mcsat ]
+tests/regress/mcsat/ff/compilation-deterministic-last-02v-000t-ff-zokref-255b-ands.smt2
+tests/regress/mcsat/ff/compilation-deterministic-last-02v-004t-ff-circ-12b-0s.smt2
+tests/regress/mcsat/ff/compilation-sound-last-02v-004t-ff-circ-5b-0s.smt2
+tests/regress/mcsat/ff/compilation-sound-none-02v-004t-ff-circ-5b-0s.smt2
+tests/regress/mcsat/ff/invalid-fieldsize.smt2
+tests/regress/mcsat/ff/testdata_i_13_8_8.001.smt2
+tests/regress/mcsat/ff/testdata_i_3_8_8.004.smt2
+tests/regress/mcsat/ff/testdata_i_3_8_8.008.smt2
+tests/regress/mcsat/ff/testdata_i_3_8_8.016.smt2
+tests/regress/mcsat/ff/testdata_r_13_32_8.012.smt2
+tests/regress/mcsat/ff/testdata_r_211_16_8.016.smt2
+tests/regress/mcsat/ff/testdata_r_211_16_8.021.smt2
+tests/regress/mcsat/ite/ite_00.smt2 [ --mcsat ]
+tests/regress/mcsat/ite/ite_01.smt2 [ --mcsat ]
+tests/regress/mcsat/ite/ite_02.smt2 [ --mcsat ]
+tests/regress/mcsat/ite/ite_03.smt2 [ --mcsat ]
+tests/regress/mcsat/lia/lira_00.smt2 [ --mcsat ]
+tests/regress/mcsat/lra/fuzz01.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/lra/fuzz02.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/lra/fuzz04.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/lra/fuzz05.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/lra/fuzz06.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/lra/fuzz07.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/lra/fuzz08.smt2 [ --mcsat--incremental ]
+tests/regress/mcsat/lra/fuzz09.smt2 [ --mcsat --incremental ]
 tests/regress/mcsat/lra/incremental/fail.00.smt2 [ --incremental --mcsat ]
 tests/regress/mcsat/lra/incremental/MOESI_all_e3_2032_e3_2788.ec.2.smt2 [ --incremental --mcsat ]
+tests/regress/mcsat/lra/issue188.smt2 [ --mcsat --incremental ]
+tests/regress/mcsat/lra/issue270.smt2 [ --mcsat --incremental ]
 tests/regress/mcsat/nia/div_00.smt2
 tests/regress/mcsat/nia/div_01.smt2
 tests/regress/mcsat/nia/div_02.smt2
@@ -879,12 +927,12 @@ tests/regress/mcsat/uf/incremental/ufnra_01.smt2 [ --incremental --mcsat ]
 tests/regress/mcsat/uf/incremental/ufnra_04.smt2 [ --incremental --mcsat ]
 tests/regress/mcsat/uf/incremental/ufnra_05.smt2 [ --incremental --mcsat ]
 tests/regress/mcsat/uf/incremental/ufnra_06.smt2 [ --incremental --mcsat ]
-tests/regress/mcsat/uf/PEQ012_size3.smt2
-tests/regress/mcsat/uf/uf_00.smt2
-tests/regress/mcsat/uf/uf_01.smt2
-tests/regress/mcsat/uf/uf_02.smt2
-tests/regress/mcsat/uf/uf_03.smt2
-tests/regress/mcsat/uf/uf_04.smt2
+tests/regress/mcsat/uf/PEQ012_size3.smt2 [ --mcsat ]
+tests/regress/mcsat/uf/uf_00.smt2 [ --mcsat ]
+tests/regress/mcsat/uf/uf_01.smt2 [ --mcsat ]
+tests/regress/mcsat/uf/uf_02.smt2 [ --mcsat ]
+tests/regress/mcsat/uf/uf_03.smt2 [ --mcsat ]
+tests/regress/mcsat/uf/uf_04.smt2 [ --mcsat ]
 tests/regress/mcsat/uf/uf_05.smt2 [ --mcsat ]
 tests/regress/mcsat/uf/ufnra_00.smt2
 tests/regress/mcsat/uf/ufnra_01.smt2
@@ -893,9 +941,14 @@ tests/regress/mcsat/uf/ufnra_03.smt2
 tests/regress/mcsat/uf/ufnra_04.smt2
 tests/regress/mcsat/uf/ufnra_05.smt2
 tests/regress/mcsat/uf/ufnra_06.smt2
-tests/regress/mcsat/uf/z3.630166.smt2
-tests/regress/mcsat/uf/z3.631468.smt2
-tests/regress/mcsat/uf/z3.641736.smt2
+tests/regress/mcsat/uf/z3.630166.smt2 [ --mcsat ]
+tests/regress/mcsat/uf/z3.631468.smt2 [ --mcsat ]
+tests/regress/mcsat/uf/z3.641736.smt2 [ --mcsat ]
+tests/regress/mcsat/wd/issue311a.smt2 [ --mcsat ]
+tests/regress/mcsat/wd/issue311b.smt2 [ --mcsat ]
+tests/regress/mcsat/wd/issue311c.smt2 [ --mcsat ]
+tests/regress/mcsat/wd/issue311d.smt2 [ --mcsat ]
+tests/regress/mcsat/wd/issue311h.smt2 [ --mcsat ]
 tests/regress/tptp/tptp_830326_ARI376=1.smt2
 tests/regress/tptp/tptp_830327_ARI369=1.smt2
 tests/regress/tptp/tptp_830328_ARI355=1.smt2
@@ -922,8 +975,8 @@ tests/regress/tptp/tptp_830348_ARI375=1.smt2
 tests/regress/tptp/tptp_830349_ARI384=1.smt2
 tests/regress/tptp/tptp_830350_ARI382=1.smt2
 tests/regress/wd/c6b_i.smt2
-tests/regress/wd/c6b_succ_i.smt2
 tests/regress/wd/c6b_succ_i_unint.smt2
+tests/regress/wd/c6b_succ_i.smt2
 tests/regress/wd/cliffordwolf2.smt2 [ --incremental ]
 tests/regress/wd/parser-bug-reduced.smt2
 tests/regress/wd/prp-1-22.smt2
