@@ -104,6 +104,29 @@ sat
  (define-fun y () Real 0.447214))
 ```
 
+## Parallel Yices Example
+
+Yices can be run in parallel using a portfolio approach, which launches several instances of `yices_smt2` with different configurations and returns as soon as one instance finds a solution. This is useful for hard SMT problems where different configurations may solve the problem faster.
+
+A Python script is provided in `utils/yices2_parallel.py` for this purpose. Example usage:
+
+```sh
+python3 utils/yices2_parallel.py --yices /path/to/yices_smt2 -n 4 --verbose path/to/problem.smt2
+```
+
+- `--yices` specifies the path to the `yices_smt2` executable (default: `yices_smt2` in the script directory)
+- `-n` sets the number of parallel threads/configurations (default: 4)
+- `--verbose` enables detailed output
+- The last argument is the path to your SMT2 file
+
+The script will run several Yices instances in parallel and print the result (`sat`, `unsat`, or `unknown`) as soon as one instance finishes.
+
+For more options, run:
+
+```sh
+python3 utils/yices2_parallel.py --help
+```
+
 ## Installing Prebuilt Binaries
 
 Currently you can install Yices either using Homebrew or Apt.
@@ -245,46 +268,4 @@ This will build `./doc/manual/manual.pdf`.
 
 Other documentation is in the `./doc` directory:
 
-- `doc/COMPILING` explains the compilation process and options in detail.
-- `doc/NOTES` gives an overview of the source code.
-- `doc/YICES-LANGUAGE` explains the syntax of the Yices language, and
-  describes commands, functions, and heuristic parameters.
-
-To build the Sphinx documentation:
-```
-cd doc/sphinx
-make html
-```
-
-This will build the documentation in build/html (within directory
-doc/sphinx). You can also do:
-```
-make epub
-```
-and you'll have the doc in `build/epub/Yices.epub`.
-
-## Getting Help and Reporting bugs
-
-For further questions about Yices, please contact us via the Yices
-mailing lists yices-help@csl.sri.com. This mailing list is moderated,
-but you do not need to register to post to it. You can register to
-this mailing list if you are interested in helping others.
-
-Please submit bug reports through GitHub issues. Please include enough
-information in your bug report to enable us to reproduce and fix the
-problem. This is an example of a good report:
-
-> I am experiencing a segmentation fault from Yices. The following
-> is a small test case that causes the crash. I am using Yices 2.4.1 on
-> x86_64 statically linked against GMP on Ubuntu 12.04.
-
-This is an example of a poor bug report:
-
-> I have just downloaded Yices. After I compile my code and link it
-> with Yices, there is a segmentation fault when I run the executable.
-> Can you help?
-
-Please try to include answers to the following questions:
-* Which version of Yices are you using?
-* On which hardware and OS?
-* How can we reproduce the bug? If possible, include an input file or program fragment.
+- `doc/COMPILING`

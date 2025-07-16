@@ -66,7 +66,7 @@ Version 2.6.5}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 This  manual   is  an  introduction   to  the  logic,   language,  and
-architecture  of the  Yices~2 SMT  solver. Yices  is developed  at SRI
+architecture  of the Yices~2 SMT  solver. Yices  is developed  at SRI
 International's  Computer Science  Laboratory.   Since version  2.5.3,
 Yices  is released  under the  GNU  General Public  License version  3
 (reproduced  in   Appendix~\ref{license}).   Previous   versions  were
@@ -4293,6 +4293,35 @@ The following command-line options can be given to \texttt{yices-smt}.
 
 \item[--help, -h] Show a summary of all options and exit.
 \end{options}
+
+
+\section{Parallel Yices~2: Portfolio Solving}
+
+For challenging SMT-LIB~2.x problems, it can be beneficial to run several Yices~2 instances in parallel, each with different solver configurations. This approach, known as a portfolio solver, increases the chance of quickly finding results by exploiting the diversity of solver heuristics.
+
+Yices~2 provides a Python script, \texttt{utils/yices2\_parallel.py}, that launches multiple \texttt{yices-smt2} processes in parallel. The script stops as soon as one instance finds answer (\texttt{sat} or \texttt{unsat}).
+
+\medskip\noindent
+\textbf{Example usage:}
+\begin{small}
+\begin{lstlisting}[language=sh]
+python3 utils/yices2_parallel.py --yices /path/to/yices_smt2 -n 4 --verbose path/to/problem.smt2
+\end{lstlisting}
+\end{small}
+
+\begin{itemize}
+  \item \texttt{--yices} specifies the path to the \texttt{yices\_smt2} executable (default: \texttt{yices\_smt2} in the script directory)
+  \item \texttt{-n} sets the number of parallel threads/configurations (default: 4)
+  \item \texttt{--verbose} enables detailed output
+  \item The last argument is the path to your SMT2 file
+\end{itemize}
+
+The script will print the result (\texttt{sat}, \texttt{unsat}, or \texttt{unknown}) as soon as one instance finishes. For more options, run:
+\begin{small}
+\begin{lstlisting}[language=sh]
+python3 utils/yices2_parallel.py --help
+\end{lstlisting}
+\end{small}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
