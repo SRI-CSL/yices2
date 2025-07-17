@@ -7,7 +7,7 @@ Build-Depends: debhelper (>= 9), dh-autoreconf (>= 10), gperf, libgmp-dev, libpo
 Homepage: http://yices.csl.sri.com/
 
 
-Package: libyices2.6
+Package: libyices2.7
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Pre-Depends: ${misc:Pre-Depends}
@@ -31,7 +31,7 @@ Description: Yices SMT Solver
 Package: yices2-dev
 Section: libdevel
 Architecture: any
-Depends: yices2,  libyices2.6 (= ${binary:Version}), ${misc:Depends}, libgmp-dev
+Depends: yices2,  libyices2.7 (= ${binary:Version}), ${misc:Depends}, libgmp-dev
 Description: Yices SMT Solver API Support
  SRI International's Satisfiability Modulo Theory Solver.
  .
@@ -42,7 +42,7 @@ Package: yices2-dbg
 Section: debug
 Priority: extra
 Architecture: any
-Depends: yices2, libyices2.6 (= ${binary:Version}), ${misc:Depends}
+Depends: yices2, libyices2.7 (= ${binary:Version}), ${misc:Depends}
 Provides: yices2-dbg
 Description: Yices SMT Solver
  SRI International's Satisfiability Modulo Theory Solver.
