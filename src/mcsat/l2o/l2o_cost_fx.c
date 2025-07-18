@@ -12,7 +12,29 @@ static
 double l2o_cost_fx_term_eval(l2o_cost_fx_t *fx, const l2o_search_state_t *state) {
   l2o_cost_fx_term_t *fx_t = (l2o_cost_fx_term_t*) fx;
   l2o_evaluator_set_state(&fx->evaluator, state);
-  return l2o_evaluator_run_term(&fx->evaluator, fx_t->term);
+
+  l2o_evaluator_t eval2;
+  l2o_evaluator_construct(fx->l2o, &eval2);
+  l2o_evaluator_set_state(&eval2, state);
+
+  assert(fx_t->terms.size % 2 == 0);
+  int offset = fx_t->terms.size / 2;
+  double sum = 0;
+  for (int i = 0; i < fx_t->terms.size / 2; ++i) {
+    term_t t = fx_t->terms.data[i];
+    term_t t_l2o = fx_t->terms.data[offset + i];
+    double val = l2o_calculate(fx->l2o, t, &eval2);
+    double val_l2o = l2o_evaluator_run_term(&eval2, t_l2o);
+    //fprintf(stderr, "val     %.4f\n", val);
+    //fprintf(stderr, "val_l2o %.4f\n", val_l2o);
+    assert(round(val * 1000) == round(val_l2o * 1000));
+    sum += val_l2o;
+  }
+  l2o_evaluator_destruct(&eval2);
+
+  double result = l2o_evaluator_run_term(&fx->evaluator, fx_t->term);
+  assert(trunc(result) == trunc(sum));
+  return result;
 }
 
 static
@@ -32,7 +54,9 @@ void l2o_cost_fx_term_get_free_vars(const l2o_cost_fx_t *fx, ivector_t *v) {
 
 static
 void l2o_cost_fx_term_destruct(l2o_cost_fx_t *fx) {
+  l2o_cost_fx_term_t *fx_t = (l2o_cost_fx_term_t*) fx;
   l2o_evaluator_destruct(&fx->evaluator);
+  delete_ivector(&fx_t->terms);
 }
 
 void l2o_cost_fx_term_construct(l2o_t *l2o, l2o_cost_fx_term_t *fx, term_t t) {
@@ -43,8 +67,12 @@ void l2o_cost_fx_term_construct(l2o_t *l2o, l2o_cost_fx_term_t *fx, term_t t) {
   fx->fx.destruct = l2o_cost_fx_term_destruct;
   fx->term = t;
   l2o_evaluator_construct(l2o, &fx->fx.evaluator);
+  init_ivector(&fx->terms, 0);
 }
 
+void l2o_cost_fx_term_add(l2o_cost_fx_term_t *fx, term_t t) {
+  ivector_push(&fx->terms, t);
+}
 
 //
 // CNF cost fx

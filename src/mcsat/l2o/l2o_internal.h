@@ -110,9 +110,11 @@ typedef struct {
 
   /** The term to evaluate. */
   term_t term;
+  ivector_t terms;
 } l2o_cost_fx_term_t;
 
 void l2o_cost_fx_term_construct(l2o_t *l2o, l2o_cost_fx_term_t *fx, term_t t);
+void l2o_cost_fx_term_add(l2o_cost_fx_term_t *fx, term_t t);
 
 
 typedef struct {
@@ -140,6 +142,6 @@ void l2o_cost_fx_cnf_print(const l2o_cost_fx_cnf_t *fx, FILE *out);
 
 bool l2o_is_valid_term(l2o_t *l2o, term_t t);
 
-double l2o_calculate(l2o_t *l2o, term_t t, const l2o_evaluator_t *eval);
+double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval);
 
 #endif /* MCSAT_L2O_INTERNAL_H_ */

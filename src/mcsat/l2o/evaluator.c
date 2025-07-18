@@ -618,12 +618,12 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
 
         if (t_already_evaluated) {
           double t_eval = evaluator_get_fix_pol(evaluator, t);
-          if (is_pos_term(current)) {   // t == 0
+          if (is_pos_term(current)) {   // t >= 0
             if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
               printf("\n is positive (t >= 0)\n");
             }
             current_eval = t_eval >= 0;
-          } else {                        // t != 0
+          } else {                        // t < 0
             if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
               printf("\n is negative (t < 0)\n");
             }
@@ -914,7 +914,8 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
 
   // Get cost of t
   assert(already_evaluated(evaluator, term));
-  double t_eval = evaluator_get(evaluator, term);
+  // TODO or just allow unsigned terms
+  double t_eval = evaluator_get_fix_pol(evaluator, term);
 
   if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
     printf("\nt_eval = %f", t_eval);
