@@ -925,15 +925,16 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval) {
     case EQ_TERM: {
       composite_term_t *desc = get_composite(terms, kind, unsigned_term(t));
       assert(desc->arity == 2);
-
       term_t t1 = desc->arg[0];
       term_t t2 = desc->arg[1];
-      double val1 = l2o_calculate(l2o, t1, eval);
-      double val2 = l2o_calculate(l2o, t2, eval);
 
       if (is_pos_term(t)) { // t1 == t2
+        double val1 = l2o_calculate(l2o, t1, eval);
+        double val2 = l2o_calculate(l2o, t2, eval);
         return fabs(val1 - val2);
       } else { // t1 != t2
+        double val1 = l2o_evaluator_run_term(eval, t1);
+        double val2 = l2o_evaluator_run_term(eval, t2);
         return val1 != val2 ? L2O_TRUE : L2O_FALSE;
       }
     }
