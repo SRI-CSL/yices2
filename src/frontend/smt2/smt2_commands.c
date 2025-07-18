@@ -76,6 +76,9 @@
 #include "mt/threads.h"
 #include "mt/thread_macros.h"
 
+#include "frontend/smt2/smt2_term_utils.h"
+
+#include "utils/int_hash_map.h"
 
 /*
  * DUMP CONTEXT: FOR TESTING/DEBUGGING
@@ -678,18 +681,50 @@ static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params
   if (ctx->mcsat) {
     // Copy over to model
     model_t mdl;
+    // Map from temporary Boolean variables (labels) to the original assumptions.
+    int_hmap_t lmap;
+
     init_model(&mdl, ctx->terms, true);
+    init_int_hmap(&lmap, 0);
     init_ivector(&assumptions, n);
+
     for (i = 0; i < n; ++ i) {
-      term_t x = unsigned_term(a[i]);
-      value_t val = is_pos_term(a[i]) ? vtbl_mk_bool(&mdl.vtbl, true) : vtbl_mk_bool(&mdl.vtbl, false);
-      model_map_term(&mdl, x, val);
-      ivector_push(&assumptions, x);
+      // create temporary Boolean label for assumptions
+      term_t b = new_uninterpreted_term(ctx->terms, bool_id);
+      int_hmap_add(&lmap, b, a[i]);
+      yices_assert_formula(ctx, yices_implies(b, a[i]));
+      model_map_term(&mdl, b, vtbl_mk_bool(&mdl.vtbl, true));
+      ivector_push(&assumptions, b);
     }
+    
     // Solve
     status = yices_check_context_with_model(ctx, params, &mdl, n, assumptions.data);
+
+    if (status == YICES_STATUS_UNSAT) {
+      term_t model_interp = context_get_unsat_model_interpolant(ctx);
+      if (model_interp != NULL_TERM) {
+	      ivector_t lcore;
+        init_ivector(&lcore, 0);
+        filter_assumptions_by_term(ctx, model_interp, &assumptions, &lcore);
+	      ivector_reset(core);
+	      for (i = 0; i < lcore.size; ++ i) {
+          int_hmap_pair_t* e = int_hmap_find(&lmap, lcore.data[i]);
+          if (e != NULL) {
+            // The unsat core from the solver may contain temporary Boolean variables.
+            // We use lmap to find the original assumption that corresponds to each
+            // temporary variable in the core.
+            ivector_push(core, e->val);
+            //print_term_full(stderr, ctx->terms, e->val);
+            //fflush(stdout);
+          }
+        }
+        delete_ivector(&lcore);
+      }
+    }
+
     // Remove temps
     delete_ivector(&assumptions);
+    delete_int_hmap(&lmap);
     delete_model(&mdl);
 
     return status;
@@ -2293,6 +2328,10 @@ static void set_unsat_core_option(smt2_globals_t *g, const char *name, aval_t va
       print_error("can't have both :produce-unsat-cores and :produce-unsat-assumptions true");
     } else {
       g->produce_unsat_cores = flag;
+      // Set model_interpolation if context is MCSAT or will use MCSAT architecture
+      if (g->mcsat || (g->logic_code != SMT_UNKNOWN && arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT)) {
+        g->mcsat_options.model_interpolation = true;
+      }
       report_success();
     }
   } else {
@@ -2308,6 +2347,10 @@ static void set_unsat_assumption_option(smt2_globals_t *g, const char *name, ava
       print_error("can't have both :produce-unsat-cores and :produce-unsat-assumptions true");
     } else {
       g->produce_unsat_assumptions = flag;
+      // Set model_interpolation if context is MCSAT or will use MCSAT architecture
+      if (g->mcsat || (g->logic_code != SMT_UNKNOWN && arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT)) {
+        g->mcsat_options.model_interpolation = true;
+      }
       report_success();
     }
   } else {
@@ -3189,7 +3232,7 @@ static void validate_unsat_core(smt2_globals_t *g) {
   int32_t code;
   smt_status_t status;
 
-  if (g->unsat_core->status == STATUS_UNSAT) {
+  if (g->unsat_core->status == YICES_STATUS_UNSAT) {
     saved_context = g->ctx;
     g->ctx = NULL;
     init_smt2_context(g);
@@ -3205,7 +3248,7 @@ static void validate_unsat_core(smt2_globals_t *g) {
       fflush(stdout);
     } else {
       status = check_context(g->ctx, &g->parameters);
-      if (status != STATUS_UNSAT) {
+      if (status != YICES_STATUS_UNSAT) {
         printf("**** BUG: INVALID UNSAT CORE ****\n");
         fflush(stdout);
       }
@@ -3282,7 +3325,7 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
       if (code < 0) {
         // error during assertion processing
         print_yices_error(true);
-	done = true;
+        done = true;
         return;
       }
       init_search_parameters(g);
@@ -3296,7 +3339,7 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
         // cleanup
         free_assumptions(assumptions);
         g->unsat_assumptions = NULL;
-	done = true;
+        done = true;
       }
     }
   }
@@ -6448,17 +6491,13 @@ void smt2_set_logic(const char *name) {
     }
   }
 
-  // if unsat cores or unsat assumptions are requested, we can't use the mcsat solver
-  if (__smt2_globals.produce_unsat_cores || __smt2_globals.produce_unsat_assumptions) {
-    if (__smt2_globals.mcsat) {
-      print_error("the mcsat solver does not support unsat cores");
-      return;
-    }
-    if (arch == CTX_ARCH_MCSAT) {
-      print_error("unsat cores are not supported in logic %s", name);
-      return;
-    }
+  // Set model_interpolation if unsat cores are enabled and architecture is MCSAT
+  if ((__smt2_globals.produce_unsat_cores || __smt2_globals.produce_unsat_assumptions) && 
+      (arch == CTX_ARCH_MCSAT || __smt2_globals.mcsat)) {
+    __smt2_globals.mcsat_options.model_interpolation = true;
   }
+
+
 
   smt2_lexer_activate_logic(code);
   __smt2_globals.logic_code = code;
