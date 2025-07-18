@@ -160,15 +160,6 @@ void l2o_evaluator_set_state(l2o_evaluator_t *evaluator, const l2o_search_state_
   assert(ensure_cache_values(state, evaluator));
 }
 
-double l2o_evaluator_get_value(const l2o_evaluator_t *evaluator, term_t term) {
-  assert(already_evaluated(evaluator, term));
-  return evaluator_get(evaluator, term);
-}
-
-double l2o_evaluator_get_value_if_exists(const l2o_evaluator_t *evaluator, term_t term) {
-  return evaluator_get_if_eval(evaluator, term);
-}
-
 static
 double evaluator_get_fix_pol(const l2o_evaluator_t *evaluator, term_t term) {
   assert(is_pos_term(term) || term_type_kind(evaluator->l2o->terms, term) == BOOL_TYPE);
@@ -193,6 +184,16 @@ void evaluator_set_fix_pol(l2o_evaluator_t *evaluator, term_t term, double t_eva
   } else {
     evaluator_set(evaluator, term, t_eval);
   }
+}
+
+double l2o_evaluator_get_value(const l2o_evaluator_t *evaluator, term_t term) {
+  assert(already_evaluated(evaluator, term));
+  return evaluator_get_fix_pol(evaluator, term);
+}
+
+double l2o_evaluator_get_value_if_exists(const l2o_evaluator_t *evaluator, term_t term) {
+  if (!already_evaluated(evaluator, term)) return INFINITY;
+  return evaluator_get_fix_pol(evaluator, term);
 }
 
 double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {

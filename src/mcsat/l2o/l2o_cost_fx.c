@@ -88,6 +88,7 @@ bool is_clause_sat(l2o_evaluator_t *e, term_t *lit) {
 static
 double l2o_cost_fx_cnf_eval(l2o_cost_fx_t *fx, const l2o_search_state_t *state) {
   l2o_cost_fx_cnf_t *fx_cnf = (l2o_cost_fx_cnf_t*) fx;
+  //l2o_cost_fx_cnf_print(fx_cnf, stderr);
   l2o_evaluator_set_state(&fx->evaluator, state);
   double cost = 0;
   uint32_t idx = 0;
@@ -100,6 +101,8 @@ double l2o_cost_fx_cnf_eval(l2o_cost_fx_t *fx, const l2o_search_state_t *state) 
     }
   }
   assert(fx_cnf->lit[idx] == NULL_TERM);
+  //fprintf(stderr, "\n%f\n", cost);
+  //l2o_search_state_print(state, fx->l2o->terms, stderr);
   
   return cost;
 }
