@@ -109,11 +109,10 @@ typedef struct {
   l2o_cost_fx_t fx;
 
   /** The term to evaluate. */
-  term_t term;
   ivector_t terms;
 } l2o_cost_fx_term_t;
 
-void l2o_cost_fx_term_construct(l2o_t *l2o, l2o_cost_fx_term_t *fx, term_t t);
+void l2o_cost_fx_term_construct(l2o_t *l2o, l2o_cost_fx_term_t *fx);
 void l2o_cost_fx_term_add(l2o_cost_fx_term_t *fx, term_t t);
 
 

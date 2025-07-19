@@ -13,28 +13,12 @@ double l2o_cost_fx_term_eval(l2o_cost_fx_t *fx, const l2o_search_state_t *state)
   l2o_cost_fx_term_t *fx_t = (l2o_cost_fx_term_t*) fx;
   l2o_evaluator_set_state(&fx->evaluator, state);
 
-  l2o_evaluator_t eval2;
-  l2o_evaluator_construct(fx->l2o, &eval2);
-  l2o_evaluator_set_state(&eval2, state);
-
-  assert(fx_t->terms.size % 2 == 0);
-  int offset = fx_t->terms.size / 2;
   double sum = 0;
-  for (int i = 0; i < fx_t->terms.size / 2; ++i) {
+  for (uint32_t i = 0; i < fx_t->terms.size; ++i) {
     term_t t = fx_t->terms.data[i];
-    term_t t_l2o = fx_t->terms.data[offset + i];
-    double val = l2o_calculate(fx->l2o, t, &eval2);
-    double val_l2o = l2o_evaluator_run_term(&eval2, t_l2o);
-    //fprintf(stderr, "val     %.4f\n", val);
-    //fprintf(stderr, "val_l2o %.4f\n", val_l2o);
-    assert(round(val * 1000) == round(val_l2o * 1000));
-    sum += val_l2o;
+    sum += l2o_calculate(fx->l2o, t, &fx->evaluator);
   }
-  l2o_evaluator_destruct(&eval2);
-
-  double result = l2o_evaluator_run_term(&fx->evaluator, fx_t->term);
-  assert(trunc(result) == trunc(sum));
-  return result;
+  return sum;
 }
 
 static
@@ -48,7 +32,9 @@ void l2o_cost_fx_term_get_free_vars(const l2o_cost_fx_t *fx, ivector_t *v) {
   l2o_cost_fx_term_t *fx_t = (l2o_cost_fx_term_t*) fx;
 
   ivector_reset(v);
-  int_hmmap_find_all(&l2o->var_member, unsigned_term(fx_t->term), v);
+  for (uint32_t i = 0; i < fx_t->terms.size; ++i) {
+    int_hmmap_find_all(&l2o->var_member, unsigned_term(fx_t->terms.data[i]), v);
+  }
   ivector_remove_duplicates(v);
 }
 
@@ -59,13 +45,12 @@ void l2o_cost_fx_term_destruct(l2o_cost_fx_t *fx) {
   delete_ivector(&fx_t->terms);
 }
 
-void l2o_cost_fx_term_construct(l2o_t *l2o, l2o_cost_fx_term_t *fx, term_t t) {
+void l2o_cost_fx_term_construct(l2o_t *l2o, l2o_cost_fx_term_t *fx) {
   fx->fx.l2o = l2o;
   fx->fx.eval = l2o_cost_fx_term_eval;
   fx->fx.update_cache = l2o_cost_fx_term_update_cache;
   fx->fx.get_free_vars = l2o_cost_fx_term_get_free_vars;
   fx->fx.destruct = l2o_cost_fx_term_destruct;
-  fx->term = t;
   l2o_evaluator_construct(l2o, &fx->fx.evaluator);
   init_ivector(&fx->terms, 0);
 }
@@ -116,7 +101,6 @@ bool is_clause_sat(l2o_evaluator_t *e, term_t *lit) {
 static
 double l2o_cost_fx_cnf_eval(l2o_cost_fx_t *fx, const l2o_search_state_t *state) {
   l2o_cost_fx_cnf_t *fx_cnf = (l2o_cost_fx_cnf_t*) fx;
-  //l2o_cost_fx_cnf_print(fx_cnf, stderr);
   l2o_evaluator_set_state(&fx->evaluator, state);
   double cost = 0;
   uint32_t idx = 0;
@@ -129,8 +113,6 @@ double l2o_cost_fx_cnf_eval(l2o_cost_fx_t *fx, const l2o_search_state_t *state) 
     }
   }
   assert(fx_cnf->lit[idx] == NULL_TERM);
-  //fprintf(stderr, "\n%f\n", cost);
-  //l2o_search_state_print(state, fx->l2o->terms, stderr);
   
   return cost;
 }

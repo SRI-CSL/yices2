@@ -1760,52 +1760,24 @@ l2o_cost_fx_t* l2o_make_cost_fx_cnf(l2o_t* l2o, const mcsat_trail_t *trail) {
 static
 l2o_cost_fx_t* l2o_make_cost_fx_l2o(l2o_t* l2o, const mcsat_trail_t *trail) {
   l2o_reset(l2o);
-
-  ivector_t l2o_terms;
-  init_ivector(&l2o_terms, 0);
-  int_hset_t used_trail_terms;
-  init_int_hset(&used_trail_terms, 0);
-
   const ivector_t* assertions = &l2o->assertions;
-  for (uint32_t i = 0; i < assertions->size; ++ i) {
-    term_t f = assertions->data[i];
-    //term_t f1 = l2o_simplify(l2o, f, trail, &used_trail_terms);
-    term_t f2 = l2o_apply(l2o, f);
-    ivector_push(&l2o_terms, f2);
-  }
-  // add used terms to the cost function
-  int_hset_close(&used_trail_terms);
-  for (uint32_t i = 0; i < used_trail_terms.nelems; ++ i) {
-    term_t t = used_trail_terms.data[i];
-    bool b_trail = true;
-    bool tmp = trail_get_bool_value_term(trail, t, &b_trail);
-    (void)tmp;
-    assert(tmp);
-    term_t t_l2o = l2o_apply(l2o, signed_term(t, b_trail));
-    ivector_push(&l2o_terms, t_l2o);
-  }
-  term_t result = mk_sum(l2o, l2o_terms.size, l2o_terms.data);
-
-  l2o_cost_fx_term_t *ret;
 
   // ensure that the term has freevares are collected
-  if(!l2o_collect_free_vars(l2o, result)) {
-    ret = NULL;
-  } else {
-    ret = safe_malloc(sizeof(l2o_cost_fx_term_t));
-    l2o_cost_fx_term_construct(l2o, ret, result);
-    for (uint32_t i = 0; i < assertions->size; ++ i) {
-      term_t t = assertions->data[i];
-      l2o_collect_free_vars(l2o, t);
-      l2o_cost_fx_term_add(ret, t);
-    }
-    for (int i = 0; i < l2o_terms.size; ++i) {
-      l2o_cost_fx_term_add(ret, l2o_terms.data[i]);
+  for (uint32_t i = 0; i < assertions->size; ++ i) {
+    term_t t = assertions->data[i];
+    if (!l2o_collect_free_vars(l2o, t)) {
+      l2o_reset(l2o);
+      return NULL;
     }
   }
 
-  delete_ivector(&l2o_terms);
-  delete_int_hset(&used_trail_terms);
+  l2o_cost_fx_term_t *ret = safe_malloc(sizeof(l2o_cost_fx_term_t));
+  l2o_cost_fx_term_construct(l2o, ret);
+  for (uint32_t i = 0; i < assertions->size; ++ i) {
+    term_t t = assertions->data[i];
+    l2o_cost_fx_term_add(ret, t);
+  }
+
   return (l2o_cost_fx_t*)ret;
 }
 
