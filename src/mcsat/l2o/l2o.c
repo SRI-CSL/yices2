@@ -21,15 +21,11 @@
 #include "mcsat/bool/bool_plugin.h"
 
 #include "terms/term_explorer.h"
-#include "api/yices_api_lock_free.h"
 #include "utils/int_array_sort2.h"
-#include "utils/int_hash_sets.h"
 
 #include <math.h>
 #include <poly/feasibility_set.h>
 
-//#define EPSILON yices_rational32(1, 1000000)
-#define EPSILON "0.0000001"
 #define L2O_EPSILON 0.0000001
 
 static
@@ -44,8 +40,6 @@ void l2o_construct(l2o_t* l2o, term_table_t* terms, jmp_buf* handler, plugin_t* 
   l2o->nra = nra;
   l2o->bool_plugin = bool_plugin;
   init_ivector(&l2o->assertions, 0);
-  init_int_hmap(&l2o->l2o_map, 0);
-  init_int_hmap(&l2o->simplify_map, 0);
 
   init_int_hmmap(&l2o->var_member, 0);
 
@@ -62,10 +56,8 @@ void l2o_set_tracer(l2o_t* l2o, tracer_t* tracer) {
 }
 
 void l2o_destruct(l2o_t* l2o) {
-  delete_int_hmap(&l2o->l2o_map);
   delete_ivector(&l2o->assertions);
 
-  delete_int_hmap(&l2o->simplify_map);
   delete_int_hmmap(&l2o->var_member);
 
   scope_holder_destruct(&l2o->scope);
@@ -74,20 +66,6 @@ void l2o_destruct(l2o_t* l2o) {
 
 void l2o_store_assertion(l2o_t* l2o, term_t assertion) {
   ivector_push(&l2o->assertions, assertion);
-}
-
-static inline
-term_t l2o_get(l2o_t* l2o, term_t t) {
-  int_hmap_pair_t* find = int_hmap_find(&l2o->l2o_map, t);
-  return find == NULL ? NULL_TERM : find->val;
-}
-
-/** Set t_l2o as the L2O value of t */
-static inline
-void l2o_set(l2o_t* l2o, term_t t, term_t t_l2o) {
-  assert(l2o_get(l2o, t) == NULL_TERM);
-  int_hmap_add(&l2o->l2o_map, t, t_l2o);
-  (*l2o->l2o_stats.n_terms)++;
 }
 
 /** Checks whether the intersection between set_of_vars and the free variables in t is empty (0) or not (1) */
@@ -375,7 +353,7 @@ void l2o_set_exception_handler(l2o_t* l2o, jmp_buf* handler) {
 }
 
 /*
- * Provide hint to the trail cache 
+ * Provide a hint to the trail cache
  */
 static
 void hint_value_to_trail(mcsat_trail_t* trail, variable_t v, const mcsat_value_t* val) {
@@ -710,14 +688,6 @@ var_queue_t
   l2o_search_state_destruct(&state);
 }
 
-// TODO mark all l2o_terms for GC or clear term tables
-static
-void l2o_reset(l2o_t *l2o) {
-  // TODO reset varset_table, varset_members_cache, and freevars_map
-  int_hmap_reset(&l2o->l2o_map);
-  int_hmap_reset(&l2o->simplify_map);
-}
-
 // TODO check for duplicate clauses
 static
 bool l2o_cost_fx_cnf_add(l2o_cost_fx_cnf_t *fx, const plugin_t *bool_plugin, variable_t v) {
@@ -777,14 +747,12 @@ l2o_cost_fx_t* l2o_make_cost_fx_cnf(l2o_t* l2o, const mcsat_trail_t *trail) {
 
 static
 l2o_cost_fx_t* l2o_make_cost_fx_l2o(l2o_t* l2o, const mcsat_trail_t *trail) {
-  l2o_reset(l2o);
   const ivector_t* assertions = &l2o->assertions;
 
   // ensure that the term has freevares are collected
   for (uint32_t i = 0; i < assertions->size; ++ i) {
     term_t t = assertions->data[i];
     if (!l2o_collect_free_vars(l2o, t)) {
-      l2o_reset(l2o);
       return NULL;
     }
   }

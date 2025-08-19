@@ -41,12 +41,6 @@ typedef struct l2o {
   /** Assertions */
   ivector_t assertions;
 
-  /** Map from terms to their L2O version */
-  int_hmap_t l2o_map;
-
-  /** Map for term simplification when a trail is present */
-  int_hmap_t simplify_map;
-
   /** terms with their free variables */
   int_hmmap_t var_member;
 
