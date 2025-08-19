@@ -30,27 +30,13 @@
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/variable_queue.h"
 
-
-typedef enum {
-  L2O,
-  L2O_CLASSIC,
-  L2O_FS_JUMP,
-} l2o_mode_t;
-
 typedef struct l2o {
-  /** The l2o mode */
-  l2o_mode_t mode;
-
   /** Term table */
   term_table_t* terms;
 
   // TODO ugly hack
   plugin_t *nra;
   plugin_t *bool_plugin;
-
-  /** Term manager */
-  // TODO why own term_manager
-  term_manager_t tm;
 
   /** Assertions */
   ivector_t assertions;
@@ -60,11 +46,6 @@ typedef struct l2o {
 
   /** Map for term simplification when a trail is present */
   int_hmap_t simplify_map;
-
-#ifdef L2O_BOOL2REAL
-  /** Map from vars to L2O vars, handling also Bool-to-Real and Int-to-Real */
-  int_hmap_t l2o_var_map;
-#endif
 
   /** terms with their free variables */
   int_hmmap_t var_member;
@@ -93,8 +74,7 @@ typedef struct l2o {
 } l2o_t;
 
 /** Construct the L2O operator */
-void l2o_construct(l2o_t* l2o, l2o_mode_t mode, term_table_t* terms, jmp_buf* handler, plugin_t* nra, plugin_t
-*bool_plugin);
+void l2o_construct(l2o_t* l2o, term_table_t* terms, jmp_buf* handler, plugin_t* nra, plugin_t *bool_plugin);
 
 /** Destruct the L2O operator */
 void l2o_destruct(l2o_t* l2o);
