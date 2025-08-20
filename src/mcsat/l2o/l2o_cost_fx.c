@@ -7,6 +7,20 @@
 // Term cost fx
 //
 
+static
+bool trail_get_bool_value_term(const mcsat_trail_t *trail, term_t t, bool *b) {
+  assert(is_pos_term(t));
+  variable_t t_var = variable_db_get_variable_if_exists(trail->var_db, t);
+  if (t_var != variable_null
+      && variable_db_is_boolean(trail->var_db, t_var)
+      && trail_has_value(trail, t_var)
+    ) {
+    *b = trail_get_boolean_value(trail, t_var);
+    return true;
+  }
+  return false;
+}
+
 /** evaluates an individual term */
 static
 double l2o_cost_fx_term_eval(l2o_cost_fx_t *fx, const l2o_search_state_t *state) {
@@ -47,6 +61,7 @@ void l2o_cost_fx_term_destruct(l2o_cost_fx_t *fx) {
 
 void l2o_cost_fx_term_construct(l2o_t *l2o, l2o_cost_fx_term_t *fx) {
   fx->fx.l2o = l2o;
+  fx->fx.trail = NULL;
   fx->fx.eval = l2o_cost_fx_term_eval;
   fx->fx.update_cache = l2o_cost_fx_term_update_cache;
   fx->fx.get_free_vars = l2o_cost_fx_term_get_free_vars;
@@ -66,35 +81,39 @@ void l2o_cost_fx_term_add(l2o_cost_fx_term_t *fx, term_t t) {
 #define L2O_COST_FX_INITIAL_CAPACITY 100
 
 static
-bool is_clause_sat(l2o_evaluator_t *e, term_t *lit) {
+double clause_l2o(l2o_t *l2o, l2o_evaluator_t *e, const mcsat_trail_t *trail, term_t *lit) {
   uint32_t i;
 
   // don't allow empty clauses
   assert(lit[0] != NULL_TERM);
 
+  // first check the trail if there is a true value for any boolean constraint
+  if (trail) {
+    for (i = 0; lit[i] != NULL_TERM; ++i) {
+      bool result;
+      if (trail_get_bool_value_term(trail, lit[i], &result)) {
+        if (result) return 0.0;
+      }
+    }
+  }
+
   // first run: check if a term is cached
-  i = 0;
-  while(lit[i] != NULL_TERM) {
+  for (i = 0; lit[i] != NULL_TERM; ++i) {
     double val = l2o_evaluator_get_value_if_exists(e, lit[i]);
     assert(val == 0.0 || val == 1.0 || val == INFINITY);
     if (val == 1.0) {
-      return true;
+      return 0.0;
     }
-    ++ i;
   }
 
   // second run: evaluate the terms
-  i = 0;
-  while(lit[i] != NULL_TERM) {
-    double val = l2o_evaluator_run_term(e, lit[i]);
-    assert(val == 0.0 || val == 1.0);
-    if (val == 1.0) {
-      return true;
-    }
-    ++ i;
+  double result = 1.0;
+  for (i = 0; lit[i] != NULL_TERM; ++i) {
+    result *= l2o_calculate(l2o, lit[i], e);
+    if (result == 0.0) return 0.0;
   }
 
-  return false;
+  return result;
 }
 
 /** counts the number of unsatisfied clauses in the given state. */
@@ -108,7 +127,7 @@ double l2o_cost_fx_cnf_eval(l2o_cost_fx_t *fx, const l2o_search_state_t *state) 
     idx = fx_cnf->clause_ids.data[i];
     assert(idx == 0 || fx_cnf->lit[idx-1] == NULL_TERM);
     if (fx_cnf->lit[idx] == NULL_TERM) break;
-    if (!is_clause_sat(&fx->evaluator, fx_cnf->lit + idx)) {
+    if (!clause_l2o(fx->l2o, &fx->evaluator, fx->trail, fx_cnf->lit + idx)) {
       cost += 1.0;
     }
   }
@@ -158,6 +177,7 @@ void l2o_cost_fx_cnf_destruct(l2o_cost_fx_t *fx) {
 void l2o_cost_fx_cnf_construct(l2o_t *l2o, l2o_cost_fx_cnf_t *fx) {
   assert(l2o->bool_plugin);
   fx->fx.l2o = l2o;
+  fx->fx.trail = NULL;
   fx->fx.eval = l2o_cost_fx_cnf_eval;
   fx->fx.update_cache = l2o_cost_fx_cnf_update_cache;
   fx->fx.get_free_vars = l2o_cost_fx_cnf_get_free_vars;
@@ -202,6 +222,10 @@ uint32_t l2o_cost_fx_cnf_add_clause(l2o_cost_fx_cnf_t *fx, const ivector_t *clau
   ivector_push(&fx->clause_ids, new_last_clause_id);
 
   return last_clause_id;
+}
+
+void l2o_cost_fx_set_trail(l2o_cost_fx_cnf_t *fx, const mcsat_trail_t *trail) {
+  fx->fx.trail = trail;
 }
 
 void l2o_cost_fx_cnf_print(const l2o_cost_fx_cnf_t *fx, FILE *out) {

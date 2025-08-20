@@ -78,20 +78,6 @@ bool l2o_term_has_variables(l2o_t *l2o, term_t t, const ivector_t *set_of_vars) 
 }
 
 static
-bool trail_get_bool_value_term(const mcsat_trail_t *trail, term_t t, bool *b) {
-  assert(is_pos_term(t));
-  variable_t t_var = variable_db_get_variable_if_exists(trail->var_db, t);
-  if (t_var != variable_null
-      && variable_db_is_boolean(trail->var_db, t_var)
-      && trail_has_value(trail, t_var)
-  ) {
-    *b = trail_get_boolean_value(trail, t_var);
-    return true;
-  }
-  return false;
-}
-
-static
 void collect_free_vars(l2o_t *l2o, term_t t, ivector_t *v, uint32_t offset) {
   term_t current_term = unsigned_term(t);
 
@@ -713,6 +699,7 @@ bool l2o_cost_fx_cnf_add(l2o_cost_fx_cnf_t *fx, term_t t) {
     for (uint32_t i = 0; i < clause_refs.size; ++i) {
       clause_ref_t ref = clause_refs.data[i];
       bool_plugin_query_clause(bool_plugin, ref, &terms);
+      // TODO filter true_term and false_term accordingly
       l2o_cost_fx_cnf_add_clause(fx, &terms);
       success = success && l2o_collect_free_vars_list(fx->fx.l2o, &terms);
       ivector_reset(&terms);
@@ -777,7 +764,7 @@ l2o_cost_fx_t* l2o_make_cost_fx_l2o(l2o_t* l2o, const mcsat_trail_t *trail) {
 
 void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values, const var_queue_t *queue) {
   l2o_cost_fx_t *fx =
-#if 1
+#if 0
       l2o_make_cost_fx_l2o(l2o, trail);
 #else
       l2o_make_cost_fx_cnf(l2o, trail);

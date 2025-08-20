@@ -59,6 +59,9 @@ typedef struct l2o_cost_fx {
   /** the l2o the cost fx is associated to */
   l2o_t *l2o;
 
+  /** the trail the cost function is evaluated with */
+  const mcsat_trail_t *trail;
+
   l2o_evaluator_t evaluator;
 } l2o_cost_fx_t;
 
@@ -138,6 +141,8 @@ void l2o_cost_fx_cnf_construct(l2o_t *l2o, l2o_cost_fx_cnf_t *fx);
 uint32_t l2o_cost_fx_cnf_add_clause(l2o_cost_fx_cnf_t *fx, const ivector_t *clause);
 
 void l2o_cost_fx_cnf_print(const l2o_cost_fx_cnf_t *fx, FILE *out);
+
+void l2o_cost_fx_set_trail(l2o_cost_fx_cnf_t *fx, const mcsat_trail_t *trail);
 
 bool l2o_is_valid_term(l2o_t *l2o, term_t t);
 
