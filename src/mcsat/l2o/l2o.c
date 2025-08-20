@@ -197,34 +197,26 @@ void collect_free_vars(l2o_t *l2o, term_t t, ivector_t *v, uint32_t offset) {
 #define L2O_FALSE 1.0
 #define L2O_EPSILON 0.0000001
 
-double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval, double_hmap_t *cache) {
+double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval) {
   term_table_t *terms = l2o->terms;
   term_kind_t kind = term_kind(l2o->terms, t);
   type_kind_t t_type = term_type_kind(terms, t);
   term_t tu = unsigned_term(t);
 
-  double_hmap_pair_t *p;
-  if ((p = double_hmap_find(cache, t))) {
-    assert(p->key == t);
-    return p->val;
-  }
-
-  double result = 0.0;
-
   switch (kind) {
     case CONSTANT_TERM:
-      if (t == true_term) { result = L2O_TRUE; }
-      else if (t == false_term) { result = L2O_FALSE; }
-      else { assert(false); }
+      if (t == true_term) return L2O_TRUE;
+      if (t == false_term) return L2O_FALSE;
+      assert(false);
       break;
 
     case UNINTERPRETED_TERM:
       double val = l2o_evaluator_run_term(eval, t);
       if (t_type == BOOL_TYPE) {
         assert(val == 1.0 || val == 0.0);
-        result = (val == 1.0 ? L2O_TRUE : L2O_FALSE);
+        return (val == 1.0 ? L2O_TRUE : L2O_FALSE);
       } else if(t_type == INT_TYPE || t_type == REAL_TYPE) {
-        result = val;
+        return val;
       } else {
         assert(false);
       }
@@ -241,19 +233,17 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval, double_hmap_t 
     case ARITH_POLY:
       assert(tu == t);
       assert(t_type == INT_TYPE || t_type == REAL_TYPE);
-      result = l2o_evaluator_run_term(eval, tu);
-      break;
+      return l2o_evaluator_run_term(eval, tu);
 
     case ARITH_EQ_ATOM: {
       term_t t1 = arith_eq_arg(terms, t);
       double x = l2o_evaluator_run_term(eval, t1);
 
       if (is_pos_term(t)) { // x == 0
-        result = fabs(x);
+        return fabs(x);
       } else { // x != 0
-        result = x != 0.0 ? L2O_TRUE : L2O_FALSE;
+        return x != 0.0 ? L2O_TRUE : L2O_FALSE;
       }
-      break;
     }
 
     case ARITH_GE_ATOM: {
@@ -261,11 +251,10 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval, double_hmap_t 
       double x = l2o_evaluator_run_term(eval, t1);
 
       if (is_pos_term(t)) { // x >= 0
-        result = x >= 0 ? 0 : fabs(x);
+        return x >= 0 ? 0 : fabs(x);
       } else { // x < 0
-        result = x < 0 ? 0 : fabs(x) + L2O_EPSILON;
+        return x < 0 ? 0 : fabs(x) + L2O_EPSILON;
       }
-      break;
     }
 
     case ITE_TERM:
@@ -278,28 +267,28 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval, double_hmap_t 
       assert(cond_val == 1.0 || cond_val == 0.0);
       term_t tv = (cond_val == 1.0 ? desc->arg[1] : desc->arg[2]);
       assert(!is_neg_term(t) || term_type_kind(l2o->terms, tv) == BOOL_TYPE);
-      result = l2o_calculate(l2o, is_neg_term(t) ? opposite_term(tv) : tv, eval, cache);
-      break;
+      return l2o_calculate(l2o, is_neg_term(t) ? opposite_term(tv) : tv, eval);
     }
 
     case OR_TERM: {
       composite_term_t *desc = or_term_desc(terms, t);
       uint32_t n = desc->arity;
+      double result;
       if (is_pos_term(t)) { // or term
         result = 1.0;
         for (int i = 0; i < n; ++i) {
           term_t tv = desc->arg[i];
-          result *= l2o_calculate(l2o, tv, eval, cache);
+          result *= l2o_calculate(l2o, tv, eval);
           if (result == 0.0) break;
         }
       } else { // and term
         result = 0.0;
         for (int i = 0; i < n; ++i) {
           term_t tv = desc->arg[i];
-          result += l2o_calculate(l2o, opposite_term(tv), eval, cache);
+          result += l2o_calculate(l2o, opposite_term(tv), eval);
         }
       }
-      break;
+      return result;
     }
 
     case EQ_TERM: {
@@ -309,15 +298,14 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval, double_hmap_t 
       term_t t2 = desc->arg[1];
 
       if (is_pos_term(t)) { // t1 == t2
-        double val1 = l2o_calculate(l2o, t1, eval, cache);
-        double val2 = l2o_calculate(l2o, t2, eval, cache);
-        result = fabs(val1 - val2);
+        double val1 = l2o_calculate(l2o, t1, eval);
+        double val2 = l2o_calculate(l2o, t2, eval);
+        return fabs(val1 - val2);
       } else { // t1 != t2
         double val1 = l2o_evaluator_run_term(eval, t1);
         double val2 = l2o_evaluator_run_term(eval, t2);
-        result = val1 != val2 ? L2O_TRUE : L2O_FALSE;
+        return val1 != val2 ? L2O_TRUE : L2O_FALSE;
       }
-      break;
     }
 
     case ARITH_BINEQ_ATOM: {
@@ -330,11 +318,10 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval, double_hmap_t 
       double val2 = l2o_evaluator_run_term(eval, t2);
 
       if (is_pos_term(t)) { // t1 == t2
-        result = fabs(val1 - val2);
+        return fabs(val1 - val2);
       } else { // t1 != t2
-        result = val1 != val2 ? L2O_TRUE : L2O_FALSE;
+        return val1 != val2 ? L2O_TRUE : L2O_FALSE;
       }
-      break;
     }
 
     default:
@@ -343,9 +330,6 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval, double_hmap_t 
       assert(false);
       break;
   }
-
-  double_hmap_add(cache, t, result);
-  return result;
 }
 
 /** Returns true if its a valid term. */

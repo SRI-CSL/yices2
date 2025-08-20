@@ -141,6 +141,6 @@ void l2o_cost_fx_cnf_print(const l2o_cost_fx_cnf_t *fx, FILE *out);
 
 bool l2o_is_valid_term(l2o_t *l2o, term_t t);
 
-double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval, double_hmap_t *cache);
+double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval);
 
 #endif /* MCSAT_L2O_INTERNAL_H_ */
