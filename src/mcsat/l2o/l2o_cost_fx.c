@@ -13,11 +13,16 @@ double l2o_cost_fx_term_eval(l2o_cost_fx_t *fx, const l2o_search_state_t *state)
   l2o_cost_fx_term_t *fx_t = (l2o_cost_fx_term_t*) fx;
   l2o_evaluator_set_state(&fx->evaluator, state);
 
+  double_hmap_t l2o_cache;
+  init_double_hmap(&l2o_cache, 0);
+
   double sum = 0;
   for (uint32_t i = 0; i < fx_t->terms.size; ++i) {
     term_t t = fx_t->terms.data[i];
-    sum += l2o_calculate(fx->l2o, t, &fx->evaluator);
+    sum += l2o_calculate(fx->l2o, t, &fx->evaluator, &l2o_cache);
   }
+
+  delete_double_hmap(&l2o_cache);
   return sum;
 }
 
