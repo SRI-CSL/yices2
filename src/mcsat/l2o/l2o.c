@@ -55,9 +55,7 @@ void l2o_set_tracer(l2o_t* l2o, tracer_t* tracer) {
 
 void l2o_destruct(l2o_t* l2o) {
   delete_ivector(&l2o->assertions);
-
   delete_int_hmmap(&l2o->var_member);
-
   scope_holder_destruct(&l2o->scope);
   statistics_destruct(&l2o->stats);
 }
@@ -121,14 +119,33 @@ void collect_free_vars(l2o_t *l2o, term_t t, ivector_t *v, uint32_t offset) {
   switch (current_kind) {
     case CONSTANT_TERM:
     case ARITH_CONSTANT:
+    case BV64_CONSTANT:
+    case BV_CONSTANT:
       break;
 
     case ARITH_POLY: {
-      polynomial_t *polydesc = poly_term_desc(l2o->terms, current_term);
-      for (uint32_t i = 0; i < polydesc->nterms; ++i) {
-        term_t var = polydesc->mono[i].var;
-        if (var > 0)
-          ivector_push(&subterms, var);
+      polynomial_t *poly_desc = poly_term_desc(l2o->terms, current_term);
+      for (uint32_t i = 0; i < poly_desc->nterms; ++i) {
+        term_t var = poly_desc->mono[i].var;
+        if (var > 0) ivector_push(&subterms, var);
+      }
+      break;
+    }
+
+    case BV64_POLY: {
+      bvpoly64_t *poly_desc = bvpoly64_term_desc(l2o->terms, current_term);
+      for (uint32_t i = 0; i < poly_desc->nterms; ++i) {
+        term_t var = poly_desc->mono[i].var;
+        if (var > 0) ivector_push(&subterms, var);
+      }
+      break;
+    }
+
+    case BV_POLY: {
+      bvpoly_t *poly_desc = bvpoly_term_desc(l2o->terms, current_term);
+      for (uint32_t i = 0; i < poly_desc->nterms; ++i) {
+        term_t var = poly_desc->mono[i].var;
+        if (var > 0) ivector_push(&subterms, var);
       }
       break;
     }
@@ -138,8 +155,7 @@ void collect_free_vars(l2o_t *l2o, term_t t, ivector_t *v, uint32_t offset) {
       for (uint32_t i = 0; i < ppdesc->len; ++ i) {
         term_t var = ppdesc->prod[i].var;
         assert(var != RESERVED_TERM);
-        if (var > 0)
-          ivector_push(&subterms, var);
+        if (var > 0) ivector_push(&subterms, var);
       }
       break;
     }
@@ -202,7 +218,7 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval, double_hmap_t 
       else { assert(false); }
       break;
 
-      case UNINTERPRETED_TERM:
+    case UNINTERPRETED_TERM:
       double val = l2o_evaluator_run_term(eval, t);
       if (t_type == BOOL_TYPE) {
         assert(val == 1.0 || val == 0.0);
@@ -700,13 +716,15 @@ var_queue_t
 
 // TODO check for duplicate clauses
 static
-bool l2o_cost_fx_cnf_add(l2o_cost_fx_cnf_t *fx, const plugin_t *bool_plugin, variable_t v) {
-  bool success = true;
+bool l2o_cost_fx_cnf_add(l2o_cost_fx_cnf_t *fx, term_t t) {
+  const plugin_t *bool_plugin = fx->fx.l2o->bool_plugin;
+  assert(bool_plugin);
 
+  bool success = true;
   ivector_t clause_refs, terms;
   init_ivector(&clause_refs, 0);
   init_ivector(&terms, 0);
-  if (bool_plugin_get_clauses_of_variable(bool_plugin, v, &clause_refs)) {
+  if (bool_plugin_get_clauses_of_term(bool_plugin, t, &clause_refs)) {
     // non-unit clause
     for (uint32_t i = 0; i < clause_refs.size; ++i) {
       clause_ref_t ref = clause_refs.data[i];
@@ -716,8 +734,8 @@ bool l2o_cost_fx_cnf_add(l2o_cost_fx_cnf_t *fx, const plugin_t *bool_plugin, var
       ivector_reset(&terms);
     }
   } else {
-    // unit clause
-    bool_plugin_query_unit_clause(bool_plugin, v, &terms);
+    // no clause found, assume unit clause
+    ivector_push(&terms, t);
     l2o_cost_fx_cnf_add_clause(fx, &terms);
     success = l2o_collect_free_vars_list(fx->fx.l2o, &terms);
   }
@@ -737,11 +755,7 @@ l2o_cost_fx_t* l2o_make_cost_fx_cnf(l2o_t* l2o, const mcsat_trail_t *trail) {
   l2o_cost_fx_cnf_construct(l2o, &fx);
   for (uint32_t i = 0; i < assertions->size; ++ i) {
     term_t t = assertions->data[i];
-    bool neg = is_neg_term(t);
-    variable_t v = variable_db_get_variable_if_exists(trail->var_db, unsigned_term(t));
-    // TODO handle negative variables
-    assert(v != variable_null);
-    success = l2o_cost_fx_cnf_add(&fx, l2o->bool_plugin, v);
+    success = l2o_cost_fx_cnf_add(&fx, t);
     if (!success) break;
   }
 

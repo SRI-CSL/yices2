@@ -1066,17 +1066,12 @@ plugin_t* bool_plugin_allocator(void) {
   return (plugin_t*) plugin;
 }
 
-
 // TODO find proper place
-bool bool_plugin_get_clauses_of_variable(const plugin_t *plugin, variable_t var, ivector_t *clauses) {
+bool bool_plugin_get_clauses_of_term(const plugin_t *plugin, term_t t, ivector_t *clauses) {
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
-  return cnf_get_clauses(&bp->cnf, var, clauses);
-}
-
-void bool_plugin_query_unit_clause(const plugin_t *plugin, variable_t var, ivector_t *terms) {
-  bool_plugin_t* bp = (bool_plugin_t*) plugin;
-  assert(!cnf_get_clauses(&bp->cnf, var, NULL));
-  ivector_push(terms, variable_db_get_term(bp->ctx->var_db, var));
+  variable_t v = variable_db_get_variable_if_exists(bp->ctx->var_db, unsigned_term(t));
+  assert(v != variable_null);
+  return cnf_get_clauses(&bp->cnf, v, clauses);
 }
 
 void bool_plugin_query_clause(const plugin_t *plugin, clause_ref_t clause_ref, ivector_t *terms) {

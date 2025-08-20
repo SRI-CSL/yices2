@@ -3605,6 +3605,11 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
       return bvge_atom_desc(terms, t);
     case BV_SGE_ATOM:
       return bvsge_atom_desc(terms, t);
+    case BIT_TERM: {
+      composite_for_noncomposite.arity = 1;
+      composite_for_noncomposite.arg[0] = bit_term_desc(terms, t)->arg;
+      return (composite_term_t *) &composite_for_noncomposite;
+    }
     default:
       assert(false);
       return NULL;

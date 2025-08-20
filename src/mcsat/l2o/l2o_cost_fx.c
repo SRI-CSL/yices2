@@ -140,6 +140,7 @@ void l2o_cost_fx_cnf_get_free_vars(const l2o_cost_fx_t *fx, ivector_t *v) {
     if (fx_cnf->lit[p] == NULL_TERM && fx_cnf->lit[p+1] == NULL_TERM) break;
     if (fx_cnf->lit[p] == NULL_TERM) continue;
     term_t t = unsigned_term(fx_cnf->lit[p]);
+    if (t == true_term || t == false_term) continue;
     assert(int_hmmap_contains_key(&l2o->var_member, t));
     int_hmmap_find_all(&l2o->var_member, t, &free_vars);
   }
