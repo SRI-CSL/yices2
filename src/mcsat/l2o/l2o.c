@@ -316,6 +316,7 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval) {
       assert(false);
       break;
   }
+  return 0.0;
 }
 
 /** Returns true if its a valid term. */
@@ -718,8 +719,6 @@ bool l2o_cost_fx_cnf_add(l2o_cost_fx_cnf_t *fx, term_t t) {
 static
 l2o_cost_fx_t* l2o_make_cost_fx_cnf(l2o_t* l2o, const mcsat_trail_t *trail) {
   const ivector_t *assertions = &l2o->assertions;
-  const plugin_t *bool_plugin = l2o->bool_plugin;
-  assert(bool_plugin);
   bool success = true;
 
   l2o_cost_fx_cnf_t fx;
