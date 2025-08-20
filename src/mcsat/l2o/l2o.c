@@ -26,8 +26,6 @@
 #include <math.h>
 #include <poly/feasibility_set.h>
 
-#define L2O_EPSILON 0.0000001
-
 static
 void l2o_stats_init(l2o_t* l2o) {
   l2o->l2o_stats.n_runs = statistics_new_int(&l2o->stats, "l2o::runs");
@@ -164,29 +162,25 @@ void collect_free_vars(l2o_t *l2o, term_t t, ivector_t *v, uint32_t offset) {
   }
   delete_ivector(&subterms);
 
-  //term_print_to_file(stderr, l2o->terms, t);
-  //fprintf(stderr, "\n");
-
   // associates the term its variables
   assert(offset <= v->size);
   assert(!int_hmmap_contains_key(&l2o->var_member, current_term));
   for (uint32_t i = offset; i < v->size; ++i) {
     term_t var = v->data[i];
-    //term_print_to_file(stderr, l2o->terms, var);
-    //fprintf(stderr, ", ");
     assert(is_pos_term(var));
     assert(is_pos_term(current_term));
     // TODO sort and remove duplicates from v and use add
     int_hmmap_insert(&l2o->var_member, current_term, var);
   }
-  //fprintf(stderr, "\n--------------\n");
 }
 
 /**
  * Calculates the l2o value of a given term. The term must be fully evaluated in the evaluator.
  */
-#define L2O_TRUE 0
-#define L2O_FALSE 1
+#define L2O_TRUE 0.0
+#define L2O_FALSE 1.0
+#define L2O_EPSILON 0.0000001
+
 double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval) {
   term_table_t *terms = l2o->terms;
   term_kind_t kind = term_kind(l2o->terms, t);
