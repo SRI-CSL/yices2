@@ -150,6 +150,9 @@ const char* kind_to_string(term_kind_t t) {
     return "BV64_POLY";
   case BV_POLY:
     return "BV_POLY";
+  default:
+    assert(false);
+    return "UNKNOWN_TYPE";
   }
 }
 
