@@ -44,27 +44,112 @@ void ctx_trace_value(const plugin_context_t* ctx, const mcsat_value_t* value) {
 
 const char* kind_to_string(term_kind_t t) {
   switch (t) {
+  case UNUSED_TERM:
+    return "UNUSED_TERM";
+  case RESERVED_TERM:
+    return "RESERVED_TERM";
+  case CONSTANT_TERM:
+    return "CONSTANT_TERM";
+  case ARITH_CONSTANT:
+    return "ARITH_CONSTANT";
+  case ARITH_FF_CONSTANT:
+    return "ARITH_FF_CONSTANT";
+  case BV64_CONSTANT:
+    return "BV64_CONSTANT";
+  case BV_CONSTANT:
+    return "BV_CONSTANT";
+  case VARIABLE:
+    return "VARIABLE";
+  case UNINTERPRETED_TERM:
+    return "UNINTERPRETED_TERM";
+  case ARITH_EQ_ATOM:
+    return "ARITH_EQ_ATOM";
+  case ARITH_GE_ATOM:
+    return "ARITH_GE_ATOM";
+  case ARITH_IS_INT_ATOM:
+    return "ARITH_IS_INT_ATOM";
+  case ARITH_FLOOR:
+    return "ARITH_FLOOR";
+  case ARITH_CEIL:
+    return "ARITH_CEIL";
+  case ARITH_ABS:
+    return "ARITH_ABS";
+  case ARITH_ROOT_ATOM:
+    return "ARITH_ROOT_ATOM";
+  case ARITH_FF_EQ_ATOM:
+    return "ARITH_FF_EQ_ATOM";
+  case ITE_TERM:
+    return "ITE_TERM";
+  case ITE_SPECIAL:
+    return "ITE_SPECIAL";
+  case APP_TERM:
+    return "APP_TERM";
+  case UPDATE_TERM:
+    return "UPDATE_TERM";
+  case TUPLE_TERM:
+    return "TUPLE_TERM";
+  case EQ_TERM:
+    return "EQ_TERM";
+  case DISTINCT_TERM:
+    return "DISTINCT_TERM";
+  case FORALL_TERM:
+    return "FORALL_TERM";
+  case LAMBDA_TERM:
+    return "LAMBDA_TERM";
   case OR_TERM:
     return "OR_TERM";
   case XOR_TERM:
-    return "XOR_TERM";
-  case EQ_TERM:
-    return "EQ_TERM";
-  case ITE_TERM:
-    return "ITE_TERM";
-  case UNINTERPRETED_TERM:
-    return "UNINTERPRETED_TERM";
-  case UPDATE_TERM:
-    return "UPDATE_TERM";
+  return "XOR_TERM";
+  case ARITH_BINEQ_ATOM:
+    return "ARITH_BINEQ_ATOM";
   case ARITH_RDIV:
     return "ARITH_RDIV";
   case ARITH_IDIV:
     return "ARITH_IDIV";
   case ARITH_MOD:
     return "ARITH_MOD";
-  default:
-    assert(false);
-    return "UNKNOWN_TERM";
+  case ARITH_DIVIDES_ATOM:
+    return "ARITH_DIVIDES_ATOM";
+  case ARITH_FF_BINEQ_ATOM:
+    return "ARITH_FF_BINEQ_ATOM";
+  case BV_ARRAY:
+    return "BV_ARRAY";
+  case BV_DIV:
+    return "BV_DIV";
+  case BV_REM:
+    return "BV_REM";
+  case BV_SDIV:
+    return "BV_SDIV";
+  case BV_SREM:
+    return "BV_SREM";
+  case BV_SMOD:
+    return "BV_SMOD";
+  case BV_SHL:
+    return "BV_SHL";
+  case BV_LSHR:
+    return "BV_LSHR";
+  case BV_ASHR:
+    return "BV_ASHR";
+  case BV_EQ_ATOM:
+    return "BV_EQ_ATOM";
+  case BV_GE_ATOM:
+    return "BV_GE_ATOM";
+  case BV_SGE_ATOM:
+    return "BV_SGE_ATOM";
+  case SELECT_TERM:
+    return "SELECT_TERM";
+  case BIT_TERM:
+    return "BIT_TERM";
+  case POWER_PRODUCT:
+    return "POWER_PRODUCT";
+  case ARITH_POLY:
+    return "ARITH_POLY";
+  case ARITH_FF_POLY:
+    return "ARITH_FF_POLY";
+  case BV64_POLY:
+    return "BV64_POLY";
+  case BV_POLY:
+    return "BV_POLY";
   }
 }
 
@@ -78,6 +163,8 @@ const char* type_to_string(type_kind_t kind) {
     return "INT_TYPE";
   case REAL_TYPE:
     return "REAL_TYPE";
+  case FF_TYPE:
+    return "FF_TYPE";
   case BITVECTOR_TYPE:
     return "BITVECTOR_TYPE";
   case SCALAR_TYPE:
@@ -131,5 +218,20 @@ void ctx_trace_printf(const plugin_context_t* ctx, const char* format, ...) {
       ctx->tracer->err_code = errno;
     }
     va_end(p);
+  }
+}
+
+void ctx_trace_vprintf(const plugin_context_t* ctx, const char* format, va_list p) {
+  int code;
+
+  if (ctx->tracer != NULL && !ctx->tracer->print_failed) {
+    code = vfprintf(ctx->tracer->file, format, p);
+    if (code >= 0) {
+      code = fflush(ctx->tracer->file);
+    }
+    if (code < 0) {
+      ctx->tracer->print_failed = true;
+      ctx->tracer->err_code = errno;
+    }
   }
 }
