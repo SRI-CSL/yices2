@@ -26,6 +26,7 @@
 #include "inttypes.h"
 
 #include "yices.h"
+#include "yices_types.h"
 #include "api/yices_api_lock_free.h"
 #include "context/context.h"
 
@@ -241,7 +242,7 @@ void cdclt_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     smt_status_t result = _o_yices_check_context_with_assumptions(cdclt->cdclt_ctx, NULL, cdclt->assump.size, cdclt->assump.data);
     (*cdclt->stats.checks) ++;
 
-    if (result == STATUS_UNSAT) {
+    if (result == YICES_STATUS_UNSAT) {
       context_build_unsat_core(cdclt->cdclt_ctx, &cdclt->conflict);
 
       for (uint32_t i = 0; i < cdclt->conflict.size; ++i) {
