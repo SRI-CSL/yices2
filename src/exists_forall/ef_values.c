@@ -721,13 +721,12 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hmap_t *requests) 
         x = v->data[i];
         p = int_hmap_find(&vtable->generation, x);
         if (p != NULL && p->val < best_gen) {
-	  best_gen = p->val;
-	  best_x = x;
-	}
+          best_gen = p->val;
+          best_x = x;
+        }
         if (best_x == NULL_TERM) best_x = x;
       }
       store_rep(vtable, value, best_x);
-      assert(0);
     }
 
     if (!term_is_composite(vtable->terms, best_x)) {
@@ -756,11 +755,11 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hmap_t *requests) 
 
       present = (int_hmap_find(requests, f) != NULL);
       if (present) {
-        printf("Circular dependency encountered while finding a representative for term: %s\n", yices_term_to_string(value, 120, 1, 0));
-        assert(0);
+        // Keep f unchanged if representative construction is cyclic.
+        frep = f;
+      } else {
+        frep = ef_get_value_rep(vtable, f, requests);
       }
-
-      frep = ef_get_value_rep(vtable, f, requests);
       if (f != frep) {
         ivector_push(&args, f);
         ivector_push(&argsrep, frep);
