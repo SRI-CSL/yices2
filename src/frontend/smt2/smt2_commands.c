@@ -3868,12 +3868,55 @@ static model_t *get_ef_model(smt2_globals_t *g) {
  * - i = index of the SMT2 expression for t in token_queue
  */
 static void print_term_value(smt2_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue, value_t v, type_t tau, int32_t i) {
+  etoken_t *tk;
+  type_t value_type;
+
+  value_type = tau;
+
+  /*
+   * Keep decimal syntax stable for get-value on decimal literals:
+   * if the query is 0.0 (or (- 0.0)) and the model value is an integer,
+   * print 0.0 rather than 0.
+   */
+  if (good_token(token_queue, i) && start_token(token_queue, i)) {
+    tk = get_etoken(token_queue, i);
+    if (atomic_token(token_queue, i)) {
+      if (tk->key == SMT2_TK_DECIMAL) {
+        value_type = real_id;
+      }
+    } else if (open_token(token_queue, i)) {
+      int32_t j, k;
+
+      /*
+       * Match the shape (- <decimal>) with a single argument.
+       */
+      j = i + 1;
+      if (good_token(token_queue, j) && atomic_token(token_queue, j)) {
+        tk = get_etoken(token_queue, j);
+        if (tk->key == SMT2_TK_SYMBOL && strcmp(tk->ptr, "-") == 0) {
+          j = token_sibling(token_queue, j);
+          if (good_token(token_queue, j) && atomic_token(token_queue, j)) {
+            tk = get_etoken(token_queue, j);
+            if (tk->key == SMT2_TK_DECIMAL) {
+              k = token_sibling(token_queue, j);
+              if (good_token(token_queue, k) &&
+                  close_token(token_queue, k) &&
+                  token_sibling(token_queue, i) == k + 1) {
+                value_type = real_id;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   pp_open_block(&printer->pp, PP_OPEN_PAR);
   pp_smt2_expr(&printer->pp, token_queue, i);
   if (__smt2_globals.clean_model_format) {
     smt2_pp_object(printer, vtbl, v);
   } else {
-    smt2_pp_smt2_object(printer, vtbl, v, tau);
+    smt2_pp_smt2_object(printer, vtbl, v, value_type);
   }
   pp_close_block(&printer->pp, true);
 }

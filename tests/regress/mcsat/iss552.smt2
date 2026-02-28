@@ -1,0 +1,8 @@
+(set-logic QF_ANIA)
+(declare-const x0 (Array (Array Bool Bool) Bool))
+(declare-const x1 (Array Bool Bool))
+(declare-const a (Array Bool Bool))
+(assert (= (store (store x0 x1 false) (store a false false) false)
+           (store x0 (store a true false) false)))
+(assert (select a false))
+(check-sat)
