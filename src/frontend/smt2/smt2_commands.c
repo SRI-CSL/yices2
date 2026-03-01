@@ -76,10 +76,6 @@
 #include "mt/threads.h"
 #include "mt/thread_macros.h"
 
-#include "frontend/smt2/smt2_term_utils.h"
-
-#include "utils/int_hash_map.h"
-
 /*
  * DUMP CONTEXT: FOR TESTING/DEBUGGING
  */
@@ -666,10 +662,13 @@ static smt_status_t check_with_model(context_t *ctx, const param_t *params, uint
  * Check sat with assumptions and build an unsat core
  */
 static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[], ivector_t *core) {
-  ivector_t assumptions;
   smt_status_t status;
-  literal_t l;
-  uint32_t i;
+  int32_t error;
+
+  if (ctx->mcsat != NULL && !context_supports_model_interpolation(ctx)) {
+    yices_error_report()->code = CTX_OPERATION_NOT_SUPPORTED;
+    return YICES_STATUS_ERROR;
+  }
 
   // if ctx is already unsat, the core is empty
   if (context_status(ctx) == YICES_STATUS_UNSAT) {
@@ -677,79 +676,15 @@ static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params
     return YICES_STATUS_UNSAT;
   }
 
-  // If MCSAT use the model solving command
-  if (ctx->mcsat) {
-    // Copy over to model
-    model_t mdl;
-    // Map from temporary Boolean variables (labels) to the original assumptions.
-    int_hmap_t lmap;
-
-    init_model(&mdl, ctx->terms, true);
-    init_int_hmap(&lmap, 0);
-    init_ivector(&assumptions, n);
-
-    for (i = 0; i < n; ++ i) {
-      // create temporary Boolean label for assumptions
-      term_t b = new_uninterpreted_term(ctx->terms, bool_id);
-      int_hmap_add(&lmap, b, a[i]);
-      yices_assert_formula(ctx, yices_implies(b, a[i]));
-      model_map_term(&mdl, b, vtbl_mk_bool(&mdl.vtbl, true));
-      ivector_push(&assumptions, b);
-    }
-    
-    // Solve
-    status = yices_check_context_with_model(ctx, params, &mdl, n, assumptions.data);
-
-    if (status == YICES_STATUS_UNSAT) {
-      term_t model_interp = context_get_unsat_model_interpolant(ctx);
-      if (model_interp != NULL_TERM) {
-	      ivector_t lcore;
-        init_ivector(&lcore, 0);
-        filter_assumptions_by_term(ctx, model_interp, &assumptions, &lcore);
-	      ivector_reset(core);
-	      for (i = 0; i < lcore.size; ++ i) {
-          int_hmap_pair_t* e = int_hmap_find(&lmap, lcore.data[i]);
-          if (e != NULL) {
-            // The unsat core from the solver may contain temporary Boolean variables.
-            // We use lmap to find the original assumption that corresponds to each
-            // temporary variable in the core.
-            ivector_push(core, e->val);
-            //print_term_full(stderr, ctx->terms, e->val);
-            //fflush(stdout);
-          }
-        }
-        delete_ivector(&lcore);
-      }
-    }
-
-    // Remove temps
-    delete_ivector(&assumptions);
-    delete_int_hmap(&lmap);
-    delete_model(&mdl);
-
-    return status;
+  status = check_context_with_term_assumptions(ctx, params, n, a, &error);
+  if (status == YICES_STATUS_ERROR && error < 0) {
+    yices_internalization_error(error);
+  } else if (status == YICES_STATUS_ERROR && error > 0) {
+    yices_error_report()->code = error;
   }
-
-  // convert a[0] ... a[n-1] to assumptions
-  init_ivector(&assumptions, n);
-  for (i=0; i<n; i++) {
-    l = context_add_assumption(ctx, a[i]);
-    if (l < 0) {
-      // error when processing term a[i]
-      yices_internalization_error(l);
-      status = YICES_STATUS_ERROR;
-      goto done;
-    }
-    ivector_push(&assumptions, l);
-  }
-
-  status = check_context_with_assumptions(ctx, params, n, assumptions.data);
   if (status == YICES_STATUS_UNSAT) {
     context_build_unsat_core(ctx, core);
   }
-
- done:
-  delete_ivector(&assumptions);
 
   return status;
 }

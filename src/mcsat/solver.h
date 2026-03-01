@@ -104,6 +104,11 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model);
 term_t mcsat_get_unsat_model_interpolant(mcsat_solver_t* mcsat);
 
 /*
+ * Restore sticky UNSAT result with a given interpolant.
+ */
+void mcsat_set_unsat_result(mcsat_solver_t* mcsat, term_t interpolant);
+
+/*
  * Interrupt the search
  * - this can be called after check_context from a signal handler
  * - this interrupts the current search
