@@ -60,6 +60,9 @@ void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_fi
 void mcsat_solve(mcsat_solver_t *mcsat, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]) {
 }
 
+void mcsat_cleanup_assumptions(mcsat_solver_t* mcsat) {
+}
+
 void mcsat_set_tracer(mcsat_solver_t *mcsat, tracer_t *tracer) {
 }
 
