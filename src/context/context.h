@@ -226,6 +226,13 @@ extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
 extern smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *parameters, uint32_t n, const literal_t *a);
 
 /*
+ * Check under assumptions given as Boolean terms.
+ * - each a[i] must be a Boolean term
+ * - this supports both CDCL(T) and MCSAT contexts
+ */
+extern smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *parameters, uint32_t n, const term_t *a, int32_t *error);
+
+/*
  * Check satisfiability under model: check whether the assertions stored in ctx
  * conjoined with the assignment that the model gives to t is satisfiable.
  *
@@ -347,6 +354,11 @@ extern void context_clear(context_t *ctx);
  * is unsat.
  */
 extern void context_clear_unsat(context_t *ctx);
+
+/*
+ * Invalidate cached UNSAT artifacts.
+ */
+extern void context_invalidate_unsat_core_cache(context_t *ctx);
 
 
 /*

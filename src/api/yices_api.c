@@ -9144,13 +9144,16 @@ static bool _o_unsat_core_check_assumptions(uint32_t n, const term_t a[]) {
  */
 smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[]) {
   param_t default_params;
-  ivector_t assumptions;
   smt_status_t stat;
-  uint32_t i;
-  literal_t l;
+  int32_t error;
 
   if (!_o_unsat_core_check_assumptions(n, a)) {
     return YICES_STATUS_ERROR; // Bad assumptions
+  }
+
+  if (context_has_mcsat(ctx) && !context_supports_model_interpolation(ctx)) {
+    // Enable interpolation on-demand so term assumptions are supported in MCSAT.
+    ctx->mcsat_options.model_interpolation = true;
   }
 
   // cleanup
@@ -9192,21 +9195,6 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
 
   assert(context_status(ctx) == YICES_STATUS_IDLE);
 
-  // convert the assumptions to n literals
-  init_ivector(&assumptions, n);
-  for (i=0; i<n; i++) {
-    l = context_add_assumption(ctx, a[i]);
-    if (l < 0) {
-      // error when converting a[i] to a literal
-      convert_internalization_error(l);
-      stat = YICES_STATUS_ERROR;
-      yices_release_mutex();
-      goto cleanup;
-    }
-    ivector_push(&assumptions, l);
-  }
-  assert(assumptions.size == n);
-
   // set parameters
   if (params == NULL) {
     yices_default_params_for_context(ctx, &default_params);
@@ -9214,13 +9202,15 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
   }
 
   // call check
-  stat = check_context_with_assumptions(ctx, params, n, assumptions.data);
+  stat = check_context_with_term_assumptions(ctx, params, n, a, &error);
+  if (stat == YICES_STATUS_ERROR && error < 0) {
+    convert_internalization_error(error);
+  } else if (stat == YICES_STATUS_ERROR && error > 0) {
+    set_error_code((error_code_t) error);
+  }
   if (stat == YICES_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
     context_cleanup(ctx);
   }
-
- cleanup:
-  delete_ivector(&assumptions);
 
   return stat;
 }

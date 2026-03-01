@@ -32,10 +32,16 @@
 #include "context/context.h"
 #include "context/internalization_codes.h"
 #include "model/models.h"
+#include "mcsat/solver.h"
 #include "solvers/bv/dimacs_printer.h"
 #include "solvers/cdcl/delegate.h"
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
+#include "terms/term_explorer.h"
+#include "terms/term_manager.h"
+#include "terms/term_substitution.h"
+#include "utils/int_hash_map.h"
+#include "utils/int_hash_sets.h"
 
 #include "api/yices_globals.h"
 #include "mt/thread_macros.h"
@@ -594,6 +600,8 @@ smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *param
   smt_core_t *core;
   smt_status_t stat;
 
+  assert(ctx->mcsat == NULL);
+
   core = ctx->core;
   stat = smt_status(core);
   if (stat == YICES_STATUS_IDLE) {
@@ -607,6 +615,228 @@ smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *param
   }
 
   return stat;
+}
+
+/*
+ * Explore term t and collect all Boolean atoms into atoms.
+ */
+static void collect_boolean_atoms(context_t *ctx, term_t t, int_hset_t *atoms, int_hset_t *visited) {
+  term_table_t *terms;
+  uint32_t i, nchildren;
+
+  if (t < 0) {
+    t = not(t);
+  }
+
+  if (int_hset_member(visited, t)) {
+    return;
+  }
+  int_hset_add(visited, t);
+
+  terms = ctx->terms;
+  if (term_type(terms, t) == bool_type(terms->types)) {
+    int_hset_add(atoms, t);
+  }
+
+  if (term_is_projection(terms, t)) {
+    collect_boolean_atoms(ctx, proj_term_arg(terms, t), atoms, visited);
+  } else if (term_is_sum(terms, t)) {
+    nchildren = term_num_children(terms, t);
+    for (i=0; i<nchildren; i++) {
+      term_t child;
+      mpq_t q;
+      mpq_init(q);
+      sum_term_component(terms, t, i, q, &child);
+      collect_boolean_atoms(ctx, child, atoms, visited);
+      mpq_clear(q);
+    }
+  } else if (term_is_bvsum(terms, t)) {
+    uint32_t nbits = term_bitsize(terms, t);
+    int32_t *aux = (int32_t*) safe_malloc(nbits * sizeof(int32_t));
+    nchildren = term_num_children(terms, t);
+    for (i=0; i<nchildren; i++) {
+      term_t child;
+      bvsum_term_component(terms, t, i, aux, &child);
+      collect_boolean_atoms(ctx, child, atoms, visited);
+    }
+    safe_free(aux);
+  } else if (term_is_product(terms, t)) {
+    nchildren = term_num_children(terms, t);
+    for (i=0; i<nchildren; i++) {
+      term_t child;
+      uint32_t exp;
+      product_term_component(terms, t, i, &child, &exp);
+      collect_boolean_atoms(ctx, child, atoms, visited);
+    }
+  } else if (term_is_composite(terms, t)) {
+    nchildren = term_num_children(terms, t);
+    for (i=0; i<nchildren; i++) {
+      collect_boolean_atoms(ctx, term_child(terms, t, i), atoms, visited);
+    }
+  }
+}
+
+/*
+ * Extract assumptions whose labels appear in term t.
+ */
+static void core_from_labeled_interpolant(context_t *ctx, term_t t, const ivector_t *labels, const int_hmap_t *label_map, ivector_t *core) {
+  int_hset_t atoms, visited;
+  uint32_t i;
+
+  init_int_hset(&atoms, 0);
+  init_int_hset(&visited, 0);
+  collect_boolean_atoms(ctx, t, &atoms, &visited);
+
+  ivector_reset(core);
+  for (i=0; i<labels->size; i++) {
+    term_t label = labels->data[i];
+    if (int_hset_member(&atoms, label)) {
+      int_hmap_pair_t *p = int_hmap_find((int_hmap_t *) label_map, label);
+      if (p != NULL) {
+        ivector_push(core, p->val);
+      }
+    }
+  }
+
+  delete_int_hset(&visited);
+  delete_int_hset(&atoms);
+}
+
+/*
+ * Cache a core vector in the context.
+ */
+static void cache_unsat_core(context_t *ctx, const ivector_t *core) {
+  if (ctx->unsat_core_cache == NULL) {
+    ctx->unsat_core_cache = (ivector_t *) safe_malloc(sizeof(ivector_t));
+    init_ivector(ctx->unsat_core_cache, core->size);
+  } else {
+    ivector_reset(ctx->unsat_core_cache);
+  }
+  ivector_copy(ctx->unsat_core_cache, core->data, core->size);
+}
+
+/*
+ * Check under assumptions given as terms.
+ * - if MCSAT is enabled, this uses temporary labels + model interpolation.
+ * - otherwise terms are converted to literals and handled by the CDCL(T) path.
+ *
+ * Preconditions:
+ * - context status must be IDLE.
+ */
+smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t *a, int32_t *error) {
+  smt_status_t stat;
+  ivector_t assumptions;
+  uint32_t i;
+
+  if (error != NULL) {
+    *error = CTX_NO_ERROR;
+  }
+
+  context_invalidate_unsat_core_cache(ctx);
+
+  if (ctx->mcsat == NULL) {
+    literal_t l;
+
+    init_ivector(&assumptions, n);
+    for (i=0; i<n; i++) {
+      l = context_add_assumption(ctx, a[i]);
+      if (l < 0) {
+        if (error != NULL) {
+          *error = l;
+        }
+        delete_ivector(&assumptions);
+        return YICES_STATUS_ERROR;
+      }
+      ivector_push(&assumptions, l);
+    }
+
+    stat = check_context_with_assumptions(ctx, params, n, assumptions.data);
+    delete_ivector(&assumptions);
+    return stat;
+  }
+
+  /*
+   * MCSAT: create fresh labels b_i, assert (b_i => a_i), then solve with model b_i=true.
+   * We extract interpolant/core before cleanup, then restore sticky UNSAT artifacts.
+   */
+  if (!context_supports_model_interpolation(ctx)) {
+    if (error != NULL) {
+      *error = CTX_OPERATION_NOT_SUPPORTED;
+    }
+    return YICES_STATUS_ERROR;
+  }
+
+  {
+    model_t mdl;               // temporary model: sets all label terms b_i to true
+    int_hmap_t label_map;      // map label b_i -> original assumption a_i
+    ivector_t mapped_core;     // translated core over original assumptions
+    term_t interpolant = NULL_TERM; // raw/substituted interpolant for sticky UNSAT result
+    int32_t code;              // return code from assert_formula (negative on internalization error)
+    bool pushed;               // whether we pushed a temporary scope and must pop it
+    term_manager_t tm;
+
+    init_model(&mdl, ctx->terms, true);
+    init_int_hmap(&label_map, 0);
+    init_ivector(&assumptions, n);
+    init_ivector(&mapped_core, 0);
+    init_term_manager(&tm, ctx->terms);
+    stat = YICES_STATUS_IDLE;
+
+    pushed = false;
+    if (context_supports_pushpop(ctx)) {
+      context_push(ctx);
+      pushed = true;
+    }
+
+    for (i=0; i<n; i++) {
+      term_t b = new_uninterpreted_term(ctx->terms, bool_id);
+      term_t implication = mk_implies(&tm, b, a[i]);
+
+      int_hmap_add(&label_map, b, a[i]);
+      code = assert_formula(ctx, implication);
+      if (code < 0) {
+        if (error != NULL) {
+          *error = code;
+        }
+        stat = YICES_STATUS_ERROR;
+        break;
+      }
+      model_map_term(&mdl, b, vtbl_mk_bool(&mdl.vtbl, true));
+      ivector_push(&assumptions, b);
+    }
+
+    if (stat != YICES_STATUS_ERROR) {
+      stat = check_context_with_model(ctx, params, &mdl, n, assumptions.data);
+      if (stat == YICES_STATUS_UNSAT) {
+        term_subst_t subst;
+
+        interpolant = context_get_unsat_model_interpolant(ctx);
+        assert(interpolant != NULL_TERM);
+        core_from_labeled_interpolant(ctx, interpolant, &assumptions, &label_map, &mapped_core);
+
+        init_term_subst(&subst, &tm, n, assumptions.data, a);
+        interpolant = apply_term_subst(&subst, interpolant);
+        delete_term_subst(&subst);
+      }
+    }
+
+    if (pushed) {
+      mcsat_cleanup_assumptions(ctx->mcsat);
+      context_pop(ctx);
+    }
+    if (stat == YICES_STATUS_UNSAT) {
+      mcsat_set_unsat_result(ctx->mcsat, interpolant);
+      cache_unsat_core(ctx, &mapped_core);
+    }
+
+    delete_term_manager(&tm);
+    delete_ivector(&mapped_core);
+    delete_ivector(&assumptions);
+    delete_int_hmap(&label_map);
+    delete_model(&mdl);
+
+    return stat;
+  }
 }
 
 /*
@@ -1191,12 +1421,29 @@ bval_t context_bool_term_value(context_t *ctx, term_t t) {
 /*
  * Build an unsat core:
  * - store the result in v
- * - if there are no assumptions, return an empty core
+ * - first reuse a cached term core if available.
+ * - otherwise:
+ *   CDCL(T): build from smt_core then cache as terms
+ *   MCSAT: return empty unless check-with-term-assumptions populated the cache.
  */
 void context_build_unsat_core(context_t *ctx, ivector_t *v) {
   smt_core_t *core;
   uint32_t i, n;
   term_t t;
+
+  if (ctx->unsat_core_cache != NULL) {
+    // Fast path: repeated get_unsat_core returns the cached term vector.
+    ivector_reset(v);
+    ivector_copy(v, ctx->unsat_core_cache->data, ctx->unsat_core_cache->size);
+    return;
+  }
+
+  if (ctx->mcsat != NULL) {
+    // MCSAT core extraction is done in check-with-term-assumptions; without cache
+    // there is no generic context-level core structure to rebuild from here.
+    ivector_reset(v);
+    return;
+  }
 
   core = ctx->core;
   assert(core != NULL && core->status == YICES_STATUS_UNSAT);
@@ -1209,6 +1456,9 @@ void context_build_unsat_core(context_t *ctx, ivector_t *v) {
     assert(t >= 0);
     v->data[i] = t;
   }
+
+  // Cache the converted term core for subsequent queries.
+  cache_unsat_core(ctx, v);
 }
 
 
@@ -1219,4 +1469,3 @@ term_t context_get_unsat_model_interpolant(context_t *ctx) {
   assert(ctx->mcsat != NULL);
   return mcsat_get_unsat_model_interpolant(ctx->mcsat);
 }
-

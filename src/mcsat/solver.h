@@ -94,6 +94,11 @@ void mcsat_set_model_hint(mcsat_solver_t *mcsat, model_t* mdl, uint32_t n, const
 void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uint32_t n, const term_t mdl_filter[]);
 
 /*
+ * Remove temporary assumption decisions and return to base level.
+ */
+void mcsat_cleanup_assumptions(mcsat_solver_t* mcsat);
+
+/*
  * Add the model to the yices model
  */
 void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model);
@@ -102,6 +107,11 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model);
  * Get model interpolant.
  */
 term_t mcsat_get_unsat_model_interpolant(mcsat_solver_t* mcsat);
+
+/*
+ * Restore sticky UNSAT result with a given interpolant.
+ */
+void mcsat_set_unsat_result(mcsat_solver_t* mcsat, term_t interpolant);
 
 /*
  * Interrupt the search
