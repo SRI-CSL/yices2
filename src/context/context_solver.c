@@ -821,6 +821,7 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
     }
 
     if (pushed) {
+      mcsat_cleanup_assumptions(ctx->mcsat);
       context_pop(ctx);
     }
     if (stat == YICES_STATUS_UNSAT) {

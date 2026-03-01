@@ -94,6 +94,11 @@ void mcsat_set_model_hint(mcsat_solver_t *mcsat, model_t* mdl, uint32_t n, const
 void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uint32_t n, const term_t mdl_filter[]);
 
 /*
+ * Remove temporary assumption decisions and return to base level.
+ */
+void mcsat_cleanup_assumptions(mcsat_solver_t* mcsat);
+
+/*
  * Add the model to the yices model
  */
 void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model);

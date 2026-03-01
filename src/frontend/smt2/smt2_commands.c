@@ -666,8 +666,9 @@ static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params
   int32_t error;
 
   if (ctx->mcsat != NULL && !context_supports_model_interpolation(ctx)) {
-    yices_error_report()->code = CTX_OPERATION_NOT_SUPPORTED;
-    return YICES_STATUS_ERROR;
+    // check-sat-assuming should work in MCSAT even if interpolation wasn't
+    // enabled up-front.
+    ctx->mcsat_options.model_interpolation = true;
   }
 
   // if ctx is already unsat, the core is empty
@@ -2715,6 +2716,42 @@ static smt_status_t check_sat_with_timeout(smt2_globals_t *g, const param_t *par
  */
 static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t *params, assumptions_and_core_t *a) {
   smt_status_t stat;
+  ivector_t vars, values;
+  uint32_t i;
+  bool literals_only;
+
+  /*
+   * In MCSAT, a literal-only check-sat-assuming can be handled directly as
+   * check-with-model. This preserves SAT models for subsequent get-model.
+   *
+   * We keep the term-assumption path for non-literals (e.g., named formulas)
+   * and when unsat assumptions are requested (core extraction needed).
+   */
+  if (g->ctx->mcsat != NULL && !g->produce_unsat_assumptions) {
+    init_ivector(&vars, a->assumptions.size);
+    init_ivector(&values, a->assumptions.size);
+    literals_only = true;
+    for (i = 0; i < a->assumptions.size; ++i) {
+      term_t lit = a->assumptions.data[i];
+      term_t atom = unsigned_term(lit);
+      term_kind_t k = term_kind(__yices_globals.terms, atom);
+      if (k != UNINTERPRETED_TERM && k != VARIABLE) {
+        literals_only = false;
+        break;
+      }
+      ivector_push(&vars, atom);
+      ivector_push(&values, is_pos_term(lit) ? true_term : false_term);
+    }
+    if (literals_only) {
+      stat = check_with_model(g->ctx, params, vars.size, vars.data, values.data);
+      a->status = stat;
+      delete_ivector(&values);
+      delete_ivector(&vars);
+      return stat;
+    }
+    delete_ivector(&values);
+    delete_ivector(&vars);
+  }
 
   if (g->timeout == 0) {
     // no timeout

@@ -2159,6 +2159,13 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
     }
     mcsat->status = YICES_STATUS_UNSAT;
     mcsat->variable_in_conflict = variable_null;
+    // Assumption conflict can trigger this fast-path before the generic
+    // assumption-conflict cleanup below. Restore the trail to base level so
+    // context_pop remains valid after check-with-assumptions.
+    if (mcsat->assumptions_decided_level >= 0) {
+      mcsat->assumptions_decided_level = -1;
+      mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
+    }
     delete_ivector(&reason);
     return;
   } else {
@@ -2932,8 +2939,14 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   mcsat_process_registration_queue(mcsat);
 
 solve_done:
-
   ivector_reset(&mcsat->assumption_vars);
+}
+
+void mcsat_cleanup_assumptions(mcsat_solver_t* mcsat) {
+  mcsat->assumptions_decided_level = -1;
+  if (!trail_is_at_base_level(mcsat->trail)) {
+    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
+  }
 }
 
 void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer) {

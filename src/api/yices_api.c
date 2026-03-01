@@ -9152,8 +9152,8 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
   }
 
   if (context_has_mcsat(ctx) && !context_supports_model_interpolation(ctx)) {
-    set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-    return YICES_STATUS_ERROR;
+    // Enable interpolation on-demand so term assumptions are supported in MCSAT.
+    ctx->mcsat_options.model_interpolation = true;
   }
 
   // cleanup
