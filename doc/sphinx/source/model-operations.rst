@@ -750,13 +750,14 @@ These functions are useful for creating custom models or modifying existing ones
 
    - *model*: pointer to the model in which the assignment is made
    - *var*: the uninterpreted symbol to assign a value to
-   - *yval*: the value descriptor (possibly from another model)
+   - *yval*: the value descriptor from the same model
 
    **Requirements**
 
    - *var* must be an uninterpreted term
    - *var* must not already have a value in model
    - *yval* must be compatible with var's type
+   - *yval* **HAS** to come from the same model instance
 
    **Returns**
 
@@ -768,6 +769,163 @@ These functions are useful for creating custom models or modifying existing ones
    - If *var* is not a valid uninterpreted term or is already assigned:
 
      -- error code: :c:enum:`INVALID_TERM`
+
+.. c:function:: int32_t yices_model_make_tuple(model_t *model, uint32_t n, const yval_t elem[], yval_t *tuple)
+
+   Build a tuple value in *model* from an array of value descriptors.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the tuple is built
+   - *n*: number of tuple elements
+   - *elem*: array of *n* value descriptors
+   - *tuple*: output descriptor for the resulting tuple value
+
+   **Requirements**
+
+   - every descriptor in *elem* must refer to a value in *model*
+   - every descriptor in *elem* must have a tag consistent with the referenced value
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If one of the descriptors in *elem* is invalid for *model*:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+.. c:function:: int32_t yices_model_set_tuple(model_t *model, term_t var, uint32_t n, const yval_t elem[])
+
+   Assign a tuple value built from *elem* to an uninterpreted symbol in *model*.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted symbol to assign a value to
+   - *n*: number of tuple elements
+   - *elem*: array of *n* value descriptors
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term
+   - *var* must not already have a value in model
+   - every descriptor in *elem* must refer to a value in *model*
+   - the tuple built from *elem* must be type-compatible with *var*
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is invalid/already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+   - If one element in *elem* is invalid for *model* or tuple type is incompatible:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+.. c:function:: int32_t yices_model_make_mapping(model_t *model, uint32_t arity, const yval_t args[], const yval_t *value, yval_t *mapping)
+
+   Build a mapping value [*args[0]* ... *args[arity-1]* -> *value*] in *model*.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the mapping is built
+   - *arity*: number of mapping arguments
+   - *args*: array of *arity* argument descriptors
+   - *value*: descriptor for the mapping result
+   - *mapping*: output descriptor for the resulting mapping value
+
+   **Requirements**
+
+   - every descriptor in *args* must refer to a value in *model*
+   - *value* must refer to a value in *model*
+   - every descriptor tag must be consistent with the referenced value
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If one input descriptor is invalid for *model*:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+.. c:function:: int32_t yices_model_make_function(model_t *model, type_t fun_type, uint32_t n, const yval_t mappings[], const yval_t *def, yval_t *fun)
+
+   Build a function value in *model* from mapping descriptors and a default value.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the function is built
+   - *fun_type*: function type of the result
+   - *n*: number of mapping descriptors
+   - *mappings*: array of *n* mapping descriptors
+   - *def*: default value descriptor
+   - *fun*: output descriptor for the resulting function value
+
+   **Requirements**
+
+   - *fun_type* must be a function type
+   - every descriptor in *mappings* must refer to a mapping value in *model*
+   - every descriptor in *mappings* must have a tag consistent with the referenced value
+   - each mapping must have the same arity as *fun_type*'s domain
+   - each mapping argument/result must be type-compatible with *fun_type*
+   - *def* must refer to a value in *model* and be type-compatible with *fun_type*'s range
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *fun_type* is not a function type:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+   - If one mapping/default descriptor is invalid for *model* or not type-compatible:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+.. c:function:: int32_t yices_model_set_function(model_t *model, term_t var, uint32_t n, const yval_t mappings[], const yval_t *def)
+
+   Assign a function value built from *mappings* and *def* to an uninterpreted symbol in *model*.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted symbol to assign a value to
+   - *n*: number of mapping descriptors
+   - *mappings*: array of *n* mapping descriptors
+   - *def*: default value descriptor
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term
+   - *var* must have function type
+   - *var* must not already have a value in model
+   - *mappings*/*def* must satisfy the same requirements as in :c:func:`yices_model_make_function`
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is invalid or already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+   - If *var* does not have function type or *mappings*/*def* are invalid:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
 
 
 
@@ -1830,4 +1988,3 @@ This parameter takes a value of type :c:type:`yices_gen_mode_t`:
 
    This function is equivalent to calling :c:func:`yices_generalize_model` with
    argument (*a[0]* |and| |...| |and| *a[n-1]*).
-

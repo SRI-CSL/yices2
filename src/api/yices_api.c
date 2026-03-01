@@ -10183,9 +10183,26 @@ EXPORTED int32_t yices_model_set_yval(model_t *model, term_t var, const yval_t *
   MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_yval(model, var, yval));
 }
 
+/*
+ * Check that yval refers to a valid object in vtbl and that the tag is consistent.
+ * If valid, store the referenced value in *v.
+ */
+static bool check_model_yval(value_table_t *vtbl, const yval_t *yval, value_t *v) {
+  *v = yval->node_id;
+  if (! good_object(vtbl, *v) ||
+      yval->node_tag != tag_for_valkind(object_kind(vtbl, *v))) {
+    set_error_code(TYPE_MISMATCH);
+    return false;
+  }
+
+  return true;
+}
+
 int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) {
   value_table_t *vtbl;
   value_t v;
+  term_t value_term;
+  type_t tau;
   
   if (! check_good_term(__yices_globals.manager, var) ||
       ! check_uninterpreted(__yices_globals.terms, var) ||
@@ -10194,15 +10211,200 @@ int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) 
   }
 
   vtbl = model_get_vtbl(model);
-  v = yval->node_id;
-  
-  // Check that the yval is a valid object
-  if (! good_object(vtbl, v)) {
+  if (! check_model_yval(vtbl, yval, &v)) {
+    return -1;
+  }
+
+  tau = term_type(__yices_globals.terms, var);
+  value_term = convert_value_to_term(__yices_globals.manager, __yices_globals.terms, vtbl, v);
+  if (value_term < 0 ||
+      ! is_subtype(__yices_globals.types, term_type(__yices_globals.terms, value_term), tau)) {
     set_error_code(TYPE_MISMATCH);
     return -1;
   }
 
   model_map_term(model, var, v);
+  return 0;
+}
+
+EXPORTED int32_t yices_model_make_tuple(model_t *model, uint32_t n, const yval_t elem[], yval_t *tuple) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_make_tuple(model, n, elem, tuple));
+}
+
+int32_t _o_yices_model_make_tuple(model_t *model, uint32_t n, const yval_t elem[], yval_t *tuple) {
+  value_table_t *vtbl;
+  value_t v;
+  value_t *a;
+  uint32_t i;
+
+  vtbl = model_get_vtbl(model);
+  a = (value_t *) safe_malloc(n * sizeof(value_t));
+
+  for (i = 0; i < n; i++) {
+    if (! check_model_yval(vtbl, elem + i, a + i)) {
+      safe_free(a);
+      return -1;
+    }
+  }
+
+  v = vtbl_mk_tuple(vtbl, n, a);
+  safe_free(a);
+  get_yval(vtbl, v, tuple);
+
+  return 0;
+}
+
+EXPORTED int32_t yices_model_set_tuple(model_t *model, term_t var, uint32_t n, const yval_t elem[]) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_tuple(model, var, n, elem));
+}
+
+int32_t _o_yices_model_set_tuple(model_t *model, term_t var, uint32_t n, const yval_t elem[]) {
+  yval_t tuple;
+
+  if (_o_yices_model_make_tuple(model, n, elem, &tuple) < 0) {
+    return -1;
+  }
+
+  return _o_yices_model_set_yval(model, var, &tuple);
+}
+
+EXPORTED int32_t yices_model_make_mapping(model_t *model, uint32_t arity, const yval_t args[], const yval_t *value, yval_t *mapping) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_make_mapping(model, arity, args, value, mapping));
+}
+
+int32_t _o_yices_model_make_mapping(model_t *model, uint32_t arity, const yval_t args[], const yval_t *value, yval_t *mapping) {
+  value_table_t *vtbl;
+  value_t v;
+  value_t *a;
+  uint32_t i;
+
+  vtbl = model_get_vtbl(model);
+  a = (value_t *) safe_malloc(arity * sizeof(value_t));
+
+  for (i = 0; i < arity; i++) {
+    if (! check_model_yval(vtbl, args + i, a + i)) {
+      safe_free(a);
+      return -1;
+    }
+  }
+
+  if (! check_model_yval(vtbl, value, &v)) {
+    safe_free(a);
+    return -1;
+  }
+
+  v = vtbl_mk_map(vtbl, arity, a, v);
+  safe_free(a);
+  get_yval(vtbl, v, mapping);
+
+  return 0;
+}
+
+EXPORTED int32_t yices_model_make_function(model_t *model, type_t fun_type, uint32_t n, const yval_t mappings[], const yval_t *def, yval_t *fun) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_make_function(model, fun_type, n, mappings, def, fun));
+}
+
+int32_t _o_yices_model_make_function(model_t *model, type_t fun_type, uint32_t n, const yval_t mappings[], const yval_t *def, yval_t *fun) {
+  type_table_t *types;
+  value_table_t *vtbl;
+  value_t *a;
+  value_t def_v;
+  value_t f;
+  value_map_t *m;
+  term_t t;
+  type_t range;
+  uint32_t i, j, arity;
+
+  if (! check_good_type(__yices_globals.types, fun_type) ||
+      ! is_function_type(__yices_globals.types, fun_type)) {
+    set_error_code(TYPE_MISMATCH);
+    return -1;
+  }
+
+  types = __yices_globals.types;
+  vtbl = model_get_vtbl(model);
+  arity = function_type_arity(types, fun_type);
+  range = function_type_range(types, fun_type);
+
+  if (! check_model_yval(vtbl, def, &def_v)) {
+    return -1;
+  }
+
+  t = convert_value_to_term(__yices_globals.manager, __yices_globals.terms, vtbl, def_v);
+  if (t < 0 || ! is_subtype(types, term_type(__yices_globals.terms, t), range)) {
+    set_error_code(TYPE_MISMATCH);
+    return -1;
+  }
+
+  a = (value_t *) safe_malloc(n * sizeof(value_t));
+  for (i = 0; i < n; i++) {
+    if (! check_model_yval(vtbl, mappings + i, a + i)) {
+      safe_free(a);
+      return -1;
+    }
+    if (! object_is_map(vtbl, a[i])) {
+      safe_free(a);
+      set_error_code(TYPE_MISMATCH);
+      return -1;
+    }
+
+    m = vtbl_map(vtbl, a[i]);
+    if (m->arity != arity) {
+      safe_free(a);
+      set_error_code(TYPE_MISMATCH);
+      return -1;
+    }
+
+    for (j = 0; j < arity; j++) {
+      t = convert_value_to_term(__yices_globals.manager, __yices_globals.terms, vtbl, m->arg[j]);
+      if (t < 0 ||
+          ! is_subtype(types, term_type(__yices_globals.terms, t), function_type_domain(types, fun_type, (int32_t) j))) {
+        safe_free(a);
+        set_error_code(TYPE_MISMATCH);
+        return -1;
+      }
+    }
+
+    t = convert_value_to_term(__yices_globals.manager, __yices_globals.terms, vtbl, m->val);
+    if (t < 0 || ! is_subtype(types, term_type(__yices_globals.terms, t), range)) {
+      safe_free(a);
+      set_error_code(TYPE_MISMATCH);
+      return -1;
+    }
+  }
+
+  f = vtbl_mk_function(vtbl, fun_type, n, a, def_v);
+  safe_free(a);
+  get_yval(vtbl, f, fun);
+
+  return 0;
+}
+
+EXPORTED int32_t yices_model_set_function(model_t *model, term_t var, uint32_t n, const yval_t mappings[], const yval_t *def) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_function(model, var, n, mappings, def));
+}
+
+int32_t _o_yices_model_set_function(model_t *model, term_t var, uint32_t n, const yval_t mappings[], const yval_t *def) {
+  yval_t fun;
+  type_t tau;
+
+  if (! check_good_term(__yices_globals.manager, var) ||
+      ! check_uninterpreted(__yices_globals.terms, var) ||
+      ! check_unassigned_in_model(model, var)) {
+    return -1;
+  }
+
+  tau = term_type(__yices_globals.terms, var);
+  if (! is_function_type(__yices_globals.types, tau)) {
+    set_error_code(TYPE_MISMATCH);
+    return -1;
+  }
+
+  if (_o_yices_model_make_function(model, tau, n, mappings, def, &fun) < 0) {
+    return -1;
+  }
+
+  model_map_term(model, var, fun.node_id);
   return 0;
 }
 
