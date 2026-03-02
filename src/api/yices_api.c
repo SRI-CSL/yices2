@@ -9050,6 +9050,43 @@ EXPORTED void yices_default_params_for_context(const context_t *ctx, param_t *pa
   yices_set_default_params(params, ctx->logic, ctx->arch, ctx->mode);
 }
 
+/*
+ * Check whether the given delegate is supported and set the error
+ * report if not.
+ */
+static bool check_delegate(const char *delegate);
+
+/*
+ * Delegate name from search-parameter record.
+ * - return NULL if the default internal SAT solver should be used
+ */
+static const char *params_delegate_name(const param_t *params) {
+  const char *s;
+
+  s = NULL;
+  switch (params->delegate) {
+  case SAT_DELEGATE_NONE:
+    break;
+  case SAT_DELEGATE_Y2SAT:
+    s = "y2sat";
+    break;
+  case SAT_DELEGATE_CADICAL:
+    s = "cadical";
+    break;
+  case SAT_DELEGATE_CRYPTOMINISAT:
+    s = "cryptominisat";
+    break;
+  case SAT_DELEGATE_KISSAT:
+    s = "kissat";
+    break;
+  default:
+    assert(false);
+    break;
+  }
+
+  return s;
+}
+
 
 
 /*
@@ -9084,6 +9121,7 @@ EXPORTED void yices_default_params_for_context(const context_t *ctx, param_t *pa
  */
 EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params) {
   param_t default_params;
+  const char *delegate;
   smt_status_t stat;
 
   stat = context_status(ctx);
@@ -9107,7 +9145,19 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
       yices_default_params_for_context(ctx, &default_params);
       params = &default_params;
     }
-    stat = check_context(ctx, params);
+    delegate = params_delegate_name(params);
+    if (delegate == NULL) {
+      stat = check_context(ctx, params);
+    } else {
+      if (!check_delegate(delegate)) {
+        return YICES_STATUS_ERROR;
+      }
+      if (ctx->logic != QF_BV || context_get_mode(ctx) != CTX_MODE_ONECHECK) {
+        set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+        return YICES_STATUS_ERROR;
+      }
+      stat = check_with_delegate(ctx, delegate, 0);
+    }
     if (stat == YICES_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
       context_cleanup(ctx);
     }

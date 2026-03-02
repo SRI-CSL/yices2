@@ -45,6 +45,19 @@ typedef enum {
 
 #define NUM_BRANCHING_MODES 6
 
+/*
+ * Optional SAT delegate for QF_BV one-shot solving.
+ */
+typedef enum {
+  SAT_DELEGATE_NONE,
+  SAT_DELEGATE_Y2SAT,
+  SAT_DELEGATE_CADICAL,
+  SAT_DELEGATE_CRYPTOMINISAT,
+  SAT_DELEGATE_KISSAT,
+} sat_delegate_t;
+
+#define NUM_SAT_DELEGATES 5
+
 
 struct param_s {
   /*
@@ -103,6 +116,7 @@ struct param_s {
   float    clause_decay;    // decay factor for learned-clause activity
   bool     cache_tclauses;
   uint32_t tclause_size;
+  sat_delegate_t delegate;
 
   /*
    * EGRAPH PARAMETERS
