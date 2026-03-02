@@ -333,6 +333,7 @@ typedef struct value_table_s {
   uint32_t nobjects;
   uint8_t *kind;
   value_desc_t *desc;
+  type_t *type_cache;
   byte_t *canonical; // bitvector
 
   type_table_t *type_table;
@@ -969,6 +970,13 @@ static inline value_update_t *vtbl_update(value_table_t *table, value_t v) {
   assert(object_is_update(table, v));
   return (value_update_t *) table->desc[v].ptr;
 }
+
+/*
+ * Get the most specific type known for value v.
+ * - returns NULL_TYPE if no type can be inferred (e.g., UNKNOWN/MAP value).
+ * - result is cached in table->type_cache.
+ */
+extern type_t vtbl_value_type(value_table_t *table, value_t v);
 
 
 /*
