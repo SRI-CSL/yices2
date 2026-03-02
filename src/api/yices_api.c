@@ -9144,13 +9144,16 @@ static bool _o_unsat_core_check_assumptions(uint32_t n, const term_t a[]) {
  */
 smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[]) {
   param_t default_params;
-  ivector_t assumptions;
   smt_status_t stat;
-  uint32_t i;
-  literal_t l;
+  int32_t error;
 
   if (!_o_unsat_core_check_assumptions(n, a)) {
     return YICES_STATUS_ERROR; // Bad assumptions
+  }
+
+  if (context_has_mcsat(ctx) && !context_supports_model_interpolation(ctx)) {
+    // Enable interpolation on-demand so term assumptions are supported in MCSAT.
+    ctx->mcsat_options.model_interpolation = true;
   }
 
   // cleanup
@@ -9192,21 +9195,6 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
 
   assert(context_status(ctx) == YICES_STATUS_IDLE);
 
-  // convert the assumptions to n literals
-  init_ivector(&assumptions, n);
-  for (i=0; i<n; i++) {
-    l = context_add_assumption(ctx, a[i]);
-    if (l < 0) {
-      // error when converting a[i] to a literal
-      convert_internalization_error(l);
-      stat = YICES_STATUS_ERROR;
-      yices_release_mutex();
-      goto cleanup;
-    }
-    ivector_push(&assumptions, l);
-  }
-  assert(assumptions.size == n);
-
   // set parameters
   if (params == NULL) {
     yices_default_params_for_context(ctx, &default_params);
@@ -9214,13 +9202,15 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
   }
 
   // call check
-  stat = check_context_with_assumptions(ctx, params, n, assumptions.data);
+  stat = check_context_with_term_assumptions(ctx, params, n, a, &error);
+  if (stat == YICES_STATUS_ERROR && error < 0) {
+    convert_internalization_error(error);
+  } else if (stat == YICES_STATUS_ERROR && error > 0) {
+    set_error_code((error_code_t) error);
+  }
   if (stat == YICES_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
     context_cleanup(ctx);
   }
-
- cleanup:
-  delete_ivector(&assumptions);
 
   return stat;
 }
@@ -10183,9 +10173,42 @@ EXPORTED int32_t yices_model_set_yval(model_t *model, term_t var, const yval_t *
   MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_yval(model, var, yval));
 }
 
+/*
+ * Check that yval refers to a valid object in vtbl and that the tag is consistent.
+ * If valid, store the referenced value in *v.
+ */
+static bool check_model_yval(value_table_t *vtbl, const yval_t *yval, value_t *v) {
+  *v = yval->node_id;
+  if (! good_object(vtbl, *v) ||
+      yval->node_tag != tag_for_valkind(object_kind(vtbl, *v))) {
+    set_error_code(TYPE_MISMATCH);
+    return false;
+  }
+
+  return true;
+}
+
+/*
+ * Check whether value v is compatible with type tau.
+ * - uses the value-table type cache (see vtbl_value_type).
+ */
+static bool check_value_type(value_table_t *vtbl, value_t v, type_t tau) {
+  type_t sigma;
+
+  assert(good_object(vtbl, v));
+  assert(good_type(vtbl->type_table, tau));
+
+  sigma = vtbl_value_type(vtbl, v);
+  if (sigma == NULL_TYPE) {
+    return false;
+  }
+  return is_subtype(vtbl->type_table, sigma, tau);
+}
+
 int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) {
   value_table_t *vtbl;
   value_t v;
+  type_t tau;
   
   if (! check_good_term(__yices_globals.manager, var) ||
       ! check_uninterpreted(__yices_globals.terms, var) ||
@@ -10194,15 +10217,193 @@ int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) 
   }
 
   vtbl = model_get_vtbl(model);
-  v = yval->node_id;
-  
-  // Check that the yval is a valid object
-  if (! good_object(vtbl, v)) {
+  if (! check_model_yval(vtbl, yval, &v)) {
+    return -1;
+  }
+
+  tau = term_type(__yices_globals.terms, var);
+  if (! check_value_type(vtbl, v, tau)) {
     set_error_code(TYPE_MISMATCH);
     return -1;
   }
 
   model_map_term(model, var, v);
+  return 0;
+}
+
+EXPORTED int32_t yices_model_make_tuple(model_t *model, uint32_t n, const yval_t elem[], yval_t *tuple) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_make_tuple(model, n, elem, tuple));
+}
+
+int32_t _o_yices_model_make_tuple(model_t *model, uint32_t n, const yval_t elem[], yval_t *tuple) {
+  value_table_t *vtbl;
+  value_t v;
+  value_t *a;
+  uint32_t i;
+
+  vtbl = model_get_vtbl(model);
+  a = (value_t *) safe_malloc(n * sizeof(value_t));
+
+  for (i = 0; i < n; i++) {
+    if (! check_model_yval(vtbl, elem + i, a + i)) {
+      safe_free(a);
+      return -1;
+    }
+  }
+
+  v = vtbl_mk_tuple(vtbl, n, a);
+  safe_free(a);
+  get_yval(vtbl, v, tuple);
+
+  return 0;
+}
+
+EXPORTED int32_t yices_model_set_tuple(model_t *model, term_t var, uint32_t n, const yval_t elem[]) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_tuple(model, var, n, elem));
+}
+
+int32_t _o_yices_model_set_tuple(model_t *model, term_t var, uint32_t n, const yval_t elem[]) {
+  yval_t tuple;
+
+  if (_o_yices_model_make_tuple(model, n, elem, &tuple) < 0) {
+    return -1;
+  }
+
+  return _o_yices_model_set_yval(model, var, &tuple);
+}
+
+EXPORTED int32_t yices_model_make_mapping(model_t *model, uint32_t arity, const yval_t args[], const yval_t *value, yval_t *mapping) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_make_mapping(model, arity, args, value, mapping));
+}
+
+int32_t _o_yices_model_make_mapping(model_t *model, uint32_t arity, const yval_t args[], const yval_t *value, yval_t *mapping) {
+  value_table_t *vtbl;
+  value_t v;
+  value_t *a;
+  uint32_t i;
+
+  vtbl = model_get_vtbl(model);
+  a = (value_t *) safe_malloc(arity * sizeof(value_t));
+
+  for (i = 0; i < arity; i++) {
+    if (! check_model_yval(vtbl, args + i, a + i)) {
+      safe_free(a);
+      return -1;
+    }
+  }
+
+  if (! check_model_yval(vtbl, value, &v)) {
+    safe_free(a);
+    return -1;
+  }
+
+  v = vtbl_mk_map(vtbl, arity, a, v);
+  safe_free(a);
+  get_yval(vtbl, v, mapping);
+
+  return 0;
+}
+
+EXPORTED int32_t yices_model_make_function(model_t *model, type_t fun_type, uint32_t n, const yval_t mappings[], const yval_t *def, yval_t *fun) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_make_function(model, fun_type, n, mappings, def, fun));
+}
+
+int32_t _o_yices_model_make_function(model_t *model, type_t fun_type, uint32_t n, const yval_t mappings[], const yval_t *def, yval_t *fun) {
+  type_table_t *types;
+  value_table_t *vtbl;
+  value_t *a;
+  value_t def_v;
+  value_t f;
+  value_map_t *m;
+  type_t range;
+  uint32_t i, j, arity;
+
+  if (! check_good_type(__yices_globals.types, fun_type) ||
+      ! is_function_type(__yices_globals.types, fun_type)) {
+    set_error_code(TYPE_MISMATCH);
+    return -1;
+  }
+
+  types = __yices_globals.types;
+  vtbl = model_get_vtbl(model);
+  arity = function_type_arity(types, fun_type);
+  range = function_type_range(types, fun_type);
+
+  if (! check_model_yval(vtbl, def, &def_v)) {
+    return -1;
+  }
+
+  if (! check_value_type(vtbl, def_v, range)) {
+    set_error_code(TYPE_MISMATCH);
+    return -1;
+  }
+
+  a = (value_t *) safe_malloc(n * sizeof(value_t));
+  for (i = 0; i < n; i++) {
+    if (! check_model_yval(vtbl, mappings + i, a + i)) {
+      safe_free(a);
+      return -1;
+    }
+    if (! object_is_map(vtbl, a[i])) {
+      safe_free(a);
+      set_error_code(TYPE_MISMATCH);
+      return -1;
+    }
+
+    m = vtbl_map(vtbl, a[i]);
+    if (m->arity != arity) {
+      safe_free(a);
+      set_error_code(TYPE_MISMATCH);
+      return -1;
+    }
+
+    for (j = 0; j < arity; j++) {
+      if (! check_value_type(vtbl, m->arg[j], function_type_domain(types, fun_type, (int32_t) j))) {
+        safe_free(a);
+        set_error_code(TYPE_MISMATCH);
+        return -1;
+      }
+    }
+
+    if (! check_value_type(vtbl, m->val, range)) {
+      safe_free(a);
+      set_error_code(TYPE_MISMATCH);
+      return -1;
+    }
+  }
+
+  f = vtbl_mk_function(vtbl, fun_type, n, a, def_v);
+  safe_free(a);
+  get_yval(vtbl, f, fun);
+
+  return 0;
+}
+
+EXPORTED int32_t yices_model_set_function(model_t *model, term_t var, uint32_t n, const yval_t mappings[], const yval_t *def) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_function(model, var, n, mappings, def));
+}
+
+int32_t _o_yices_model_set_function(model_t *model, term_t var, uint32_t n, const yval_t mappings[], const yval_t *def) {
+  yval_t fun;
+  type_t tau;
+
+  if (! check_good_term(__yices_globals.manager, var) ||
+      ! check_uninterpreted(__yices_globals.terms, var) ||
+      ! check_unassigned_in_model(model, var)) {
+    return -1;
+  }
+
+  tau = term_type(__yices_globals.terms, var);
+  if (! is_function_type(__yices_globals.types, tau)) {
+    set_error_code(TYPE_MISMATCH);
+    return -1;
+  }
+
+  if (_o_yices_model_make_function(model, tau, n, mappings, def, &fun) < 0) {
+    return -1;
+  }
+
+  model_map_term(model, var, fun.node_id);
   return 0;
 }
 

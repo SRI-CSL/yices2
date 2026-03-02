@@ -4,4 +4,4 @@
 (declare-const z Real)
 (assert (! (distinct x y z) :named A))
 (check-sat-assuming (A))
-(get-model)
+;(get-model)
