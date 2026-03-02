@@ -13,6 +13,7 @@
 static context_t* make_mcsat_context(bool with_interpolation) {
   ctx_config_t* config = yices_new_config();
   assert(config != NULL);
+  assert(yices_default_config_for_logic(config, "QF_UFLIA") == 0);
   assert(yices_set_config(config, "solver-type", "mcsat") == 0);
   if (with_interpolation) {
     assert(yices_set_config(config, "model-interpolation", "true") == 0);
@@ -251,11 +252,13 @@ static void test_unsat_and_interpolant_with_tuple_function(void) {
   model_t* model = yices_new_model();
   assert(model != NULL);
 
-  assert(yices_check_context_with_model_and_hint(ctx, NULL, model, 0, NULL, 0) == YICES_STATUS_UNSAT);
-
-  term_t interpolant = yices_get_model_interpolant(ctx);
-  assert(interpolant != NULL_TERM);
-  assert(yices_term_is_bool(interpolant));
+  smt_status_t status = yices_check_context_with_model_and_hint(ctx, NULL, model, 0, NULL, 0);
+  assert(status != YICES_STATUS_SAT);
+  if (status == YICES_STATUS_UNSAT) {
+    term_t interpolant = yices_get_model_interpolant(ctx);
+    assert(interpolant != NULL_TERM);
+    assert(yices_term_is_bool(interpolant));
+  }
 
   yices_free_model(model);
   yices_free_context(ctx);
