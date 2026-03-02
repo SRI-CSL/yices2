@@ -927,6 +927,59 @@ These functions are useful for creating custom models or modifying existing ones
 
      -- error code: :c:enum:`TYPE_MISMATCH`
 
+Example (compile/run checked)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following example demonstrates tuple and function value construction
+with ``yval_t`` objects.
+
+.. code-block:: c
+
+   model_t *model = yices_new_model();
+   type_t int_type = yices_int_type();
+   type_t bool_type = yices_bool_type();
+   type_t tuple_type = yices_tuple_type3(int_type, int_type, bool_type);
+   type_t fun_type = yices_function_type2(int_type, int_type, bool_type);
+
+   term_t x = yices_new_uninterpreted_term(int_type);
+   term_t y = yices_new_uninterpreted_term(int_type);
+   term_t b = yices_new_uninterpreted_term(bool_type);
+   term_t t = yices_new_uninterpreted_term(tuple_type);
+   term_t f = yices_new_uninterpreted_term(fun_type);
+
+   yices_model_set_int32(model, x, 3);
+   yices_model_set_int32(model, y, 5);
+   yices_model_set_bool(model, b, 1);
+
+   yval_t xv, yv, bv;
+   yices_get_value(model, x, &xv);
+   yices_get_value(model, y, &yv);
+   yices_get_value(model, b, &bv);
+
+   // Tuple: (x, y, b)
+   yval_t tuple_elems[3] = { xv, yv, bv };
+   yval_t tuple_v;
+   yices_model_make_tuple(model, 3, tuple_elems, &tuple_v);
+   yices_model_set_tuple(model, t, 3, tuple_elems);
+
+   // Mapping: [x, y -> b]
+   yval_t map_args[2] = { xv, yv };
+   yval_t map_v;
+   yices_model_make_mapping(model, 2, map_args, &bv, &map_v);
+
+   // Function with one mapping and default false
+   yval_t false_v;
+   yices_get_value(model, yices_false(), &false_v);
+   yval_t maps[1] = { map_v };
+   yval_t fun_v;
+   yices_model_make_function(model, fun_type, 1, maps, &false_v, &fun_v);
+   yices_model_set_function(model, f, 1, maps, &false_v);
+
+   // Query result for f(x, y)
+   term_t fxy = yices_application2(f, x, y);
+   int32_t bval;
+   yices_get_bool_value(model, fxy, &bval);
+
 
 
 Atomic Values

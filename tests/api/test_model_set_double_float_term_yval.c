@@ -349,7 +349,7 @@ static void test_algebraic_leaf_tuple_and_function_values(void) {
 
   x = yices_new_uninterpreted_term(yices_real_type());
   minus_x = yices_neg(x);
-  eq = yices_parse_term("(= (* x x) 2)");
+  eq = yices_arith_eq_atom(yices_square(x), yices_int32(2));
   assert(x != NULL_TERM && minus_x != NULL_TERM && eq != NULL_TERM);
   code = yices_assert_formula(ctx, eq);
   if (code != 0) {
@@ -444,4 +444,4 @@ int main(void) {
 
   yices_exit();
   return 0;
-} 
+}

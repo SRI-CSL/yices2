@@ -578,6 +578,8 @@ static void hset_normalize(map_hset_t *hset) {
  * - ttbl = attached type table.
  */
 void init_value_table(value_table_t *table, uint32_t n, type_table_t *ttbl) {
+  uint32_t i;
+
   if (n == 0) {
     n = DEF_VALUE_TABLE_SIZE;
   }
@@ -589,6 +591,10 @@ void init_value_table(value_table_t *table, uint32_t n, type_table_t *ttbl) {
   table->nobjects = 0;
   table->kind = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
   table->desc = (value_desc_t *) safe_malloc(n * sizeof(value_desc_t));
+  table->type_cache = (type_t *) safe_malloc(n * sizeof(type_t));
+  for (i=0; i<n; i++) {
+    table->type_cache[i] = NULL_TYPE;
+  }
   table->canonical = allocate_bitvector0(n);
 
   table->type_table = ttbl;
@@ -620,8 +626,9 @@ void init_value_table(value_table_t *table, uint32_t n, type_table_t *ttbl) {
  * Make the table larger (by 50%)
  */
 static void extend_value_table(value_table_t *table) {
-  uint32_t n;
+  uint32_t i, n, old_n;
 
+  old_n = table->size;
   n = table->size + 1;
   n += n>>1;
   assert(n > table->size);
@@ -633,7 +640,11 @@ static void extend_value_table(value_table_t *table) {
   table->size = n;
   table->kind = (uint8_t *) safe_realloc(table->kind, n * sizeof(uint8_t));
   table->desc = (value_desc_t *) safe_realloc(table->desc, n * sizeof(value_desc_t));
-  table->canonical = extend_bitvector0(table->canonical, n, table->size);
+  table->type_cache = (type_t *) safe_realloc(table->type_cache, n * sizeof(type_t));
+  for (i=old_n; i<n; i++) {
+    table->type_cache[i] = NULL_TYPE;
+  }
+  table->canonical = extend_bitvector0(table->canonical, old_n, n);
 }
 
 
@@ -649,6 +660,7 @@ static value_t allocate_object(value_table_t *table) {
     extend_value_table(table);
   }
   assert(i < table->size);
+  table->type_cache[i] = NULL_TYPE;
   table->nobjects = i+1;
   return i;
 }
@@ -779,6 +791,8 @@ static void vtbl_delete_descriptors(value_table_t *table, uint32_t k) {
  * - empty the table.
  */
 void reset_value_table(value_table_t *table) {
+  uint32_t i;
+
   vtbl_delete_descriptors(table, 0);
   reset_int_htbl(&table->htbl);
   reset_map_htbl(&table->mtbl);
@@ -788,6 +802,9 @@ void reset_value_table(value_table_t *table) {
   ivector_reset(&table->aux_vector);
 
   table->nobjects = 0;
+  for (i=0; i<table->size; i++) {
+    table->type_cache[i] = NULL_TYPE;
+  }
   table->unknown_value = null_value;
   table->true_value = null_value;
   table->false_value = null_value;
@@ -802,6 +819,7 @@ void delete_value_table(value_table_t *table) {
   vtbl_delete_descriptors(table, 0);
   safe_free(table->kind);
   safe_free(table->desc);
+  safe_free(table->type_cache);
   delete_bitvector(table->canonical);
   delete_int_htbl(&table->htbl);
   delete_bvconstant(&table->buffer);
@@ -811,7 +829,92 @@ void delete_value_table(value_table_t *table) {
   delete_hsets(table);
   table->kind = NULL;
   table->desc = NULL;
+  table->type_cache = NULL;
   table->canonical = NULL;
+}
+
+/*
+ * Compute and cache the type of value v.
+ * - returns NULL_TYPE if no type can be inferred.
+ */
+type_t vtbl_value_type(value_table_t *table, value_t v) {
+  type_t tau;
+  type_t *a;
+  value_kind_t kind;
+  value_tuple_t *tuple;
+  value_unint_t *u;
+  value_fun_t *fun;
+  value_ff_t *v_ff;
+  uint32_t i, n;
+
+  assert(good_object(table, v));
+
+  tau = table->type_cache[v];
+  if (tau != NULL_TYPE) {
+    return tau;
+  }
+
+  kind = object_kind(table, v);
+  switch (kind) {
+  case BOOLEAN_VALUE:
+    tau = bool_type(table->type_table);
+    break;
+
+  case RATIONAL_VALUE:
+    tau = object_is_integer(table, v) ? int_type(table->type_table) : real_type(table->type_table);
+    break;
+
+  case ALGEBRAIC_VALUE:
+    tau = real_type(table->type_table);
+    break;
+
+  case FINITEFIELD_VALUE:
+    v_ff = vtbl_finitefield(table, v);
+    tau = ff_type_r(table->type_table, &v_ff->mod);
+    break;
+
+  case BITVECTOR_VALUE:
+    tau = bv_type(table->type_table, vtbl_bitvector(table, v)->nbits);
+    break;
+
+  case UNINTERPRETED_VALUE:
+    u = vtbl_unint(table, v);
+    tau = u->type;
+    break;
+
+  case TUPLE_VALUE:
+    tuple = vtbl_tuple(table, v);
+    n = tuple->nelems;
+    a = (type_t *) safe_malloc(n * sizeof(type_t));
+    for (i=0; i<n; i++) {
+      a[i] = vtbl_value_type(table, tuple->elem[i]);
+      if (a[i] == NULL_TYPE) {
+        safe_free(a);
+        return NULL_TYPE;
+      }
+    }
+    tau = tuple_type(table->type_table, n, a);
+    safe_free(a);
+    break;
+
+  case FUNCTION_VALUE:
+    fun = vtbl_function(table, v);
+    tau = fun->type;
+    break;
+
+  case UPDATE_VALUE:
+    tau = vtbl_function_type(table, v);
+    break;
+
+  case UNKNOWN_VALUE:
+  case MAP_VALUE:
+  default:
+    tau = NULL_TYPE;
+    break;
+  }
+
+  table->type_cache[v] = tau;
+  return tau;
 }
 
 

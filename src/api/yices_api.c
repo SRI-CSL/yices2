@@ -10198,10 +10198,26 @@ static bool check_model_yval(value_table_t *vtbl, const yval_t *yval, value_t *v
   return true;
 }
 
+/*
+ * Check whether value v is compatible with type tau.
+ * - uses the value-table type cache (see vtbl_value_type).
+ */
+static bool check_value_type(value_table_t *vtbl, value_t v, type_t tau) {
+  type_t sigma;
+
+  assert(good_object(vtbl, v));
+  assert(good_type(vtbl->type_table, tau));
+
+  sigma = vtbl_value_type(vtbl, v);
+  if (sigma == NULL_TYPE) {
+    return false;
+  }
+  return is_subtype(vtbl->type_table, sigma, tau);
+}
+
 int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) {
   value_table_t *vtbl;
   value_t v;
-  term_t value_term;
   type_t tau;
   
   if (! check_good_term(__yices_globals.manager, var) ||
@@ -10216,9 +10232,7 @@ int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) 
   }
 
   tau = term_type(__yices_globals.terms, var);
-  value_term = convert_value_to_term(__yices_globals.manager, __yices_globals.terms, vtbl, v);
-  if (value_term < 0 ||
-      ! is_subtype(__yices_globals.types, term_type(__yices_globals.terms, value_term), tau)) {
+  if (! check_value_type(vtbl, v, tau)) {
     set_error_code(TYPE_MISMATCH);
     return -1;
   }
@@ -10311,7 +10325,6 @@ int32_t _o_yices_model_make_function(model_t *model, type_t fun_type, uint32_t n
   value_t def_v;
   value_t f;
   value_map_t *m;
-  term_t t;
   type_t range;
   uint32_t i, j, arity;
 
@@ -10330,8 +10343,7 @@ int32_t _o_yices_model_make_function(model_t *model, type_t fun_type, uint32_t n
     return -1;
   }
 
-  t = convert_value_to_term(__yices_globals.manager, __yices_globals.terms, vtbl, def_v);
-  if (t < 0 || ! is_subtype(types, term_type(__yices_globals.terms, t), range)) {
+  if (! check_value_type(vtbl, def_v, range)) {
     set_error_code(TYPE_MISMATCH);
     return -1;
   }
@@ -10356,17 +10368,14 @@ int32_t _o_yices_model_make_function(model_t *model, type_t fun_type, uint32_t n
     }
 
     for (j = 0; j < arity; j++) {
-      t = convert_value_to_term(__yices_globals.manager, __yices_globals.terms, vtbl, m->arg[j]);
-      if (t < 0 ||
-          ! is_subtype(types, term_type(__yices_globals.terms, t), function_type_domain(types, fun_type, (int32_t) j))) {
+      if (! check_value_type(vtbl, m->arg[j], function_type_domain(types, fun_type, (int32_t) j))) {
         safe_free(a);
         set_error_code(TYPE_MISMATCH);
         return -1;
       }
     }
 
-    t = convert_value_to_term(__yices_globals.manager, __yices_globals.terms, vtbl, m->val);
-    if (t < 0 || ! is_subtype(types, term_type(__yices_globals.terms, t), range)) {
+    if (! check_value_type(vtbl, m->val, range)) {
       safe_free(a);
       set_error_code(TYPE_MISMATCH);
       return -1;
