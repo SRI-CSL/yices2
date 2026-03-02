@@ -89,12 +89,17 @@ static void test_term_model_setting(void) {
 static void test_yval_model_setting(void) {
   type_t int_type = yices_int_type();
   type_t bool_type = yices_bool_type();
+  type_t fun_type = yices_function_type1(int_type, bool_type);
   term_t var1 = yices_new_uninterpreted_term(int_type);
   term_t var2 = yices_new_uninterpreted_term(int_type);
   term_t var3 = yices_new_uninterpreted_term(bool_type);
+  term_t var_fun = yices_new_uninterpreted_term(fun_type);
   model_t *model = yices_new_model();
   yval_t yval;
   yval_t bad_tag_yval;
+  yval_t yval_false;
+  yval_t map_args[1];
+  yval_t map_yval;
   int32_t ival;
 
   // Set var1 in model
@@ -145,6 +150,23 @@ static void test_yval_model_setting(void) {
     yices_print_error(stderr);
   }
 
+  // Error: MAP yval is not a value type (forces NULL_TYPE path in type inference)
+  if (yices_get_value(model, yices_false(), &yval_false) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+  map_args[0] = yval;
+  if (yices_model_make_mapping(model, 1, map_args, &yval_false, &map_yval) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+  if (yices_model_set_yval(model, var_fun, &map_yval) >= 0) {
+    fprintf(stderr, "Expected error for MAP yval assigned via set_yval, but call succeeded\n");
+    exit(1);
+  } else {
+    yices_print_error(stderr);
+  }
+
   yices_free_model(model);
 }
 
@@ -155,6 +177,7 @@ static void test_tuple_model_setting(void) {
   term_t int_var = yices_new_uninterpreted_term(int_type);
   term_t bool_var = yices_new_uninterpreted_term(bool_type);
   term_t tuple_var = yices_new_uninterpreted_term(tuple_type);
+  term_t tuple_var2 = yices_new_uninterpreted_term(tuple_type);
   model_t *model = yices_new_model();
   yval_t int_yval;
   yval_t bool_yval;
@@ -190,6 +213,12 @@ static void test_tuple_model_setting(void) {
 
   // Assign tuple value via dedicated API
   if (yices_model_set_tuple(model, tuple_var, 2, elem) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+
+  // Also assign via generic yval API (covers tuple type inference recursion)
+  if (yices_model_set_yval(model, tuple_var2, &tuple_yval) != 0) {
     yices_print_error(stderr);
     exit(1);
   }
@@ -234,6 +263,7 @@ static void test_function_model_setting(void) {
   term_t bool_var_true = yices_new_uninterpreted_term(bool_type);
   term_t bool_var_false = yices_new_uninterpreted_term(bool_type);
   term_t fun_var = yices_new_uninterpreted_term(fun_type);
+  term_t fun_var2 = yices_new_uninterpreted_term(fun_type);
   model_t *model = yices_new_model();
   yval_t arg0;
   yval_t arg1;
@@ -309,12 +339,50 @@ static void test_function_model_setting(void) {
     exit(1);
   }
 
+  // Assign function via generic yval API (covers FUNCTION_VALUE type inference)
+  if (yices_model_set_yval(model, fun_var2, &fun) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+
   // Error: invalid mapping descriptor
   bad_map = map0;
   bad_map.node_tag = YVAL_BOOL;
   maps[0] = bad_map;
   if (yices_model_make_function(model, fun_type, 2, maps, &def, &fun) >= 0) {
     fprintf(stderr, "Expected error for invalid mapping descriptor, but call succeeded\n");
+    exit(1);
+  } else {
+    yices_print_error(stderr);
+  }
+
+  // Error: default has wrong type
+  if (yices_model_make_function(model, fun_type, 2, (const yval_t[]){ map0, map1 }, &arg0, &fun) >= 0) {
+    fprintf(stderr, "Expected error for invalid default value type, but call succeeded\n");
+    exit(1);
+  } else {
+    yices_print_error(stderr);
+  }
+
+  // Error: argument type mismatch in mapping
+  if (yices_model_make_mapping(model, 1, (const yval_t[]){ val_true }, &val_true, &map0) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+  if (yices_model_make_function(model, fun_type, 1, (const yval_t[]){ map0 }, &def, &fun) >= 0) {
+    fprintf(stderr, "Expected error for invalid mapping argument type, but call succeeded\n");
+    exit(1);
+  } else {
+    yices_print_error(stderr);
+  }
+
+  // Error: result type mismatch in mapping
+  if (yices_model_make_mapping(model, 1, (const yval_t[]){ arg0 }, &arg0, &map0) != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+  if (yices_model_make_function(model, fun_type, 1, (const yval_t[]){ map0 }, &def, &fun) >= 0) {
+    fprintf(stderr, "Expected error for invalid mapping result type, but call succeeded\n");
     exit(1);
   } else {
     yices_print_error(stderr);
