@@ -759,6 +759,10 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hmap_t *requests) 
         frep = f;
       } else {
         frep = ef_get_value_rep(vtable, f, requests);
+        if (frep == NULL_TERM) {
+          // No representative available: keep the original argument.
+          frep = f;
+        }
       }
       if (f != frep) {
         ivector_push(&args, f);
