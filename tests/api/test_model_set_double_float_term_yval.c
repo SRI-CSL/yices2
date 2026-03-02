@@ -323,6 +323,109 @@ static void test_function_model_setting(void) {
   yices_free_model(model);
 }
 
+#if HAVE_MCSAT
+static void test_algebraic_leaf_tuple_and_function_values(void) {
+  ctx_config_t *cfg;
+  context_t *ctx;
+  model_t *model;
+  term_t x, minus_x, eq, tuple_var, fun_var;
+  type_t tuple_type, fun_type;
+  yval_t x_yval, minus_x_yval, tuple_yval, fun_yval;
+  yval_t tuple_elem[2];
+  yval_t tuple_child[2];
+  yval_t int0_yval, map_yval, def_yval, maps[1], map_args[1];
+  int32_t code;
+  smt_status_t status;
+  double d0, d1, d2;
+
+  // Build a model where x is algebraic: x^2 = 2
+  cfg = yices_new_config();
+  assert(cfg != NULL);
+  code = yices_default_config_for_logic(cfg, "QF_NRA");
+  assert(code == 0);
+  ctx = yices_new_context(cfg);
+  assert(ctx != NULL);
+  yices_free_config(cfg);
+
+  x = yices_new_uninterpreted_term(yices_real_type());
+  minus_x = yices_neg(x);
+  eq = yices_parse_term("(= (* x x) 2)");
+  assert(x != NULL_TERM && minus_x != NULL_TERM && eq != NULL_TERM);
+  code = yices_assert_formula(ctx, eq);
+  if (code != 0) {
+    yices_print_error(stderr);
+    exit(1);
+  }
+
+  status = yices_check_context(ctx, NULL);
+  if (status != YICES_STATUS_SAT) {
+    fprintf(stderr, "Expected SAT status in algebraic example\n");
+    exit(1);
+  }
+  model = yices_get_model(ctx, true);
+  assert(model != NULL);
+
+  code = yices_get_value(model, x, &x_yval);
+  assert(code == 0 && x_yval.node_tag == YVAL_ALGEBRAIC);
+  code = yices_get_value(model, minus_x, &minus_x_yval);
+  assert(code == 0 && minus_x_yval.node_tag == YVAL_ALGEBRAIC);
+
+  // Tuple with algebraic leaves
+  tuple_type = yices_tuple_type2(yices_real_type(), yices_real_type());
+  tuple_var = yices_new_uninterpreted_term(tuple_type);
+  tuple_elem[0] = x_yval;
+  tuple_elem[1] = minus_x_yval;
+
+  code = yices_model_make_tuple(model, 2, tuple_elem, &tuple_yval);
+  assert(code == 0 && tuple_yval.node_tag == YVAL_TUPLE);
+  code = yices_model_set_tuple(model, tuple_var, 2, tuple_elem);
+  assert(code == 0);
+  code = yices_get_value(model, tuple_var, &tuple_yval);
+  assert(code == 0 && tuple_yval.node_tag == YVAL_TUPLE);
+  code = yices_val_expand_tuple(model, &tuple_yval, tuple_child);
+  assert(code == 0);
+  assert(tuple_child[0].node_tag == YVAL_ALGEBRAIC);
+  assert(tuple_child[1].node_tag == YVAL_ALGEBRAIC);
+
+  code = yices_val_get_double(model, &tuple_child[0], &d0);
+  assert(code == 0);
+  code = yices_val_get_double(model, &tuple_child[1], &d1);
+  assert(code == 0);
+  // Second tuple component should be the negation of the first.
+  assert(d0 * d1 < 0.0);
+
+  // Function Int -> Real with algebraic leaves
+  fun_type = yices_function_type1(yices_int_type(), yices_real_type());
+  fun_var = yices_new_uninterpreted_term(fun_type);
+
+  code = yices_get_value(model, yices_int32(0), &int0_yval);
+  assert(code == 0);
+  map_args[0] = int0_yval;
+  code = yices_model_make_mapping(model, 1, map_args, &minus_x_yval, &map_yval);
+  assert(code == 0 && map_yval.node_tag == YVAL_MAPPING);
+
+  maps[0] = map_yval;
+  def_yval = x_yval;
+  code = yices_model_make_function(model, fun_type, 1, maps, &def_yval, &fun_yval);
+  assert(code == 0 && fun_yval.node_tag == YVAL_FUNCTION);
+  code = yices_model_set_function(model, fun_var, 1, maps, &def_yval);
+  assert(code == 0);
+
+  // f(0) = -x from mapping
+  code = yices_get_double_value(model, yices_application1(fun_var, yices_int32(0)), &d2);
+  assert(code == 0);
+  assert(d2 * d1 > 0.0);
+
+  // f(1) = x from default
+  code = yices_get_double_value(model, yices_application1(fun_var, yices_int32(1)), &d2);
+  assert(code == 0);
+  assert(d2 * d0 > 0.0);
+
+  yices_free_model(model);
+  yices_free_context(ctx);
+}
+#endif
+
 int main(void) {
   yices_init();
 
@@ -331,6 +434,11 @@ int main(void) {
   test_yval_model_setting();
   test_tuple_model_setting();
   test_function_model_setting();
+#if HAVE_MCSAT
+  if (yices_has_mcsat()) {
+    test_algebraic_leaf_tuple_and_function_values();
+  }
+#endif
 
   printf("All tests passed!\n");
 
