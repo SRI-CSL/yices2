@@ -1257,7 +1257,7 @@ static void check_constant_term(tstack_t *stack, stack_elem_t *e) {
   switch (kind) {
   case YICES_BOOL_CONSTANT:
   case YICES_ARITH_CONSTANT:
-  case YICES_ARITH_FF_CONSTANT:
+  case YICES_FF_CONSTANT:
   case YICES_BV_CONSTANT:
     break;
   default:

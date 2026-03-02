@@ -143,7 +143,7 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_CONSTRUCTOR_ERROR,  // RESERVED_TERM
   YICES_SCALAR_CONSTANT,    // CONSTANT_TERM
   YICES_ARITH_CONSTANT,     // ARITH_CONSTANT
-  YICES_ARITH_FF_CONSTANT,  // ARITH_FF_CONSTANT
+  YICES_FF_CONSTANT,  // ARITH_FF_CONSTANT
   YICES_BV_CONSTANT,        // BV64_CONSTANT
   YICES_BV_CONSTANT,        // BV_CONSTANT
   YICES_VARIABLE,           // VARIABLE
@@ -189,7 +189,7 @@ static const term_constructor_t constructor_term_table[NUM_TERM_KINDS] = {
   YICES_BIT_TERM,           // BIT_TERM
   YICES_POWER_PRODUCT,      // POWER_PRODUCT
   YICES_ARITH_SUM,          // ARITH_POLY
-  YICES_ARITH_FF_SUM,       // ARITH_FF_POLY
+  YICES_FF_SUM,       // ARITH_FF_POLY
   YICES_BV_SUM,             // BV64_POLY
   YICES_BV_SUM,             // BV_POLY
 };

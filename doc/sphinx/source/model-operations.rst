@@ -455,6 +455,38 @@ These functions are useful for creating custom models or modifying existing ones
    This function is not declared unless you include :file:`gmp.h`
    before :file:`yices.h` in your code.
 
+.. c:function:: int32_t yices_model_set_ff_mpz(model_t *model, term_t var, mpz_t val)
+
+   Assign a GMP integer value to a finite-field uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of finite-field type to assign a value to
+   - *val*: the GMP integer value to assign to var
+
+   **Requirements**
+
+   - *var* must be an uninterpreted finite-field term
+   - *var* must not already have a value in model
+   - *val* must be initialized (see the GMP documentation)
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid uninterpreted finite-field term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+   **Note**
+
+   This function is not declared unless you include :file:`gmp.h`
+   before :file:`yices.h` in your code.
+
 
 .. c:function:: int32_t yices_model_set_algebraic_number(model_t *model, term_t var, const lp_algebraic_number_t *val)
 
@@ -929,6 +961,26 @@ Atomic Values
    Like :c:func:`yices_get_mpz_value`, this function is declared if
    header file :file:`gmp.h` is included before :file:`yices.h`.
 
+.. c:function:: int32_t yices_get_ff_value(model_t *mdl, term_t t, mpz_t val, mpz_t mod)
+
+   Value of a finite-field term.
+
+   This function evaluates *t* in *mdl* and stores the finite-field
+   value in *val* and the corresponding field modulus in *mod*.
+
+   **Error report**
+
+   - If *t* is not a finite-field term:
+
+     -- error code: :c:enum:`ARITHTERM_REQUIRED`
+
+     -- term1 := *t*
+
+   **Note**
+
+   This function is not declared unless you include :file:`gmp.h`
+   before :file:`yices.h` in your code.
+
 
 .. c:function:: int32_t yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a)
 
@@ -1093,6 +1145,8 @@ Leaf nodes represent atomic values. They can have the following tags:
    - :c:enum:`YVAL_BOOL`: Boolean value
 
    - :c:enum:`YVAL_RATIONAL`: Rational or integer constant
+
+   - :c:enum:`YVAL_FINITEFIELD`: Finite-field constant
 
    - :c:enum:`YVAL_ALGEBRAIC`: Algebraic number
 
@@ -1410,6 +1464,26 @@ the children of non-leaf nodes.
    **Error report**
 
    - If the node does not have tag :c:enum:`YVAL_RATIONAL`
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
+
+   **Note**
+
+   This function is not declared unless you include :file:`gmp.h`
+   before :file:`yices.h` in your code.
+
+.. c:function:: int32_t yices_val_get_ff(model_t *mdl, const yval_t *v, mpz_t val, mpz_t mod)
+
+   Node value as a finite-field constant.
+
+   This function checks whether node *v* has tag :c:enum:`YVAL_FINITEFIELD`.
+   If so, it copies the node value in *val* and the finite-field
+   modulus in *mod* and returns 0. Otherwise, it leaves outputs
+   unchanged and returns -1.
+
+   **Error report**
+
+   - If the node does not have tag :c:enum:`YVAL_FINITEFIELD`
 
      -- error code: :c:enum:`YVAL_INVALID_OP`
 
@@ -1830,4 +1904,3 @@ This parameter takes a value of type :c:type:`yices_gen_mode_t`:
 
    This function is equivalent to calling :c:func:`yices_generalize_model` with
    argument (*a[0]* |and| |...| |and| *a[n-1]*).
-
