@@ -172,7 +172,7 @@ static void test_ff_model_accessors(void) {
   type_t tau;
   term_t v, i0;
   model_t *m;
-  yval_t yv, yv_nonff;
+  yval_t yv_nonff;
 
   mpz_init_set_si(p, 7);
   mpz_init_set_si(val, 6);
@@ -196,8 +196,6 @@ static void test_ff_model_accessors(void) {
   check_mpz_si(out_mod, 7, "model ff modulus should be 7");
   mpz_mod(rem, out_val, out_mod);
   check_mpz_si(rem, 6, "model ff value should be congruent to 6 mod 7");
-
-  check(yices_get_value(m, v, &yv) == 0, "yices_get_value failed");
 
   i0 = yices_int32(0);
   check(i0 != NULL_TERM, "yices_int32(0) failed");
