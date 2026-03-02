@@ -1,0 +1,6 @@
+(set-logic QF_ANIA)
+(declare-fun v () Bool)
+(declare-fun v1 () Bool)
+(declare-fun a () (Array Bool Bool))
+(assert (select (store (store a false v1) v false) false))
+(check-sat)

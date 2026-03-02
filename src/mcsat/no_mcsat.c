@@ -60,6 +60,9 @@ void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_fi
 void mcsat_solve(mcsat_solver_t *mcsat, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]) {
 }
 
+void mcsat_cleanup_assumptions(mcsat_solver_t* mcsat) {
+}
+
 void mcsat_set_tracer(mcsat_solver_t *mcsat, tracer_t *tracer) {
 }
 
@@ -82,3 +85,5 @@ term_t mcsat_get_unsat_model_interpolant(mcsat_solver_t* mcsat) {
   return NULL_TERM;
 }
 
+void mcsat_set_unsat_result(mcsat_solver_t* mcsat, term_t interpolant) {
+}

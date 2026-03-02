@@ -76,7 +76,6 @@
 #include "mt/threads.h"
 #include "mt/thread_macros.h"
 
-
 /*
  * DUMP CONTEXT: FOR TESTING/DEBUGGING
  */
@@ -663,10 +662,14 @@ static smt_status_t check_with_model(context_t *ctx, const param_t *params, uint
  * Check sat with assumptions and build an unsat core
  */
 static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[], ivector_t *core) {
-  ivector_t assumptions;
   smt_status_t status;
-  literal_t l;
-  uint32_t i;
+  int32_t error;
+
+  if (ctx->mcsat != NULL && !context_supports_model_interpolation(ctx)) {
+    // check-sat-assuming should work in MCSAT even if interpolation wasn't
+    // enabled up-front.
+    ctx->mcsat_options.model_interpolation = true;
+  }
 
   // if ctx is already unsat, the core is empty
   if (context_status(ctx) == YICES_STATUS_UNSAT) {
@@ -674,47 +677,15 @@ static smt_status_t check_with_assumptions(context_t *ctx, const param_t *params
     return YICES_STATUS_UNSAT;
   }
 
-  // If MCSAT use the model solving command
-  if (ctx->mcsat) {
-    // Copy over to model
-    model_t mdl;
-    init_model(&mdl, ctx->terms, true);
-    init_ivector(&assumptions, n);
-    for (i = 0; i < n; ++ i) {
-      term_t x = unsigned_term(a[i]);
-      value_t val = is_pos_term(a[i]) ? vtbl_mk_bool(&mdl.vtbl, true) : vtbl_mk_bool(&mdl.vtbl, false);
-      model_map_term(&mdl, x, val);
-      ivector_push(&assumptions, x);
-    }
-    // Solve
-    status = yices_check_context_with_model(ctx, params, &mdl, n, assumptions.data);
-    // Remove temps
-    delete_ivector(&assumptions);
-    delete_model(&mdl);
-
-    return status;
+  status = check_context_with_term_assumptions(ctx, params, n, a, &error);
+  if (status == YICES_STATUS_ERROR && error < 0) {
+    yices_internalization_error(error);
+  } else if (status == YICES_STATUS_ERROR && error > 0) {
+    yices_error_report()->code = error;
   }
-
-  // convert a[0] ... a[n-1] to assumptions
-  init_ivector(&assumptions, n);
-  for (i=0; i<n; i++) {
-    l = context_add_assumption(ctx, a[i]);
-    if (l < 0) {
-      // error when processing term a[i]
-      yices_internalization_error(l);
-      status = YICES_STATUS_ERROR;
-      goto done;
-    }
-    ivector_push(&assumptions, l);
-  }
-
-  status = check_context_with_assumptions(ctx, params, n, assumptions.data);
   if (status == YICES_STATUS_UNSAT) {
     context_build_unsat_core(ctx, core);
   }
-
- done:
-  delete_ivector(&assumptions);
 
   return status;
 }
@@ -2293,6 +2264,10 @@ static void set_unsat_core_option(smt2_globals_t *g, const char *name, aval_t va
       print_error("can't have both :produce-unsat-cores and :produce-unsat-assumptions true");
     } else {
       g->produce_unsat_cores = flag;
+      // Set model_interpolation if context is MCSAT or will use MCSAT architecture
+      if (g->mcsat || (g->logic_code != SMT_UNKNOWN && arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT)) {
+        g->mcsat_options.model_interpolation = true;
+      }
       report_success();
     }
   } else {
@@ -2308,6 +2283,10 @@ static void set_unsat_assumption_option(smt2_globals_t *g, const char *name, ava
       print_error("can't have both :produce-unsat-cores and :produce-unsat-assumptions true");
     } else {
       g->produce_unsat_assumptions = flag;
+      // Set model_interpolation if context is MCSAT or will use MCSAT architecture
+      if (g->mcsat || (g->logic_code != SMT_UNKNOWN && arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT)) {
+        g->mcsat_options.model_interpolation = true;
+      }
       report_success();
     }
   } else {
@@ -2737,6 +2716,42 @@ static smt_status_t check_sat_with_timeout(smt2_globals_t *g, const param_t *par
  */
 static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t *params, assumptions_and_core_t *a) {
   smt_status_t stat;
+  ivector_t vars, values;
+  uint32_t i;
+  bool literals_only;
+
+  /*
+   * In MCSAT, a literal-only check-sat-assuming can be handled directly as
+   * check-with-model. This preserves SAT models for subsequent get-model.
+   *
+   * We keep the term-assumption path for non-literals (e.g., named formulas)
+   * and when unsat assumptions are requested (core extraction needed).
+   */
+  if (g->ctx->mcsat != NULL && !g->produce_unsat_assumptions) {
+    init_ivector(&vars, a->assumptions.size);
+    init_ivector(&values, a->assumptions.size);
+    literals_only = true;
+    for (i = 0; i < a->assumptions.size; ++i) {
+      term_t lit = a->assumptions.data[i];
+      term_t atom = unsigned_term(lit);
+      term_kind_t k = term_kind(__yices_globals.terms, atom);
+      if (k != UNINTERPRETED_TERM && k != VARIABLE) {
+        literals_only = false;
+        break;
+      }
+      ivector_push(&vars, atom);
+      ivector_push(&values, is_pos_term(lit) ? true_term : false_term);
+    }
+    if (literals_only) {
+      stat = check_with_model(g->ctx, params, vars.size, vars.data, values.data);
+      a->status = stat;
+      delete_ivector(&values);
+      delete_ivector(&vars);
+      return stat;
+    }
+    delete_ivector(&values);
+    delete_ivector(&vars);
+  }
 
   if (g->timeout == 0) {
     // no timeout
@@ -3189,7 +3204,7 @@ static void validate_unsat_core(smt2_globals_t *g) {
   int32_t code;
   smt_status_t status;
 
-  if (g->unsat_core->status == STATUS_UNSAT) {
+  if (g->unsat_core->status == YICES_STATUS_UNSAT) {
     saved_context = g->ctx;
     g->ctx = NULL;
     init_smt2_context(g);
@@ -3205,7 +3220,7 @@ static void validate_unsat_core(smt2_globals_t *g) {
       fflush(stdout);
     } else {
       status = check_context(g->ctx, &g->parameters);
-      if (status != STATUS_UNSAT) {
+      if (status != YICES_STATUS_UNSAT) {
         printf("**** BUG: INVALID UNSAT CORE ****\n");
         fflush(stdout);
       }
@@ -3282,7 +3297,7 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
       if (code < 0) {
         // error during assertion processing
         print_yices_error(true);
-	done = true;
+        done = true;
         return;
       }
       init_search_parameters(g);
@@ -3296,7 +3311,7 @@ static void check_delayed_assertions_assuming(smt2_globals_t *g, uint32_t n, sig
         // cleanup
         free_assumptions(assumptions);
         g->unsat_assumptions = NULL;
-	done = true;
+        done = true;
       }
     }
   }
@@ -3825,12 +3840,55 @@ static model_t *get_ef_model(smt2_globals_t *g) {
  * - i = index of the SMT2 expression for t in token_queue
  */
 static void print_term_value(smt2_pp_t *printer, value_table_t *vtbl, etk_queue_t *token_queue, value_t v, type_t tau, int32_t i) {
+  etoken_t *tk;
+  type_t value_type;
+
+  value_type = tau;
+
+  /*
+   * Keep decimal syntax stable for get-value on decimal literals:
+   * if the query is 0.0 (or (- 0.0)) and the model value is an integer,
+   * print 0.0 rather than 0.
+   */
+  if (good_token(token_queue, i) && start_token(token_queue, i)) {
+    tk = get_etoken(token_queue, i);
+    if (atomic_token(token_queue, i)) {
+      if (tk->key == SMT2_TK_DECIMAL) {
+        value_type = real_id;
+      }
+    } else if (open_token(token_queue, i)) {
+      int32_t j, k;
+
+      /*
+       * Match the shape (- <decimal>) with a single argument.
+       */
+      j = i + 1;
+      if (good_token(token_queue, j) && atomic_token(token_queue, j)) {
+        tk = get_etoken(token_queue, j);
+        if (tk->key == SMT2_TK_SYMBOL && strcmp(tk->ptr, "-") == 0) {
+          j = token_sibling(token_queue, j);
+          if (good_token(token_queue, j) && atomic_token(token_queue, j)) {
+            tk = get_etoken(token_queue, j);
+            if (tk->key == SMT2_TK_DECIMAL) {
+              k = token_sibling(token_queue, j);
+              if (good_token(token_queue, k) &&
+                  close_token(token_queue, k) &&
+                  token_sibling(token_queue, i) == k + 1) {
+                value_type = real_id;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   pp_open_block(&printer->pp, PP_OPEN_PAR);
   pp_smt2_expr(&printer->pp, token_queue, i);
   if (__smt2_globals.clean_model_format) {
     smt2_pp_object(printer, vtbl, v);
   } else {
-    smt2_pp_smt2_object(printer, vtbl, v, tau);
+    smt2_pp_smt2_object(printer, vtbl, v, value_type);
   }
   pp_close_block(&printer->pp, true);
 }
@@ -6448,17 +6506,13 @@ void smt2_set_logic(const char *name) {
     }
   }
 
-  // if unsat cores or unsat assumptions are requested, we can't use the mcsat solver
-  if (__smt2_globals.produce_unsat_cores || __smt2_globals.produce_unsat_assumptions) {
-    if (__smt2_globals.mcsat) {
-      print_error("the mcsat solver does not support unsat cores");
-      return;
-    }
-    if (arch == CTX_ARCH_MCSAT) {
-      print_error("unsat cores are not supported in logic %s", name);
-      return;
-    }
+  // Set model_interpolation if unsat cores are enabled and architecture is MCSAT
+  if ((__smt2_globals.produce_unsat_cores || __smt2_globals.produce_unsat_assumptions) && 
+      (arch == CTX_ARCH_MCSAT || __smt2_globals.mcsat)) {
+    __smt2_globals.mcsat_options.model_interpolation = true;
   }
+
+
 
   smt2_lexer_activate_logic(code);
   __smt2_globals.logic_code = code;

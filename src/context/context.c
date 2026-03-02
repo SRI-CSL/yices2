@@ -5698,6 +5698,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->eq_cache = NULL;
   ctx->divmod_table = NULL;
   ctx->explorer = NULL;
+  ctx->unsat_core_cache = NULL;
 
   ctx->dl_profile = NULL;
   ctx->arith_buffer = NULL;
@@ -5809,9 +5810,18 @@ void delete_context(context_t *ctx) {
   context_free_aux_poly(ctx);
 
   context_free_bvpoly_buffer(ctx);
+  context_invalidate_unsat_core_cache(ctx);
 
   q_clear(&ctx->aux);
   delete_bvconstant(&ctx->bv_buffer);
+}
+
+void context_invalidate_unsat_core_cache(context_t *ctx) {
+  if (ctx->unsat_core_cache != NULL) {
+    delete_ivector(ctx->unsat_core_cache);
+    safe_free(ctx->unsat_core_cache);
+    ctx->unsat_core_cache = NULL;
+  }
 }
 
 
@@ -5821,6 +5831,7 @@ void delete_context(context_t *ctx) {
  */
 void reset_context(context_t *ctx) {
   ctx->base_level = 0;
+  context_invalidate_unsat_core_cache(ctx);
 
   reset_smt_core(ctx->core); // this propagates reset to all solvers
 
@@ -5889,6 +5900,7 @@ void context_set_trace(context_t *ctx, tracer_t *trace) {
  */
 void context_push(context_t *ctx) {
   assert(context_supports_pushpop(ctx));
+  context_invalidate_unsat_core_cache(ctx);
   smt_push(ctx->core);  // propagates to all solvers
   if (ctx->mcsat != NULL) {
     mcsat_push(ctx->mcsat);
@@ -5903,6 +5915,7 @@ void context_push(context_t *ctx) {
 
 void context_pop(context_t *ctx) {
   assert(context_supports_pushpop(ctx) && ctx->base_level > 0);
+  context_invalidate_unsat_core_cache(ctx);
   smt_pop(ctx->core);   // propagates to all solvers
   if (ctx->mcsat != NULL) {
     mcsat_pop(ctx->mcsat);
@@ -6547,6 +6560,7 @@ void context_stop_search(context_t *ctx) {
 void context_cleanup(context_t *ctx) {
   // restore the state to IDLE, propagate to all solvers (via pop)
   assert(context_supports_cleaninterrupt(ctx));
+  context_invalidate_unsat_core_cache(ctx);
   if (ctx->mcsat == NULL) {
     smt_cleanup(ctx->core);
   } else {
@@ -6563,6 +6577,7 @@ void context_cleanup(context_t *ctx) {
  */
 void context_clear(context_t *ctx) {
   assert(context_supports_multichecks(ctx));
+  context_invalidate_unsat_core_cache(ctx);
   if (ctx->mcsat == NULL) {
     smt_clear(ctx->core);
   } else {
@@ -6585,6 +6600,7 @@ void context_clear(context_t *ctx) {
  *   in a state with core base level = context base level + 1.
  */
 void context_clear_unsat(context_t *ctx) {
+  context_invalidate_unsat_core_cache(ctx);
   if (ctx->mcsat == NULL) {
     smt_clear_unsat(ctx->core);
     assert(smt_base_level(ctx->core) == ctx->base_level);
@@ -6690,8 +6706,15 @@ void context_gc_mark(context_t *ctx) {
     pmap2_iterate(ctx->eq_cache, ctx->terms, ctx_mark_eq);
   }
 
+  if (ctx->unsat_core_cache != NULL) {
+    uint32_t i, n;
+    n = ctx->unsat_core_cache->size;
+    for (i=0; i<n; i++) {
+      term_table_set_gc_mark(ctx->terms, index_of(ctx->unsat_core_cache->data[i]));
+    }
+  }
+
   if (ctx->mcsat != NULL) {
     mcsat_gc_mark(ctx->mcsat);
   }
 }
-
