@@ -9152,7 +9152,7 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
       if (!check_delegate(delegate)) {
         return YICES_STATUS_ERROR;
       }
-      if (ctx->logic != QF_BV || context_get_mode(ctx) != CTX_MODE_ONECHECK) {
+      if (ctx->logic != QF_BV) {
         set_error_code(CTX_OPERATION_NOT_SUPPORTED);
         return YICES_STATUS_ERROR;
       }

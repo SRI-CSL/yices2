@@ -46,7 +46,7 @@ typedef enum {
 #define NUM_BRANCHING_MODES 6
 
 /*
- * Optional SAT delegate for QF_BV one-shot solving.
+ * Optional SAT delegate for QF_BV solving.
  */
 typedef enum {
   SAT_DELEGATE_NONE,

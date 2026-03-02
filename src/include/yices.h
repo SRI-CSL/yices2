@@ -3525,9 +3525,9 @@ __YICES_DLLSPEC__ extern void yices_default_params_for_context(const context_t *
  * The parameters are explained in doc/YICES-LANGUAGE
  * (and at http://yices.csl.sri.com/doc/parameters.html)
  *
- * For QF_BV one-shot contexts, parameter name "delegate" can be set to
- * "none", "y2sat", "cadical", "cryptominisat", or "kissat" to select
- * the SAT backend used by yices_check_context.
+ * For QF_BV contexts, parameter name "delegate" can be set to "none",
+ * "y2sat", "cadical", "cryptominisat", or "kissat" to select the SAT
+ * backend used by yices_check_context.
  *
  * Return -1 if there's an error, 0 otherwise.
  *
