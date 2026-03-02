@@ -5022,15 +5022,74 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_term(model_t *model, term_t var
 /*
  * Assign a yval_t value to an uninterpreted symbol in the model.
  * - var = uninterpreted symbol
- * - yval = value descriptor (possibly from another model)
+ * - yval = value descriptor from the same model
  * - var must not have a value in model
  * - yval must be compatible with var's type
+ * - the value HAS to come from the same model
  *
  * Returns 0 on success, -1 on error (sets error code).
  *
  * Since 2.7.0
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_yval(model_t *model, term_t var, const yval_t *yval);
+
+/*
+ * Build a tuple value from an array of yval_t descriptors.
+ * - elem[0 ... n-1] must all refer to values from the same model
+ * - tuple is set to a descriptor for the tuple value built in model
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.7.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_make_tuple(model_t *model, uint32_t n, const yval_t elem[], yval_t *tuple);
+
+/*
+ * Assign a tuple value built from elem[0 ... n-1] to an uninterpreted symbol.
+ * - var = uninterpreted symbol
+ * - var must not have a value in model
+ * - elem[0 ... n-1] must all refer to values from the same model
+ * - the tuple's type must be compatible with var's type
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.7.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_tuple(model_t *model, term_t var, uint32_t n, const yval_t elem[]);
+
+/*
+ * Build a mapping value [args[0] ... args[arity-1] -> value].
+ * - all descriptors must refer to values from the same model
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.7.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_make_mapping(model_t *model, uint32_t arity, const yval_t args[], const yval_t *value, yval_t *mapping);
+
+/*
+ * Build a function value of type fun_type from an array of mapping descriptors and a default value.
+ * - fun_type must be a function type
+ * - all descriptors must refer to values from the same model
+ * - mappings must have the right arity and type-compatible argument/result values
+ * - def must be type-compatible with fun_type's range
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.7.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_make_function(model_t *model, type_t fun_type, uint32_t n, const yval_t mappings[], const yval_t *def, yval_t *fun);
+
+/*
+ * Assign a function value built from mappings/default to an uninterpreted symbol.
+ * - var must have function type and must not already have a value in model
+ * - all descriptors must refer to values from the same model
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.7.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_function(model_t *model, term_t var, uint32_t n, const yval_t mappings[], const yval_t *def);
 
 
 #ifdef __cplusplus

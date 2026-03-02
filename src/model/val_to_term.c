@@ -224,6 +224,10 @@ term_t convert_simple_value(term_table_t *terms, value_table_t *vtbl, value_t v)
     t = convert_rational(terms, vtbl, v);
     break;
 
+  case ALGEBRAIC_VALUE:
+    t = CONVERT_FAILED;
+    break;
+
   case FINITEFIELD_VALUE:
     t = convert_finitefield(terms, vtbl, v);
     break;
@@ -325,7 +329,7 @@ static const int32_t convert_code[NUM_VALUE_KIND] = {
   CONVERT_UNKNOWN_VALUE,  // UNKNOWN_VALUE
   0,                      // BOOLEAN_VALUE
   0,                      // RATIONAL_VALUE
-  0,                      // ALGEBRAIC_VALUE
+  CONVERT_FAILED,         // ALGEBRAIC_VALUE
   0,                      // FINITEFIELD_VALUE
   0,                      // BITVECTOR_VALUE
   0,                      // TUPLE_VALUE
@@ -359,6 +363,14 @@ term_t convert_val(val_converter_t *convert, value_t v) {
     t = convert_cached_term(convert, v);
     if (t < 0) {
       t = convert_rational(convert->terms, vtbl, v);
+      convert_cache_map(convert, v, t);
+    }
+    break;
+
+  case FINITEFIELD_VALUE:
+    t = convert_cached_term(convert, v);
+    if (t < 0) {
+      t = convert_finitefield(convert->terms, vtbl, v);
       convert_cache_map(convert, v, t);
     }
     break;
@@ -470,4 +482,3 @@ uint32_t convert_value_array(term_manager_t *mgr, term_table_t *terms, value_tab
 
   return s;
 }
-

@@ -692,6 +692,8 @@ struct context_s {
 
   // assumption stack
   assumption_stack_t assumptions;
+  // cached unsat core (NULL if cache is invalid)
+  ivector_t *unsat_core_cache;
 
   // optional components: allocated if needed
   pseudo_subst_t *subst;

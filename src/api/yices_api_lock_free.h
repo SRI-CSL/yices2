@@ -686,6 +686,16 @@ extern int32_t _o_yices_model_set_float(model_t *model, term_t var, float val);
 
 extern int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval);
 
+extern int32_t _o_yices_model_make_tuple(model_t *model, uint32_t n, const yval_t elem[], yval_t *tuple);
+
+extern int32_t _o_yices_model_set_tuple(model_t *model, term_t var, uint32_t n, const yval_t elem[]);
+
+extern int32_t _o_yices_model_make_mapping(model_t *model, uint32_t arity, const yval_t args[], const yval_t *value, yval_t *mapping);
+
+extern int32_t _o_yices_model_make_function(model_t *model, type_t fun_type, uint32_t n, const yval_t mappings[], const yval_t *def, yval_t *fun);
+
+extern int32_t _o_yices_model_set_function(model_t *model, term_t var, uint32_t n, const yval_t mappings[], const yval_t *def);
+
 /************************
  *  VALUES IN A MODEL   *
  ***********************/
