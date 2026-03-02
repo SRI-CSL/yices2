@@ -3123,10 +3123,10 @@ void mcsat_stop_search(mcsat_solver_t* mcsat) {
 }
 
 term_t mcsat_get_unsat_model_interpolant(mcsat_solver_t* mcsat) {
-  return mcsat->interpolant;
+  return preprocessor_unblast_term(&mcsat->preprocessor, mcsat->interpolant);
 }
 
 void mcsat_set_unsat_result(mcsat_solver_t* mcsat, term_t interpolant) {
   mcsat->status = YICES_STATUS_UNSAT;
-  mcsat->interpolant = interpolant;
+  mcsat->interpolant = preprocessor_unblast_term(&mcsat->preprocessor, interpolant);
 }
