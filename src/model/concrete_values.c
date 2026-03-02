@@ -644,7 +644,7 @@ static void extend_value_table(value_table_t *table) {
   for (i=old_n; i<n; i++) {
     table->type_cache[i] = NULL_TYPE;
   }
-  table->canonical = extend_bitvector0(table->canonical, old_n, n);
+  table->canonical = extend_bitvector0(table->canonical, n, old_n);
 }
 
 
