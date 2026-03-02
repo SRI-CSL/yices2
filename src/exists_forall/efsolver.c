@@ -1063,6 +1063,17 @@ static term_t ef_generalize3(ef_solver_t *solver, term_t cex_cnstr, uint32_t i) 
   code = 0;
   pflag = project_literals(mdl, solver->prob->manager, v->size, v->data, n, cnstr->uvars, w, &code);
 
+  if (pflag == PROJ_ERROR_UNSUPPORTED_ARITH_TERM) {
+    // Keep normal projection behavior, but recover from unsupported terms.
+    result = ef_generalize2(solver->prob, cex_cnstr, i, solver->uvalue_aux.data);
+    if (result < 0) {
+      solver->status = EF_STATUS_SUBST_ERROR;
+      solver->error_code = result;
+      return NULL_TERM;
+    }
+    return result;
+  }
+
   if (pflag != PROJ_NO_ERROR) {
     solver->status = EF_STATUS_PROJECTION_ERROR;
     solver->error_code = pflag;
@@ -1615,4 +1626,5 @@ void ef_solver_check(ef_solver_t *solver, const param_t *parameters,
 
   ef_solver_search(solver);
 }
+
 
