@@ -170,13 +170,12 @@ static void test_ff_term_builders_and_deconstruction(void) {
 static void test_ff_model_accessors(void) {
   mpz_t p, z, val, out_val, out_mod, out_val2, out_mod2, rem;
   type_t tau;
-  term_t v;
+  term_t v, i0;
   model_t *m;
-  yval_t yv;
-  yval_t yv_ff;
+  yval_t yv, yv_nonff;
 
   mpz_init_set_si(p, 7);
-  mpz_init_set_si(val, 20);
+  mpz_init_set_si(val, 6);
   mpz_init_set_si(z, 0);
   mpz_init(out_val);
   mpz_init(out_mod);
@@ -196,23 +195,15 @@ static void test_ff_model_accessors(void) {
   check(yices_get_ff_value(m, v, out_val, out_mod) == 0, "yices_get_ff_value failed");
   check_mpz_si(out_mod, 7, "model ff modulus should be 7");
   mpz_mod(rem, out_val, out_mod);
-  check_mpz_si(rem, 6, "model ff value should be congruent to 20 mod 7");
+  check_mpz_si(rem, 6, "model ff value should be congruent to 6 mod 7");
 
   check(yices_get_value(m, v, &yv) == 0, "yices_get_value failed");
 
-  /*
-   * Depending on the current yval export path, get_value may not always
-   * expose finite-field nodes with YVAL_FINITEFIELD directly. We still
-   * validate yices_val_get_ff on the same node id.
-   */
-  if (yices_val_get_ff(m, &yv, out_val2, out_mod2) != 0) {
-    yv_ff = yv;
-    yv_ff.node_tag = YVAL_FINITEFIELD;
-    check(yices_val_get_ff(m, &yv_ff, out_val2, out_mod2) == 0, "yices_val_get_ff failed");
-  }
-
-  check(mpz_cmp(out_val, out_val2) == 0, "yices_val_get_ff value mismatch");
-  check(mpz_cmp(out_mod, out_mod2) == 0, "yices_val_get_ff modulus mismatch");
+  i0 = yices_int32(0);
+  check(i0 != NULL_TERM, "yices_int32(0) failed");
+  check(yices_get_value(m, i0, &yv_nonff) == 0, "yices_get_value(int const) failed");
+  check(yices_val_get_ff(m, &yv_nonff, out_val2, out_mod2) < 0, "yices_val_get_ff should fail on non-FF yval");
+  check(yices_error_code() == YVAL_INVALID_OP, "expected YVAL_INVALID_OP");
 
   check(yices_model_set_ff_mpz(m, v, z) < 0, "reassigning ff variable should fail");
 
