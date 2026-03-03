@@ -8498,6 +8498,9 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
 
   // Additional setup for MCSAT options in the config
   if (config != NULL) {
+    ctx->sat_delegate = config->sat_delegate;
+    ctx->sat_delegate_selector_frames = config->sat_delegate_selector_frames;
+
     // If trace tags are passed in, set them
     if (config->trace_tags != NULL) {
       // Make new tracer
@@ -9057,14 +9060,14 @@ EXPORTED void yices_default_params_for_context(const context_t *ctx, param_t *pa
 static bool check_delegate(const char *delegate);
 
 /*
- * Delegate name from search-parameter record.
- * - return NULL if the default internal SAT solver should be used
+ * Delegate name from SAT delegate mode.
+ * - return NULL if the default internal SAT solver should be used.
  */
-static const char *params_delegate_name(const param_t *params) {
+static const char *delegate_name(sat_delegate_t mode) {
   const char *s;
 
   s = NULL;
-  switch (params->delegate) {
+  switch (mode) {
   case SAT_DELEGATE_NONE:
     break;
   case SAT_DELEGATE_Y2SAT:
@@ -9085,6 +9088,34 @@ static const char *params_delegate_name(const param_t *params) {
   }
 
   return s;
+}
+
+/*
+ * Delegate selected for this check.
+ * - if params specifies a delegate (!= none), that delegate is selected.
+ * - otherwise the delegate from context config is selected.
+ * - *one_shot is set to true iff params override the context delegate.
+ */
+static sat_delegate_t effective_delegate_mode(const context_t *ctx, const param_t *params, bool *one_shot) {
+  sat_delegate_t req, cfg;
+
+  req = SAT_DELEGATE_NONE;
+  if (params != NULL) {
+    req = params->delegate;
+  }
+  cfg = ctx->sat_delegate;
+
+  if (req != SAT_DELEGATE_NONE) {
+    if (one_shot != NULL) {
+      *one_shot = (req != cfg || cfg == SAT_DELEGATE_NONE);
+    }
+    return req;
+  }
+
+  if (one_shot != NULL) {
+    *one_shot = false;
+  }
+  return cfg;
 }
 
 
@@ -9121,6 +9152,8 @@ static const char *params_delegate_name(const param_t *params) {
  */
 EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params) {
   param_t default_params;
+  sat_delegate_t delegate_mode;
+  bool one_shot_delegate;
   const char *delegate;
   smt_status_t stat;
 
@@ -9145,7 +9178,8 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
       yices_default_params_for_context(ctx, &default_params);
       params = &default_params;
     }
-    delegate = params_delegate_name(params);
+    delegate_mode = effective_delegate_mode(ctx, params, &one_shot_delegate);
+    delegate = delegate_name(delegate_mode);
     if (delegate == NULL) {
       stat = check_context(ctx, params);
     } else {
@@ -9156,7 +9190,12 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
         set_error_code(CTX_OPERATION_NOT_SUPPORTED);
         return YICES_STATUS_ERROR;
       }
-      stat = check_with_delegate(ctx, delegate, 0);
+      if (!one_shot_delegate && incremental_delegate(delegate)) {
+        stat = check_with_incremental_delegate(ctx, delegate, 0, ctx->sat_delegate_selector_frames,
+                                               0, NULL, NULL);
+      } else {
+        stat = check_with_delegate(ctx, delegate, 0);
+      }
     }
     if (stat == YICES_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
       context_cleanup(ctx);

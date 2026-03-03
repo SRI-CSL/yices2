@@ -5627,6 +5627,8 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->mode = mode;
   ctx->arch = arch;
   ctx->logic = logic;
+  ctx->sat_delegate = SAT_DELEGATE_NONE;
+  ctx->sat_delegate_selector_frames = false;
   ctx->theories = arch2theories[arch];
   ctx->options = mode2options[mode];
   if (qflag) {
@@ -5636,6 +5638,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   }
 
   ctx->base_level = 0;
+  ctx->mutation_count = 1;
 
   /*
    * The core is always needed: allocate it here. It's not initialized yet.
@@ -5699,6 +5702,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->divmod_table = NULL;
   ctx->explorer = NULL;
   ctx->unsat_core_cache = NULL;
+  ctx->delegate_state = NULL;
 
   ctx->dl_profile = NULL;
   ctx->arith_buffer = NULL;
@@ -5733,6 +5737,8 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
  * Delete ctx
  */
 void delete_context(context_t *ctx) {
+  context_delegate_state_cleanup(ctx);
+
   if (ctx->core != NULL) {
     delete_smt_core(ctx->core);
     safe_free(ctx->core);
@@ -5831,7 +5837,9 @@ void context_invalidate_unsat_core_cache(context_t *ctx) {
  */
 void reset_context(context_t *ctx) {
   ctx->base_level = 0;
+  ctx->mutation_count ++;
   context_invalidate_unsat_core_cache(ctx);
+  context_delegate_state_cleanup(ctx);
 
   reset_smt_core(ctx->core); // this propagates reset to all solvers
 
@@ -5911,6 +5919,7 @@ void context_push(context_t *ctx) {
   context_divmod_table_push(ctx);
 
   ctx->base_level ++;
+  ctx->mutation_count ++;
 }
 
 void context_pop(context_t *ctx) {
@@ -5926,6 +5935,7 @@ void context_pop(context_t *ctx) {
   context_divmod_table_pop(ctx);
 
   ctx->base_level --;
+  ctx->mutation_count ++;
 }
 
 
@@ -6247,6 +6257,10 @@ int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
       add_empty_clause(ctx->core);
       ctx->core->status = YICES_STATUS_UNSAT;
     }
+  }
+
+  if (code == CTX_NO_ERROR || code == TRIVIALLY_UNSAT) {
+    ctx->mutation_count ++;
   }
 
   return code;
@@ -6655,6 +6669,8 @@ int32_t assert_blocking_clause(context_t *ctx) {
     code = TRIVIALLY_UNSAT;
     ctx->core->status = YICES_STATUS_UNSAT;
   }
+
+  ctx->mutation_count ++;
 
   assert(n == 0 || smt_status(ctx->core) == YICES_STATUS_IDLE);
 

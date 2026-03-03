@@ -90,9 +90,11 @@ typedef enum ctx_config_key {
   CTX_CONFIG_KEY_BV_SOLVER,
   CTX_CONFIG_KEY_ARITH_SOLVER,
   CTX_CONFIG_KEY_MODEL_INTERPOLATION,
+  CTX_CONFIG_KEY_SAT_DELEGATE,
+  CTX_CONFIG_KEY_SAT_DELEGATE_SELECTOR_FRAMES,
 } ctx_config_key_t;
 
-#define NUM_CONFIG_KEYS (CTX_CONFIG_KEY_MODEL_INTERPOLATION+1)
+#define NUM_CONFIG_KEYS (CTX_CONFIG_KEY_SAT_DELEGATE_SELECTOR_FRAMES+1)
 
 
 static const char *const config_key_names[NUM_CONFIG_KEYS] = {
@@ -102,6 +104,8 @@ static const char *const config_key_names[NUM_CONFIG_KEYS] = {
   "bv-solver",
   "mode",
   "model-interpolation",
+  "sat-delegate",
+  "sat-delegate-selector-frames",
   "solver-type",
   "trace",
   "uf-solver",
@@ -114,9 +118,30 @@ static const int32_t config_key[NUM_CONFIG_KEYS] = {
   CTX_CONFIG_KEY_BV_SOLVER,
   CTX_CONFIG_KEY_MODE,
   CTX_CONFIG_KEY_MODEL_INTERPOLATION,
+  CTX_CONFIG_KEY_SAT_DELEGATE,
+  CTX_CONFIG_KEY_SAT_DELEGATE_SELECTOR_FRAMES,
   CTX_CONFIG_KEY_SOLVER_TYPE,
   CTX_CONFIG_KEY_TRACE_TAGS,
   CTX_CONFIG_KEY_UF_SOLVER,
+};
+
+/*
+ * Names of delegate solvers (in lexicographic order)
+ */
+static const char * const sat_delegate_modes[NUM_SAT_DELEGATES] = {
+  "cadical",
+  "cryptominisat",
+  "kissat",
+  "none",
+  "y2sat",
+};
+
+static const int32_t sat_delegate_code[NUM_SAT_DELEGATES] = {
+  SAT_DELEGATE_CADICAL,
+  SAT_DELEGATE_CRYPTOMINISAT,
+  SAT_DELEGATE_KISSAT,
+  SAT_DELEGATE_NONE,
+  SAT_DELEGATE_Y2SAT,
 };
 
 
@@ -261,6 +286,8 @@ static const ctx_config_t default_config = {
   CTX_CONFIG_DEFAULT,     // arith
   ARITH_LIRA,             // fragment
   false,                  // model interpolation
+  SAT_DELEGATE_NONE,      // sat delegate
+  false,                  // sat delegate selector frames
   NULL,                   // trace tags
 };
 
@@ -417,6 +444,20 @@ int32_t config_set_field(ctx_config_t *config, const char *key, const char *valu
     break;
   case CTX_CONFIG_KEY_MODEL_INTERPOLATION:
     v = parse_as_boolean(value, &config->model_interpolation);
+    if (v < 0) {
+      r = -2;
+    }
+    break;
+  case CTX_CONFIG_KEY_SAT_DELEGATE:
+    v = parse_as_keyword(value, sat_delegate_modes, sat_delegate_code, NUM_SAT_DELEGATES);
+    if (v < 0) {
+      r = -2;
+    } else {
+      config->sat_delegate = (sat_delegate_t) v;
+    }
+    break;
+  case CTX_CONFIG_KEY_SAT_DELEGATE_SELECTOR_FRAMES:
+    v = parse_as_boolean(value, &config->sat_delegate_selector_frames);
     if (v < 0) {
       r = -2;
     }

@@ -3,6 +3,8 @@
 #endif
 
 #include <assert.h>
+#include <stdbool.h>
+#include <string.h>
 
 #include <yices.h>
 
@@ -66,6 +68,27 @@ static context_t *new_qfbv_pushpop_context(void) {
 
   assert(yices_default_config_for_logic(config, "QF_BV") == 0);
   assert(yices_set_config(config, "mode", "push-pop") == 0);
+
+  ctx = yices_new_context(config);
+  assert(ctx != NULL);
+
+  yices_free_config(config);
+  return ctx;
+}
+
+static context_t *new_qfbv_pushpop_context_with_delegate(const char *delegate, const char *selector_frames) {
+  ctx_config_t *config;
+  context_t *ctx;
+
+  config = yices_new_config();
+  assert(config != NULL);
+
+  assert(yices_default_config_for_logic(config, "QF_BV") == 0);
+  assert(yices_set_config(config, "mode", "push-pop") == 0);
+  assert(yices_set_config(config, "sat-delegate", delegate) == 0);
+  if (selector_frames != NULL) {
+    assert(yices_set_config(config, "sat-delegate-selector-frames", selector_frames) == 0);
+  }
 
   ctx = yices_new_context(config);
   assert(ctx != NULL);
@@ -353,6 +376,60 @@ static void check_branching_pushpop_case(const char *delegate) {
   yices_free_context(ctx);
 }
 
+static bool is_incremental_delegate_name(const char *delegate) {
+  return strcmp(delegate, "cadical") == 0 || strcmp(delegate, "cryptominisat") == 0;
+}
+
+static void check_config_delegate_case(const char *delegate) {
+  type_t bv8;
+  term_t x, f;
+  context_t *ctx;
+
+  bv8 = yices_bv_type(8);
+  x = yices_new_uninterpreted_term(bv8);
+  f = yices_bveq_atom(yices_bvadd(x, yices_bvconst_uint32(8, 1)), yices_bvconst_uint32(8, 2));
+
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "true");
+  assert(yices_assert_formula(ctx, f) == 0);
+
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+  assert_formula_true_in_context_model(ctx, f);
+
+  yices_free_context(ctx);
+}
+
+static void check_assumptions_delegate_case(const char *delegate) {
+  type_t bv8;
+  term_t x, f, a;
+  context_t *ctx;
+  smt_status_t stat;
+  term_vector_t core;
+
+  bv8 = yices_bv_type(8);
+  x = yices_new_uninterpreted_term(bv8);
+  f = yices_bveq_atom(x, yices_bvconst_uint32(8, 0));
+  a = yices_bveq_atom(x, yices_bvconst_uint32(8, 1));
+
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "true");
+  assert(yices_assert_formula(ctx, f) == 0);
+
+  stat = yices_check_context_with_assumptions(ctx, NULL, 1, &a);
+  if (is_incremental_delegate_name(delegate)) {
+    assert(stat == YICES_STATUS_UNSAT);
+    yices_init_term_vector(&core);
+    assert(yices_get_unsat_core(ctx, &core) == 0);
+    assert(core.size == 1);
+    assert(core.data[0] == a);
+    yices_delete_term_vector(&core);
+  } else {
+    assert(stat == YICES_STATUS_ERROR);
+    assert(yices_error_code() == CTX_OPERATION_NOT_SUPPORTED);
+    yices_clear_error();
+  }
+
+  yices_free_context(ctx);
+}
+
 int main(void) {
   const char *delegates[] = { "y2sat", "cadical", "cryptominisat", "kissat" };
   context_t *ctx;
@@ -376,6 +453,8 @@ int main(void) {
       check_add_self_unsat_case(delegates[i]);
       check_nested_pushpop_case(delegates[i]);
       check_branching_pushpop_case(delegates[i]);
+      check_config_delegate_case(delegates[i]);
+      check_assumptions_delegate_case(delegates[i]);
     }
   }
 
