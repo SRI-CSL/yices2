@@ -7490,8 +7490,14 @@ static value_t egraph_concretize_map(egraph_t *egraph, value_table_t *vtbl, map_
     free_istack_array(&egraph->istack, aux);
   }
 
-  // get the default value
-  if (map->def != null_particle) {
+  /*
+   * Keep all explicit mappings in the concrete value:
+   * if m > 0 and default is concrete, vtbl_mk_function would remove
+   * any entry that maps to that default.
+   */
+  if (m > 0) {
+    v = vtbl_mk_unknown(vtbl);
+  } else if (map->def != null_particle) {
     v = egraph_concretize_value(egraph, vtbl, map->def);
   } else {
     v = vtbl_mk_unknown(vtbl);
@@ -7696,9 +7702,15 @@ static value_t egraph_make_fun_value(egraph_t *egraph, value_table_t *vtbl, clas
   }
 
 
-  // function without a default value
-  //  v = vtbl_mk_function(vtbl, tau, j, all_maps, vtbl_mk_unknown(vtbl));
-  v = egraph_make_default_fun_value(egraph, vtbl, tau);
+  /*
+   * When we have explicit points, keep default unknown so all points
+   * remain explicit in the concrete function.
+   */
+  if (j > 0) {
+    v = vtbl_mk_unknown(vtbl);
+  } else {
+    v = egraph_make_default_fun_value(egraph, vtbl, tau);
+  }
   v = vtbl_mk_function(vtbl, tau, j, all_maps, v);
 
   free_istack_array(&egraph->istack, all_maps);

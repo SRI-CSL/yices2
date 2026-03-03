@@ -1,0 +1,6 @@
+(define f::(-> int int))
+
+(assert (= (f 7) 42))
+
+(check)
+(show-model)

@@ -1,0 +1,4 @@
+sat
+(function f
+ (type (-> int int))
+ (= (f 7) 42))

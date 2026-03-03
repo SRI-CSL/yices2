@@ -108,6 +108,26 @@ static term_t convert_unint(term_table_t *terms, value_table_t *vtbl, value_t v)
   return constant_term(terms, u->type, u->index);
 }
 
+/*
+ * Pick a concrete fallback value for type tau.
+ * If possible, this picks something distinct from avoid.
+ */
+static value_t pick_fallback_value(value_table_t *table, type_t tau, value_t avoid) {
+  value_t pair[2];
+  value_t result;
+
+  if (vtbl_make_two_objects(table, tau, pair)) {
+    result = pair[0];
+    if (result == avoid) {
+      result = pair[1];
+    }
+  } else {
+    result = vtbl_make_object(table, tau);
+  }
+
+  return result;
+}
+
 static term_t convert_func(val_converter_t *convert, value_table_t *table, value_t c) {
   value_fun_t *fun;
   value_map_t *mp;
@@ -148,8 +168,7 @@ static term_t convert_func(val_converter_t *convert, value_table_t *table, value
     // no entry in map
 
     if (is_unknown(table, fun->def)) {
-      printf("no mapping or default value assigned to the function\n");
-      assert(0);
+      result = convert_value(convert, pick_fallback_value(table, ranget, null_value));
     }
     else {
       result = convert_value(convert, fun->def);
@@ -159,14 +178,13 @@ static term_t convert_func(val_converter_t *convert, value_table_t *table, value
     // entries present in map
 
     if (is_unknown(table, fun->def)) {
-      // no default value, set the first mapping as the initial result
-
-      mp = vtbl_map(table, fun->map[i]);
+      /*
+       * Pick an arbitrary concrete default. This lets us keep all explicit
+       * map entries in the ITE chain instead of dropping the first one.
+       */
+      mp = vtbl_map(table, fun->map[0]);
       assert(mp->arity == m);
-      result = convert_value(convert, mp->val);
-
-      // increment i since done with the first mapping
-      i++;
+      result = convert_value(convert, pick_fallback_value(table, ranget, mp->val));
     }
     else {
       // set the default value as the initial result

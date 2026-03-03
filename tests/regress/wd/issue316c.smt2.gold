@@ -1,13 +1,13 @@
 sat
 (= f @fun_2)
-(= g @fun_4)
-(= h @fun_6)
+(= g @fun_7)
+(= h @fun_9)
 (function @fun_2
  (type (Array U U))
  (default @const_1))
-(function @fun_4
+(function @fun_7
  (type (Array U U))
- (default @const_3))
-(function @fun_6
+ (= (@fun_7 @const_3) @const_4))
+(function @fun_9
  (type (Array U U))
- (default @const_5))
+ (= (@fun_9 @const_3) @const_3))

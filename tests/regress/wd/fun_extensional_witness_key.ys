@@ -1,0 +1,9 @@
+(define f::(-> int int))
+(define g::(-> int int))
+
+(assert (= (f 0) (g 0)))
+(assert (= (f 1) (g 1)))
+(assert (/= f g))
+
+(check)
+(show-model)

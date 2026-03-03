@@ -238,6 +238,14 @@ static bool split_leaf(fun_tree_t *tree, fun_node_t *n, map_t *m2, ivector_t *v)
         return false;
       }
 
+      /*
+       * m1 and m2 differ only by default values. Materialize this
+       * disagreement on an explicit key so map distinction does not
+       * depend on defaults.
+       */
+      add_elem_to_normal_map(m1, idx, a);
+      add_elem_to_normal_map(m2, idx, b);
+
     } else {
       // same default values: the maps are equal
       return false;
@@ -380,4 +388,3 @@ bool fun_tree_add_map(fun_tree_t *tree, map_t *m) {
   ivector_reset(v);
   return true;
 }
-
