@@ -793,7 +793,7 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
       term_t implication = mk_implies(&tm, b, a[i]);
 
       int_hmap_add(&label_map, b, a[i]);
-      code = assert_formula(ctx, implication);
+      code = _o_assert_formula(ctx, implication);
       if (code < 0) {
         if (error != NULL) {
           *error = code;
