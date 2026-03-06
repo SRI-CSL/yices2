@@ -25,11 +25,13 @@ jobs:
         # Packages to install
         packages: |
           autoconf,
+          cmake,
           coreutils,
           gperf,
           m4,
           make,
           mingw64-x86_64-gcc-core,
+          mingw64-x86_64-gcc-g++,
           moreutils,
           wget
 
@@ -49,14 +51,64 @@ jobs:
         make && make install && 
         popd
 
+    - name: Building MCSAT Dependencies
+      if: contains(matrix.config-opt, '--enable-mcsat')
+      shell: bash
+      env:
+        CYGWIN: winsymlinks:native
+      run: |
+        set -eux
+        mkdir -p /tools/mcsat_deps
+
+        git clone https://github.com/SRI-CSL/libpoly.git
+        mkdir -p libpoly/build-mingw
+        cd libpoly/build-mingw
+        cmake .. \
+          -DCMAKE_SYSTEM_NAME=Windows \
+          -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc \
+          -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ \
+          -DCMAKE_INSTALL_PREFIX=/tools/mcsat_deps \
+          -DBUILD_SHARED_LIBS=OFF \
+          -DGMP_LIBRARY=/tools/static_gmp/lib/libgmp.a \
+          -DGMP_INCLUDE_DIR=/tools/static_gmp/include
+        make
+        make install
+        cd ../..
+
+        git clone https://github.com/ivmai/cudd.git
+        cd cudd
+        git checkout tags/cudd-3.0.0
+        autoreconf -fi
+        ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --disable-shared --enable-static --prefix=/tools/mcsat_deps
+        make
+        make install
+
     - name: Building Yices
       shell: bash
       env:
         CYGWIN: winsymlinks:native
-      run: >-
-        autoconf && 
-        ./configure ${{ matrix.config-opt }} --host=x86_64-w64-mingw32 CPPFLAGS=-I/tools/dynamic_gmp/include LDFLAGS=-L/tools/dynamic_gmp/lib --with-static-gmp=/tools/static_gmp/lib/libgmp.a --with-static-gmp-include-dir=/tools/static_gmp/include && 
-        export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH} && 
+      run: |
+        set -eux
+        autoconf
+
+        mcsat_cppflags=""
+        mcsat_ldflags=""
+        mcsat_options=""
+        if [[ "${{ matrix.config-opt }}" == *"--enable-mcsat"* ]]; then
+          mcsat_cppflags="-I/tools/mcsat_deps/include"
+          mcsat_ldflags="-L/tools/mcsat_deps/lib"
+          mcsat_options="--with-static-libpoly=/tools/mcsat_deps/lib/libpoly.a --with-static-libpoly-include-dir=/tools/mcsat_deps/include"
+        fi
+
+        ./configure ${{ matrix.config-opt }} \
+          --host=x86_64-w64-mingw32 \
+          CPPFLAGS="-I/tools/dynamic_gmp/include ${mcsat_cppflags}" \
+          LDFLAGS="-L/tools/dynamic_gmp/lib ${mcsat_ldflags}" \
+          --with-static-gmp=/tools/static_gmp/lib/libgmp.a \
+          --with-static-gmp-include-dir=/tools/static_gmp/include \
+          ${mcsat_options}
+
+        export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH}
         make OPTION=mingw64 MODE=${{ matrix.mode }}
 
     - name: Run Yices API Tests
