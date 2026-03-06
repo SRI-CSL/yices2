@@ -9,7 +9,7 @@ jobs:
       matrix:
         os: [windows-latest]
         mode: [debug, release]
-        config-opt: [' ', --enable-thread-safety]
+        config-opt: [' ', --enable-thread-safety, --enable-thread-safety --enable-mcsat]
 
     name: ${{ matrix.os }}|${{ matrix.mode }}|${{ matrix.config-opt}}
     runs-on: ${{ matrix.os }}

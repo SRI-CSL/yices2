@@ -22,6 +22,18 @@ jobs:
             mode: gcov
             config-opt: --enable-mcsat
             env: CC=gcc-13 CXX=g++-13
+          - os: ubuntu-latest
+            mode: debug
+            config-opt: --enable-thread-safety --enable-mcsat
+            env: CC=gcc CXX=g++
+          - os: ubuntu-latest
+            mode: release
+            config-opt: --enable-thread-safety --enable-mcsat
+            env: CC=gcc CXX=g++
+          - os: ubuntu-latest
+            mode: gcov
+            config-opt: --enable-thread-safety --enable-mcsat
+            env: CC=gcc-13 CXX=g++-13
     name: ${{ matrix.os }}|${{ matrix.mode }}|${{ matrix.config-opt }}|${{ matrix.env }} (push)
     runs-on: ${{ matrix.os }}
     steps:
@@ -68,6 +80,22 @@ jobs:
             mode: debug
             config-opt: --enable-thread-safety --enable-mcsat
             env: CC=gcc CXX=g++
+          - os: ubuntu-latest
+            mode: release
+            config-opt: --enable-thread-safety --enable-mcsat
+            env: CC=gcc CXX=g++
+          - os: ubuntu-latest
+            mode: gcov
+            config-opt: --enable-thread-safety --enable-mcsat
+            env: CC=gcc-13 CXX=g++-13
+          - os: macos-latest
+            mode: debug
+            config-opt: --enable-thread-safety --enable-mcsat
+            env: CC=clang CXX=clang++
+          - os: macos-latest
+            mode: release
+            config-opt: --enable-thread-safety --enable-mcsat
+            env: CC=clang CXX=clang++
     name: ${{ matrix.os }}|${{ matrix.mode }}|${{ matrix.config-opt }}|${{ matrix.env }} (pr)
     runs-on: ${{ matrix.os }}
     steps:
