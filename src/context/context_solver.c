@@ -44,6 +44,7 @@
 #include "utils/int_hash_sets.h"
 
 #include "api/yices_globals.h"
+#include "api/yices_api_lock_free.h"
 #include "mt/thread_macros.h"
 
 

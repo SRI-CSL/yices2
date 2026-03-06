@@ -144,13 +144,6 @@ extern bool context_has_simplex_solver(context_t *ctx);
 extern int32_t assert_formula(context_t *ctx, term_t f);
 
 /*
- * Lock-free version of assert_formula.
- * The caller must already own __yices_globals.lock.
- */
-extern int32_t _o_assert_formula(context_t *ctx, term_t f);
-
-
-/*
  * Assert all formulas f[0] ... f[n-1]
  * same return code as above.
  */
