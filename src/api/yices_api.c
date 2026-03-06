@@ -9216,7 +9216,7 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
 }
 
 EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[]) {
-  MT_PROTECT(smt_status_t, __yices_globals.lock, _o_yices_check_context_with_assumptions(ctx, params, n, a));
+  return _o_yices_check_context_with_assumptions(ctx, params, n, a);
 }
 
 /*
