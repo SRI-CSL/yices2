@@ -6,10 +6,15 @@
  * to take the same global lock again.
  */
 
-#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#if defined(_WIN32)
+#include <windows.h>
+#else
+#include <signal.h>
 #include <unistd.h>
+#endif
 
 #include <yices.h>
 
@@ -19,11 +24,67 @@ static void fail(const char *msg) {
   exit(2);
 }
 
+#if defined(_WIN32)
+static HANDLE watchdog_stop_event = NULL;
+static HANDLE watchdog_thread = NULL;
+
+static DWORD WINAPI watchdog_main(LPVOID arg) {
+  HANDLE stop_event = (HANDLE) arg;
+  DWORD status = WaitForSingleObject(stop_event, 15000);
+  if (status == WAIT_TIMEOUT) {
+    fprintf(stderr, "timeout: possible deadlock\n");
+    fflush(stderr);
+    ExitProcess(3);
+  }
+  return 0;
+}
+
+static void start_deadlock_watchdog(void) {
+  watchdog_stop_event = CreateEvent(NULL, TRUE, FALSE, NULL);
+  if (watchdog_stop_event == NULL) {
+    fprintf(stderr, "failed to create watchdog stop event\n");
+    exit(2);
+  }
+
+  watchdog_thread = CreateThread(NULL, 0, watchdog_main, watchdog_stop_event, 0, NULL);
+  if (watchdog_thread == NULL) {
+    CloseHandle(watchdog_stop_event);
+    watchdog_stop_event = NULL;
+    fprintf(stderr, "failed to create watchdog thread\n");
+    exit(2);
+  }
+}
+
+static void stop_deadlock_watchdog(void) {
+  if (watchdog_stop_event != NULL) {
+    SetEvent(watchdog_stop_event);
+  }
+  if (watchdog_thread != NULL) {
+    WaitForSingleObject(watchdog_thread, INFINITE);
+    CloseHandle(watchdog_thread);
+    watchdog_thread = NULL;
+  }
+  if (watchdog_stop_event != NULL) {
+    CloseHandle(watchdog_stop_event);
+    watchdog_stop_event = NULL;
+  }
+}
+#else
 static void on_alarm(int sig) {
   (void) sig;
   fprintf(stderr, "timeout: possible deadlock\n");
   exit(3);
 }
+
+static void start_deadlock_watchdog(void) {
+  signal(SIGALRM, on_alarm);
+  alarm(15);
+}
+
+static void stop_deadlock_watchdog(void) {
+  alarm(0);
+}
+#endif
 
 static context_t *make_cdclt_context(void) {
   ctx_config_t *config;
@@ -84,10 +145,9 @@ static void test_cdclt_check_with_assumptions_no_deadlock(void) {
 int main(void) {
   yices_init();
 
-  signal(SIGALRM, on_alarm);
-  alarm(15);
+  start_deadlock_watchdog();
   test_cdclt_check_with_assumptions_no_deadlock();
-  alarm(0);
+  stop_deadlock_watchdog();
 
   yices_exit();
   return 0;
