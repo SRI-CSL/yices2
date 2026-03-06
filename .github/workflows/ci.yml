@@ -53,10 +53,10 @@ jobs:
         with:
           mode: ${{ matrix.mode }}
       - name: Coverage
-        if: matrix.mode == 'gcov'
+        if: matrix.mode == 'gcov' && matrix.config-opt == '--enable-mcsat'
         uses: ./.github/actions/coverage
       - name: Coveralls
-        if: matrix.mode == 'gcov'
+        if: matrix.mode == 'gcov' && matrix.config-opt == '--enable-mcsat'
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -117,10 +117,10 @@ jobs:
         with:
           mode: ${{ matrix.mode }}
       - name: Coverage
-        if: matrix.mode == 'gcov'
+        if: matrix.mode == 'gcov' && matrix.config-opt == '--enable-mcsat'
         uses: ./.github/actions/coverage
       - name: Coveralls
-        if: matrix.mode == 'gcov'
+        if: matrix.mode == 'gcov' && matrix.config-opt == '--enable-mcsat'
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
