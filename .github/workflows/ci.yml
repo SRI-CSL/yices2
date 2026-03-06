@@ -48,6 +48,8 @@ jobs:
           env: ${{ matrix.env }}
       - name: Test
         uses: ./.github/actions/test
+        env:
+          TIME_LIMIT: ${{ matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat') && '120' || '60' }}
         with:
           mode: ${{ matrix.mode }}
       - name: Coverage
@@ -110,6 +112,8 @@ jobs:
           env: ${{ matrix.env }}
       - name: Test
         uses: ./.github/actions/test
+        env:
+          TIME_LIMIT: ${{ matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat') && '120' || '60' }}
         with:
           mode: ${{ matrix.mode }}
       - name: Coverage
