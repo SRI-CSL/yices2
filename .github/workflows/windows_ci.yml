@@ -72,6 +72,8 @@ jobs:
         cd cudd &&
         git checkout tags/cudd-3.0.0 &&
         sed -i 's/\r$//' configure &&
+        sed -i 's/\r$//' build-aux/config.sub build-aux/config.guess &&
+        chmod +x configure build-aux/config.sub build-aux/config.guess &&
         ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --disable-shared --enable-static --prefix=/tools/mcsat_deps &&
         make &&
         make install
