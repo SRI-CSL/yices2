@@ -59,10 +59,10 @@ jobs:
       run: >-
         mkdir -p /tools/mcsat_deps &&
         git clone https://github.com/SRI-CSL/libpoly.git &&
-        sed -i 's/tracef("f[%zu] = ", i);/tracef("f[%u] = ", (unsigned) i);/g' libpoly/src/number/algebraic_number.c &&
+        sed -i 's/tracef("f\\[%zu\\] = ", i);/tracef("f[%u] = ", (unsigned) i);/g' libpoly/src/number/algebraic_number.c &&
         mkdir -p libpoly/build-mingw &&
         cd libpoly/build-mingw &&
-        cmake .. -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ -DCMAKE_INSTALL_PREFIX=/tools/mcsat_deps -DBUILD_SHARED_LIBS=OFF -DGMP_LIBRARY=/tools/static_gmp/lib/libgmp.a -DGMP_INCLUDE_DIR=/tools/static_gmp/include -DCMAKE_C_FLAGS='-D__USE_MINGW_ANSI_STDIO -Wno-error=format' -DCMAKE_CXX_FLAGS='-D__USE_MINGW_ANSI_STDIO -Wno-error=format' &&
+        cmake .. -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ -DCMAKE_INSTALL_PREFIX=/tools/mcsat_deps -DBUILD_SHARED_LIBS=OFF -DGMP_LIBRARY=/tools/static_gmp/lib/libgmp.a -DGMP_INCLUDE_DIR=/tools/static_gmp/include -DCMAKE_C_FLAGS='-D__USE_MINGW_ANSI_STDIO -Wno-error=format -Wno-error=format-extra-args' -DCMAKE_CXX_FLAGS='-D__USE_MINGW_ANSI_STDIO -Wno-error=format -Wno-error=format-extra-args' &&
         make &&
         make install &&
         cd ../.. &&
