@@ -66,6 +66,8 @@ jobs:
         find build-aux -type f -exec sed -i 's/\r$//' {} + &&
         chmod +x configure build-aux/* &&
         ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --disable-shared --enable-static --disable-dependency-tracking --prefix=/tools/mcsat_deps &&
+        test -f config.status && sed -i 's/\r$//' config.status || true &&
+        test -f libtool && sed -i 's/\r$//' libtool || true &&
         make &&
         make install
 
