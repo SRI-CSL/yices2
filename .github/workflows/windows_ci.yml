@@ -25,6 +25,7 @@ jobs:
         # Packages to install
         packages: |
           autoconf,
+          automake,
           cmake,
           coreutils,
           gperf,
