@@ -41,14 +41,14 @@ jobs:
     - name: Building GMP
       shell: bash
       env:
-        CYGWIN: winsymlinks:native
+        CYGWIN: winsymlinks:native binmode
       run: pushd . && mkdir -p /tools && cd /tools && mkdir -p dynamic_gmp static_gmp && gmp_archive=gmp-6.3.0.tar.xz && (curl -fL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 600 https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz -o "$gmp_archive" || wget --tries=5 --timeout=20 -O "$gmp_archive" https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz || curl -fL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 600 https://mirrors.kernel.org/gnu/gmp/gmp-6.3.0.tar.xz -o "$gmp_archive" || wget --tries=5 --timeout=20 -O "$gmp_archive" https://mirrors.kernel.org/gnu/gmp/gmp-6.3.0.tar.xz || curl -fL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 600 https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz -o "$gmp_archive" || wget --tries=5 --timeout=20 -O "$gmp_archive" https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz) && tar xf "$gmp_archive" && cd gmp-6.3.0 && ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --enable-cxx --enable-shared --disable-static --prefix=/tools/dynamic_gmp && make && make install && make clean && ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --enable-cxx --enable-static --disable-shared --prefix=/tools/static_gmp && make && make install && popd
 
     - name: Building MCSAT Dependencies
       if: contains(matrix.config-opt, '--enable-mcsat')
       shell: bash
       env:
-        CYGWIN: winsymlinks:native
+        CYGWIN: winsymlinks:native binmode
       run: >-
         mkdir -p /tools/mcsat_deps &&
         git clone https://github.com/SRI-CSL/libpoly.git &&
@@ -65,7 +65,7 @@ jobs:
         sed -i 's/\r$//' configure &&
         find build-aux -type f -exec sed -i 's/\r$//' {} + &&
         chmod +x configure build-aux/* &&
-        ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --disable-shared --enable-static --disable-dependency-tracking --prefix=/tools/mcsat_deps &&
+        ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --disable-shared --enable-static --disable-dependency-tracking --disable-maintainer-mode --prefix=/tools/mcsat_deps &&
         test -f config.status && sed -i 's/\r$//' config.status || true &&
         test -f libtool && sed -i 's/\r$//' libtool || true &&
         make &&
@@ -75,7 +75,7 @@ jobs:
       if: "!contains(matrix.config-opt, '--enable-mcsat')"
       shell: bash
       env:
-        CYGWIN: winsymlinks:native
+        CYGWIN: winsymlinks:native binmode
       run: >-
         autoconf &&
         ./configure ${{ matrix.config-opt }} --host=x86_64-w64-mingw32 CPPFLAGS="-I/tools/dynamic_gmp/include" LDFLAGS="-L/tools/dynamic_gmp/lib" --with-static-gmp=/tools/static_gmp/lib/libgmp.a --with-static-gmp-include-dir=/tools/static_gmp/include &&
@@ -86,7 +86,7 @@ jobs:
       if: contains(matrix.config-opt, '--enable-mcsat')
       shell: bash
       env:
-        CYGWIN: winsymlinks:native
+        CYGWIN: winsymlinks:native binmode
       run: >-
         autoconf &&
         ./configure ${{ matrix.config-opt }} --host=x86_64-w64-mingw32 CPPFLAGS="-I/tools/dynamic_gmp/include -I/tools/mcsat_deps/include" LDFLAGS="-L/tools/dynamic_gmp/lib -L/tools/mcsat_deps/lib" --with-static-gmp=/tools/static_gmp/lib/libgmp.a --with-static-gmp-include-dir=/tools/static_gmp/include --with-static-libpoly=/tools/mcsat_deps/lib/libpoly.a --with-static-libpoly-include-dir=/tools/mcsat_deps/include &&
@@ -96,7 +96,7 @@ jobs:
     - name: Run Yices API Tests
       shell: bash
       env:
-        CYGWIN: winsymlinks:native
+        CYGWIN: winsymlinks:native binmode
       run: >-
         export PATH=/tools/dynamic_gmp/bin:/tools/static_gmp/bin:$PATH &&
         make OPTION=mingw64 MODE=${{ matrix.mode }} check-api &&
