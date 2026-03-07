@@ -50,7 +50,7 @@ jobs:
         uses: ./.github/actions/test
         env:
           TIME_LIMIT: ${{ matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat') && '120' || '60' }}
-          REGRESS_EXCLUDE_FILTER: ${{ matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat') && 'tests/regress/iss517.smt2' || '' }}
+          REGRESS_EXCLUDE_FILTER: ${{ matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat') && 'iss517.smt2$' || '' }}
         with:
           mode: ${{ matrix.mode }}
       - name: Coverage
@@ -115,7 +115,7 @@ jobs:
         uses: ./.github/actions/test
         env:
           TIME_LIMIT: ${{ matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat') && '120' || '60' }}
-          REGRESS_EXCLUDE_FILTER: ${{ matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat') && 'tests/regress/iss517.smt2' || '' }}
+          REGRESS_EXCLUDE_FILTER: ${{ matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat') && 'iss517.smt2$' || '' }}
         with:
           mode: ${{ matrix.mode }}
       - name: Coverage

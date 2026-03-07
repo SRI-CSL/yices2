@@ -73,21 +73,25 @@ jobs:
         make &&
         make install
 
-    - name: Building Yices
+    - name: Building Yices (non-MCSAT)
+      if: "!contains(matrix.config-opt, '--enable-mcsat')"
       shell: bash
       env:
         CYGWIN: winsymlinks:native
       run: >-
-        mcsat_cppflags="" &&
-        mcsat_ldflags="" &&
-        mcsat_options="" &&
-        if [[ "${{ matrix.config-opt }}" == *"--enable-mcsat"* ]]; then
-          mcsat_cppflags="-I/tools/mcsat_deps/include";
-          mcsat_ldflags="-L/tools/mcsat_deps/lib";
-          mcsat_options="--with-static-libpoly=/tools/mcsat_deps/lib/libpoly.a --with-static-libpoly-include-dir=/tools/mcsat_deps/include";
-        fi &&
         autoconf &&
-        ./configure ${{ matrix.config-opt }} --host=x86_64-w64-mingw32 CPPFLAGS="-I/tools/dynamic_gmp/include ${mcsat_cppflags}" LDFLAGS="-L/tools/dynamic_gmp/lib ${mcsat_ldflags}" --with-static-gmp=/tools/static_gmp/lib/libgmp.a --with-static-gmp-include-dir=/tools/static_gmp/include ${mcsat_options} &&
+        ./configure ${{ matrix.config-opt }} --host=x86_64-w64-mingw32 CPPFLAGS="-I/tools/dynamic_gmp/include" LDFLAGS="-L/tools/dynamic_gmp/lib" --with-static-gmp=/tools/static_gmp/lib/libgmp.a --with-static-gmp-include-dir=/tools/static_gmp/include &&
+        export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH} &&
+        make OPTION=mingw64 MODE=${{ matrix.mode }}
+
+    - name: Building Yices (MCSAT)
+      if: contains(matrix.config-opt, '--enable-mcsat')
+      shell: bash
+      env:
+        CYGWIN: winsymlinks:native
+      run: >-
+        autoconf &&
+        ./configure ${{ matrix.config-opt }} --host=x86_64-w64-mingw32 CPPFLAGS="-I/tools/dynamic_gmp/include -I/tools/mcsat_deps/include" LDFLAGS="-L/tools/dynamic_gmp/lib -L/tools/mcsat_deps/lib" --with-static-gmp=/tools/static_gmp/lib/libgmp.a --with-static-gmp-include-dir=/tools/static_gmp/include --with-static-libpoly=/tools/mcsat_deps/lib/libpoly.a --with-static-libpoly-include-dir=/tools/mcsat_deps/include &&
         export LD_LIBRARY_PATH=/usr/local/lib/:${LD_LIBRARY_PATH} &&
         make OPTION=mingw64 MODE=${{ matrix.mode }}
 
