@@ -45,9 +45,9 @@ jobs:
         wget https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz &&
         tar xf gmp-6.3.0.tar.xz && 
         cd gmp-6.3.0 &&
-        ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --enable-shared --disable-static --prefix=/tools/dynamic_gmp &&
+        ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --enable-cxx --enable-shared --disable-static --prefix=/tools/dynamic_gmp &&
         make && make install && make clean && 
-        ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --enable-static --disable-shared --prefix=/tools/static_gmp && 
+        ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --enable-cxx --enable-static --disable-shared --prefix=/tools/static_gmp && 
         make && make install && 
         popd
 
@@ -62,7 +62,7 @@ jobs:
         sed -i 's/tracef("f\\[%zu\\] = ", i);/tracef("f[%u] = ", (unsigned) i);/g' libpoly/src/number/algebraic_number.c &&
         mkdir -p libpoly/build-mingw &&
         cd libpoly/build-mingw &&
-        cmake .. -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ -DCMAKE_INSTALL_PREFIX=/tools/mcsat_deps -DBUILD_SHARED_LIBS=OFF -DGMP_LIBRARY=/tools/static_gmp/lib/libgmp.a -DGMP_INCLUDE_DIR=/tools/static_gmp/include -DCMAKE_C_FLAGS='-D__USE_MINGW_ANSI_STDIO -Wno-error=format -Wno-error=format-extra-args' -DCMAKE_CXX_FLAGS='-D__USE_MINGW_ANSI_STDIO -Wno-error=format -Wno-error=format-extra-args' &&
+        cmake .. -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ -DCMAKE_INSTALL_PREFIX=/tools/mcsat_deps -DBUILD_SHARED_LIBS=OFF -DGMP_LIBRARY=/tools/static_gmp/lib/libgmp.a -DGMP_INCLUDE_DIR=/tools/static_gmp/include -DGMPXX_LIBRARY=/tools/static_gmp/lib/libgmpxx.a -DGMPXX_INCLUDE_DIR=/tools/static_gmp/include -DCMAKE_C_FLAGS='-D__USE_MINGW_ANSI_STDIO -Wno-error=format -Wno-error=format-extra-args' -DCMAKE_CXX_FLAGS='-D__USE_MINGW_ANSI_STDIO -Wno-error=format -Wno-error=format-extra-args' &&
         make &&
         make install &&
         cd ../.. &&
