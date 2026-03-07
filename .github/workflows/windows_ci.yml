@@ -61,7 +61,7 @@ jobs:
         git clone https://github.com/SRI-CSL/libpoly.git &&
         mkdir -p libpoly/build-mingw &&
         cd libpoly/build-mingw &&
-        cmake .. -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ -DCMAKE_INSTALL_PREFIX=/tools/mcsat_deps -DBUILD_SHARED_LIBS=OFF -DGMP_LIBRARY=/tools/static_gmp/lib/libgmp.a -DGMP_INCLUDE_DIR=/tools/static_gmp/include &&
+        cmake .. -DCMAKE_SYSTEM_NAME=Windows -DCMAKE_C_COMPILER=x86_64-w64-mingw32-gcc -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++ -DCMAKE_INSTALL_PREFIX=/tools/mcsat_deps -DBUILD_SHARED_LIBS=OFF -DGMP_LIBRARY=/tools/static_gmp/lib/libgmp.a -DGMP_INCLUDE_DIR=/tools/static_gmp/include -DCMAKE_C_FLAGS='-D__USE_MINGW_ANSI_STDIO -Wno-error=format' -DCMAKE_CXX_FLAGS='-D__USE_MINGW_ANSI_STDIO -Wno-error=format' &&
         make &&
         make install &&
         cd ../.. &&
