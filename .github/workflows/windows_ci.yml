@@ -42,30 +42,7 @@ jobs:
       shell: bash
       env:
         CYGWIN: winsymlinks:native
-      run: >-
-        pushd . &&
-        mkdir -p /tools &&
-        cd /tools &&
-        mkdir -p dynamic_gmp static_gmp &&
-        gmp_archive=gmp-6.3.0.tar.xz &&
-        (
-          curl -fL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 600 https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz -o "$gmp_archive" ||
-          wget --tries=5 --timeout=20 -O "$gmp_archive" https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz ||
-          curl -fL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 600 https://mirrors.kernel.org/gnu/gmp/gmp-6.3.0.tar.xz -o "$gmp_archive" ||
-          wget --tries=5 --timeout=20 -O "$gmp_archive" https://mirrors.kernel.org/gnu/gmp/gmp-6.3.0.tar.xz ||
-          curl -fL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 600 https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz -o "$gmp_archive" ||
-          wget --tries=5 --timeout=20 -O "$gmp_archive" https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz
-        ) &&
-        tar xf "$gmp_archive" &&
-        cd gmp-6.3.0 &&
-        ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --enable-cxx --enable-shared --disable-static --prefix=/tools/dynamic_gmp &&
-        make &&
-        make install &&
-        make clean &&
-        ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --enable-cxx --enable-static --disable-shared --prefix=/tools/static_gmp &&
-        make &&
-        make install &&
-        popd
+      run: pushd . && mkdir -p /tools && cd /tools && mkdir -p dynamic_gmp static_gmp && gmp_archive=gmp-6.3.0.tar.xz && (curl -fL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 600 https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz -o "$gmp_archive" || wget --tries=5 --timeout=20 -O "$gmp_archive" https://ftp.gnu.org/gnu/gmp/gmp-6.3.0.tar.xz || curl -fL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 600 https://mirrors.kernel.org/gnu/gmp/gmp-6.3.0.tar.xz -o "$gmp_archive" || wget --tries=5 --timeout=20 -O "$gmp_archive" https://mirrors.kernel.org/gnu/gmp/gmp-6.3.0.tar.xz || curl -fL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 600 https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz -o "$gmp_archive" || wget --tries=5 --timeout=20 -O "$gmp_archive" https://gmplib.org/download/gmp/gmp-6.3.0.tar.xz) && tar xf "$gmp_archive" && cd gmp-6.3.0 && ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --enable-cxx --enable-shared --disable-static --prefix=/tools/dynamic_gmp && make && make install && make clean && ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --enable-cxx --enable-static --disable-shared --prefix=/tools/static_gmp && make && make install && popd
 
     - name: Building MCSAT Dependencies
       if: contains(matrix.config-opt, '--enable-mcsat')
