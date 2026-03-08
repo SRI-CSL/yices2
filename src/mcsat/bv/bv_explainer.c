@@ -39,6 +39,7 @@
 
 #include "yices.h"
 #include "api/yices_api_lock_free.h"
+#include "context/context.h"
 #include <inttypes.h>
 
 void bv_subexplainer_construct(bv_subexplainer_t* exp, const char* name, plugin_context_t* ctx, watch_list_manager_t* wlm, bv_evaluator_t* eval) {
@@ -175,7 +176,7 @@ void bv_explainer_check_conflict(bv_explainer_t* exp, const ivector_t* conflict)
   for (i = 0; i < conflict->size; ++ i) {
     _o_yices_assert_formula(ctx, conflict->data[i]);
   }
-  smt_status_t result = yices_check_context(ctx, NULL);
+  smt_status_t result = check_context(ctx, NULL);
   (void) result;
   assert(result == YICES_STATUS_UNSAT);
   _o_yices_free_context(ctx);
@@ -283,4 +284,3 @@ term_t bv_explainer_explain_propagation(bv_explainer_t* exp, variable_t x, const
 
   return subst;
 }
-

@@ -44,6 +44,7 @@
 #include "utils/int_hash_sets.h"
 
 #include "api/yices_globals.h"
+#include "api/yices_api_lock_free.h"
 #include "mt/thread_macros.h"
 
 
@@ -716,44 +717,13 @@ static void cache_unsat_core(context_t *ctx, const ivector_t *core) {
 }
 
 /*
- * Check under assumptions given as terms.
- * - if MCSAT is enabled, this uses temporary labels + model interpolation.
- * - otherwise terms are converted to literals and handled by the CDCL(T) path.
- *
- * Preconditions:
- * - context status must be IDLE.
+ * MCSAT variant of check_context_with_term_assumptions.
+ * Caller must hold __yices_globals.lock.
  */
-smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t *a, int32_t *error) {
+static smt_status_t _o_check_context_with_term_assumptions_mcsat(context_t *ctx, const param_t *params, uint32_t n, const term_t *a, int32_t *error) {
   smt_status_t stat;
   ivector_t assumptions;
   uint32_t i;
-
-  if (error != NULL) {
-    *error = CTX_NO_ERROR;
-  }
-
-  context_invalidate_unsat_core_cache(ctx);
-
-  if (ctx->mcsat == NULL) {
-    literal_t l;
-
-    init_ivector(&assumptions, n);
-    for (i=0; i<n; i++) {
-      l = context_add_assumption(ctx, a[i]);
-      if (l < 0) {
-        if (error != NULL) {
-          *error = l;
-        }
-        delete_ivector(&assumptions);
-        return YICES_STATUS_ERROR;
-      }
-      ivector_push(&assumptions, l);
-    }
-
-    stat = check_context_with_assumptions(ctx, params, n, assumptions.data);
-    delete_ivector(&assumptions);
-    return stat;
-  }
 
   /*
    * MCSAT: create fresh labels b_i, assert (b_i => a_i), then solve with model b_i=true.
@@ -793,7 +763,7 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
       term_t implication = mk_implies(&tm, b, a[i]);
 
       int_hmap_add(&label_map, b, a[i]);
-      code = assert_formula(ctx, implication);
+      code = _o_assert_formula(ctx, implication);
       if (code < 0) {
         if (error != NULL) {
           *error = code;
@@ -837,6 +807,52 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
 
     return stat;
   }
+}
+
+static smt_status_t check_context_with_term_assumptions_mcsat(context_t *ctx, const param_t *params, uint32_t n, const term_t *a, int32_t *error) {
+  MT_PROTECT(smt_status_t, __yices_globals.lock, _o_check_context_with_term_assumptions_mcsat(ctx, params, n, a, error));
+}
+
+/*
+ * Check under assumptions given as terms.
+ * - if MCSAT is enabled, this uses temporary labels + model interpolation.
+ * - otherwise terms are converted to literals and handled by the CDCL(T) path.
+ *
+ * Preconditions:
+ * - context status must be IDLE.
+ */
+smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t *a, int32_t *error) {
+  if (error != NULL) {
+    *error = CTX_NO_ERROR;
+  }
+
+  context_invalidate_unsat_core_cache(ctx);
+
+  if (ctx->mcsat == NULL) {
+    smt_status_t stat;
+    ivector_t assumptions;
+    uint32_t i;
+    literal_t l;
+
+    init_ivector(&assumptions, n);
+    for (i=0; i<n; i++) {
+      l = context_add_assumption(ctx, a[i]);
+      if (l < 0) {
+        if (error != NULL) {
+          *error = l;
+        }
+        delete_ivector(&assumptions);
+        return YICES_STATUS_ERROR;
+      }
+      ivector_push(&assumptions, l);
+    }
+
+    stat = check_context_with_assumptions(ctx, params, n, assumptions.data);
+    delete_ivector(&assumptions);
+    return stat;
+  }
+
+  return check_context_with_term_assumptions_mcsat(ctx, params, n, a, error);
 }
 
 /*
