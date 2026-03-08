@@ -356,6 +356,18 @@ __YICES_DLLSPEC__ extern type_t yices_real_type(void);
  */
 __YICES_DLLSPEC__ extern type_t yices_bv_type(uint32_t size);
 
+#ifdef __GMP_H__
+/*
+ * Finite field type of given order.
+ * Requires order > 0 and prime.
+ *
+ * If order <= 0, the error report is set by check_positive_mpz.
+ * If order is not prime, the error report is set to
+ *   code = INVALID_FFSIZE
+ */
+__YICES_DLLSPEC__ extern type_t yices_ff_type(mpz_t order);
+#endif
+
 
 /*
  * New scalar type of given cardinality.
@@ -1353,6 +1365,51 @@ __YICES_DLLSPEC__ extern term_t yices_is_int_atom(term_t t);
 __YICES_DLLSPEC__ extern term_t yices_abs(term_t t);
 __YICES_DLLSPEC__ extern term_t yices_floor(term_t t);
 __YICES_DLLSPEC__ extern term_t yices_ceil(term_t t);
+
+#ifdef __GMP_H__
+/*
+ * Finite-field constant: val modulo mod.
+ * - mod must be positive and prime.
+ *
+ * Error reports:
+ * if mod <= 0
+ *   code = POS_INT_REQUIRED
+ * if mod is not prime
+ *   code = INVALID_FFSIZE
+ */
+__YICES_DLLSPEC__ extern term_t yices_ff_const(const mpz_t val, const mpz_t mod);
+#endif
+
+/*
+ * FINITE-FIELD OPERATIONS
+ *
+ * All arguments must be finite-field terms.
+ * For binary/n-ary operators, all arguments must have the same finite-field type.
+ *
+ * Error reports:
+ * if some argument is not a valid term
+ *   code = INVALID_TERM
+ * if some argument is not a finite-field term
+ *   code = ARITHTERM_REQUIRED
+ * if argument types are incompatible
+ *   code = INCOMPATIBLE_FFSIZES
+ */
+__YICES_DLLSPEC__ extern term_t yices_ff_add(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_ff_sub(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_ff_neg(term_t t);
+__YICES_DLLSPEC__ extern term_t yices_ff_mul(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_ff_square(term_t t);
+__YICES_DLLSPEC__ extern term_t yices_ff_power(term_t t, uint32_t d);
+__YICES_DLLSPEC__ extern term_t yices_ff_sum(uint32_t n, const term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_ff_product(uint32_t n, const term_t t[]);
+
+/*
+ * FINITE-FIELD ATOMS
+ */
+__YICES_DLLSPEC__ extern term_t yices_ff_eq_atom(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_ff_neq_atom(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_ff_eq0_atom(term_t t);
+__YICES_DLLSPEC__ extern term_t yices_ff_neq0_atom(term_t t);
 
 
 
@@ -2424,6 +2481,7 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_product(term_t t);
  *
  *    YICES_BOOL_CONSTANT        boolean constant
  *    YICES_ARITH_CONSTANT       rational constant
+ *    YICES_FF_CONSTANT    finite-field constant
  *    YICES_BV_CONSTANT          bitvector constant
  *    YICES_SCALAR_CONSTANT      constant of uninterpreted/scalar
  *    YICES_VARIABLE             variable in quantifiers/lambda terms
@@ -2467,6 +2525,7 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_product(term_t t);
  *
  *    YICES_BV_SUM               sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
  *    YICES_ARITH_SUM            sum of pairs a * t where a is a rational (and t is an arithmetic term)
+ *    YICES_FF_SUM         sum of pairs a * t where a is a finite-field constant (and t is a finite-field term)
  *
  *  if t is a product
  *
@@ -2573,7 +2632,7 @@ __YICES_DLLSPEC__ extern int32_t yices_bv_const_value(term_t t, int32_t val[]);
 __YICES_DLLSPEC__ extern int32_t yices_scalar_const_value(term_t t, int32_t *val);
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_rational_const_value(term_t t, mpq_t q);
-__YICES_DLLSPEC__ extern int32_t yices_finitefield_const_value(term_t t, mpz_t z);
+__YICES_DLLSPEC__ extern int32_t yices_ff_const_value(term_t t, mpz_t z);
 #endif
 
 
@@ -2581,12 +2640,10 @@ __YICES_DLLSPEC__ extern int32_t yices_finitefield_const_value(term_t t, mpz_t z
  * Components of a sum t
  * - i = index (must be between 0 and t's number of children - 1)
  * - for an arithmetic sum, each component is a pair (rational, term)
- * - for a bitvector sum, each component is a pair (bvconstant, term)
  * - if the term in the pair is NULL_TERM then the component consists of
  *   only the constant
- * - the number of bits in the bvconstant is the same as in t
  *
- * These two functions return 0 on success and -1 on error.
+ * The function returns 0 on success and -1 on error.
  *
  * Error codes:
  * if t is not valid
@@ -2597,8 +2654,16 @@ __YICES_DLLSPEC__ extern int32_t yices_finitefield_const_value(term_t t, mpz_t z
  */
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term);
+__YICES_DLLSPEC__ extern int32_t yices_ffsum_component(term_t t, int32_t i, mpz_t coeff, term_t *term);
 #endif
 
+/*
+ * Components of a bitvector sum:
+ * - each component is a pair (bvconstant, term)
+ * - if the term in the pair is NULL_TERM then the component consists of
+ *   only the constant
+ * - the number of bits in the bvconstant is the same as in t
+ */
 __YICES_DLLSPEC__ extern int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term);
 
 
@@ -3710,6 +3775,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_rational64(model_t *model, term
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_model_set_mpz(model_t *model, term_t var, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_model_set_mpq(model_t *model, term_t var, mpq_t val);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_ff_mpz(model_t *model, term_t var, mpz_t val);
 #endif
 
 #ifdef LIBPOLY_VERSION
@@ -4079,6 +4145,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_double_value(model_t *mdl, term_t t, 
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val);
+__YICES_DLLSPEC__ extern int32_t yices_get_ff_value(model_t *mdl, term_t t, mpz_t val, mpz_t mod);
 #endif
 
 
@@ -4163,6 +4230,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, 
  *
  *   YVAL_BOOL       Boolean constant
  *   YVAL_RATIONAL   Rational (or integer) constant
+ *   YVAL_FINITEFIELD  Finite-field constant
  *   YVAL_ALGEBRAIC  Algebraic number
  *   YVAL_BV         Bitvector constant
  *   YVAL_SCALAR     Constant of a scalar or uninterpreted type
@@ -4326,6 +4394,7 @@ __YICES_DLLSPEC__ extern int32_t yices_val_get_double(model_t *mdl, const yval_t
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val);
+__YICES_DLLSPEC__ extern int32_t yices_val_get_ff(model_t *mdl, const yval_t *v, mpz_t val, mpz_t mod);
 #endif
 
 /*

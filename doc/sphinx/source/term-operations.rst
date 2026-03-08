@@ -1188,6 +1188,102 @@ Arithmetic Terms
    integer.
 
 
+Finite-Field Terms
+------------------
+
+.. c:function:: term_t yices_ff_const(const mpz_t val, const mpz_t mod)
+
+   Finite-field constant.
+
+   This function constructs the finite-field constant represented by
+   *val* modulo *mod*. The value is normalized modulo *mod*.
+
+   **Parameters**
+
+   - *mod* must be a positive prime integer
+
+   **Error report**
+
+   - If *mod* is not positive:
+
+     -- error code: :c:enum:`POS_INT_REQUIRED`
+
+   - If *mod* is not prime:
+
+     -- error code: :c:enum:`INVALID_FFSIZE`
+
+.. c:function:: term_t yices_ff_add(term_t t1, term_t t2)
+
+   Constructs the sum *(+ t1 t2)* over a finite field.
+
+.. c:function:: term_t yices_ff_sub(term_t t1, term_t t2)
+
+   Constructs the difference *(- t1 t2)* over a finite field.
+
+.. c:function:: term_t yices_ff_neg(term_t t)
+
+   Constructs unary minus *(- t)* over a finite field.
+
+.. c:function:: term_t yices_ff_mul(term_t t1, term_t t2)
+
+   Constructs the product *(\* t1 t2)* over a finite field.
+
+.. c:function:: term_t yices_ff_square(term_t t)
+
+   Constructs the square *(\* t t)* over a finite field.
+
+.. c:function:: term_t yices_ff_power(term_t t, uint32_t d)
+
+   Constructs the power *t^d* over a finite field.
+
+.. c:function:: term_t yices_ff_sum(uint32_t n, const term_t t[])
+
+   Constructs the sum *(+ t[0] ... t[n-1])* over a finite field.
+
+.. c:function:: term_t yices_ff_product(uint32_t n, const term_t t[])
+
+   Constructs the product *(\* t[0] ... t[n-1])* over a finite field.
+
+.. c:function:: term_t yices_ff_eq_atom(term_t t1, term_t t2)
+
+   Constructs finite-field equality *(= t1 t2)*.
+
+.. c:function:: term_t yices_ff_neq_atom(term_t t1, term_t t2)
+
+   Constructs finite-field disequality *(/= t1 t2)*.
+
+.. c:function:: term_t yices_ff_eq0_atom(term_t t)
+
+   Constructs finite-field equality to zero *(= t 0)*.
+
+.. c:function:: term_t yices_ff_neq0_atom(term_t t)
+
+   Constructs finite-field disequality to zero *(/= t 0)*.
+
+All arguments to the above operators must be finite-field terms. For
+binary and n-ary operators, all argument terms must have the same
+finite-field type.
+
+**Error report**
+
+- If an argument is not a valid term:
+
+  -- error code: :c:enum:`INVALID_TERM`
+
+- If an argument is not a finite-field term:
+
+  -- error code: :c:enum:`ARITHTERM_REQUIRED`
+
+- If arguments have incompatible finite-field types:
+
+  -- error code: :c:enum:`INCOMPATIBLE_FFSIZES`
+
+**Note**
+
+The GMP-based finite-field functions are not declared unless you include
+:file:`gmp.h` before :file:`yices.h` in your code.
+
+
 Bitvector Terms
 ---------------
 
@@ -2480,7 +2576,25 @@ The internal term representation distinguishes between the following classes of 
         *a*\ |_0| + *a*\ |_1| *t*\ |_1| + |...| + *a*\ |_n| *t*\ |_n|.
 
 
-6) **Products** are also used to build arithmetic and bitvector polynomials.
+6) **Finite-field sums** are used to build finite-field polynomials.
+   A finite-field sum is of the form
+
+   .. container:: centered
+
+        *a*\ |_0| *t*\ |_0| + |...| + *a*\ |_n| *t*\ |_n|
+
+   where the coefficients *a*\ |_0| |...| *a*\ |_n| are finite-field constants and
+   the terms *t*\ |_0| |...| *t*\ |_n| are finite-field terms of the same finite-field type.
+
+   As previously, *t*\ |_0| may be equal to :c:macro:`NULL_TERM` to encode
+   the sum:
+
+   .. container:: centered
+
+        *a*\ |_0| + *a*\ |_1| *t*\ |_1| + |...| + *a*\ |_n| *t*\ |_n|.
+
+
+7) **Products** are also used to build arithmetic and bitvector polynomials.
    A product is of the form
 
    .. container:: centered
@@ -2510,6 +2624,7 @@ Atomic terms are labeled with the following constructors.
     ==================================== ===========================
      :c:enum:`YICES_BOOL_CONSTANT`        Boolean constant
      :c:enum:`YICES_ARITH_CONSTANT`       Arithmetic constant
+     :c:enum:`YICES_FF_CONSTANT`    Finite-field constant
      :c:enum:`YICES_BV_CONSTANT`          Bitvector constant
      :c:enum:`YICES_SCALAR_CONSTANT`      Scalar/unint constant
      :c:enum:`YICES_VARIABLE`             Variable
@@ -2518,7 +2633,8 @@ Atomic terms are labeled with the following constructors.
 
 
 The API provides functions to obtain the value of a constant. For
-arithmetic constant, the value is given as a GMP rational. For a
+arithmetic constant, the value is given as a GMP rational. For
+finite-field constant, the value is given as a GMP integer. For a
 bitvector constant, the value is an array of 0/1 integers; the number
 of bits in this array is given by :c:func:`yices_term_bitsize`.  The
 value of a constant of scalar or uninterpreted type is an integer
@@ -2633,6 +2749,7 @@ Sums and power products have the following constructors.
      Constructor                      Term
     ================================ ===========================
      :c:enum:`YICES_ARITH_SUM`        Arithmetic sum
+     :c:enum:`YICES_FF_SUM`     Finite-field sum
      :c:enum:`YICES_BV_SUM`           Bitvector sum
      :c:enum:`YICES_POWER_PRODUCT`    Power product
     ================================ ===========================
@@ -2856,6 +2973,27 @@ a valid term.
    To make sure that this function is declared, you must include :file:`gmp.h` before
    :file:`yices.h` in your code (see :c:func:`yices_mpz`).
 
+.. c:function:: int32_t yices_ff_const_value(term_t t, mpz_t z)
+
+   Value of a finite-field constant.
+
+   This function copies the value of finite-field constant *t* in the
+   GMP integer *z*. The GMP integer *z* must be initialized.
+
+   If *t* is not a finite-field constant, the function returns -1 and
+   leaves *z* unchanged. Otherwise it returns 0.
+
+   **Error report**
+
+   - if *t*'s constructor is not :c:enum:`YICES_FF_CONSTANT`
+
+     -- error code: :c:enum:`INVALID_TERM_OP`
+
+   **Note**
+
+   To make sure that this function is declared, you must include :file:`gmp.h` before
+   :file:`yices.h` in your code (see :c:func:`yices_mpz`).
+
 
 .. c:function:: int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term)
 
@@ -2877,6 +3015,32 @@ a valid term.
    **Error report**
 
    - if *t*'s constructor is not :c:enum:`YICES_ARITH_SUM` or if *i* is too large
+
+     -- error code: :c:enum:`INVALID_TERM_OP`
+
+   **Note**
+
+   To make sure that this function is declared, you must include :file:`gmp.h` before
+   :file:`yices.h` in your code (see :c:func:`yices_mpz`).
+
+.. c:function:: int32_t yices_ffsum_component(term_t t, int32_t i, mpz_t coeff, term_t *term)
+
+   Component of a finite-field sum.
+
+   A finite-field sum *t* is of the form *a*\ |_0| *t*\ |_0| + |...| +
+   *a*\ |_n| *t*\ |_n|. This function copies the coefficient *a*\ |_i|
+   in the GMP integer *coeff* and it copies *t*\ |_i| in variable
+   *\*term*.
+
+   As for other sums, the returned *\*term* may be :c:macro:`NULL_TERM`
+   when the component is a standalone constant.
+
+   This function returns -1 if *t* is not a finite-field sum or if the
+   index *i* is too large. It returns 0 otherwise.
+
+   **Error report**
+
+   - if *t*'s constructor is not :c:enum:`YICES_FF_SUM` or if *i* is too large
 
      -- error code: :c:enum:`INVALID_TERM_OP`
 
@@ -2928,4 +3092,3 @@ a valid term.
    - if *t*'s constructor is not :c:enum:`YICES_POWER_PRODUCT` or if *i* is too large
 
      -- error code: :c:enum:`INVALID_TERM_OP`
-
