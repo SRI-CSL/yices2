@@ -204,6 +204,11 @@ then
     REGRESS_FILTER="."
 fi
 
+if [[ -z "$REGRESS_EXCLUDE_FILTER" ]];
+then
+    REGRESS_EXCLUDE_FILTER="^$"
+fi
+
 #
 # Check if MCSAT is supported
 #
@@ -218,7 +223,7 @@ fi
 if [ -z "$all_tests" ] ; then
     all_tests=$(
     find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' |
-      grep $REGRESS_FILTER | grep $MCSAT_FILTER |
+      grep $REGRESS_FILTER | grep $MCSAT_FILTER | grep -v "$REGRESS_EXCLUDE_FILTER" |
       sort
     )
 fi

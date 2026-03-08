@@ -9266,7 +9266,7 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
 }
 
 EXPORTED smt_status_t yices_check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t a[]) {
-  MT_PROTECT(smt_status_t, __yices_globals.lock, _o_yices_check_context_with_assumptions(ctx, params, n, a));
+  return _o_yices_check_context_with_assumptions(ctx, params, n, a);
 }
 
 /*
@@ -9293,7 +9293,7 @@ static bool good_terms_for_check_with_model(uint32_t n, const term_t t[]) {
  *
  * This checks ctx /\ t[0] = val(mdl, t[0]) /\ .... /\ t[n-1] = val(mdl, t[n-1])
  */
-EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]) {
+static smt_status_t _o_yices_check_context_with_model(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]) {
   param_t default_params;
   smt_status_t stat;
 
@@ -9302,7 +9302,7 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
     return YICES_STATUS_ERROR;
   }
 
-  if (! good_terms_for_check_with_model(n, t)) {
+  if (! _o_good_terms_for_check_with_model(n, t)) {
     // this sets the error code already (to VARIABLE_REQUIRED)
     // but Dejan created another error code that means the same thing here.
     set_error_code(MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED);
@@ -9358,6 +9358,10 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
   return stat;
 }
 
+EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]) {
+  MT_PROTECT(smt_status_t, __yices_globals.lock, _o_yices_check_context_with_model(ctx, params, mdl, n, t));
+}
+
 
 /*
  * Check context with model and hint
@@ -9369,7 +9373,7 @@ EXPORTED smt_status_t yices_check_context_with_model(context_t *ctx, const param
  *
  * This checks ctx /\ t[0] = val(mdl, t[0]) /\ .... /\ t[m-1] = val(mdl, t[m-1])
  */
-EXPORTED smt_status_t yices_check_context_with_model_and_hint(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[], uint32_t m) {
+static smt_status_t _o_yices_check_context_with_model_and_hint(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[], uint32_t m) {
 
   param_t default_params;
   smt_status_t stat;
@@ -9379,7 +9383,7 @@ EXPORTED smt_status_t yices_check_context_with_model_and_hint(context_t *ctx, co
     return YICES_STATUS_ERROR;
   }
 
-  if (! good_terms_for_check_with_model(n, t)) {
+  if (! _o_good_terms_for_check_with_model(n, t)) {
     // this sets the error code already (to VARIABLE_REQUIRED)
     // but Dejan created another error code that means the same thing here.
     set_error_code(MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED);
@@ -9435,6 +9439,10 @@ EXPORTED smt_status_t yices_check_context_with_model_and_hint(context_t *ctx, co
   }
 
   return stat;
+}
+
+EXPORTED smt_status_t yices_check_context_with_model_and_hint(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[], uint32_t m) {
+  MT_PROTECT(smt_status_t, __yices_globals.lock, _o_yices_check_context_with_model_and_hint(ctx, params, mdl, n, t, m));
 }
 
 /*
