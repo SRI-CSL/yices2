@@ -27,6 +27,7 @@
 
 #include "io/term_printer.h"
 #include "mcsat/tracing.h"
+#include "context/context.h"
 
 #include "yices.h"
 #include "api/yices_api_lock_free.h"
@@ -35,8 +36,7 @@
 #define CONFLICT_DEFAULT_ELEMENT_SIZE 100
 
 void conflict_check(conflict_t* conflict) {
-  ctx_config_t* config = yices_new_config();
-  context_t* ctx = _o_yices_new_context(config);
+  context_t* ctx = _o_yices_new_context(NULL);
   uint32_t i;
   const ivector_t* literals = &conflict->disjuncts.element_list;
   for (i = 0; i < literals->size; ++i) {
@@ -50,11 +50,10 @@ void conflict_check(conflict_t* conflict) {
       return;
     }
   }
-  smt_status_t result = yices_check_context(ctx, NULL);
+  smt_status_t result = check_context(ctx, NULL);
   (void) result;
   assert(result == YICES_STATUS_UNSAT);
   _o_yices_free_context(ctx);
-  yices_free_config(config);
 }
 
 /**
