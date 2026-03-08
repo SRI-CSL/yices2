@@ -43,6 +43,18 @@ typedef struct {
   /** List of terms in the preprocess map (for backtracking) */
   ivector_t preprocess_map_list;
 
+  /** Map from term to tuple-blast data offset */
+  int_hmap_t tuple_blast_map;
+
+  /** Packed tuple-blast data: [size, terms...] */
+  ivector_t tuple_blast_data;
+
+  /** Terms with tuple-blast entries (for backtracking) */
+  ivector_t tuple_blast_list;
+
+  /** Original uninterpreted atoms that were tuple-blasted */
+  ivector_t tuple_blast_atoms;
+
   /** Purification map, term to its variable */
   int_hmap_t purification_map;
 
@@ -95,6 +107,9 @@ void preprocessor_pop(preprocessor_t* pre);
 
 /** Add any variable substitutions to the model */
 void preprocessor_build_model(preprocessor_t* pre, model_t* model);
+
+/** Replace tuple-blasted leaf variables in t by accessors over original tuple atoms */
+term_t preprocessor_unblast_term(preprocessor_t* pre, term_t t);
 
 /** Mark all the terms in the preprocessor */
 void preprocessor_gc_mark(preprocessor_t* pre);
