@@ -15,7 +15,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - run: git config --global core.autocrlf input
+    - run: git config --global core.autocrlf false && git config --global core.eol lf
 
     - uses: actions/checkout@v4
 
@@ -51,7 +51,7 @@ jobs:
         CYGWIN: winsymlinks:native binmode
       run: >-
         mkdir -p /tools/mcsat_deps &&
-        git clone https://github.com/SRI-CSL/libpoly.git &&
+        git -c core.autocrlf=false clone https://github.com/SRI-CSL/libpoly.git &&
         sed -i 's/tracef("f\\[%zu\\] = ", i);/tracef("f[%u] = ", (unsigned) i);/g' libpoly/src/number/algebraic_number.c &&
         mkdir -p libpoly/build-mingw &&
         cd libpoly/build-mingw &&
@@ -59,13 +59,14 @@ jobs:
         make &&
         make install &&
         cd ../.. &&
-        git clone https://github.com/ivmai/cudd.git &&
+        git -c core.autocrlf=false clone https://github.com/ivmai/cudd.git &&
         cd cudd &&
         git checkout tags/cudd-3.0.0 &&
         sed -i 's/\r$//' configure &&
         find build-aux -type f -exec sed -i 's/\r$//' {} + &&
         chmod +x configure build-aux/* &&
         ./configure --host=x86_64-w64-mingw32 --build=i686-pc-cygwin --disable-shared --enable-static --disable-dependency-tracking --disable-maintainer-mode --prefix=/tools/mcsat_deps &&
+        make config.h &&
         test -f config.status && sed -i 's/\r$//' config.status || true &&
         test -f libtool && sed -i 's/\r$//' libtool || true &&
         make &&
