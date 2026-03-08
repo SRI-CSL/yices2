@@ -57,6 +57,7 @@
 #include "io/model_printer.h"
 
 #include "yices.h"
+#include "api/yices_api_lock_free.h"
 #include <inttypes.h>
 #include <math.h>
 
@@ -1874,31 +1875,38 @@ uint32_t mcsat_get_lemma_weight(mcsat_solver_t* mcsat, const ivector_t* lemma, l
 /** Check propagation with Yices: reasons => x = subst */
 static
 void propagation_check(const ivector_t* reasons, term_t x, term_t subst) {
-  ctx_config_t* config = yices_new_config();
-   context_t* ctx = yices_new_context(config);
+#ifdef THREAD_SAFE
+   (void) reasons;
+   (void) x;
+   (void) subst;
+   return;
+#else
+   context_t* ctx = _o_yices_new_context(NULL);
    uint32_t i;
    for (i = 0; i < reasons->size; ++i) {
      term_t literal = reasons->data[i];
-     int32_t ret = yices_assert_formula(ctx, literal);
+     int32_t ret = _o_yices_assert_formula(ctx, literal);
      if (ret != 0) {
        // unsupported by regular yices
        fprintf(stderr, "skipping propagation (ret 1)\n");
        yices_print_error(stderr);
+       _o_yices_free_context(ctx);
        return;
      }
    }
-   term_t eq = yices_eq(x, subst);
-   int32_t ret = yices_assert_formula(ctx, opposite_term(eq));
+   term_t eq = _o_yices_eq(x, subst);
+   int32_t ret = _o_yices_assert_formula(ctx, opposite_term(eq));
    if (ret != 0) {
      fprintf(stderr, "skipping propagation (ret 2)\n");
      yices_print_error(stderr);
+     _o_yices_free_context(ctx);
      return;
    }
-   smt_status_t result = yices_check_context(ctx, NULL);
+   smt_status_t result = check_context(ctx, NULL);
    (void) result;
    assert(result == YICES_STATUS_UNSAT);
-   yices_free_context(ctx);
-   yices_free_config(config);
+   _o_yices_free_context(ctx);
+#endif
 }
 
 static
