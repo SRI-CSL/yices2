@@ -1875,6 +1875,12 @@ uint32_t mcsat_get_lemma_weight(mcsat_solver_t* mcsat, const ivector_t* lemma, l
 /** Check propagation with Yices: reasons => x = subst */
 static
 void propagation_check(const ivector_t* reasons, term_t x, term_t subst) {
+#ifdef THREAD_SAFE
+   (void) reasons;
+   (void) x;
+   (void) subst;
+   return;
+#else
    context_t* ctx = _o_yices_new_context(NULL);
    uint32_t i;
    for (i = 0; i < reasons->size; ++i) {
@@ -1900,6 +1906,7 @@ void propagation_check(const ivector_t* reasons, term_t x, term_t subst) {
    (void) result;
    assert(result == YICES_STATUS_UNSAT);
    _o_yices_free_context(ctx);
+#endif
 }
 
 static

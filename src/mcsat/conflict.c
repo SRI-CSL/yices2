@@ -36,6 +36,10 @@
 #define CONFLICT_DEFAULT_ELEMENT_SIZE 100
 
 void conflict_check(conflict_t* conflict) {
+#ifdef THREAD_SAFE
+  (void) conflict;
+  return;
+#else
   context_t* ctx = _o_yices_new_context(NULL);
   uint32_t i;
   const ivector_t* literals = &conflict->disjuncts.element_list;
@@ -54,6 +58,7 @@ void conflict_check(conflict_t* conflict) {
   (void) result;
   assert(result == YICES_STATUS_UNSAT);
   _o_yices_free_context(ctx);
+#endif
 }
 
 /**
