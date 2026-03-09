@@ -2624,7 +2624,7 @@ Atomic terms are labeled with the following constructors.
     ==================================== ===========================
      :c:enum:`YICES_BOOL_CONSTANT`        Boolean constant
      :c:enum:`YICES_ARITH_CONSTANT`       Arithmetic constant
-     :c:enum:`YICES_FF_CONSTANT`    Finite-field constant
+     :c:enum:`YICES_FF_CONSTANT`          Finite-field constant
      :c:enum:`YICES_BV_CONSTANT`          Bitvector constant
      :c:enum:`YICES_SCALAR_CONSTANT`      Scalar/unint constant
      :c:enum:`YICES_VARIABLE`             Variable
@@ -2749,7 +2749,7 @@ Sums and power products have the following constructors.
      Constructor                      Term
     ================================ ===========================
      :c:enum:`YICES_ARITH_SUM`        Arithmetic sum
-     :c:enum:`YICES_FF_SUM`     Finite-field sum
+     :c:enum:`YICES_FF_SUM`           Finite-field sum
      :c:enum:`YICES_BV_SUM`           Bitvector sum
      :c:enum:`YICES_POWER_PRODUCT`    Power product
     ================================ ===========================
