@@ -2481,7 +2481,7 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_product(term_t t);
  *
  *    YICES_BOOL_CONSTANT        boolean constant
  *    YICES_ARITH_CONSTANT       rational constant
- *    YICES_FF_CONSTANT    finite-field constant
+ *    YICES_FF_CONSTANT          finite-field constant
  *    YICES_BV_CONSTANT          bitvector constant
  *    YICES_SCALAR_CONSTANT      constant of uninterpreted/scalar
  *    YICES_VARIABLE             variable in quantifiers/lambda terms
@@ -2525,7 +2525,7 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_product(term_t t);
  *
  *    YICES_BV_SUM               sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
  *    YICES_ARITH_SUM            sum of pairs a * t where a is a rational (and t is an arithmetic term)
- *    YICES_FF_SUM         sum of pairs a * t where a is a finite-field constant (and t is a finite-field term)
+ *    YICES_FF_SUM               sum of pairs a * t where a is a finite-field constant (and t is a finite-field term)
  *
  *  if t is a product
  *
