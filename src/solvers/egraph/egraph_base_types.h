@@ -422,16 +422,17 @@ typedef enum etype_s {
   ETYPE_BV,       // 2
   ETYPE_QUANT,    // 3
   ETYPE_FUNCTION, // 4
+  ETYPE_MCSAT,    // 5
 
   // etypes internal to the egraph
-  ETYPE_BOOL,     // 5
-  ETYPE_TUPLE,    // 6
-  ETYPE_NONE,     // 7
+  ETYPE_BOOL,     // 6
+  ETYPE_TUPLE,    // 7
+  ETYPE_NONE,     // 8
 
 } etype_t;
 
 #define NUM_ETYPES     (ETYPE_NONE + 1)
-#define NUM_SATELLITES (ETYPE_FUNCTION + 1)
+#define NUM_SATELLITES (ETYPE_MCSAT + 1)
 
 /*
  * tau is an arithmetic type if tau == 0 or 1
@@ -466,6 +467,7 @@ typedef enum atm_tag {
   EGRAPH_ATM_TAG = 0,
   ARITH_ATM_TAG  = 1,
   BV_ATM_TAG     = 2,
+  MCSAT_ATM_TAG  = 3,
 } atm_tag_t;
 
 #define ATM_TAG_MASK ((size_t) 0x3)
@@ -500,6 +502,11 @@ static inline void *tagged_arith_atom(void *atm) {
 static inline void *tagged_bv_atom(void *atm) {
   assert((((size_t) atm) & ATM_TAG_MASK) == 0);
   return (void *)(((size_t) atm) | BV_ATM_TAG);
+}
+
+static inline void *tagged_mcsat_atom(void *atm) {
+  assert((((size_t) atm) & ATM_TAG_MASK) == 0);
+  return (void *)(((size_t) atm) | MCSAT_ATM_TAG);
 }
 
 

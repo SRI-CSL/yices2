@@ -198,6 +198,7 @@ core_src_c := \
 	solvers/egraph/egraph_explanations.c \
 	solvers/egraph/egraph_utils.c \
 	solvers/egraph/theory_explanations.c \
+	solvers/mcsat_satellite.c \
 	solvers/floyd_warshall/dl_vartable.c \
 	solvers/floyd_warshall/idl_floyd_warshall.c \
 	solvers/floyd_warshall/rdl_floyd_warshall.c \

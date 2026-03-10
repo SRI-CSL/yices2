@@ -736,6 +736,9 @@ struct context_s {
 
   // flag for enabling adding quant instances
   bool en_quant;
+
+  // true when supplementary mcsat satellite is active in cdcl(t) mode
+  bool mcsat_supplement_active;
 };
 
 
@@ -796,7 +799,7 @@ enum {
 /*
  * NUM_INTERNALIZATION_ERRORS: must be (1 + number of negative codes)
  */
-#define NUM_INTERNALIZATION_ERRORS 24
+#define NUM_INTERNALIZATION_ERRORS 25
 
 
 

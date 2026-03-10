@@ -45,6 +45,17 @@ typedef enum {
 
 #define NUM_BRANCHING_MODES 6
 
+/*
+ * Supplementary MCSAT check mode (for CDCL(T) mode)
+ */
+typedef enum {
+  MCSAT_SUPPLEMENT_CHECK_BOTH,
+  MCSAT_SUPPLEMENT_CHECK_FINAL_ONLY,
+} mcsat_supplement_check_t;
+
+// keep in sync with mcsat_supplement_check_modes in search_parameters.c
+#define NUM_MCSAT_SUPPLEMENT_CHECK_MODES 2
+
 
 struct param_s {
   /*
@@ -169,6 +180,13 @@ struct param_s {
    */
   uint32_t max_update_conflicts;
   uint32_t max_extensionality;
+
+  /*
+   * Supplementary MCSAT checks in CDCL(T)
+   * - BOTH: run in propagate and final_check
+   * - FINAL_ONLY: run in final_check only
+   */
+  mcsat_supplement_check_t mcsat_supplement_check;
 
 };
 
