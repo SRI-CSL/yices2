@@ -1019,6 +1019,14 @@ term_t mcsat_satellite_compute_unsat_model_interpolant(mcsat_satellite_t *sat, c
   pushed = false;
   result = NULL_TERM;
 
+  /*
+   * Internal push requires an idle MCSAT state in debug builds.
+   * This path may be called after a previous UNSAT check.
+   */
+  if (mcsat_status(sat->mctx.mcsat) != YICES_STATUS_IDLE) {
+    mcsat_clear(sat->mctx.mcsat);
+  }
+
   if (context_supports_pushpop(&sat->mctx)) {
     context_push(&sat->mctx);
     pushed = true;
