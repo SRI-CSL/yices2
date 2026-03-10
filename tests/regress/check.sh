@@ -43,6 +43,91 @@ cleanup() {
     [[ -n "$logdir" ]] && rm -rf "$logdir"
 }
 
+run_test_batch() {
+    local test_set="$1"
+    local local_smt2_options="$2"
+    local run_label="$3"
+    local run_logdir="$logdir/$run_label"
+
+    if [ -z "$test_set" ] ; then
+        return
+    fi
+
+    mkdir -p "$run_logdir" || { echo "Can't create temp folder $run_logdir" ; exit 1 ; }
+
+    case "$parallel_tool" in
+        more)
+            parallel -i $j_param bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$local_smt2_options" {} "$bin_dir" "$run_logdir" -- $test_set
+            ;;
+        gnu)
+            parallel -q $j_param bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$local_smt2_options" {} "$bin_dir" "$run_logdir" ::: $test_set
+            ;;
+        *)
+            for file in $test_set; do
+                bash "${BASH_SOURCE%/*}"/run_test.sh $color_flag -s "$local_smt2_options" "$file" "$bin_dir" "$run_logdir"
+            done
+            ;;
+    esac
+}
+
+is_qf_bv_delegate_candidate() {
+    local file="$1"
+    local opt_file="$file.options"
+    local gold_file="$file.gold"
+
+    case "$file" in
+        *.smt2)
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    case "$file" in
+        */mcsat/*)
+            return 1
+            ;;
+    esac
+
+    if ! grep -Eq '^[[:space:]]*\(set-logic[[:space:]]+QF_BV\)' "$file" ; then
+        return 1
+    fi
+
+    # Delegate regressions should compare SAT status only.
+    # Exclude tests that query models/values/cores/assumptions.
+    if grep -Eq '\(get-model\)|\(get-value\)|\(get-unsat-core\)|\(get-unsat-assumptions\)|\(get-assignment\)' "$file"; then
+        return 1
+    fi
+
+    if grep -Eq '\(echo[[:space:]]' "$file"; then
+        return 1
+    fi
+
+    # Restrict to tests whose expected output consists only of sat/unsat/unknown lines.
+    if [ ! -e "$gold_file" ]; then
+        return 1
+    fi
+    if grep -Eqv '^[[:space:]]*$|^[[:space:]]*(sat|unsat|unknown)[[:space:]]*$' "$gold_file"; then
+        return 1
+    fi
+
+    if [ -e "$opt_file" ]; then
+        if grep -Eq '(^|[[:space:]])--delegate(=|[[:space:]])' "$opt_file"; then
+            return 1
+        fi
+        if grep -Eq '(^|[[:space:]])--mcsat([[:space:]]|$)' "$opt_file"; then
+            return 1
+        fi
+    fi
+
+    return 0
+}
+
+supports_delegate() {
+    local delegate="$1"
+    ./"$bin_dir"/yices_smt2 --delegate="$delegate" < /dev/null > /dev/null 2>&1
+}
+
 smt2_options=
 j_option=
 
@@ -69,6 +154,19 @@ regress_dir=$1
 bin_dir=$2
 shift 2
 all_tests="$@"
+
+if [[ -z "$REGRESS_DELEGATE_MODE" ]]; then
+    REGRESS_DELEGATE_MODE="auto"
+fi
+
+case "$REGRESS_DELEGATE_MODE" in
+    auto|only|off)
+        ;;
+    *)
+        echo "Invalid REGRESS_DELEGATE_MODE='$REGRESS_DELEGATE_MODE' (expected auto|only|off)"
+        exit 2
+        ;;
+esac
 
 #
 # System-dependent configuration
@@ -171,19 +269,39 @@ fi
 j_param="-j$job_count"
 if [[ $job_count == 0 ]]; then j_param=""; fi
 
-case "$parallel_tool" in
-    more)
-        parallel -i $j_param bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" -- $all_tests
-        ;;
-    gnu)
-        parallel -q $j_param bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$smt2_options" {} "$bin_dir" "$logdir" ::: $all_tests
-        ;;
-    *)
-        for file in $all_tests; do
-            bash "${BASH_SOURCE%/*}"/run_test.sh $color_flag -s "$smt2_options" "$file" "$bin_dir" "$logdir"
-        done
-        ;;
-esac
+#
+# Baseline regression pass
+#
+if [[ "$REGRESS_DELEGATE_MODE" != "only" ]]; then
+    run_test_batch "$all_tests" "$smt2_options" "baseline"
+fi
+
+#
+# Delegate passes on QF_BV tests:
+# run one extra pass for each installed external delegate.
+#
+delegate_tests=
+if [[ "$REGRESS_DELEGATE_MODE" != "off" ]] && ! echo " $smt2_options " | grep -Eq '(^|[[:space:]])--delegate(=|[[:space:]])'; then
+    for file in $all_tests; do
+        if is_qf_bv_delegate_candidate "$file"; then
+            delegate_tests="$delegate_tests $file"
+        fi
+    done
+fi
+
+if [ -n "$delegate_tests" ]; then
+    delegates=
+    for d in cadical cryptominisat kissat; do
+        if supports_delegate "$d"; then
+            delegates="$delegates $d"
+        fi
+    done
+
+    for d in $delegates; do
+        echo "=== Running QF_BV delegate regressions ($d) ==="
+        run_test_batch "$delegate_tests" "$smt2_options --delegate=$d" "delegate_$d"
+    done
+fi
 
 # give back tokens
 while [[ $job_count -gt 1 ]]; do
@@ -201,10 +319,10 @@ echo "Fail: $fail"
 if [ "$fail" -eq 0 ] ; then
     code=0
 else
-    for f in "$logdir"/*.error ; do
+    while IFS= read -r f; do
       cat "$f"
       echo
-    done
+    done < <(find "$logdir" -type f -name "*.error" | sort)
     code=1
 fi
 
