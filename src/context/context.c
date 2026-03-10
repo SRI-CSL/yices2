@@ -98,10 +98,7 @@ static inline mcsat_satellite_t *context_mcsat_satellite(context_t *ctx) {
 
 static inline bool divisor_requires_mcsat(term_table_t *terms, term_t t) {
   t = unsigned_term(t);
-  if (term_kind(terms, t) != ARITH_CONSTANT) {
-    return true;
-  }
-  return q_is_zero(rational_term_desc(terms, t));
+  return term_kind(terms, t) != ARITH_CONSTANT;
 }
 
 /*
