@@ -1735,7 +1735,7 @@ static value_t build_finitefield_value(ff_hobj_t *o) {
   value_ff_t *v_ff;
   value_t i;
 
-  v_ff = (value_ff_t *) safe_malloc(sizeof(value_bv_t));
+  v_ff = (value_ff_t *) safe_malloc(sizeof(value_ff_t));
   q_init(&v_ff->value);
   q_init(&v_ff->mod);
   q_set(&v_ff->value, o->v);
