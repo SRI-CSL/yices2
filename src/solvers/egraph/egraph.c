@@ -6107,6 +6107,18 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
     }
   }
 
+  if (egraph->ctrl[ETYPE_MCSAT] != NULL) {
+    // supplementary mcsat solver
+    c = egraph->ctrl[ETYPE_MCSAT]->final_check(egraph->th[ETYPE_MCSAT]);
+    if (c != FCHECK_SAT) {
+#if TRACE_FCHECK
+      printf("---> exit at supplementary mcsat final check\n");
+      fflush(stdout);
+#endif
+      return c;
+    }
+  }
+
 
   // i = number of interface equalities generated
   // max_eq = bound on number of interface equalities
@@ -6212,6 +6224,17 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
     if (c != FCHECK_SAT) {
 #if TRACE_FCHECK
       printf("---> exit at bv final check\n");
+      fflush(stdout);
+#endif
+      return c;
+    }
+  }
+
+  if (egraph->ctrl[ETYPE_MCSAT] != NULL) {
+    c = egraph->ctrl[ETYPE_MCSAT]->final_check(egraph->th[ETYPE_MCSAT]);
+    if (c != FCHECK_SAT) {
+#if TRACE_FCHECK
+      printf("---> exit at supplementary mcsat final check\n");
       fflush(stdout);
 #endif
       return c;
@@ -6448,6 +6471,11 @@ bool egraph_assert_atom(egraph_t *egraph, void *atom, literal_t l) {
 
   case BV_ATM_TAG:
     resu = egraph->bv_smt->assert_atom(egraph->th[ETYPE_BV], untag_atom(atom), l);
+    break;
+
+  case MCSAT_ATM_TAG:
+    assert(egraph->mcsat_smt != NULL);
+    resu = egraph->mcsat_smt->assert_atom(egraph->th[ETYPE_MCSAT], untag_atom(atom), l);
     break;
   }
 
@@ -6711,6 +6739,11 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
   case BV_ATM_TAG:
     egraph->bv_smt->expand_explanation(egraph->th[ETYPE_BV], l, expl, v);
     break;
+
+  case MCSAT_ATM_TAG:
+    assert(egraph->mcsat_smt != NULL);
+    egraph->mcsat_smt->expand_explanation(egraph->th[ETYPE_MCSAT], l, expl, v);
+    break;
   }
 }
 
@@ -6769,6 +6802,10 @@ static literal_t egraph_select_polarity(egraph_t *egraph, void *atom, literal_t 
 
   case BV_ATM_TAG:
     return egraph->bv_smt->select_polarity(egraph->th[ETYPE_BV], untag_atom(atom), l);
+
+  case MCSAT_ATM_TAG:
+    assert(egraph->mcsat_smt != NULL);
+    return egraph->mcsat_smt->select_polarity(egraph->th[ETYPE_MCSAT], untag_atom(atom), l);
 
   case EGRAPH_ATM_TAG:
   default:
@@ -6907,6 +6944,7 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   }
   egraph->arith_smt = NULL;
   egraph->bv_smt = NULL;
+  egraph->mcsat_smt = NULL;
   egraph->arith_eg = NULL;
   egraph->bv_eg = NULL;
   egraph->fun_eg = NULL;
@@ -6955,6 +6993,36 @@ void egraph_attach_bvsolver(egraph_t *egraph, void *solver, th_ctrl_interface_t 
   egraph->eg[ETYPE_BV] = eg;
   egraph->bv_smt = smt;
   egraph->bv_eg = bv_eg;
+}
+
+
+/*
+ * Attach supplementary mcsat solver
+ */
+void egraph_attach_mcsat_solver(egraph_t *egraph, void *solver, th_ctrl_interface_t *ctrl,
+                                th_smt_interface_t *smt, th_egraph_interface_t *eg) {
+  etype_t id;
+
+  assert(egraph->ctrl[ETYPE_MCSAT] == NULL && egraph->mcsat_smt == NULL);
+
+  id = ETYPE_MCSAT;
+  egraph->th[id] = solver;
+  egraph->ctrl[id] = ctrl;
+  egraph->eg[id] = eg;
+  egraph->mcsat_smt = smt;
+}
+
+/*
+ * Detach supplementary mcsat solver
+ */
+void egraph_detach_mcsat_solver(egraph_t *egraph) {
+  etype_t id;
+
+  id = ETYPE_MCSAT;
+  egraph->th[id] = NULL;
+  egraph->ctrl[id] = NULL;
+  egraph->eg[id] = NULL;
+  egraph->mcsat_smt = NULL;
 }
 
 
