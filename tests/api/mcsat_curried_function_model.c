@@ -17,6 +17,11 @@ static context_t* make_mcsat_context(void) {
 }
 
 int main(void) {
+  int32_t app2_value;
+  int32_t status;
+  term_t formula;
+  yval_t app1_value;
+
   if (! yices_has_mcsat()) {
     return 1; // skipped
   }
@@ -34,7 +39,7 @@ int main(void) {
   term_t app1 = yices_application(array, 1, args1);
   term_t args2[1] = { yices_int32(7) };
   term_t app2 = yices_application(app1, 1, args2);
-  term_t formula = yices_eq(app2, yices_int32(10));
+  formula = yices_eq(app2, yices_int32(10));
 
   context_t* ctx = make_mcsat_context();
   assert(yices_assert_formula(ctx, formula) == 0);
@@ -48,13 +53,17 @@ int main(void) {
   assert(strstr(model_str, "array") != NULL);
   assert(strstr(model_str, "10") != NULL);
 
-  yval_t app1_value;
-  assert(yices_get_value(model, app1, &app1_value) == 0);
-  assert(app1_value.node_tag == YVAL_FUNCTION);
+  status = yices_get_value(model, app1, &app1_value);
+  assert(status == 0);
+  if (status != 0 || app1_value.node_tag != YVAL_FUNCTION) {
+    return 2;
+  }
 
-  int32_t app2_value;
-  assert(yices_get_int32_value(model, app2, &app2_value) == 0);
-  assert(app2_value == 10);
+  status = yices_get_int32_value(model, app2, &app2_value);
+  assert(status == 0);
+  if (status != 0 || app2_value != 10) {
+    return 3;
+  }
 
   yices_free_string(model_str);
   yices_free_model(model);
