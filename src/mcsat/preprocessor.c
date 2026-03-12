@@ -1140,6 +1140,10 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       break;
     }
 
+    case LAMBDA_TERM:
+      longjmp(*pre->exception, LAMBDAS_NOT_SUPPORTED);
+      break;
+
     default:
       // UNSUPPORTED TERM/THEORY
       longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
@@ -1281,4 +1285,3 @@ void preprocessor_gc_mark(preprocessor_t* pre) {
     preprocessor_gc_mark_term(pre, t_pure);
   }
 }
-
