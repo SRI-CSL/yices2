@@ -657,7 +657,11 @@ static inline bool context_has_quant_solver(context_t *ctx) {
 }
 
 static inline bool context_has_mcsat(context_t *ctx) {
-  return ctx->mcsat != NULL;
+  return ctx->arch == CTX_ARCH_MCSAT;
+}
+
+static inline bool context_mcsat_supplement_active(context_t *ctx) {
+  return ctx->mcsat_supplement_active;
 }
 
 
@@ -686,7 +690,7 @@ static inline bool context_supports_cleaninterrupt(context_t *ctx) {
 }
 
 static inline bool context_supports_model_interpolation(context_t* ctx) {
-  return (ctx->mcsat != NULL && ctx->mcsat_options.model_interpolation);
+  return (context_has_mcsat(ctx) && ctx->mcsat_options.model_interpolation);
 }
 
 /*
@@ -706,4 +710,3 @@ static inline bool context_quant_enabled(context_t *ctx) {
 
 
 #endif /* __CONTEXT_UTILS_H */
-

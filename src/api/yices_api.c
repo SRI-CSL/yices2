@@ -9029,6 +9029,7 @@ static const error_code_t intern_code2error[NUM_INTERNALIZATION_ERRORS] = {
   CTX_BV_SOLVER_EXCEPTION,
   MCSAT_ERROR_UNSUPPORTED_THEORY,
   CTX_HIGH_ORDER_FUN_NOT_SUPPORTED,
+  MCSAT_ERROR_UNSUPPORTED_THEORY,
 };
 
 static inline void convert_internalization_error(int32_t code) {

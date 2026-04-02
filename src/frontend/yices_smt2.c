@@ -108,6 +108,7 @@ static char *dimacsfile;
 
 // mcsat options
 static bool mcsat;
+static bool force_dpllt;
 static double mcsat_rand_dec_freq;
 static int32_t mcsat_rand_dec_seed;
 static bool mcsat_na_mgcd;
@@ -165,6 +166,7 @@ typedef enum optid {
   delegate_opt,            // use an external sat solver
   dimacs_opt,              // bitblast then export to DIMACS
   mcsat_opt,               // enable mcsat
+  dpllt_opt,               // force CDCL(T)
   mcsat_rand_dec_freq_opt, // random decision frequency when making a decision in mcsat
   mcsat_rand_dec_seed_opt, // seed for random decisions 
   mcsat_na_mgcd_opt,      // use the mgcd instead psc in projection
@@ -217,6 +219,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "delegate", '\0', MANDATORY_STRING, delegate_opt },
   { "dimacs", '\0', MANDATORY_STRING, dimacs_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
+  { "dpllt", '\0', FLAG_OPTION, dpllt_opt },
   { "mcsat-rand-dec-freq", '\0', MANDATORY_FLOAT, mcsat_rand_dec_freq_opt },
   { "mcsat-rand-dec-seed", '\0', MANDATORY_INT, mcsat_rand_dec_seed_opt },
   { "mcsat-na-mgcd", '\0', FLAG_OPTION, mcsat_na_mgcd_opt },
@@ -284,7 +287,9 @@ static void print_help(const char *progname) {
          "    --bvconst-in-decimal      Display bit-vector constants as decimal numbers (default = false)\n"
          "    --delegate=<satsolver>    Use an external SAT solver (can be cadical, cryptominisat, kissat, or y2sat)\n"
          "    --dimacs=<filename>       Bitblast and export to a file (in DIMACS format)\n"
-         "    --mcsat                   Use the MCSat solver\n"
+         "    --mcsat                   Force MCSAT as top-level architecture\n"
+         "    --dpllt                   Force CDCL(T) as top-level architecture\n"
+         "                              (mutually exclusive with --mcsat)\n"
          "    --mcsat-help              Show the MCSat options\n"
          "    --ef-help                 Show the EF options\n"
 	 "    --nthreads=<number of threads>  Specify the number of threads (default = 0 = main thread only)\n"
@@ -400,6 +405,7 @@ static void parse_command_line(int argc, char *argv[]) {
   dimacsfile = NULL;
 
   mcsat = false;
+  force_dpllt = false;
   mcsat_rand_dec_freq = -1;
   mcsat_rand_dec_seed = -1;
   mcsat_na_mgcd = false;
@@ -558,6 +564,10 @@ static void parse_command_line(int argc, char *argv[]) {
       case mcsat_opt:
         if (! yices_has_mcsat()) goto no_mcsat;
         mcsat  = true;
+        break;
+
+      case dpllt_opt:
+        force_dpllt = true;
         break;
 
       case mcsat_rand_dec_freq_opt:
@@ -724,6 +734,12 @@ static void parse_command_line(int argc, char *argv[]) {
   }
 
  done:
+  if (force_dpllt && mcsat) {
+    fprintf(stderr, "%s: options --dpllt and --mcsat are mutually exclusive\n", parser.command_name);
+    code = YICES_EXIT_USAGE;
+    goto exit;
+  }
+
   if (incremental && delegate != NULL) {
     fprintf(stderr, "%s: delegate %s does not support incremental mode\n", parser.command_name, delegate);
     code = YICES_EXIT_USAGE;
@@ -1153,6 +1169,7 @@ int main(int argc, char *argv[]) {
 
   yices_init();
   init_mt2(!incremental, timeout, nthreads, interactive);
+  if (force_dpllt) smt2_force_dpllt();
   if (smt2_model_format) smt2_force_smt2_model_format();
   if (bvdecimal) smt2_force_bvdecimal_format();
   if (dimacsfile != NULL && delegate == NULL) smt2_export_to_dimacs(dimacsfile);
@@ -1220,4 +1237,3 @@ int main(int argc, char *argv[]) {
 
   return YICES_EXIT_SUCCESS;
 }
-

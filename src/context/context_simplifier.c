@@ -1161,6 +1161,15 @@ static void try_substitution(context_t *ctx, term_t t1, term_t t2, term_t e) {
 
   assert(is_pos_term(t1) && is_pos_term(t2) && term_is_true(ctx, e));
 
+  /*
+   * In supplementary-MCSAT mode, keep equalities explicit so they can be
+   * routed to the MCSAT satellite as tracked atoms/constraints.
+   */
+  if (ctx->mcsat_supplement_active) {
+    ivector_push(&ctx->top_eqs, e);
+    return;
+  }
+
   if (context_var_elim_enabled(ctx)) {
     intern = &ctx->intern;
 
@@ -1199,6 +1208,14 @@ static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e
   bool free1, free2;
 
   assert(term_is_true(ctx, e));
+
+  /*
+   * In supplementary-MCSAT mode, keep boolean equalities explicit.
+   */
+  if (ctx->mcsat_supplement_active) {
+    ivector_push(&ctx->top_formulas, e);
+    return;
+  }
 
   if (context_var_elim_enabled(ctx)) {
     intern = &ctx->intern;
@@ -2245,8 +2262,14 @@ void flatten_assertion(context_t *ctx, term_t f) {
         break;
 
       case ARITH_ROOT_ATOM:
-        exception = FORMULA_NOT_LINEAR;
-        goto abort;
+        if (context_mcsat_supplement_active(ctx)) {
+          intern_tbl_map_root(intern, r, bool2code(tt));
+          ivector_push(&ctx->top_atoms, signed_term(r, tt));
+        } else {
+          exception = FORMULA_NOT_LINEAR;
+          goto abort;
+        }
+        break;
 
       case ARITH_IS_INT_ATOM:
         intern_tbl_map_root(intern, r, bool2code(tt));
@@ -2324,10 +2347,19 @@ void flatten_assertion(context_t *ctx, term_t f) {
         flatten_bit_select(ctx, r, tt);
         break;
 
-      case ARITH_FF_POLY:
-      case ARITH_FF_CONSTANT:
       case ARITH_FF_EQ_ATOM:
       case ARITH_FF_BINEQ_ATOM:
+        if (context_mcsat_supplement_active(ctx)) {
+          intern_tbl_map_root(intern, r, bool2code(tt));
+          ivector_push(&ctx->top_atoms, signed_term(r, tt));
+        } else {
+          exception = CONTEXT_UNSUPPORTED_THEORY;
+          goto abort;
+        }
+        break;
+
+      case ARITH_FF_POLY:
+      case ARITH_FF_CONSTANT:
         exception = CONTEXT_UNSUPPORTED_THEORY;
         goto abort;
       }
