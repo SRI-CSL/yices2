@@ -504,12 +504,13 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
 
       n = desc->arity;
 
-      /*
-      // Arrays not supported yet
+      // Guard against extensional reasoning over finite function spaces.
       if (current_kind == EQ_TERM && term_type_kind(terms, desc->arg[0]) == FUNCTION_TYPE) {
-        longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+        type_t tau = term_type(terms, desc->arg[0]);
+        if (is_finite_type(terms->types, tau)) {
+          longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+        }
       }
-      */
  
       // Is this a top-level equality assertion
       bool is_equality =
@@ -1281,4 +1282,3 @@ void preprocessor_gc_mark(preprocessor_t* pre) {
     preprocessor_gc_mark_term(pre, t_pure);
   }
 }
-
