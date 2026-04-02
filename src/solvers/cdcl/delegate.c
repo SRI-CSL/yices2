@@ -271,17 +271,10 @@ static void cadical_delete(void *solver) {
 
 static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = ccadical_init();
-  ccadical_set_option(d->solver, "quiet", 1); // no output from cadical by default
   init_ivector(&d->buffer, 0); // not used
-  // fine tuning
-  ccadical_set_option(d->solver, "walk", 0);
-  ccadical_set_option(d->solver, "lucky", 0);
-  ccadical_set_option(d->solver, "chrono", 0);
-  ccadical_set_option(d->solver, "elimands", 0);
-  //  ccadical_set_option(d->solver, "elimequivs", 0);
-  ccadical_set_option(d->solver, "elimites", 0);
-  ccadical_set_option(d->solver, "elimxors", 0);
-  // end of fine tuning
+  if (nvars > 0) {
+    ccadical_declare_more_variables(d->solver, (int32_t) nvars);
+  }
   d->add_empty_clause = cadical_add_empty_clause;
   d->add_unit_clause = cadical_add_unit_clause;
   d->add_binary_clause = cadical_add_binary_clause;
