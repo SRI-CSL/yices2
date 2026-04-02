@@ -25,6 +25,7 @@
 #include "frontend/smt2/smt2_printer.h"
 #include "frontend/smt2/smt2_symbol_printer.h"
 #include "frontend/smt2/smt2_type_printer.h"
+#include "utils/memalloc.h"
 
 
 /*
@@ -61,6 +62,33 @@ static void smt2_pp_bitvector(smt2_pp_t *printer, value_bv_t *b) {
   } else {
     pp_smt2_bv(&printer->pp, b->data, b->nbits);
   }
+}
+
+/*
+ * Expand an update and copy its mappings into a private array.
+ * The expansion uses table->hset1 as scratch space, which is not reentrant.
+ * Copying the map ids avoids corruption if printing recursively expands updates.
+ */
+static value_t *copy_update_maps(value_table_t *table, value_t c, value_t *def, type_t *tau, uint32_t *n) {
+  map_hset_t *hset;
+  value_t *maps;
+  uint32_t i;
+
+  vtbl_expand_update(table, c, def, tau);
+  hset = table->hset1;
+  assert(hset != NULL);
+
+  *n = hset->nelems;
+  if (*n == 0) {
+    return NULL;
+  }
+
+  maps = (value_t *) safe_malloc(*n * sizeof(value_t));
+  for (i = 0; i < *n; ++i) {
+    maps[i] = hset->data[i];
+  }
+
+  return maps;
 }
 
 
@@ -271,31 +299,27 @@ void smt2_pp_function(smt2_pp_t *printer, value_table_t *table, value_t c, bool 
  * - if show_default is true, also print the default value
  */
 void smt2_normalize_and_pp_update(smt2_pp_t *printer, value_table_t *table, value_t c, bool show_default) {
-  map_hset_t *hset;
   value_map_t *mp;
+  value_t *maps;
   value_t def;
   type_t tau;
   uint32_t i, j, n, m;
 
-  // build the mapping for c in hset1
-  vtbl_expand_update(table, c, &def, &tau);
-  hset = table->hset1;
-  assert(hset != NULL);
+  maps = copy_update_maps(table, c, &def, &tau, &n);
 
   smt2_pp_function_header(printer, table, c, tau);
 
   /*
-   * hset->data contains an array of mapping objects
-   * hset->nelems = number of elements in hset->data
+   * maps contains an array of mapping objects
+   * n = number of elements in maps
    */
   m = vtbl_update(table, c)->arity;
-  n = hset->nelems;
   for (i=0; i<n; i++) {
     pp_open_block(&printer->pp, PP_OPEN_EQ);
     pp_open_block(&printer->pp, PP_OPEN_PAR);
     smt2_pp_fun_name(printer, c);
 
-    mp = vtbl_map(table, hset->data[i]);
+    mp = vtbl_map(table, maps[i]);
     assert(mp->arity == m);
     for (j=0; j<m; j++) {
       smt2_pp_object(printer, table, mp->arg[j]);
@@ -311,6 +335,8 @@ void smt2_normalize_and_pp_update(smt2_pp_t *printer, value_table_t *table, valu
     pp_close_block(&printer->pp, true);
   }
   pp_close_block(&printer->pp, true);  // close the (function ...
+
+  safe_free(maps);
 }
 
 
@@ -415,26 +441,22 @@ static void smt2_pp_array(smt2_pp_t *printer, value_table_t *table, type_t tau, 
  */
 static void smt2_pp_array_update(smt2_pp_t *printer, value_table_t *table, value_t c) {
   type_table_t *types;
-  map_hset_t *hset;
   value_map_t *mp;
+  value_t *maps;
   value_t def;
   type_t tau, range, sigma;
   uint32_t i, j, n, m;
 
-  // build the mapping for c in table->hset1
-  vtbl_expand_update(table, c, &def, &tau);
-  hset = table->hset1;
-  assert(hset != NULL);
+  maps = copy_update_maps(table, c, &def, &tau, &n);
 
   types = table->type_table;
 
   /*
-   * hset->data contains an array of mapping objects
-   * hset->nelems = number of elements in hset->data
+   * maps contains an array of mapping objects
+   * n = number of elements in maps
    */
   m = vtbl_update(table, c)->arity;
   range = function_type_range(types, tau);
-  n = hset->nelems;
   for (i=0; i<n; i++) {
     pp_open_block(&printer->pp, PP_OPEN_SMT2_STORE);
   }
@@ -450,7 +472,7 @@ static void smt2_pp_array_update(smt2_pp_t *printer, value_table_t *table, value
   i = n;
   while (i>0) {
     i --;
-    mp = vtbl_map(table, hset->data[i]);
+    mp = vtbl_map(table, maps[i]);
     assert(mp->arity == m);
     for (j=0; j<m; j++) {
       sigma = function_type_domain(types, tau, j);
@@ -459,6 +481,8 @@ static void smt2_pp_array_update(smt2_pp_t *printer, value_table_t *table, value
     smt2_pp_object_in_def(printer, table, range, mp->val);
     pp_close_block(&printer->pp, true);
   }
+
+  safe_free(maps);
 }
 
 
@@ -572,27 +596,23 @@ static void smt2_pp_function_definition(smt2_pp_t *printer, value_table_t *table
  * Normalize c then print if as a cascade of if-then-else
  */
 static void smt2_pp_update_definition(smt2_pp_t *printer, value_table_t *table, value_t c) {
-  map_hset_t *hset;
   value_map_t *mp;
+  value_t *maps;
   value_t def;
   type_t tau, range;
   uint32_t i, n;
 
-  // build the mapping for c in hset1
-  vtbl_expand_update(table, c, &def, &tau);
-  hset = table->hset1;
-  assert(hset != NULL);
+  maps = copy_update_maps(table, c, &def, &tau, &n);
 
   range = function_type_range(table->type_table, tau);
 
   /*
-   * hset->data contains an array of mapping objects
-   * hset->nelems = number of elements in hset->data
+   * maps contains an array of mapping objects
+   * n = number of elements in maps
    */
-  n = hset->nelems;
   for (i=0; i<n; i++) {
     pp_open_block(&printer->pp, PP_OPEN_ITE);
-    mp = vtbl_map(table, hset->data[i]);
+    mp = vtbl_map(table, maps[i]);
     smt2_pp_map(printer, table, tau, mp);
     smt2_pp_object_in_def(printer, table, range, mp->val);
   }
@@ -601,6 +621,8 @@ static void smt2_pp_update_definition(smt2_pp_t *printer, value_table_t *table, 
   for (i=0; i<n; i++) {
     pp_close_block(&printer->pp, true);
   }
+
+  safe_free(maps);
 }
 
 
