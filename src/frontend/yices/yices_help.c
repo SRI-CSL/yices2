@@ -1492,14 +1492,86 @@ static const help_record_t help_data[] = {
     "per universal constraints. If the bound is 0, learning is disabled).\n",
     NULL },
 
-  // abs: index 152
+  // mcsat-rand-dec-freq: index 152
+  { HPARAM,
+    "(set-param mcsat-rand-dec-freq [float])",
+    "Set the random decision frequency used by MC-SAT",
+    "   [float] must be in the interval [0, 1]\n"
+    "\n"
+    "This parameter controls how often MC-SAT picks the next decision\n"
+    "variable randomly instead of using its regular heuristic.\n",
+    NULL },
+
+  // mcsat-rand-dec-seed: index 153
+  { HPARAM,
+    "(set-param mcsat-rand-dec-seed [integer])",
+    "Set the random seed used by MC-SAT",
+    "   [integer] must be non-negative\n"
+    "\n"
+    "This sets the pseudo-random seed used by MC-SAT's randomized choices.\n",
+    NULL },
+
+  // mcsat-na-mgcd: index 154
+  { HPARAM,
+    "(set-param mcsat-na-mgcd [boolean])",
+    "Enable model-based GCD projection in MC-SAT",
+    "If this parameter is true, MC-SAT uses model-based GCD instead of PSC\n"
+    "for non-linear arithmetic projection.\n",
+    NULL },
+
+  // mcsat-na-nlsat: index 155
+  { HPARAM,
+    "(set-param mcsat-na-nlsat [boolean])",
+    "Enable NLSAT projection in MC-SAT",
+    "If this parameter is true, MC-SAT uses NLSAT projection instead of\n"
+    "Brown's single-cell construction for non-linear arithmetic.\n",
+    NULL },
+
+  // mcsat-na-bound: index 156
+  { HPARAM,
+    "(set-param mcsat-na-bound [boolean])",
+    "Enable bounded search in MC-SAT",
+    "If this parameter is true, MC-SAT searches by increasing a bound on\n"
+    "the magnitude of selected variables.\n",
+    NULL },
+
+  // mcsat-na-bound-min: index 157
+  { HPARAM,
+    "(set-param mcsat-na-bound-min [integer])",
+    "Set the initial bound used by bounded MC-SAT search",
+    "   [integer] must be non-negative\n",
+    NULL },
+
+  // mcsat-na-bound-max: index 158
+  { HPARAM,
+    "(set-param mcsat-na-bound-max [integer])",
+    "Set the maximal bound used by bounded MC-SAT search",
+    "   [integer] must be non-negative\n",
+    NULL },
+
+  // mcsat-bv-var-size: index 159
+  { HPARAM,
+    "(set-param mcsat-bv-var-size [integer])",
+    "Set the bit-vector variable size used by MC-SAT preprocessing",
+    "   [integer] must be non-negative\n",
+    NULL },
+
+  // mcsat-partial-restart: index 160
+  { HPARAM,
+    "(set-param mcsat-partial-restart [boolean])",
+    "Enable partial restarts in MC-SAT",
+    "If this parameter is true, MC-SAT uses its partial restart heuristic\n"
+    "instead of always restarting from the base level.\n",
+    NULL },
+
+  // abs: index 161
   { HARITHMETIC,
     "(abs [expr])",
     "Absolute value",
     "   [expr] must be an arithmetic expression\n",
     NULL },
 
-  // floor: index 153
+  // floor: index 162
   { HARITHMETIC,
     "(floor [expr])",
     "Floor",
@@ -1509,7 +1581,7 @@ static const help_record_t help_data[] = {
     "We then have (floor x) <= x < (floor x) + 1.\n",
     NULL },
 
-  // ceil: index 154
+  // ceil: index 163
   { HARITHMETIC,
     "(ceil [expr])",
     "Ceiling",
@@ -1519,7 +1591,7 @@ static const help_record_t help_data[] = {
     "We then have (ceil x) - 1 < x <= (ceil x).\n",
     NULL },
 
-  // div: index 155
+  // div: index 164
   { HARITHMETIC,
     "(div [expr] [divider])",
     "Integer division",
@@ -1541,7 +1613,7 @@ static const help_record_t help_data[] = {
     "(div -5  3) = -1\n"
     "(div -5 -3) -  2\n" },
 
-  // mod: index 156
+  // mod: index 165
   { HARITHMETIC,
     "(mod [expr] [divider])",
     "Remainder in integer division",
@@ -1559,7 +1631,7 @@ static const help_record_t help_data[] = {
     "(mod -5  3) = 1\n"
     "(mod -5 -3) = 2\n" },
 
-  // divides: index 157
+  // divides: index 166
   { HARITHMETIC,
     "(divides [constant] [expr])",
     "Divisibility test",
@@ -1574,7 +1646,7 @@ static const help_record_t help_data[] = {
     "(divides 0 0)     is true\n"
     "(divides 0 x)     is false for any non-zero x\n" },
 
-  // is-int: index 158
+  // is-int: index 167
   { HARITHMETIC,
     "(is-int [expr])",
     "Integrality test",
@@ -1583,7 +1655,7 @@ static const help_record_t help_data[] = {
     "The atom (is-int x) is true iff x is an integer.\n",
     NULL },
 
-  // check-assuming: index 159
+  // check-assuming: index 168
   { HCOMMAND,
     "(check-assuming [assumption list])",
     "Check with assumptions",
@@ -1596,7 +1668,7 @@ static const help_record_t help_data[] = {
     "of the form (not <name>) where <name> is a Booelan term.",
     "(check-assuming A (not B) C)", },
 
-  // show-unsat-core: index 160
+  // show-unsat-core: index 169
   { HCOMMAND,
     "(show-unsat-core)",
     "Print an unsat core",
@@ -1605,7 +1677,7 @@ static const help_record_t help_data[] = {
     "labels of all labeled assertions included in the unsat core).\n",
     NULL, },
 
-  // show-unsat-assumptions: index 161
+  // show-unsat-assumptions: index 170
   { HCOMMAND,
     "(show-unsat-assumptions)",
     "Print an unsat list of assumptions",
@@ -1614,7 +1686,7 @@ static const help_record_t help_data[] = {
     "(check-assuming ..) command\n",
     NULL, },
 
-  // show-reduced-model: index 162
+  // show-reduced-model: index 171
   { HCOMMAND,
     "(show-reduced-model)",
     "Show the current model in reduced form",
@@ -1622,11 +1694,11 @@ static const help_record_t help_data[] = {
     "whose values matter for satisfying the assertions.\n",
     NULL, },
 
-  // END MARKER: index 162
+  // END MARKER: index 171
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 163
+#define END_HELP_DATA 172
 
 
 
@@ -1977,7 +2049,7 @@ static const help_index_t help_index[] = {
   { "=>", NULL, 47, help_basic },
   { ">", NULL, 55, help_basic },
   { ">=", NULL, 57, help_basic },
-  { "abs", NULL, 152, help_basic },
+  { "abs", NULL, 161, help_basic },
   { "and", NULL, 43, help_basic },
   { "arith-elim", NULL, 103, help_basic },
   { "arithmetic", "Arithmetic Operators", HARITHMETIC, help_for_category },
@@ -2039,9 +2111,9 @@ static const help_index_t help_index[] = {
   { "c-factor", NULL, 109, help_basic },
   { "c-threshold", NULL, 108, help_basic },
   { "cache-tclauses", NULL, 120, help_basic },
-  { "ceil", NULL, 154, help_basic },
+  { "ceil", NULL, 163, help_basic },
   { "check", NULL, 6, help_basic },
-  { "check-assuming", NULL, 159, help_basic },
+  { "check-assuming", NULL, 168, help_basic },
   { "clause-decay", NULL, 119, help_basic },
   { "commands", "Command Summary", HCOMMAND, help_for_category },
   { "d-factor", NULL, 111, help_basic },
@@ -2049,8 +2121,8 @@ static const help_index_t help_index[] = {
   { "define", "Declare or define a term", 2, help_variant },
   { "define-type", "Declare or define a type", 0, help_variant },
   { "distinct", NULL, 35, help_basic },
-  { "div", NULL, 155, help_basic },
-  { "divides", NULL, 157, help_basic },
+  { "div", NULL, 164, help_basic },
+  { "divides", NULL, 166, help_basic },
   { "dyn-ack", NULL, 122, help_basic },
   { "dyn-ack-threshold", NULL, 128, help_basic },
   { "dyn-bool-ack", NULL, 123, help_basic },
@@ -2069,7 +2141,7 @@ static const help_index_t help_index[] = {
   { "false", NULL, 41, help_basic },
   { "fast-restarts", NULL, 107, help_basic },
   { "flatten", NULL, 104, help_basic },
-  { "floor", NULL, 153, help_basic },
+  { "floor", NULL, 162, help_basic },
   { "generic", "Generic Operators", HGENERIC, help_for_category },
   { "help", "Show help", 21, help_variant },
   { "icheck", NULL, 136, help_basic },
@@ -2078,7 +2150,7 @@ static const help_index_t help_index[] = {
   { "include", NULL, 12, help_basic },
   { "index", index_string, 0, help_special },
   { "int", NULL, 25, help_basic },
-  { "is-int", NULL, 158, help_basic },
+  { "is-int", NULL, 167, help_basic },
   { "ite", NULL, 31, help_basic },
   { "keep-ite", NULL, 106, help_basic },
   { "learn-eq", NULL, 105, help_basic },
@@ -2087,9 +2159,18 @@ static const help_index_t help_index[] = {
   { "max-extensionality", NULL, 139, help_basic },
   { "max-interface-eqs", NULL, 130, help_basic },
   { "max-update-conflicts", NULL, 138, help_basic },
+  { "mcsat-bv-var-size", NULL, 159, help_basic },
+  { "mcsat-na-bound", NULL, 156, help_basic },
+  { "mcsat-na-bound-max", NULL, 158, help_basic },
+  { "mcsat-na-bound-min", NULL, 157, help_basic },
+  { "mcsat-na-mgcd", NULL, 154, help_basic },
+  { "mcsat-na-nlsat", NULL, 155, help_basic },
+  { "mcsat-partial-restart", NULL, 160, help_basic },
+  { "mcsat-rand-dec-freq", NULL, 152, help_basic },
+  { "mcsat-rand-dec-seed", NULL, 153, help_basic },
   { "mk-bv", NULL, 58, help_basic },
   { "mk-tuple", NULL, 36, help_basic },
-  { "mod", NULL, 156, help_basic },
+  { "mod", NULL, 165, help_basic },
   { "not", NULL, 44, help_basic },
   { "optimistic-fcheck", NULL, 141, help_basic },
   { "or", NULL, 42, help_basic },
@@ -2113,11 +2194,11 @@ static const help_index_t help_index[] = {
   { "show-model", NULL, 10, help_basic },
   { "show-param", NULL, 15, help_basic },
   { "show-params", NULL, 16, help_basic },
-  { "show-reduced-model", NULL, 162, help_basic },
+  { "show-reduced-model", NULL, 171, help_basic },
   { "show-stats", NULL, 17, help_basic },
   { "show-timeout", NULL, 20, help_basic },
-  { "show-unsat-assumptions", NULL, 161, help_basic },
-  { "show-unsat-core", NULL, 160, help_basic },
+  { "show-unsat-assumptions", NULL, 170, help_basic },
+  { "show-unsat-core", NULL, 169, help_basic },
   { "simplex-adjust", NULL, 134, help_basic },
   { "simplex-prop", NULL, 132, help_basic },
   { "syntax", syntax_summary, 0, help_special },

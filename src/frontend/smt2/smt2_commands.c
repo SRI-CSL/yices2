@@ -5435,6 +5435,14 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
     print_boolean_value(g->mcsat_options.na_nlsat);
     break;
 
+  case PARAM_MCSAT_BV_VAR_SIZE:
+    print_int32_value(g->mcsat_options.bv_var_size);
+    break;
+
+  case PARAM_MCSAT_PARTIAL_RESTART:
+    print_boolean_value(g->mcsat_options.partial_restart);
+    break;
+
   case PARAM_MCSAT_RAND_DEC_FREQ:
     print_float_value(g->parameters.randomness);
     break;
@@ -6200,7 +6208,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
     break;
 
   case PARAM_MCSAT_NA_BOUND_MIN:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
+    if (param_val_to_nonneg32(param, val, &n, &reason)) {
       g->mcsat_options.na_bound_min = n;
       context = g->ctx;
       if (context != NULL) {
@@ -6210,7 +6218,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
     break;
 
   case PARAM_MCSAT_NA_BOUND_MAX:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
+    if (param_val_to_nonneg32(param, val, &n, &reason)) {
       g->mcsat_options.na_bound_max = n;
       context = g->ctx;
       if (context != NULL) {
@@ -6220,7 +6228,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
     break;
 
   case PARAM_MCSAT_BV_VAR_SIZE:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
+    if (param_val_to_nonneg32(param, val, &n, &reason)) {
       g->mcsat_options.bv_var_size = n;
       context = g->ctx;
       if (context != NULL) {
@@ -6236,7 +6244,7 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
     break;
 
   case PARAM_MCSAT_RAND_DEC_SEED:
-    if (param_val_to_pos32(param, val, &n, &reason)) {
+    if (param_val_to_nonneg32(param, val, &n, &reason)) {
       g->parameters.random_seed = n;
     }
     break;
@@ -6246,6 +6254,16 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
       context = g->ctx;
       if (context != NULL) {
         ivector_copy(&context->mcsat_var_order, terms->data, terms->size);
+      }
+    }
+    break;
+
+  case PARAM_MCSAT_PARTIAL_RESTART:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      g->mcsat_options.partial_restart = tt;
+      context = g->ctx;
+      if (context != NULL) {
+        context->mcsat_options.partial_restart = tt;
       }
     }
     break;

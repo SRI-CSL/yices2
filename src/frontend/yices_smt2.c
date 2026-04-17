@@ -299,7 +299,7 @@ static void print_mcsat_help(const char *progname) {
          "    or %s [option]\n\n", progname, progname);
   printf("MCSat options:\n"
 	 "    --mcsat-rand-dec-freq=<B> Set the random decision frequency [0,1] (default = 0.02)\n"
-	 "    --mcsat-rand-dec-seed=<B> Set the random decision seed (postive value)\n"
+	 "    --mcsat-rand-dec-seed=<B> Set the random decision seed (non-negative value)\n"
          "    --mcsat-na-mgcd          Use model-based GCD instead of PSC for projection\n"
          "    --mcsat-na-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
          "    --mcsat-na-bound         Search by increasing the bound on variable magnitude\n"
@@ -1220,4 +1220,3 @@ int main(int argc, char *argv[]) {
 
   return YICES_EXIT_SUCCESS;
 }
-
