@@ -230,7 +230,7 @@ if [ "$binary" = yices_smt2 ] && [[ "$test_file" == *"/both/"* ]]; then
       DIFF+="$diff_mcsat"$'\n'
     fi
     if [ $status_dpllt -ne 0 ] || [ $diff_status_dpllt -ne 0 ]; then
-      DIFF+="--- dpllt (--dpllt) ---"$'\n'
+      DIFF+="--- dpllt (default) ---"$'\n'
       if [ $status_dpllt -ne 0 ]; then
         DIFF+="exit status: $status_dpllt"$'\n'
       fi
