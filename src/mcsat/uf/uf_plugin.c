@@ -748,9 +748,10 @@ value_t uf_plugin_get_term_value(uf_plugin_t* uf, value_table_t* vtbl, term_t t)
   }
 }
 
+// Default value of type tau for use as the "else" branch of a function.
+// Kept as a wrapper for readability at call sites.
 static inline
-value_t vtbl_mk_default(type_table_t* types, value_table_t *vtbl, type_t tau) {
-  (void) types;
+value_t vtbl_mk_default(value_table_t *vtbl, type_t tau) {
   return vtbl_make_object(vtbl, tau);
 }
 
@@ -787,6 +788,11 @@ void uf_model_builder_destruct(uf_model_builder_t* builder) {
   delete_fresh_val_maker(&builder->maker);
 }
 
+// Record 't' as a candidate canonical term for its function-id.
+// Priority rule: once an UNINTERPRETED_TERM is stored for a given function-id,
+// keep it. Otherwise (no term yet, or a non-uninterpreted term stored), overwrite
+// with 't'. This ensures the canonical representative is an uninterpreted function
+// symbol when one is available, which is preferred for model printing.
 static
 void uf_model_builder_remember_function_term(uf_model_builder_t* builder, term_t t) {
   int32_t function_id;
@@ -832,10 +838,19 @@ value_t uf_model_builder_get_function_value(uf_model_builder_t* builder, term_t 
   term_t fun_term = int_hmap_find(&builder->function_term, function_id)->val;
   type_t fun_type = term_type(terms, fun_term);
   f_value = make_fresh_function(&builder->maker, fun_type);
-  assert(f_value != null_value);
+  if (f_value == null_value) {
+    // No fresh function of this type available (only possible for finite domains).
+    // Fall back to a default-constructed function value so we still return something valid.
+    f_value = vtbl_mk_function(builder->vtbl, fun_type, 0, NULL,
+                               vtbl_mk_default(builder->vtbl,
+                                               function_type_range(terms->types, fun_type)));
+  }
 
   // Cache the fresh base function first to avoid recursing forever on cyclic heads.
+  // NOTE: this write must happen before any recursion below, because recursive
+  // calls may reach back to the same function_id.
   find->val = f_value;
+  find = NULL; // invalidated once we recurse (int_hmap_get may resize the table)
 
   int_hmap_pair_t* first_app = int_hmap_find(&builder->app_term_first, function_id);
   if (first_app != NULL) {
@@ -857,7 +872,10 @@ value_t uf_model_builder_get_function_value(uf_model_builder_t* builder, term_t 
       f_value = vtbl_mk_update(builder->vtbl, f_value, arguments.size, arguments.data, result_value);
     }
 
-    find->val = f_value;
+    // Re-fetch: the recursive calls above may have inserted new entries into
+    // builder->function_value and triggered int_hmap_extend, which invalidates
+    // any int_hmap_pair_t* obtained before recursion.
+    int_hmap_get(&builder->function_value, function_id)->val = f_value;
   }
 
   delete_ivector(&arguments);
@@ -952,31 +970,19 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
   ivector_t mappings;
   init_ivector(&mappings, 0);
 
-  // Got through all the representatives that have a set value and
-  // - while same function, collect the concrete mappings
-  // - if different function, construct the function and add to model
-  term_t app_f = NULL_TERM, prev_app_f = NULL_TERM;  // Current and previous function symbol
-  term_t app_term, prev_app_term = NULL_TERM; // Current and previous function application term
-  term_kind_t app_kind = UNUSED_TERM, prev_app_kind = UNUSED_TERM; // Kind of the current and previous function
-  bool app_construct = true; // Whether to construct it
+  // Go through the special (div/mod) applications sorted by kind. While the kind
+  // is unchanged, collect concrete mappings; when the kind changes, emit the
+  // function value for the previous kind.
+  //
+  // Note: only div-by-zero cases contribute mappings; other divisors are skipped.
+  term_t app_term;
+  term_kind_t app_kind = UNUSED_TERM, prev_app_kind = UNUSED_TERM;
+  bool has_prev = false;
   for (i = 0; i < special_terms.size; ++ i) {
 
-    // Current representative application
     app_term = special_terms.data[i];
-
-    // Only need to do functions and uninterpreted
     app_kind = term_kind(terms, app_term);
-    switch (app_kind) {
-    case APP_TERM:
-    case ARITH_RDIV:
-    case ARITH_IDIV:
-    case ARITH_MOD:
-      app_construct = true;
-      break;
-    default:
-      app_construct = false;
-      break;
-    }
+    assert(app_kind == ARITH_RDIV || app_kind == ARITH_IDIV || app_kind == ARITH_MOD);
 
     composite_term_t* app_comp = composite_term_desc(terms, app_term);
 
@@ -985,7 +991,6 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
       ctx_trace_term(uf->ctx, app_term);
     }
 
-    app_f = NULL_TERM;
     // Division only if division by 0
     assert(app_comp->arity == 2);
     term_t divisor_term = app_comp->arg[1];
@@ -996,70 +1001,48 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
       continue;
     }
 
-    // If we changed the function, construct the previous one
-    if (prev_app_term != NULL_TERM) {
-      if (app_f != prev_app_f || app_kind != prev_app_kind) {
-        type_t tau = get_function_application_type(terms, prev_app_kind, prev_app_f);
-        type_t range_tau = function_type_range(terms->types, tau);
-        value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(terms->types, vtbl, range_tau));
-        switch (prev_app_kind) {
-        case ARITH_RDIV:
-          vtbl_set_zero_rdiv(vtbl, f_value);
-          break;
-        case ARITH_IDIV:
-          vtbl_set_zero_idiv(vtbl, f_value);
-          break;
-        case ARITH_MOD:
-          vtbl_set_zero_mod(vtbl, f_value);
-          break;
-        default:
-          assert(false);
-        }
-        // Reset the mapping
-        ivector_reset(&mappings);
+    // If the kind changed, emit the previous function.
+    if (has_prev && app_kind != prev_app_kind) {
+      type_t tau = get_function_application_type(terms, prev_app_kind, NULL_TERM);
+      type_t range_tau = function_type_range(terms->types, tau);
+      value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(vtbl, range_tau));
+      switch (prev_app_kind) {
+      case ARITH_RDIV: vtbl_set_zero_rdiv(vtbl, f_value); break;
+      case ARITH_IDIV: vtbl_set_zero_idiv(vtbl, f_value); break;
+      case ARITH_MOD:  vtbl_set_zero_mod(vtbl, f_value);  break;
+      default: assert(false);
       }
+      ivector_reset(&mappings);
     }
 
-    // Next concrete mapping f : (x1, x2, ..., xn) -> v
-    // a) Get the v value
+    // Next concrete mapping f : (x1, ..., xn) -> v. For div/mod the "function"
+    // consumes only the numerator (arity - 1 args); the divisor is always 0 here.
     value_t v = uf_plugin_get_term_value(uf, vtbl, app_term);
-    // b) Get the argument values
     uint32_t arg_i;
-    uint32_t arg_start = 0;
     uint32_t arg_end = app_comp->arity - 1;
     ivector_reset(&builder.arguments);
-    for (arg_i = arg_start; arg_i < arg_end; ++ arg_i) {
+    for (arg_i = 0; arg_i < arg_end; ++ arg_i) {
       term_t arg_term = app_comp->arg[arg_i];
       value_t arg_v = uf_plugin_get_term_value(uf, vtbl, arg_term);
       ivector_push(&builder.arguments, arg_v);
     }
-    // c) Construct the concrete mapping, and save in the list for f
     value_t map_value = vtbl_mk_map(vtbl, builder.arguments.size, builder.arguments.data, v);
     ivector_push(&mappings, map_value);
 
-    // Remember the previous one
-    prev_app_f = app_f;
-    prev_app_term = app_term;
     prev_app_kind = app_kind;
+    has_prev = true;
   }
 
-  // Since we make functions when we see a new one, we also construct the last function
-  if (special_terms.size > 0 && mappings.size > 0 && app_construct) {
-    type_t tau = get_function_application_type(terms, app_kind, app_f);
+  // Emit the last pending function, if any.
+  if (has_prev && mappings.size > 0) {
+    type_t tau = get_function_application_type(terms, prev_app_kind, NULL_TERM);
     type_t range_tau = function_type_range(terms->types, tau);
-    value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(terms->types, vtbl, range_tau));
-    switch (app_kind) {
-    case ARITH_RDIV:
-      vtbl_set_zero_rdiv(vtbl, f_value);
-      break;
-    case ARITH_IDIV:
-      vtbl_set_zero_idiv(vtbl, f_value);
-      break;
-    case ARITH_MOD:
-      vtbl_set_zero_mod(vtbl, f_value);
-      break;
-    default:
-      assert(false);
+    value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(vtbl, range_tau));
+    switch (prev_app_kind) {
+    case ARITH_RDIV: vtbl_set_zero_rdiv(vtbl, f_value); break;
+    case ARITH_IDIV: vtbl_set_zero_idiv(vtbl, f_value); break;
+    case ARITH_MOD:  vtbl_set_zero_mod(vtbl, f_value);  break;
+    default: assert(false);
     }
   }
 

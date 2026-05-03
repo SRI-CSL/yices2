@@ -54,20 +54,19 @@ int main(void) {
 
   char* model_str = yices_model_to_string(model, 120, 80, 0);
   assert(model_str != NULL);
+  // The model should mention the top-level function name and the constrained value.
   assert(strstr(model_str, "array") != NULL);
   assert(strstr(model_str, "10") != NULL);
 
+  // The partially-applied term ((array 1)) must itself evaluate to a function value.
   status = yices_get_value(model, app1, &app1_value);
   assert(status == 0);
-  if (status != 0 || app1_value.node_tag != YVAL_FUNCTION) {
-    return 2;
-  }
+  assert(app1_value.node_tag == YVAL_FUNCTION);
 
+  // The fully-applied term ((array 1) 7) must evaluate to 10.
   status = yices_get_int32_value(model, app2, &app2_value);
   assert(status == 0);
-  if (status != 0 || app2_value != 10) {
-    return 3;
-  }
+  assert(app2_value == 10);
 
   yices_free_string(model_str);
   yices_free_model(model);
