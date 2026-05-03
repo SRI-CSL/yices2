@@ -110,6 +110,8 @@ fi
 #
 outfile=$($mktemp_cmd) || { echo "Can't create temp file" ; exit 3 ; }
 timefile=$($mktemp_cmd) || { echo "Can't create temp file" ; exit 3 ; }
+outfile2=
+timefile2=
 
 if [[ -z "$TIME_LIMIT" ]];
 then
@@ -160,38 +162,120 @@ if [ -d "$out_dir" ] ; then
     log_file="$out_dir/_$(echo "${test_file//_/__}" | tr '/' '_')"
 fi
 
-# Run the binary
-(
-  ulimit -S -t $TIME_LIMIT &> /dev/null
-  ulimit -H -t $((1+$TIME_LIMIT)) &> /dev/null
-  (time "./$bin_dir/$binary" $options "./$test_file" >& "$outfile" ) >& "$timefile"
-)
-status=$?
-runtime=$(cat "$timefile")
+run_solver_once() {
+  local run_options=$1
+  local run_outfile=$2
+  local run_timefile=$3
 
-# Do the diff
-DIFF=$(diff -w "$outfile" "$gold")
+  (
+    ulimit -S -t $TIME_LIMIT &> /dev/null
+    ulimit -H -t $((1+$TIME_LIMIT)) &> /dev/null
+    (time "./$bin_dir/$binary" $run_options "./$test_file" >& "$run_outfile") >& "$run_timefile"
+  )
+}
 
-if [ $? -eq 0 ] && [ $status -eq 0 ]
-then
-    echo -e "$green PASS [${runtime} s] $black $test_string"
+strip_solver_mode_flags() {
+  local input=$1
+  local output=
+  local tok
+
+  for tok in $input; do
+    case "$tok" in
+      --mcsat|--dpllt)
+        ;;
+      *)
+        output="$output $tok"
+        ;;
+    esac
+  done
+
+  echo "$output"
+}
+
+if [ "$binary" = yices_smt2 ] && [[ "$test_file" == *"/both/"* ]]; then
+  options=$(strip_solver_mode_flags "$options")
+  test_string="$test_file [ $options --mcsat ] [ $options ]"
+
+  outfile2=$($mktemp_cmd) || { echo "Can't create temp file" ; rm -f "$timefile" "$outfile" ; exit 3 ; }
+  timefile2=$($mktemp_cmd) || { echo "Can't create temp file" ; rm -f "$timefile" "$outfile" "$outfile2" ; exit 3 ; }
+
+  run_solver_once "$options --mcsat" "$outfile" "$timefile"
+  status_mcsat=$?
+  runtime_mcsat=$(cat "$timefile")
+  diff_mcsat=$(diff -w "$outfile" "$gold")
+  diff_status_mcsat=$?
+
+  run_solver_once "$options" "$outfile2" "$timefile2"
+  status_dpllt=$?
+  runtime_dpllt=$(cat "$timefile2")
+  diff_dpllt=$(diff -w "$outfile2" "$gold")
+  diff_status_dpllt=$?
+
+  if [ $status_mcsat -eq 0 ] && [ $diff_status_mcsat -eq 0 ] && [ $status_dpllt -eq 0 ] && [ $diff_status_dpllt -eq 0 ]; then
+    echo -e "$green PASS [mcsat ${runtime_mcsat} s, dpllt ${runtime_dpllt} s] $black $test_string"
     if [ -n "$log_file" ] ; then
-        log_file="$log_file.pass"
-        echo "$test_string" > "$log_file"
-        echo "$runtime" >> "$log_file"
+      log_file="$log_file.pass"
+      echo "$test_string" > "$log_file"
+      echo "mcsat: $runtime_mcsat" >> "$log_file"
+      echo "dpllt: $runtime_dpllt" >> "$log_file"
     fi
     code=0
-else
+  else
+    DIFF=
+    if [ $status_mcsat -ne 0 ] || [ $diff_status_mcsat -ne 0 ]; then
+      DIFF+="--- mcsat (--mcsat) ---"$'\n'
+      if [ $status_mcsat -ne 0 ]; then
+        DIFF+="exit status: $status_mcsat"$'\n'
+      fi
+      DIFF+="$diff_mcsat"$'\n'
+    fi
+    if [ $status_dpllt -ne 0 ] || [ $diff_status_dpllt -ne 0 ]; then
+      DIFF+="--- dpllt (default) ---"$'\n'
+      if [ $status_dpllt -ne 0 ]; then
+        DIFF+="exit status: $status_dpllt"$'\n'
+      fi
+      DIFF+="$diff_dpllt"$'\n'
+    fi
+
     echo -e "$red FAIL $black $test_string"
     if [ -n "$log_file" ] ; then
-        log_file="$log_file.error"
-        echo "$test_string" > "$log_file"
-        echo "$runtime" >> "$log_file"
-        echo "$DIFF" >> "$log_file"
+      log_file="$log_file.error"
+      echo "$test_string" > "$log_file"
+      echo "mcsat: $runtime_mcsat" >> "$log_file"
+      echo "dpllt: $runtime_dpllt" >> "$log_file"
+      echo "$DIFF" >> "$log_file"
     fi
     code=1
+  fi
+else
+  # Run the binary once
+  run_solver_once "$options" "$outfile" "$timefile"
+  status=$?
+  runtime=$(cat "$timefile")
+
+  # Do the diff
+  DIFF=$(diff -w "$outfile" "$gold")
+
+  if [ $? -eq 0 ] && [ $status -eq 0 ]
+  then
+      echo -e "$green PASS [${runtime} s] $black $test_string"
+      if [ -n "$log_file" ] ; then
+          log_file="$log_file.pass"
+          echo "$test_string" > "$log_file"
+          echo "$runtime" >> "$log_file"
+      fi
+      code=0
+  else
+      echo -e "$red FAIL $black $test_string"
+      if [ -n "$log_file" ] ; then
+          log_file="$log_file.error"
+          echo "$test_string" > "$log_file"
+          echo "$runtime" >> "$log_file"
+          echo "$DIFF" >> "$log_file"
+      fi
+      code=1
+  fi
 fi
 
-rm "$timefile"
-rm "$outfile"
+rm -f "$timefile" "$outfile" "$timefile2" "$outfile2"
 exit $code

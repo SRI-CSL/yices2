@@ -1,0 +1,5 @@
+sat
+((define-fun a ((x!0 Int)) (Array Int Int) (ite (= x!0 1) (store ((as const (Array Int Int)) 2) 7 10) ((as const (Array Int Int)) 0))))
+((a (store ((as const (Array Int (Array Int Int))) ((as const (Array Int Int)) 0)) 1 (store ((as const (Array Int Int)) 2) 7 10))))
+(((select a 1) (store ((as const (Array Int Int)) 2) 7 10)))
+(((select (select a 1) 7) 10))
