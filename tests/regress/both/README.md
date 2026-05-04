@@ -9,6 +9,11 @@ The regression harness runs each SMT2 test in this directory twice, once per
 mode. Do not put solver-selection flags such as `--mcsat` or `--dpllt` in
 `.options` files here; the harness controls the solver mode automatically.
 
+Most tests should use one shared `.gold` file. If a temporary solver limitation
+intentionally gives different output in the two modes, add solver-specific
+overrides with `.mcsat.gold` and/or `.dpllt.gold`; otherwise the shared `.gold`
+is used for both runs.
+
 Keep MCSAT-only tests (for example, `check-sat-assuming-model` and
 `get-unsat-model-interpolant`) in `tests/regress/mcsat`.
 

@@ -64,33 +64,6 @@ static void smt2_pp_bitvector(smt2_pp_t *printer, value_bv_t *b) {
   }
 }
 
-/*
- * Expand an update and copy its mappings into a private array.
- * The expansion uses table->hset1 as scratch space, which is not reentrant.
- * Copying the map ids avoids corruption if printing recursively expands updates.
- */
-static value_t *copy_update_maps(value_table_t *table, value_t c, value_t *def, type_t *tau, uint32_t *n) {
-  map_hset_t *hset;
-  value_t *maps;
-  uint32_t i;
-
-  vtbl_expand_update(table, c, def, tau);
-  hset = table->hset1;
-  assert(hset != NULL);
-
-  *n = hset->nelems;
-  if (*n == 0) {
-    return NULL;
-  }
-
-  maps = (value_t *) safe_malloc(*n * sizeof(value_t));
-  for (i = 0; i < *n; ++i) {
-    maps[i] = hset->data[i];
-  }
-
-  return maps;
-}
-
 
 /*
  * SMT2 format for integer and rational constants
@@ -305,7 +278,7 @@ void smt2_normalize_and_pp_update(smt2_pp_t *printer, value_table_t *table, valu
   type_t tau;
   uint32_t i, j, n, m;
 
-  maps = copy_update_maps(table, c, &def, &tau, &n);
+  maps = vtbl_copy_update_maps(table, c, &def, &tau, &n);
 
   smt2_pp_function_header(printer, table, c, tau);
 
@@ -447,7 +420,7 @@ static void smt2_pp_array_update(smt2_pp_t *printer, value_table_t *table, value
   type_t tau, range, sigma;
   uint32_t i, j, n, m;
 
-  maps = copy_update_maps(table, c, &def, &tau, &n);
+  maps = vtbl_copy_update_maps(table, c, &def, &tau, &n);
 
   types = table->type_table;
 
@@ -602,7 +575,7 @@ static void smt2_pp_update_definition(smt2_pp_t *printer, value_table_t *table, 
   type_t tau, range;
   uint32_t i, n;
 
-  maps = copy_update_maps(table, c, &def, &tau, &n);
+  maps = vtbl_copy_update_maps(table, c, &def, &tau, &n);
 
   range = function_type_range(table->type_table, tau);
 
