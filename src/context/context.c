@@ -2600,8 +2600,14 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
       if (intern_tbl_root_is_mapped(&ctx->intern, r)) {
         code = intern_tbl_map_of_root(&ctx->intern, r);
         u = translate_code_to_eterm(ctx, r, code);
-        if (root != r && intern_tbl_root_is_free(&ctx->intern, root)) {
-          intern_tbl_map_root(&ctx->intern, root, occ2code(u));
+        if (root != r) {
+          if (intern_tbl_root_is_free(&ctx->intern, root)) {
+            intern_tbl_map_root(&ctx->intern, root, occ2code(u));
+          } else {
+            // If root is already mapped, it must map to the same egraph
+            // occurrence we are about to return for the unit-type rep.
+            assert(intern_tbl_map_of_root(&ctx->intern, root) == occ2code(u));
+          }
         }
         return u ^ polarity;
       }
@@ -2785,8 +2791,15 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
 
   // If we canonicalized root to a different unit-type representative r,
   // remember that root internalizes to the same egraph occurrence.
-  if (root != r && intern_tbl_root_is_free(&ctx->intern, root)) {
-    intern_tbl_map_root(&ctx->intern, root, occ2code(u));
+  if (root != r) {
+    if (intern_tbl_root_is_free(&ctx->intern, root)) {
+      intern_tbl_map_root(&ctx->intern, root, occ2code(u));
+    } else {
+      // If root was mapped during the recursive internalization of r (e.g.,
+      // because root was reached as a sub-term), the mapping must agree
+      // with the occurrence we are about to return.
+      assert(intern_tbl_map_of_root(&ctx->intern, root) == occ2code(u));
+    }
   }
 
   // fix the polarity
