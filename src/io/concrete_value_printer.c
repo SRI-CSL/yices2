@@ -31,39 +31,6 @@
 
 
 /*
- * Expand update c and copy the resulting mapping list out of the shared
- * scratch map_hset (table->hset1). Callers must free the returned array
- * with safe_free.
- *
- * vtbl_expand_update uses table->hset1 as scratch, so if the caller later
- * recursively prints another value that expands a different update, hset1
- * would be clobbered. Copying the map ids avoids this reentrancy hazard.
- *
- * Returns NULL when *n == 0.
- */
-static value_t *copy_update_maps(value_table_t *table, value_t c, value_t *def, type_t *tau, uint32_t *n) {
-  map_hset_t *hset;
-  value_t *maps;
-  uint32_t i;
-
-  vtbl_expand_update(table, c, def, tau);
-  hset = table->hset1;
-  assert(hset != NULL);
-
-  *n = hset->nelems;
-  if (*n == 0) {
-    return NULL;
-  }
-
-  maps = (value_t *) safe_malloc(*n * sizeof(value_t));
-  for (i = 0; i < *n; ++i) {
-    maps[i] = hset->data[i];
-  }
-  return maps;
-}
-
-
-/*
  * Printing for each object type
  */
 static inline void vtbl_print_unknown(FILE *f) {
@@ -315,7 +282,7 @@ void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, const char *
   type_t tau;
   uint32_t i, j, n, m;
 
-  maps = copy_update_maps(table, c, &def, &tau, &n);
+  maps = vtbl_copy_update_maps(table, c, &def, &tau, &n);
 
   if (name == NULL) {
     sprintf(fake_name, "fun!%"PRId32, c);
@@ -601,7 +568,7 @@ void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, con
   type_t tau;
   uint32_t i, j, n, m;
 
-  maps = copy_update_maps(table, c, &def, &tau, &n);
+  maps = vtbl_copy_update_maps(table, c, &def, &tau, &n);
 
   if (name == NULL) {
     sprintf(fake_name, "fun!%"PRId32, c);
