@@ -195,6 +195,16 @@ strip_solver_mode_flags() {
 if [ "$binary" = yices_smt2 ] && [[ "$test_file" == *"/both/"* ]]; then
   options=$(strip_solver_mode_flags "$options")
   test_string="$test_file [ $options --mcsat ] [ $options ]"
+  gold_mcsat=$gold
+  gold_dpllt=$gold
+
+  if [ -e "$test_file.mcsat.gold" ]; then
+    gold_mcsat=$test_file.mcsat.gold
+  fi
+
+  if [ -e "$test_file.dpllt.gold" ]; then
+    gold_dpllt=$test_file.dpllt.gold
+  fi
 
   outfile2=$($mktemp_cmd) || { echo "Can't create temp file" ; rm -f "$timefile" "$outfile" ; exit 3 ; }
   timefile2=$($mktemp_cmd) || { echo "Can't create temp file" ; rm -f "$timefile" "$outfile" "$outfile2" ; exit 3 ; }
@@ -202,13 +212,13 @@ if [ "$binary" = yices_smt2 ] && [[ "$test_file" == *"/both/"* ]]; then
   run_solver_once "$options --mcsat" "$outfile" "$timefile"
   status_mcsat=$?
   runtime_mcsat=$(cat "$timefile")
-  diff_mcsat=$(diff -w "$outfile" "$gold")
+  diff_mcsat=$(diff -w "$outfile" "$gold_mcsat")
   diff_status_mcsat=$?
 
   run_solver_once "$options" "$outfile2" "$timefile2"
   status_dpllt=$?
   runtime_dpllt=$(cat "$timefile2")
-  diff_dpllt=$(diff -w "$outfile2" "$gold")
+  diff_dpllt=$(diff -w "$outfile2" "$gold_dpllt")
   diff_status_dpllt=$?
 
   if [ $status_mcsat -eq 0 ] && [ $diff_status_mcsat -eq 0 ] && [ $status_dpllt -eq 0 ] && [ $diff_status_dpllt -eq 0 ]; then
