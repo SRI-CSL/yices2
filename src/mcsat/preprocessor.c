@@ -147,17 +147,28 @@ uint32_t type_leaf_count(type_table_t* types, type_t tau) {
   }
 }
 
+static void function_type_collect_blasted(type_table_t* types, type_t tau, ivector_t* out);
+
 static
 void type_collect_flat(type_table_t* types, type_t tau, ivector_t* flat) {
   tuple_type_t* tuple;
   uint32_t i;
-  if (type_kind(types, tau) == TUPLE_TYPE) {
+
+  switch (type_kind(types, tau)) {
+  case TUPLE_TYPE:
     tuple = tuple_type_desc(types, tau);
     for (i = 0; i < tuple->nelem; ++i) {
       type_collect_flat(types, tuple->elem[i], flat);
     }
-  } else {
+    break;
+
+  case FUNCTION_TYPE:
+    function_type_collect_blasted(types, tau, flat);
+    break;
+
+  default:
     ivector_push(flat, tau);
+    break;
   }
 }
 
@@ -296,7 +307,6 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
 
   term_kind_t kind = term_kind(terms, t);
   type_t tau = term_type(terms, t);
-
   switch (kind) {
   case CONSTANT_TERM:
   case ARITH_CONSTANT:
@@ -361,6 +371,11 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
       start += type_leaf_count(types, tuple_type->elem[i]);
     }
     len = type_leaf_count(types, tuple_type->elem[sel->idx]);
+    if (start + len > arg_blast.size) {
+      delete_ivector(&arg_blast);
+      delete_ivector(&result);
+      longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+    }
     ivector_add(&result, arg_blast.data + start, len);
     delete_ivector(&arg_blast);
     break;
@@ -478,7 +493,14 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
       tuple_blast_collect_arg(pre, app->arg[i], &args_flat);
     }
     for (i = 0; i < f_blast.size; ++i) {
-      ivector_push(&result, mk_application(tm, f_blast.data[i], args_flat.size, args_flat.data));
+      term_t app_i = mk_application(tm, f_blast.data[i], args_flat.size, args_flat.data);
+      if (app_i == NULL_TERM) {
+        delete_ivector(&args_flat);
+        delete_ivector(&f_blast);
+        delete_ivector(&result);
+        longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+      }
+      ivector_push(&result, app_i);
     }
     delete_ivector(&args_flat);
     delete_ivector(&f_blast);
@@ -510,7 +532,15 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
     }
     for (i = 0; i < f_blast.size; ++i) {
       term_t vi = v_blast.size == 1 ? v_blast.data[0] : v_blast.data[i];
-      ivector_push(&result, mk_update(tm, f_blast.data[i], idx_flat.size, idx_flat.data, vi));
+      term_t upd_i = mk_update(tm, f_blast.data[i], idx_flat.size, idx_flat.data, vi);
+      if (upd_i == NULL_TERM) {
+        delete_ivector(&f_blast);
+        delete_ivector(&idx_flat);
+        delete_ivector(&v_blast);
+        delete_ivector(&result);
+        longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+      }
+      ivector_push(&result, upd_i);
     }
     delete_ivector(&f_blast);
     delete_ivector(&idx_flat);
@@ -1774,16 +1804,28 @@ void preprocessor_pop(preprocessor_t* pre) {
   }
 }
 
+static value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, type_t tau, const value_t* leaves, uint32_t nleaves);
+
 static
-value_t build_value_from_flat(type_table_t* types, value_table_t* vtbl, type_t tau, const value_t* flat, uint32_t* idx) {
+value_t build_value_from_flat(preprocessor_t* pre, value_table_t* vtbl, type_t tau, const value_t* flat, uint32_t* idx) {
+  type_table_t* types = pre->terms->types;
+
   if (type_kind(types, tau) == TUPLE_TYPE) {
     tuple_type_t* tuple = tuple_type_desc(types, tau);
     uint32_t i, n = tuple->nelem;
     value_t elem[n];
     for (i = 0; i < n; ++i) {
-      elem[i] = build_value_from_flat(types, vtbl, tuple->elem[i], flat, idx);
+      elem[i] = build_value_from_flat(pre, vtbl, tuple->elem[i], flat, idx);
+      if (elem[i] == null_value) {
+        return null_value;
+      }
     }
     return vtbl_mk_tuple(vtbl, n, elem);
+  } else if (type_kind(types, tau) == FUNCTION_TYPE) {
+    uint32_t n = type_leaf_count(types, tau);
+    value_t v = merge_blasted_function_value(pre, vtbl, tau, flat + *idx, n);
+    *idx += n;
+    return v;
   } else {
     value_t v = flat[*idx];
     (*idx)++;
@@ -1898,12 +1940,18 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
     }
 
     idx = 0;
-    value_t out_val = build_value_from_flat(types, vtbl, codom, leaf_values, &idx);
+    value_t out_val = build_value_from_flat(pre, vtbl, codom, leaf_values, &idx);
+    if (out_val == null_value) {
+      goto done_orig_maps;
+    }
 
     value_t args_orig[fun->ndom];
     idx = 0;
     for (j = 0; j < fun->ndom; ++j) {
-      args_orig[j] = build_value_from_flat(types, vtbl, fun->domain[j], flat_args, &idx);
+      args_orig[j] = build_value_from_flat(pre, vtbl, fun->domain[j], flat_args, &idx);
+      if (args_orig[j] == null_value) {
+        goto done_orig_maps;
+      }
     }
     mapv = vtbl_mk_map(vtbl, fun->ndom, args_orig, out_val);
     ivector_push(&orig_maps, mapv);
@@ -1911,10 +1959,14 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
 
   {
     uint32_t idx = 0;
-    value_t def_val = build_value_from_flat(types, vtbl, codom, leaf_defaults, &idx);
+    value_t def_val = build_value_from_flat(pre, vtbl, codom, leaf_defaults, &idx);
+    if (def_val == null_value) {
+      goto done_orig_maps;
+    }
     result = vtbl_mk_function(vtbl, tau, orig_maps.size, (value_t*) orig_maps.data, def_val);
   }
 
+ done_orig_maps:
   delete_ivector(&orig_maps);
 
  done:
@@ -1973,8 +2025,10 @@ void preprocessor_build_tuple_model(preprocessor_t* pre, model_t* model) {
       }
     } else {
       uint32_t idx = 0;
-      value_t v = build_value_from_flat(types, vtbl, tau, leaf_vals, &idx);
-      model_map_term(model, atom, v);
+      value_t v = build_value_from_flat(pre, vtbl, tau, leaf_vals, &idx);
+      if (v >= 0) {
+        model_map_term(model, atom, v);
+      }
     }
 
     delete_ivector(&leaves);
