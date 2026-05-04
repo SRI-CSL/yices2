@@ -5,6 +5,8 @@
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <string.h>
 
 #include "yices.h"
 
@@ -13,8 +15,8 @@
 static context_t* make_mcsat_context(bool with_interpolation) {
   ctx_config_t* config = yices_new_config();
   assert(config != NULL);
-  assert(yices_default_config_for_logic(config, "QF_UFLIA") == 0);
   assert(yices_set_config(config, "solver-type", "mcsat") == 0);
+  assert(yices_set_config(config, "mode", "interactive") == 0);
   if (with_interpolation) {
     assert(yices_set_config(config, "model-interpolation", "true") == 0);
   }
@@ -338,6 +340,78 @@ static void test_tuple_function_component_with_tuple_domain(void) {
   yices_free_context(ctx);
 }
 
+static void assert_named_term_occurs_in_interpolant(term_t interpolant, const char* name) {
+  char* text = yices_term_to_string(interpolant, 1000, 100, 0);
+  assert(text != NULL);
+  if (strstr(text, name) == NULL) {
+    fprintf(stderr, "interpolant: %s\n", text);
+  }
+  assert(strstr(text, name) != NULL);
+  yices_free_string(text);
+}
+
+static void test_interpolant_with_tuple_function_component_range(void) {
+  context_t* ctx = make_mcsat_context(true);
+
+  type_t int_t = yices_int_type();
+  type_t bool_t = yices_bool_type();
+  type_t tuple_t = yices_tuple_type2(int_t, bool_t);
+  type_t fun_t = yices_function_type1(int_t, tuple_t);
+  type_t wrapper_t = yices_tuple_type2(fun_t, int_t);
+
+  term_t x = yices_new_uninterpreted_term(wrapper_t);
+  assert(yices_set_term_name(x, "tuple_fun_range") == 0);
+  term_t f = yices_select(1, x);
+  term_t out_children[2] = { yices_int32(3), yices_true() };
+  term_t out = yices_tuple(2, out_children);
+  term_t app = yices_application1(f, yices_int32(0));
+
+  term_t constraint = yices_eq(app, out);
+  assert(yices_assert_formula(ctx, constraint) == 0);
+
+  term_t assumption = yices_not(yices_arith_gt_atom(yices_select(1, app), yices_int32(2)));
+  smt_status_t status = yices_check_context_with_assumptions(ctx, NULL, 1, &assumption);
+  assert(status == YICES_STATUS_UNSAT);
+
+  term_t interpolant = yices_get_model_interpolant(ctx);
+  assert(interpolant != NULL_TERM);
+  assert(yices_term_is_bool(interpolant));
+  assert_named_term_occurs_in_interpolant(interpolant, "tuple_fun_range");
+
+  yices_free_context(ctx);
+}
+
+static void test_interpolant_with_tuple_function_component_domain(void) {
+  context_t* ctx = make_mcsat_context(true);
+
+  type_t int_t = yices_int_type();
+  type_t bool_t = yices_bool_type();
+  type_t tuple_t = yices_tuple_type2(int_t, bool_t);
+  type_t fun_t = yices_function_type1(tuple_t, int_t);
+  type_t wrapper_t = yices_tuple_type2(fun_t, int_t);
+
+  term_t x = yices_new_uninterpreted_term(wrapper_t);
+  assert(yices_set_term_name(x, "tuple_fun_domain") == 0);
+  term_t f = yices_select(1, x);
+  term_t arg_children[2] = { yices_int32(2), yices_false() };
+  term_t arg = yices_tuple(2, arg_children);
+  term_t app = yices_application1(f, arg);
+
+  term_t constraint = yices_arith_eq_atom(app, yices_int32(5));
+  assert(yices_assert_formula(ctx, constraint) == 0);
+
+  term_t assumption = yices_not(yices_arith_gt_atom(app, yices_int32(4)));
+  smt_status_t status = yices_check_context_with_assumptions(ctx, NULL, 1, &assumption);
+  assert(status == YICES_STATUS_UNSAT);
+
+  term_t interpolant = yices_get_model_interpolant(ctx);
+  assert(interpolant != NULL_TERM);
+  assert(yices_term_is_bool(interpolant));
+  assert_named_term_occurs_in_interpolant(interpolant, "tuple_fun_domain");
+
+  yices_free_context(ctx);
+}
+
 int main(void) {
   if (!yices_has_mcsat()) {
     return 1; // skipped
@@ -352,6 +426,8 @@ int main(void) {
   test_unsat_and_interpolant_with_tuple_function();
   test_tuple_function_component_with_tuple_range();
   test_tuple_function_component_with_tuple_domain();
+  test_interpolant_with_tuple_function_component_range();
+  test_interpolant_with_tuple_function_component_domain();
 
   yices_exit();
   return 0;

@@ -245,6 +245,8 @@ void tuple_blast_get(preprocessor_t* pre, term_t t, ivector_t* out) {
 
 static
 void tuple_blast_term(preprocessor_t* pre, term_t t);
+static composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t);
+static term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* children);
 
 static
 void tuple_blast_collect_arg(preprocessor_t* pre, term_t t, ivector_t* out) {
@@ -474,6 +476,13 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
       }
       ivector_push(&result, mk_ite(tm, c_blast.data[0], t_blast.data[i], e_blast.data[i], ty));
     }
+    if (result.size == 1 &&
+        c_blast.data[0] == ite->arg[0] &&
+        t_blast.data[0] == ite->arg[1] &&
+        e_blast.data[0] == ite->arg[2]) {
+      ivector_reset(&result);
+      ivector_push(&result, t);
+    }
     delete_ivector(&c_blast);
     delete_ivector(&t_blast);
     delete_ivector(&e_blast);
@@ -485,12 +494,23 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
     ivector_t f_blast;
     ivector_t args_flat;
     uint32_t i;
+    bool changed;
     tuple_blast_term(pre, app->arg[0]);
     init_ivector(&f_blast, 0);
     tuple_blast_get(pre, app->arg[0], &f_blast);
     init_ivector(&args_flat, 0);
     for (i = 1; i < app->arity; ++i) {
       tuple_blast_collect_arg(pre, app->arg[i], &args_flat);
+    }
+    changed = f_blast.size != 1 || f_blast.data[0] != app->arg[0] || args_flat.size != app->arity - 1;
+    for (i = 1; !changed && i < app->arity; ++i) {
+      changed = args_flat.data[i - 1] != app->arg[i];
+    }
+    if (!changed) {
+      ivector_push(&result, t);
+      delete_ivector(&args_flat);
+      delete_ivector(&f_blast);
+      break;
     }
     for (i = 0; i < f_blast.size; ++i) {
       term_t app_i = mk_application(tm, f_blast.data[i], args_flat.size, args_flat.data);
@@ -513,6 +533,7 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
     ivector_t idx_flat;
     ivector_t v_blast;
     uint32_t i;
+    bool changed;
     tuple_blast_term(pre, upd->arg[0]);
     init_ivector(&f_blast, 0);
     tuple_blast_get(pre, upd->arg[0], &f_blast);
@@ -529,6 +550,18 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
       delete_ivector(&v_blast);
       delete_ivector(&result);
       longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+    }
+    changed = f_blast.size != 1 || f_blast.data[0] != upd->arg[0] || idx_flat.size != upd->arity - 2 ||
+              v_blast.size != 1 || v_blast.data[0] != upd->arg[upd->arity - 1];
+    for (i = 1; !changed && i + 1 < upd->arity; ++i) {
+      changed = idx_flat.data[i - 1] != upd->arg[i];
+    }
+    if (!changed) {
+      ivector_push(&result, t);
+      delete_ivector(&f_blast);
+      delete_ivector(&idx_flat);
+      delete_ivector(&v_blast);
+      break;
     }
     for (i = 0; i < f_blast.size; ++i) {
       term_t vi = v_blast.size == 1 ? v_blast.data[0] : v_blast.data[i];
@@ -570,6 +603,194 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
     }
     ivector_push(&result, kind == OR_TERM ? mk_or(tm, args.size, args.data) : mk_xor(tm, args.size, args.data));
     delete_ivector(&args);
+    break;
+  }
+
+  case POWER_PRODUCT: {
+    pprod_t* pp = pprod_term_desc(terms, t);
+    term_t args[pp->len];
+    uint32_t i;
+    bool changed = false;
+
+    for (i = 0; i < pp->len; ++i) {
+      ivector_t child;
+      tuple_blast_term(pre, pp->prod[i].var);
+      init_ivector(&child, 0);
+      tuple_blast_get(pre, pp->prod[i].var, &child);
+      if (child.size != 1) {
+        delete_ivector(&child);
+        delete_ivector(&result);
+        longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+      }
+      args[i] = child.data[0];
+      changed |= args[i] != pp->prod[i].var;
+      delete_ivector(&child);
+    }
+    ivector_push(&result, changed ? mk_pprod(tm, pp, pp->len, args) : t);
+    break;
+  }
+
+  case ARITH_POLY: {
+    polynomial_t* p = poly_term_desc(terms, t);
+    term_t args[p->nterms];
+    uint32_t i;
+    bool changed = false;
+
+    for (i = 0; i < p->nterms; ++i) {
+      term_t x = p->mono[i].var;
+      if (x == const_idx) {
+        args[i] = const_idx;
+      } else {
+        ivector_t child;
+        tuple_blast_term(pre, x);
+        init_ivector(&child, 0);
+        tuple_blast_get(pre, x, &child);
+        if (child.size != 1) {
+          delete_ivector(&child);
+          delete_ivector(&result);
+          longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+        }
+        args[i] = child.data[0];
+        changed |= args[i] != x;
+        delete_ivector(&child);
+      }
+    }
+    ivector_push(&result, changed ? mk_arith_poly(tm, p, p->nterms, args) : t);
+    break;
+  }
+
+  case ARITH_FF_POLY: {
+    polynomial_t* p = finitefield_poly_term_desc(terms, t);
+    const rational_t* mod = finitefield_term_order(terms, t);
+    term_t args[p->nterms];
+    uint32_t i;
+    bool changed = false;
+
+    for (i = 0; i < p->nterms; ++i) {
+      term_t x = p->mono[i].var;
+      if (x == const_idx) {
+        args[i] = const_idx;
+      } else {
+        ivector_t child;
+        tuple_blast_term(pre, x);
+        init_ivector(&child, 0);
+        tuple_blast_get(pre, x, &child);
+        if (child.size != 1) {
+          delete_ivector(&child);
+          delete_ivector(&result);
+          longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+        }
+        args[i] = child.data[0];
+        changed |= args[i] != x;
+        delete_ivector(&child);
+      }
+    }
+    ivector_push(&result, changed ? mk_arith_ff_poly(tm, p, p->nterms, args, mod) : t);
+    break;
+  }
+
+  case BV64_POLY: {
+    bvpoly64_t* p = bvpoly64_term_desc(terms, t);
+    term_t args[p->nterms];
+    uint32_t i;
+    bool changed = false;
+
+    for (i = 0; i < p->nterms; ++i) {
+      term_t x = p->mono[i].var;
+      if (x == const_idx) {
+        args[i] = const_idx;
+      } else {
+        ivector_t child;
+        tuple_blast_term(pre, x);
+        init_ivector(&child, 0);
+        tuple_blast_get(pre, x, &child);
+        if (child.size != 1) {
+          delete_ivector(&child);
+          delete_ivector(&result);
+          longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+        }
+        args[i] = child.data[0];
+        changed |= args[i] != x;
+        delete_ivector(&child);
+      }
+    }
+    ivector_push(&result, changed ? mk_bvarith64_poly(tm, p, p->nterms, args) : t);
+    break;
+  }
+
+  case BV_POLY: {
+    bvpoly_t* p = bvpoly_term_desc(terms, t);
+    term_t args[p->nterms];
+    uint32_t i;
+    bool changed = false;
+
+    for (i = 0; i < p->nterms; ++i) {
+      term_t x = p->mono[i].var;
+      if (x == const_idx) {
+        args[i] = const_idx;
+      } else {
+        ivector_t child;
+        tuple_blast_term(pre, x);
+        init_ivector(&child, 0);
+        tuple_blast_get(pre, x, &child);
+        if (child.size != 1) {
+          delete_ivector(&child);
+          delete_ivector(&result);
+          longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+        }
+        args[i] = child.data[0];
+        changed |= args[i] != x;
+        delete_ivector(&child);
+      }
+    }
+    ivector_push(&result, changed ? mk_bvarith_poly(tm, p, p->nterms, args) : t);
+    break;
+  }
+
+  case ARITH_EQ_ATOM:
+  case ARITH_GE_ATOM:
+  case ARITH_BINEQ_ATOM:
+  case ARITH_RDIV:
+  case ARITH_IDIV:
+  case ARITH_MOD:
+  case BV_ARRAY:
+  case BV_DIV:
+  case BV_REM:
+  case BV_SDIV:
+  case BV_SREM:
+  case BV_SMOD:
+  case BV_SHL:
+  case BV_LSHR:
+  case BV_ASHR:
+  case BV_EQ_ATOM:
+  case BV_GE_ATOM:
+  case BV_SGE_ATOM: {
+    composite_term_t* c = get_composite(terms, kind, t);
+    term_t args[c->arity];
+    uint32_t i;
+    bool changed = false;
+
+    for (i = 0; i < c->arity; ++i) {
+      ivector_t child;
+      tuple_blast_term(pre, c->arg[i]);
+      init_ivector(&child, 0);
+      tuple_blast_get(pre, c->arg[i], &child);
+      if (child.size != 1) {
+        delete_ivector(&child);
+        delete_ivector(&result);
+        longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+      }
+      args[i] = child.data[0];
+      changed |= args[i] != c->arg[i];
+      delete_ivector(&child);
+    }
+
+    term_t rebuilt = changed ? mk_composite(pre, kind, c->arity, args) : t;
+    if (rebuilt == NULL_TERM) {
+      delete_ivector(&result);
+      longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+    }
+    ivector_push(&result, rebuilt);
     break;
   }
 
@@ -1913,17 +2134,32 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
     if (!object_is_function(vtbl, leaves[i]) && !object_is_update(vtbl, leaves[i])) {
       goto done;
     }
-    vtbl_expand_update(vtbl, leaves[i], &def, &leaf_tau);
-    leaf_defaults[i] = def;
-    if (vtbl->hset1 != NULL) {
-      ivector_add(&leaf_maps[i], (int32_t*) vtbl->hset1->data, vtbl->hset1->nelems);
-      for (j = 0; j < vtbl->hset1->nelems; ++j) {
-        value_map_t* map = vtbl_map(vtbl, vtbl->hset1->data[j]);
-        if (map->arity != flat_n) {
-          goto done;
+    if (object_is_update(vtbl, leaves[i])) {
+      vtbl_expand_update(vtbl, leaves[i], &def, &leaf_tau);
+      leaf_defaults[i] = def;
+      if (vtbl->hset1 != NULL) {
+        ivector_add(&leaf_maps[i], (int32_t*) vtbl->hset1->data, vtbl->hset1->nelems);
+        for (j = 0; j < vtbl->hset1->nelems; ++j) {
+          value_map_t* map = vtbl_map(vtbl, vtbl->hset1->data[j]);
+          if (map->arity != flat_n) {
+            goto done;
+          }
+          add_unique_flat_args(&unique_offsets, &unique_args, map->arg, flat_n);
         }
-        add_unique_flat_args(&unique_offsets, &unique_args, map->arg, flat_n);
       }
+      continue;
+    }
+    value_fun_t* fun_value = vtbl_function(vtbl, leaves[i]);
+    def = fun_value->def;
+    leaf_tau = fun_value->type;
+    leaf_defaults[i] = def;
+    ivector_add(&leaf_maps[i], (int32_t*) fun_value->map, fun_value->map_size);
+    for (j = 0; j < fun_value->map_size; ++j) {
+      value_map_t* map = vtbl_map(vtbl, fun_value->map[j]);
+      if (map->arity != flat_n) {
+        goto done;
+      }
+      add_unique_flat_args(&unique_offsets, &unique_args, map->arg, flat_n);
     }
   }
 
@@ -2035,36 +2271,171 @@ void preprocessor_build_tuple_model(preprocessor_t* pre, model_t* model) {
   }
 }
 
+static term_t build_term_from_flat(preprocessor_t* pre, type_t tau, const term_t* flat, uint32_t* idx);
+static void collect_flat_leaf_terms(preprocessor_t* pre, term_t base, type_t tau, ivector_t* out);
+
 static
-void collect_tuple_leaf_terms(preprocessor_t* pre, term_t base, type_t tau, ivector_t* out) {
-  type_table_t* types = pre->terms->types;
-  if (type_kind(types, tau) == TUPLE_TYPE) {
-    tuple_type_t* tuple = tuple_type_desc(types, tau);
-    uint32_t i;
-    for (i = 0; i < tuple->nelem; ++i) {
-      term_t child = mk_select(&pre->tm, i, base);
-      collect_tuple_leaf_terms(pre, child, tuple->elem[i], out);
-    }
-  } else {
-    ivector_push(out, base);
+term_t merge_blasted_function_term(preprocessor_t* pre, type_t tau, const term_t* leaves, uint32_t nleaves) {
+  term_table_t* terms = pre->terms;
+  type_table_t* types = terms->types;
+  function_type_t* fun = function_type_desc(types, tau);
+  uint32_t i, idx;
+  term_t result = NULL_TERM;
+  term_t vars[fun->ndom];
+  ivector_t flat_args;
+
+  assert(type_kind(types, tau) == FUNCTION_TYPE);
+  assert(nleaves == type_leaf_count(types, tau));
+
+  for (i = 0; i < fun->ndom; ++i) {
+    vars[i] = new_variable(terms, fun->domain[i]);
   }
+
+  init_ivector(&flat_args, 0);
+  for (i = 0; i < fun->ndom; ++i) {
+    collect_flat_leaf_terms(pre, vars[i], fun->domain[i], &flat_args);
+  }
+
+  term_t leaf_apps[nleaves];
+  for (i = 0; i < nleaves; ++i) {
+    leaf_apps[i] = mk_application(&pre->tm, leaves[i], flat_args.size, (term_t*) flat_args.data);
+    if (leaf_apps[i] == NULL_TERM) {
+      goto done;
+    }
+  }
+
+  idx = 0;
+  term_t body = build_term_from_flat(pre, fun->range, leaf_apps, &idx);
+  if (body == NULL_TERM || idx != nleaves) {
+    goto done;
+  }
+
+  result = mk_lambda(&pre->tm, fun->ndom, vars, body);
+
+ done:
+  delete_ivector(&flat_args);
+  return result;
 }
 
 static
 term_t build_term_from_flat(preprocessor_t* pre, type_t tau, const term_t* flat, uint32_t* idx) {
   type_table_t* types = pre->terms->types;
-  if (type_kind(types, tau) == TUPLE_TYPE) {
+  switch (type_kind(types, tau)) {
+  case TUPLE_TYPE: {
     tuple_type_t* tuple = tuple_type_desc(types, tau);
     uint32_t i, n = tuple->nelem;
     term_t elem[n];
     for (i = 0; i < n; ++i) {
       elem[i] = build_term_from_flat(pre, tuple->elem[i], flat, idx);
+      if (elem[i] == NULL_TERM) {
+        return NULL_TERM;
+      }
     }
     return mk_tuple(&pre->tm, n, elem);
-  } else {
+  }
+
+  case FUNCTION_TYPE: {
+    uint32_t n = type_leaf_count(types, tau);
+    term_t f = merge_blasted_function_term(pre, tau, flat + *idx, n);
+    *idx += n;
+    return f;
+  }
+
+  default: {
     term_t t = flat[*idx];
     (*idx)++;
     return t;
+  }
+  }
+}
+
+static
+term_t mk_unblasted_function_leaf_lambda(preprocessor_t* pre, term_t atom, uint32_t leaf_i, type_t leaf_type) {
+  term_table_t* terms = pre->terms;
+  type_table_t* types = terms->types;
+  function_type_t* atom_fun = function_type_desc(types, term_type(terms, atom));
+  function_type_t* leaf_fun = function_type_desc(types, leaf_type);
+  uint32_t flat_n = leaf_fun->ndom;
+  uint32_t i, idx;
+  term_t flat_vars[flat_n];
+  term_t orig_args[atom_fun->ndom];
+  term_t app;
+  term_t body = NULL_TERM;
+  term_t result = NULL_TERM;
+  ivector_t codom_leaves;
+
+  for (i = 0; i < flat_n; ++i) {
+    flat_vars[i] = new_variable(terms, leaf_fun->domain[i]);
+  }
+
+  idx = 0;
+  for (i = 0; i < atom_fun->ndom; ++i) {
+    orig_args[i] = build_term_from_flat(pre, atom_fun->domain[i], flat_vars, &idx);
+    if (orig_args[i] == NULL_TERM) {
+      return NULL_TERM;
+    }
+  }
+  assert(idx == flat_n);
+
+  app = mk_application(&pre->tm, atom, atom_fun->ndom, orig_args);
+  if (app == NULL_TERM) {
+    return NULL_TERM;
+  }
+
+  init_ivector(&codom_leaves, 0);
+  collect_flat_leaf_terms(pre, app, atom_fun->range, &codom_leaves);
+  if (leaf_i < codom_leaves.size) {
+    body = codom_leaves.data[leaf_i];
+  }
+  if (body != NULL_TERM) {
+    result = mk_lambda(&pre->tm, flat_n, flat_vars, body);
+  }
+  delete_ivector(&codom_leaves);
+
+  return result;
+}
+
+static
+void collect_function_leaf_terms(preprocessor_t* pre, term_t base, type_t tau, ivector_t* out) {
+  type_table_t* types = pre->terms->types;
+  ivector_t leaf_types;
+  uint32_t i;
+
+  assert(type_kind(types, tau) == FUNCTION_TYPE);
+
+  init_ivector(&leaf_types, 0);
+  function_type_collect_blasted(types, tau, &leaf_types);
+  for (i = 0; i < leaf_types.size; ++i) {
+    term_t leaf = mk_unblasted_function_leaf_lambda(pre, base, i, leaf_types.data[i]);
+    if (leaf != NULL_TERM) {
+      ivector_push(out, leaf);
+    }
+  }
+  delete_ivector(&leaf_types);
+}
+
+static
+void collect_flat_leaf_terms(preprocessor_t* pre, term_t base, type_t tau, ivector_t* out) {
+  type_table_t* types = pre->terms->types;
+
+  switch (type_kind(types, tau)) {
+  case TUPLE_TYPE: {
+    tuple_type_t* tuple = tuple_type_desc(types, tau);
+    uint32_t i;
+    for (i = 0; i < tuple->nelem; ++i) {
+      term_t child = mk_select(&pre->tm, i, base);
+      collect_flat_leaf_terms(pre, child, tuple->elem[i], out);
+    }
+    break;
+  }
+
+  case FUNCTION_TYPE:
+    collect_function_leaf_terms(pre, base, tau, out);
+    break;
+
+  default:
+    ivector_push(out, base);
+    break;
   }
 }
 
@@ -2079,42 +2450,8 @@ bool substitution_has_var(const ivector_t* vars, term_t x) {
   return false;
 }
 
-static
-term_t mk_unblasted_function_leaf_lambda(preprocessor_t* pre, term_t atom, uint32_t leaf_i, term_t leaf_var) {
-  term_table_t* terms = pre->terms;
-  type_table_t* types = terms->types;
-  function_type_t* atom_fun = function_type_desc(types, term_type(terms, atom));
-  function_type_t* leaf_fun = function_type_desc(types, term_type(terms, leaf_var));
-  uint32_t flat_n = leaf_fun->ndom;
-  uint32_t i, idx;
-  term_t flat_vars[flat_n];
-  term_t orig_args[atom_fun->ndom];
-  term_t app;
-  ivector_t codom_leaves;
-
-  for (i = 0; i < flat_n; ++i) {
-    flat_vars[i] = new_variable(terms, leaf_fun->domain[i]);
-  }
-
-  idx = 0;
-  for (i = 0; i < atom_fun->ndom; ++i) {
-    orig_args[i] = build_term_from_flat(pre, atom_fun->domain[i], flat_vars, &idx);
-  }
-  assert(idx == flat_n);
-
-  app = mk_application(&pre->tm, atom, atom_fun->ndom, orig_args);
-  init_ivector(&codom_leaves, 0);
-  collect_tuple_leaf_terms(pre, app, atom_fun->range, &codom_leaves);
-  assert(leaf_i < codom_leaves.size);
-  term_t body = codom_leaves.data[leaf_i];
-  delete_ivector(&codom_leaves);
-
-  return mk_lambda(&pre->tm, flat_n, flat_vars, body);
-}
-
 term_t preprocessor_unblast_term(preprocessor_t* pre, term_t t) {
   term_table_t* terms = pre->terms;
-  type_table_t* types = terms->types;
   ivector_t vars, maps;
   ivector_t leaves, accessors;
   uint32_t i, j;
@@ -2133,32 +2470,19 @@ term_t preprocessor_unblast_term(preprocessor_t* pre, term_t t) {
     term_t atom = pre->tuple_blast_atoms.data[i];
     type_t atom_type = term_type(terms, atom);
     tuple_blast_get(pre, atom, &leaves);
-    if (type_kind(types, atom_type) == TUPLE_TYPE) {
-      ivector_reset(&accessors);
-      collect_tuple_leaf_terms(pre, atom, atom_type, &accessors);
-      if (leaves.size != accessors.size) {
-        continue;
-      }
-      for (j = 0; j < leaves.size; ++j) {
-        term_t x = leaves.data[j];
-        term_t u = accessors.data[j];
-        term_kind_t k = term_kind(terms, x);
-        bool is_var = (k == UNINTERPRETED_TERM || k == VARIABLE);
-        if (x != u && is_var && !substitution_has_var(&vars, x)) {
-          ivector_push(&vars, x);
-          ivector_push(&maps, u);
-        }
-      }
-    } else if (type_kind(types, atom_type) == FUNCTION_TYPE) {
-      for (j = 0; j < leaves.size; ++j) {
-        term_t x = leaves.data[j];
-        term_kind_t k = term_kind(terms, x);
-        bool is_var = (k == UNINTERPRETED_TERM || k == VARIABLE);
-        if (is_var && !substitution_has_var(&vars, x)) {
-          term_t u = mk_unblasted_function_leaf_lambda(pre, atom, j, x);
-          ivector_push(&vars, x);
-          ivector_push(&maps, u);
-        }
+    ivector_reset(&accessors);
+    collect_flat_leaf_terms(pre, atom, atom_type, &accessors);
+    if (leaves.size != accessors.size) {
+      continue;
+    }
+    for (j = 0; j < leaves.size; ++j) {
+      term_t x = leaves.data[j];
+      term_t u = accessors.data[j];
+      term_kind_t k = term_kind(terms, x);
+      bool is_var = (k == UNINTERPRETED_TERM || k == VARIABLE);
+      if (x != u && is_var && !substitution_has_var(&vars, x)) {
+        ivector_push(&vars, x);
+        ivector_push(&maps, u);
       }
     }
   }
@@ -2181,8 +2505,6 @@ term_t preprocessor_unblast_term(preprocessor_t* pre, term_t t) {
 }
 
 void preprocessor_build_model(preprocessor_t* pre, model_t* model) {
-  preprocessor_build_tuple_model(pre, model);
-
   uint32_t i = 0;
   for (i = 0; i < pre->equalities_list.size; ++ i) {
     term_t eq = pre->equalities_list.data[i];
@@ -2213,6 +2535,8 @@ void preprocessor_build_model(preprocessor_t* pre, model_t* model) {
       model_add_substitution(model, eq_var, zero_term);
     }
   }
+
+  preprocessor_build_tuple_model(pre, model);
 }
 
 
