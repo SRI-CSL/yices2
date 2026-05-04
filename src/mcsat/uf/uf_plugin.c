@@ -661,8 +661,7 @@ typedef struct {
 
 
 static
-int32_t uf_plugin_get_function_id_from_trail(term_table_t* terms, variable_db_t* var_db, const mcsat_trail_t* trail, term_t t) {
-  int32_t id;
+bool uf_plugin_get_function_id_from_trail(term_table_t* terms, variable_db_t* var_db, const mcsat_trail_t* trail, term_t t, int32_t* id) {
   variable_t t_var = variable_db_get_variable_if_exists(var_db, t);
   assert(t_var != variable_null);
   assert(trail_has_value(trail, t_var));
@@ -670,16 +669,23 @@ int32_t uf_plugin_get_function_id_from_trail(term_table_t* terms, variable_db_t*
   const mcsat_value_t* t_value = trail_get_value(trail, t_var);
   assert(t_value->type == VALUE_RATIONAL);
 
-  bool ok = q_get32((rational_t*) &t_value->q, &id);
-  (void) ok;
-  assert(ok);
+  bool ok = q_get32((rational_t*) &t_value->q, id);
+  if (!ok) {
+    // Function ids are allocated as small non-negative integers by
+    // uf_plugin_decide; overflow into an unrepresentable rational would
+    // indicate a serious internal inconsistency. Assert in debug; in release
+    // builds, report failure so callers don't collapse unrelated overflowed
+    // ids into one sentinel hashmap key.
+    assert(false);
+    return false;
+  }
 
-  return id;
+  return true;
 }
 
 static
-int32_t uf_plugin_get_function_id(uf_plugin_t* uf, term_t t) {
-  return uf_plugin_get_function_id_from_trail(uf->ctx->terms, uf->ctx->var_db, uf->ctx->trail, t);
+bool uf_plugin_get_function_id(uf_plugin_t* uf, term_t t, int32_t* id) {
+  return uf_plugin_get_function_id_from_trail(uf->ctx->terms, uf->ctx->var_db, uf->ctx->trail, t, id);
 }
 
 
@@ -689,8 +695,12 @@ bool uf_plugin_build_app_model_compare(void *data, term_t t1, term_t t2) {
   model_sort_data_t* ctx = (model_sort_data_t*) data;
   term_t t1_fun = app_term_desc(ctx->terms, t1)->arg[0];
   term_t t2_fun = app_term_desc(ctx->terms, t2)->arg[0];
-  int32_t t1_fun_id = uf_plugin_get_function_id_from_trail(ctx->terms, ctx->var_db, ctx->trail, t1_fun);
-  int32_t t2_fun_id = uf_plugin_get_function_id_from_trail(ctx->terms, ctx->var_db, ctx->trail, t2_fun);
+  int32_t t1_fun_id, t2_fun_id;
+
+  if (!uf_plugin_get_function_id_from_trail(ctx->terms, ctx->var_db, ctx->trail, t1_fun, &t1_fun_id) ||
+      !uf_plugin_get_function_id_from_trail(ctx->terms, ctx->var_db, ctx->trail, t2_fun, &t2_fun_id)) {
+    return t1 < t2;
+  }
 
   if (t1_fun_id != t2_fun_id) {
     return t1_fun_id < t2_fun_id;
@@ -712,6 +722,10 @@ bool uf_plugin_build_special_model_compare(void *data, term_t t1, term_t t2) {
   return t1 < t2;
 }
 
+// Returns the function type for an application-shaped term whose kind is
+// app_kind. For APP_TERM/UPDATE_TERM the type is read from the head term f;
+// for div/mod it is the well-known one-argument arithmetic function type and
+// f is unused. Callers in the div/mod branches may pass NULL_TERM for f.
 static inline
 type_t get_function_application_type(term_table_t* terms, term_kind_t app_kind, term_t f) {
 
@@ -722,6 +736,7 @@ type_t get_function_application_type(term_table_t* terms, term_kind_t app_kind, 
   switch (app_kind) {
   case UPDATE_TERM:
   case APP_TERM:
+    assert(f != NULL_TERM);
     return term_type(terms, f);
   case ARITH_RDIV:
     return function_type(types, reals, 1, &reals);
@@ -803,7 +818,10 @@ void uf_model_builder_remember_function_term(uf_model_builder_t* builder, term_t
     return;
   }
 
-  function_id = uf_plugin_get_function_id(builder->uf, t);
+  if (!uf_plugin_get_function_id(builder->uf, t, &function_id)) {
+    return;
+  }
+
   find = int_hmap_get(&builder->function_term, function_id);
 
   if (find->val < 0 || term_kind(terms, find->val) != UNINTERPRETED_TERM) {
@@ -825,7 +843,10 @@ value_t uf_model_builder_get_function_value(uf_model_builder_t* builder, term_t 
 
   assert(term_type_kind(terms, t) == FUNCTION_TYPE);
 
-  function_id = uf_plugin_get_function_id(builder->uf, t);
+  if (!uf_plugin_get_function_id(builder->uf, t, &function_id)) {
+    return null_value;
+  }
+
   uf_model_builder_remember_function_term(builder, t);
 
   find = int_hmap_get(&builder->function_value, function_id);
@@ -839,16 +860,33 @@ value_t uf_model_builder_get_function_value(uf_model_builder_t* builder, term_t 
   type_t fun_type = term_type(terms, fun_term);
   f_value = make_fresh_function(&builder->maker, fun_type);
   if (f_value == null_value) {
-    // No fresh function of this type available (only possible for finite domains).
-    // Fall back to a default-constructed function value so we still return something valid.
-    f_value = vtbl_mk_function(builder->vtbl, fun_type, 0, NULL,
-                               vtbl_mk_default(builder->vtbl,
-                                               function_type_range(terms->types, fun_type)));
+    // Unreachable on supported inputs: the MCSAT preprocessor guard
+    // (term_needs_function_diseq_guard in mcsat/preprocessor.c) rejects
+    // equality atoms whose type contains a finite-domain function sort, so
+    // make_fresh_function should always succeed for any function type that
+    // reaches model construction. If we ever reach here, the guard has a
+    // hole; fail closed rather than silently constructing a collapsing
+    // default function value.
+    assert(false && "unreachable: preprocessor guard should have rejected this type");
+    delete_ivector(&arguments);
+    return null_value;
   }
 
-  // Cache the fresh base function first to avoid recursing forever on cyclic heads.
-  // NOTE: this write must happen before any recursion below, because recursive
-  // calls may reach back to the same function_id.
+  // Cache the fresh base function first to handle recursive calls that come
+  // back to the same function_id. Such cycles arise when an application
+  // ((t x) ...) has an argument or result whose mcsat-trail function id
+  // coincides with t's function id (rare but possible). The cached value at
+  // that point is the bare fresh base, without the updates that this call is
+  // still in the middle of applying.
+  //
+  // KNOWN LIMITATION: if such a cycle occurs, the inner call returns a
+  // partial function value, and any value_t built from that view (e.g., as
+  // an argument or result of vtbl_mk_update below) encodes the partial,
+  // pre-update view rather than the final updated function. The model
+  // emitted on such inputs is best-effort and may not be extensional on the
+  // self-referential pair. Without a visited-set + theory-conflict path,
+  // this is the cheapest cycle break we can make. Avoiding the cache write
+  // here would loop indefinitely.
   find->val = f_value;
   find = NULL; // invalidated once we recurse (int_hmap_get may resize the table)
 
@@ -858,7 +896,9 @@ value_t uf_model_builder_get_function_value(uf_model_builder_t* builder, term_t 
       term_t app_term = builder->app_terms.data[i];
       composite_term_t* app_desc = app_term_desc(terms, app_term);
 
-      if (uf_plugin_get_function_id(builder->uf, app_desc->arg[0]) != function_id) {
+      int32_t app_function_id;
+      if (!uf_plugin_get_function_id(builder->uf, app_desc->arg[0], &app_function_id) ||
+          app_function_id != function_id) {
         break;
       }
 
@@ -918,7 +958,11 @@ void uf_model_builder_prepare(uf_model_builder_t* builder) {
   for (i = 0; i < builder->app_terms.size; ++ i) {
     term_t app_term = builder->app_terms.data[i];
     composite_term_t* app_desc = app_term_desc(terms, app_term);
-    int32_t function_id = uf_plugin_get_function_id(builder->uf, app_desc->arg[0]);
+    int32_t function_id;
+    if (!uf_plugin_get_function_id(builder->uf, app_desc->arg[0], &function_id)) {
+      continue;
+    }
+
     int_hmap_pair_t* first = int_hmap_get(&builder->app_term_first, function_id);
     if (first->val < 0) {
       first->val = i;
@@ -949,8 +993,12 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
     term_t x_term = variable_db_get_term(var_db, x);
     if (term_kind(terms, x_term) == UNINTERPRETED_TERM &&
         term_type_kind(terms, x_term) == FUNCTION_TYPE) {
+      value_t x_value;
       uf_model_builder_remember_function_term(&builder, x_term);
-      model_map_term(model, x_term, uf_model_builder_get_function_value(&builder, x_term));
+      x_value = uf_model_builder_get_function_value(&builder, x_term);
+      if (x_value != null_value) {
+        model_map_term(model, x_term, x_value);
+      }
     }
   }
 
