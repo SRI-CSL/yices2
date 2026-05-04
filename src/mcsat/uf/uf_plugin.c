@@ -676,8 +676,10 @@ bool uf_plugin_get_function_id_from_trail(term_table_t* terms, variable_db_t* va
     // indicate a serious internal inconsistency. Assert in debug; in release
     // builds, report failure so callers don't collapse unrelated overflowed
     // ids into one sentinel hashmap key.
+    // LCOV_EXCL_START - unreachable on supported inputs
     assert(false);
     return false;
+    // LCOV_EXCL_STOP
   }
 
   return true;
@@ -699,7 +701,7 @@ bool uf_plugin_build_app_model_compare(void *data, term_t t1, term_t t2) {
 
   if (!uf_plugin_get_function_id_from_trail(ctx->terms, ctx->var_db, ctx->trail, t1_fun, &t1_fun_id) ||
       !uf_plugin_get_function_id_from_trail(ctx->terms, ctx->var_db, ctx->trail, t2_fun, &t2_fun_id)) {
-    return t1 < t2;
+    return t1 < t2;  // LCOV_EXCL_LINE - defensive fallback, unreachable on supported inputs
   }
 
   if (t1_fun_id != t2_fun_id) {
@@ -819,7 +821,7 @@ void uf_model_builder_remember_function_term(uf_model_builder_t* builder, term_t
   }
 
   if (!uf_plugin_get_function_id(builder->uf, t, &function_id)) {
-    return;
+    return;  // LCOV_EXCL_LINE - defensive fallback, unreachable on supported inputs
   }
 
   find = int_hmap_get(&builder->function_term, function_id);
@@ -844,7 +846,7 @@ value_t uf_model_builder_get_function_value(uf_model_builder_t* builder, term_t 
   assert(term_type_kind(terms, t) == FUNCTION_TYPE);
 
   if (!uf_plugin_get_function_id(builder->uf, t, &function_id)) {
-    return null_value;
+    return null_value;  // LCOV_EXCL_LINE - defensive fallback, unreachable on supported inputs
   }
 
   uf_model_builder_remember_function_term(builder, t);
@@ -867,9 +869,11 @@ value_t uf_model_builder_get_function_value(uf_model_builder_t* builder, term_t 
     // reaches model construction. If we ever reach here, the guard has a
     // hole; fail closed rather than silently constructing a collapsing
     // default function value.
+    // LCOV_EXCL_START - unreachable, rejected by preprocessor guard
     assert(false && "unreachable: preprocessor guard should have rejected this type");
     delete_ivector(&arguments);
     return null_value;
+    // LCOV_EXCL_STOP
   }
 
   // Cache the fresh base function first to handle recursive calls that come
@@ -960,7 +964,7 @@ void uf_model_builder_prepare(uf_model_builder_t* builder) {
     composite_term_t* app_desc = app_term_desc(terms, app_term);
     int32_t function_id;
     if (!uf_plugin_get_function_id(builder->uf, app_desc->arg[0], &function_id)) {
-      continue;
+      continue;  // LCOV_EXCL_LINE - defensive fallback, unreachable on supported inputs
     }
 
     int_hmap_pair_t* first = int_hmap_get(&builder->app_term_first, function_id);

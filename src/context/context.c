@@ -2606,7 +2606,7 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
           } else {
             // If root is already mapped, it must map to the same egraph
             // occurrence we are about to return for the unit-type rep.
-            assert(intern_tbl_map_of_root(&ctx->intern, root) == occ2code(u));
+            assert(intern_tbl_map_of_root(&ctx->intern, root) == occ2code(u));  // LCOV_EXCL_LINE - consistency check, unreachable on well-formed inputs
           }
         }
         return u ^ polarity;
@@ -2798,7 +2798,7 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
       // If root was mapped during the recursive internalization of r (e.g.,
       // because root was reached as a sub-term), the mapping must agree
       // with the occurrence we are about to return.
-      assert(intern_tbl_map_of_root(&ctx->intern, root) == occ2code(u));
+      assert(intern_tbl_map_of_root(&ctx->intern, root) == occ2code(u));  // LCOV_EXCL_LINE - consistency check, unreachable on well-formed inputs
     }
   }
 
