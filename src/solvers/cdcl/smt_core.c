@@ -5527,6 +5527,11 @@ static void smt_interrupt_push(smt_core_t *s) {
 
 static void smt_interrupt_pop(smt_core_t *s) {
   if (s->interrupt_push) {
+    if (s->status == YICES_STATUS_INTERRUPTED ||
+        s->status == YICES_STATUS_SEARCHING) {
+      // Ensure smt_pop preconditions hold on interrupt cleanup paths.
+      s->status = YICES_STATUS_IDLE;
+    }
     smt_pop(s);
     s->interrupt_push = false;
   }
