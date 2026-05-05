@@ -2416,14 +2416,22 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
   uint32_t flat_n;
   uint32_t maps_init = 0;
 
+  /* All heap-backed scratch vectors are initialized up-front so that every
+   * exit through the `done:` label has the same cleanup responsibilities.
+   * In particular orig_maps is deliberately initialized here rather than
+   * just before the loop that populates it: if its init moves, `goto done`
+   * paths that run before the init would otherwise silently leak the
+   * vector. Keeping the init paired with the other unconditional inits
+   * makes that invariant self-evident. */
   init_ivector(&flat_dom, 0);
+  init_ivector(&unique_offsets, 0);
+  init_ivector(&unique_args, 0);
+  init_ivector(&orig_maps, 0);
+
   for (i = 0; i < fun->ndom; ++i) {
     type_collect_flat(types, fun->domain[i], &flat_dom);
   }
   flat_n = flat_dom.size;
-
-  init_ivector(&unique_offsets, 0);
-  init_ivector(&unique_args, 0);
 
   for (i = 0; i < nleaves; ++i) {
     value_t def = null_value;
@@ -2462,7 +2470,6 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
     }
   }
 
-  init_ivector(&orig_maps, 0);
   for (i = 0; i < unique_offsets.size; ++i) {
     uint32_t flat_idx = unique_offsets.data[i];
     const value_t* flat_args = (value_t*) (unique_args.data + flat_idx);
@@ -2477,7 +2484,7 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
     idx = 0;
     value_t out_val = build_value_from_flat(pre, vtbl, codom, leaf_values, &idx);
     if (out_val == null_value) {
-      goto done_orig_maps;
+      goto done;
     }
 
     value_t args_orig[fun->ndom];
@@ -2485,7 +2492,7 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
     for (j = 0; j < fun->ndom; ++j) {
       args_orig[j] = build_value_from_flat(pre, vtbl, fun->domain[j], flat_args, &idx);
       if (args_orig[j] == null_value) {
-        goto done_orig_maps;
+        goto done;
       }
     }
     mapv = vtbl_mk_map(vtbl, fun->ndom, args_orig, out_val);
@@ -2496,18 +2503,22 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
     uint32_t idx = 0;
     value_t def_val = build_value_from_flat(pre, vtbl, codom, leaf_defaults, &idx);
     if (def_val == null_value) {
-      goto done_orig_maps;
+      goto done;
     }
     result = vtbl_mk_function(vtbl, tau, orig_maps.size, (value_t*) orig_maps.data, def_val);
   }
 
- done_orig_maps:
-  delete_ivector(&orig_maps);
-
  done:
+  /* Single cleanup path for every error exit. All ivectors above are
+   * unconditionally initialized before any `goto done`, so unconditional
+   * deletes here are correct and stay correct if new error branches are
+   * added. leaf_maps is the only exception: its initialization is
+   * interleaved with error checks in the first loop, so we still only
+   * delete the prefix recorded by maps_init. */
   for (i = 0; i < maps_init; ++i) {
     delete_ivector(&leaf_maps[i]);
   }
+  delete_ivector(&orig_maps);
   delete_ivector(&unique_offsets);
   delete_ivector(&unique_args);
   delete_ivector(&flat_dom);
