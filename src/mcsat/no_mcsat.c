@@ -85,5 +85,7 @@ term_t mcsat_get_unsat_model_interpolant(mcsat_solver_t* mcsat) {
   return NULL_TERM;
 }
 
-void mcsat_set_unsat_result(mcsat_solver_t* mcsat, term_t interpolant) {
+void mcsat_set_unsat_result_from_labeled_interpolant(mcsat_solver_t* mcsat, term_t interpolant,
+                                                     uint32_t n, const term_t* labels,
+                                                     const term_t* assumptions) {
 }
