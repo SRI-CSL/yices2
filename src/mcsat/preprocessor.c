@@ -2422,6 +2422,11 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
   ivector_t leaf_maps[nleaves];
   uint32_t flat_n;
   uint32_t maps_init = 0;
+  /* Short tag describing why we bailed, so the caller (or a user
+   * investigating a missing model entry) can see the cause through a
+   * single line of trace output. Set immediately before each `goto done`
+   * error exit; the successful path leaves it NULL. */
+  const char* fail_reason = NULL;
 
   /* All heap-backed scratch vectors are initialized up-front so that every
    * exit through the `done:` label has the same cleanup responsibilities.
@@ -2446,6 +2451,7 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
     init_ivector(&leaf_maps[i], 0);
     maps_init = i + 1;
     if (!object_is_function(vtbl, leaves[i]) && !object_is_update(vtbl, leaves[i])) {
+      fail_reason = "leaf value is neither a function nor an update object";
       goto done;
     }
     if (object_is_update(vtbl, leaves[i])) {
@@ -2456,6 +2462,7 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
         for (j = 0; j < vtbl->hset1->nelems; ++j) {
           value_map_t* map = vtbl_map(vtbl, vtbl->hset1->data[j]);
           if (map->arity != flat_n) {
+            fail_reason = "update leaf map arity does not match flattened domain";
             goto done;
           }
           add_unique_flat_args(&unique_offsets, &unique_args, map->arg, flat_n);
@@ -2471,6 +2478,7 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
     for (j = 0; j < fun_value->map_size; ++j) {
       value_map_t* map = vtbl_map(vtbl, fun_value->map[j]);
       if (map->arity != flat_n) {
+        fail_reason = "function leaf map arity does not match flattened domain";
         goto done;
       }
       add_unique_flat_args(&unique_offsets, &unique_args, map->arg, flat_n);
@@ -2491,6 +2499,7 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
     idx = 0;
     value_t out_val = build_value_from_flat(pre, vtbl, codom, leaf_values, &idx);
     if (out_val == null_value) {
+      fail_reason = "could not build codomain value from flat leaf values";
       goto done;
     }
 
@@ -2499,6 +2508,7 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
     for (j = 0; j < fun->ndom; ++j) {
       args_orig[j] = build_value_from_flat(pre, vtbl, fun->domain[j], flat_args, &idx);
       if (args_orig[j] == null_value) {
+        fail_reason = "could not rebuild a domain argument from flat leaf values";
         goto done;
       }
     }
@@ -2510,12 +2520,17 @@ value_t merge_blasted_function_value(preprocessor_t* pre, value_table_t* vtbl, t
     uint32_t idx = 0;
     value_t def_val = build_value_from_flat(pre, vtbl, codom, leaf_defaults, &idx);
     if (def_val == null_value) {
+      fail_reason = "could not rebuild the function default value";
       goto done;
     }
     result = vtbl_mk_function(vtbl, tau, orig_maps.size, (value_t*) orig_maps.data, def_val);
   }
 
  done:
+  if (fail_reason != NULL && trace_enabled(pre->tracer, "mcsat::preprocess")) {
+    mcsat_trace_printf(pre->tracer,
+                       "merge_blasted_function_value: %s\n", fail_reason);
+  }
   /* Single cleanup path for every error exit. All ivectors above are
    * unconditionally initialized before any `goto done`, so unconditional
    * deletes here are correct and stay correct if new error branches are
@@ -2567,6 +2582,18 @@ void preprocessor_build_tuple_model(preprocessor_t* pre, model_t* model) {
       leaf_vals[j] = v;
     }
     if (!ok) {
+      /* A blasted leaf was never assigned a value by the mcsat search.
+       * We cannot reconstruct a value for the original atom, so it will
+       * be absent from the returned model. Log which atom and which leaf
+       * index so a user investigating a missing (show-model) entry can
+       * pin the gap. */
+      if (trace_enabled(pre->tracer, "mcsat::preprocess")) {
+        mcsat_trace_printf(pre->tracer,
+                           "preprocessor_build_tuple_model: dropping atom ");
+        trace_term_ln(pre->tracer, pre->terms, atom);
+        mcsat_trace_printf(pre->tracer,
+                           "  (blasted leaf %u has no value in the trail model)\n", j);
+      }
       delete_ivector(&leaves);
       continue;
     }
@@ -2575,12 +2602,24 @@ void preprocessor_build_tuple_model(preprocessor_t* pre, model_t* model) {
       value_t f = merge_blasted_function_value(pre, vtbl, tau, leaf_vals, n);
       if (f >= 0) {
         model_map_term(model, atom, f);
+      } else if (trace_enabled(pre->tracer, "mcsat::preprocess")) {
+        /* merge_blasted_function_value has already traced a reason code;
+         * complete the message here with the concrete atom identity. */
+        mcsat_trace_printf(pre->tracer,
+                           "preprocessor_build_tuple_model: dropping function atom ");
+        trace_term_ln(pre->tracer, pre->terms, atom);
       }
     } else {
       uint32_t idx = 0;
       value_t v = build_value_from_flat(pre, vtbl, tau, leaf_vals, &idx);
       if (v >= 0) {
         model_map_term(model, atom, v);
+      } else if (trace_enabled(pre->tracer, "mcsat::preprocess")) {
+        mcsat_trace_printf(pre->tracer,
+                           "preprocessor_build_tuple_model: dropping tuple atom ");
+        trace_term_ln(pre->tracer, pre->terms, atom);
+        mcsat_trace_printf(pre->tracer,
+                           "  (leaf values did not decompose into a tuple value)\n");
       }
     }
 
