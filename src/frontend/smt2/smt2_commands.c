@@ -2635,8 +2635,17 @@ static void init_smt2_context(smt2_globals_t *g) {
  *   this must be called after the assertions
  */
 static void init_search_parameters(smt2_globals_t *g) {
+  int32_t code;
+
   assert(g->ctx != NULL);
   yices_default_params_for_context(g->ctx, &g->parameters);
+  if (g->delegate != NULL) {
+    code = params_set_field(&g->parameters, "delegate", g->delegate);
+    assert(code == 0);
+    if (code < 0) {
+      g->parameters.delegate = SAT_DELEGATE_NONE;
+    }
+  }
 }
 
 
