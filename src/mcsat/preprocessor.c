@@ -271,6 +271,23 @@ void tuple_blast_get(preprocessor_t* pre, term_t t, ivector_t* out) {
   ivector_add(out, pre->tuple_blast_data.data + offset + 1, n);
 }
 
+/*
+ * Zero-copy read of the blasted leaves for t. Returns pointers directly
+ * into tuple_blast_data, so the caller MUST NOT hold the returned pointer
+ * across any operation that can grow tuple_blast_data -- most notably a
+ * subsequent tuple_blast_term call. Intended for read-only hot paths
+ * (ITE / DISTINCT / EQ / tuple_blast_collect_arg) where the current
+ * ivector-based tuple_blast_get pays a malloc + memcpy per sub-term.
+ */
+static
+void tuple_blast_peek(preprocessor_t* pre, term_t t, const term_t** data_out, uint32_t* n_out) {
+  int_hmap_pair_t* rec = tuple_blast_find(pre, t);
+  assert(rec != NULL);
+  uint32_t offset = rec->val;
+  *n_out = pre->tuple_blast_data.data[offset];
+  *data_out = (const term_t*) (pre->tuple_blast_data.data + offset + 1);
+}
+
 static
 void tuple_blast_term(preprocessor_t* pre, term_t t);
 static
@@ -475,25 +492,27 @@ bool term_has_tuples_in_subdag(preprocessor_t* pre, term_t t) {
 
 static
 void tuple_blast_collect_arg(preprocessor_t* pre, term_t t, ivector_t* out) {
-  ivector_t arg;
+  const term_t* data;
+  uint32_t n;
   tuple_blast_term(pre, t);
-  init_ivector(&arg, 0);
-  tuple_blast_get(pre, t, &arg);
-  ivector_add(out, arg.data, arg.size);
-  delete_ivector(&arg);
+  /* Peek is safe here: we do not call tuple_blast_term between the peek
+   * and the ivector_add below, so the backing tuple_blast_data cannot be
+   * grown (and therefore cannot be reallocated) while `data` is live. */
+  tuple_blast_peek(pre, t, &data, &n);
+  ivector_add(out, (int32_t*) data, n);
 }
 
 static
-term_t tuple_blast_eq_vector(term_manager_t* tm, const ivector_t* a, const ivector_t* b) {
-  assert(a->size == b->size && a->size > 0);
-  if (a->size == 1) {
-    return mk_eq(tm, a->data[0], b->data[0]);
+term_t tuple_blast_eq_vector(term_manager_t* tm, const term_t* a, const term_t* b, uint32_t n) {
+  assert(n > 0);
+  if (n == 1) {
+    return mk_eq(tm, a[0], b[0]);
   } else {
     ivector_t eqs;
     uint32_t i;
-    init_ivector(&eqs, a->size);
-    for (i = 0; i < a->size; ++i) {
-      ivector_push(&eqs, mk_eq(tm, a->data[i], b->data[i]));
+    init_ivector(&eqs, n);
+    for (i = 0; i < n; ++i) {
+      ivector_push(&eqs, mk_eq(tm, a[i], b[i]));
     }
     term_t result = mk_and(tm, eqs.size, eqs.data);
     delete_ivector(&eqs);
@@ -610,24 +629,20 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
 
   case EQ_TERM: {
     composite_term_t* eq = eq_term_desc(terms, t);
-    ivector_t lhs, rhs;
-    term_t eq_term;
+    const term_t *lhs, *rhs;
+    uint32_t lhs_n, rhs_n;
+    /* Both tuple_blast_term calls precede both peeks; tuple_blast_eq_vector
+     * and ivector_push do not grow tuple_blast_data, so the peeked
+     * pointers stay live for the duration of this block. */
     tuple_blast_term(pre, eq->arg[0]);
     tuple_blast_term(pre, eq->arg[1]);
-    init_ivector(&lhs, 0);
-    init_ivector(&rhs, 0);
-    tuple_blast_get(pre, eq->arg[0], &lhs);
-    tuple_blast_get(pre, eq->arg[1], &rhs);
-    if (lhs.size != rhs.size || lhs.size == 0) {
-      delete_ivector(&lhs);
-      delete_ivector(&rhs);
+    tuple_blast_peek(pre, eq->arg[0], &lhs, &lhs_n);
+    tuple_blast_peek(pre, eq->arg[1], &rhs, &rhs_n);
+    if (lhs_n != rhs_n || lhs_n == 0) {
       delete_ivector(&result);
       longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
     }
-    eq_term = tuple_blast_eq_vector(tm, &lhs, &rhs);
-    ivector_push(&result, eq_term);
-    delete_ivector(&lhs);
-    delete_ivector(&rhs);
+    ivector_push(&result, tuple_blast_eq_vector(tm, lhs, rhs, lhs_n));
     break;
   }
 
@@ -638,30 +653,28 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
     init_ivector(&conjuncts, 0);
     for (i = 0; i < d->arity; ++i) {
       for (j = i + 1; j < d->arity; ++j) {
-        ivector_t ti, tj;
+        const term_t *ti_data, *tj_data;
+        uint32_t ti_n, tj_n;
         ivector_t disj;
         uint32_t k;
+        /* Both tuple_blast_term calls complete before the peeks; after
+         * the peeks we only call mk_eq / opposite_term / mk_or and push
+         * into local ivectors, none of which grow tuple_blast_data. */
         tuple_blast_term(pre, d->arg[i]);
         tuple_blast_term(pre, d->arg[j]);
-        init_ivector(&ti, 0);
-        init_ivector(&tj, 0);
-        tuple_blast_get(pre, d->arg[i], &ti);
-        tuple_blast_get(pre, d->arg[j], &tj);
-        if (ti.size != tj.size || ti.size == 0) {
-          delete_ivector(&ti);
-          delete_ivector(&tj);
+        tuple_blast_peek(pre, d->arg[i], &ti_data, &ti_n);
+        tuple_blast_peek(pre, d->arg[j], &tj_data, &tj_n);
+        if (ti_n != tj_n || ti_n == 0) {
           delete_ivector(&conjuncts);
           delete_ivector(&result);
           longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
         }
-        init_ivector(&disj, ti.size);
-        for (k = 0; k < ti.size; ++k) {
-          ivector_push(&disj, opposite_term(mk_eq(tm, ti.data[k], tj.data[k])));
+        init_ivector(&disj, ti_n);
+        for (k = 0; k < ti_n; ++k) {
+          ivector_push(&disj, opposite_term(mk_eq(tm, ti_data[k], tj_data[k])));
         }
         ivector_push(&conjuncts, mk_or(tm, disj.size, disj.data));
         delete_ivector(&disj);
-        delete_ivector(&ti);
-        delete_ivector(&tj);
       }
     }
     ivector_push(&result, mk_and(tm, conjuncts.size, conjuncts.data));
@@ -672,45 +685,39 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
   case ITE_TERM:
   case ITE_SPECIAL: {
     composite_term_t* ite = ite_term_desc(terms, t);
-    ivector_t c_blast, t_blast, e_blast;
+    const term_t *c_data, *t_data, *e_data;
+    uint32_t c_n, t_n, e_n;
     uint32_t i;
+    /* All three tuple_blast_term calls complete before any peek, so the
+     * peeked pointers remain valid for the rest of this block: the only
+     * calls after the peeks are term-manager operations (super_type,
+     * term_type, mk_ite) plus ivector_push(&result, ...), none of which
+     * grow tuple_blast_data. */
     tuple_blast_term(pre, ite->arg[0]);
     tuple_blast_term(pre, ite->arg[1]);
     tuple_blast_term(pre, ite->arg[2]);
-    init_ivector(&c_blast, 0);
-    init_ivector(&t_blast, 0);
-    init_ivector(&e_blast, 0);
-    tuple_blast_get(pre, ite->arg[0], &c_blast);
-    tuple_blast_get(pre, ite->arg[1], &t_blast);
-    tuple_blast_get(pre, ite->arg[2], &e_blast);
-    if (c_blast.size != 1 || t_blast.size != e_blast.size || t_blast.size == 0) {
-      delete_ivector(&c_blast);
-      delete_ivector(&t_blast);
-      delete_ivector(&e_blast);
+    tuple_blast_peek(pre, ite->arg[0], &c_data, &c_n);
+    tuple_blast_peek(pre, ite->arg[1], &t_data, &t_n);
+    tuple_blast_peek(pre, ite->arg[2], &e_data, &e_n);
+    if (c_n != 1 || t_n != e_n || t_n == 0) {
       delete_ivector(&result);
       longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
     }
-    for (i = 0; i < t_blast.size; ++i) {
-      type_t ty = super_type(types, term_type(terms, t_blast.data[i]), term_type(terms, e_blast.data[i]));
+    for (i = 0; i < t_n; ++i) {
+      type_t ty = super_type(types, term_type(terms, t_data[i]), term_type(terms, e_data[i]));
       if (ty == NULL_TYPE) {
-        delete_ivector(&c_blast);
-        delete_ivector(&t_blast);
-        delete_ivector(&e_blast);
         delete_ivector(&result);
         longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
       }
-      ivector_push(&result, mk_ite(tm, c_blast.data[0], t_blast.data[i], e_blast.data[i], ty));
+      ivector_push(&result, mk_ite(tm, c_data[0], t_data[i], e_data[i], ty));
     }
     if (result.size == 1 &&
-        c_blast.data[0] == ite->arg[0] &&
-        t_blast.data[0] == ite->arg[1] &&
-        e_blast.data[0] == ite->arg[2]) {
+        c_data[0] == ite->arg[0] &&
+        t_data[0] == ite->arg[1] &&
+        e_data[0] == ite->arg[2]) {
       ivector_reset(&result);
       ivector_push(&result, t);
     }
-    delete_ivector(&c_blast);
-    delete_ivector(&t_blast);
-    delete_ivector(&e_blast);
     break;
   }
 
