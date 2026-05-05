@@ -1,0 +1,18 @@
+;; Nested tuple constructors under an ite. Exercises tuple-blasting over
+;; a Tuple(Tuple(int,int), bool) type where the tuple term itself is the
+;; result of an if-then-else. The interesting path is mk-tuple inside the
+;; branches plus selection through two levels.
+
+(define-type Inner (tuple int int))
+(define-type Outer (tuple Inner bool))
+
+(define c::bool)
+(define x::Outer)
+(define y::Outer (if c (mk-tuple (mk-tuple 1 2) true) (mk-tuple (mk-tuple 3 4) false)))
+
+(assert c)
+(assert (= (select (select y 1) 1) 1))
+(assert (= (select (select y 1) 2) 2))
+(assert (select y 2))
+
+(check)
