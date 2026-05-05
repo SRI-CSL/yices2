@@ -50,6 +50,7 @@ void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* h
   init_ivector(&pre->tuple_blast_atoms, 0);
   init_int_hmap(&pre->type_is_tuple_free_cache, 0);
   init_int_hmap(&pre->type_leaf_count_cache, 0);
+  init_int_hmap(&pre->term_has_tuples_cache, 0);
   init_int_hmap(&pre->purification_map, 0);
   init_ivector(&pre->purification_map_list, 0);
   init_ivector(&pre->preprocessing_stack, 0);
@@ -74,6 +75,7 @@ void preprocessor_destruct(preprocessor_t* pre) {
   delete_ivector(&pre->tuple_blast_atoms);
   delete_int_hmap(&pre->type_is_tuple_free_cache);
   delete_int_hmap(&pre->type_leaf_count_cache);
+  delete_int_hmap(&pre->term_has_tuples_cache);
   delete_int_hmap(&pre->preprocess_map);
   delete_ivector(&pre->preprocess_map_list);
   delete_ivector(&pre->preprocessing_stack);
@@ -271,8 +273,205 @@ void tuple_blast_get(preprocessor_t* pre, term_t t, ivector_t* out) {
 
 static
 void tuple_blast_term(preprocessor_t* pre, term_t t);
+static
+void tuple_blast_term_body(preprocessor_t* pre, term_t t);
 static composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t);
 static term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* children);
+
+/**
+ * Collect the direct sub-terms of t that must be blasted before t can be
+ * combined. The set returned here MUST cover every sub-term that
+ * tuple_blast_term_body recursively blasts for kind(t); otherwise the
+ * iterative driver tuple_blast_term will deadlock (children never blasted)
+ * or compute a wrong combine.
+ */
+static
+void tuple_blast_children(preprocessor_t* pre, term_t t, ivector_t* out) {
+  if (is_neg_term(t)) {
+    ivector_push(out, unsigned_term(t));
+    return;
+  }
+
+  term_table_t* terms = pre->terms;
+  term_kind_t kind = term_kind(terms, t);
+  uint32_t i;
+  switch (kind) {
+  case TUPLE_TERM: {
+    composite_term_t* c = tuple_term_desc(terms, t);
+    for (i = 0; i < c->arity; ++i) ivector_push(out, c->arg[i]);
+    break;
+  }
+  case SELECT_TERM:
+    ivector_push(out, select_term_desc(terms, t)->arg);
+    break;
+  case EQ_TERM: {
+    composite_term_t* c = eq_term_desc(terms, t);
+    ivector_push(out, c->arg[0]);
+    ivector_push(out, c->arg[1]);
+    break;
+  }
+  case DISTINCT_TERM: {
+    composite_term_t* c = distinct_term_desc(terms, t);
+    for (i = 0; i < c->arity; ++i) ivector_push(out, c->arg[i]);
+    break;
+  }
+  case ITE_TERM:
+  case ITE_SPECIAL: {
+    composite_term_t* c = ite_term_desc(terms, t);
+    for (i = 0; i < 3; ++i) ivector_push(out, c->arg[i]);
+    break;
+  }
+  case APP_TERM: {
+    composite_term_t* c = app_term_desc(terms, t);
+    for (i = 0; i < c->arity; ++i) ivector_push(out, c->arg[i]);
+    break;
+  }
+  case UPDATE_TERM: {
+    composite_term_t* c = update_term_desc(terms, t);
+    for (i = 0; i < c->arity; ++i) ivector_push(out, c->arg[i]);
+    break;
+  }
+  case OR_TERM: {
+    composite_term_t* c = or_term_desc(terms, t);
+    for (i = 0; i < c->arity; ++i) ivector_push(out, c->arg[i]);
+    break;
+  }
+  case XOR_TERM: {
+    composite_term_t* c = xor_term_desc(terms, t);
+    for (i = 0; i < c->arity; ++i) ivector_push(out, c->arg[i]);
+    break;
+  }
+  case POWER_PRODUCT: {
+    pprod_t* pp = pprod_term_desc(terms, t);
+    for (i = 0; i < pp->len; ++i) ivector_push(out, pp->prod[i].var);
+    break;
+  }
+  case ARITH_POLY: {
+    polynomial_t* p = poly_term_desc(terms, t);
+    for (i = 0; i < p->nterms; ++i) {
+      if (p->mono[i].var != const_idx) ivector_push(out, p->mono[i].var);
+    }
+    break;
+  }
+  case ARITH_FF_POLY: {
+    polynomial_t* p = finitefield_poly_term_desc(terms, t);
+    for (i = 0; i < p->nterms; ++i) {
+      if (p->mono[i].var != const_idx) ivector_push(out, p->mono[i].var);
+    }
+    break;
+  }
+  case BV64_POLY: {
+    bvpoly64_t* p = bvpoly64_term_desc(terms, t);
+    for (i = 0; i < p->nterms; ++i) {
+      if (p->mono[i].var != const_idx) ivector_push(out, p->mono[i].var);
+    }
+    break;
+  }
+  case BV_POLY: {
+    bvpoly_t* p = bvpoly_term_desc(terms, t);
+    for (i = 0; i < p->nterms; ++i) {
+      if (p->mono[i].var != const_idx) ivector_push(out, p->mono[i].var);
+    }
+    break;
+  }
+  case ARITH_EQ_ATOM:
+  case ARITH_GE_ATOM:
+  case ARITH_BINEQ_ATOM:
+  case ARITH_RDIV:
+  case ARITH_IDIV:
+  case ARITH_MOD:
+  case BV_ARRAY:
+  case BV_DIV:
+  case BV_REM:
+  case BV_SDIV:
+  case BV_SREM:
+  case BV_SMOD:
+  case BV_SHL:
+  case BV_LSHR:
+  case BV_ASHR:
+  case BV_EQ_ATOM:
+  case BV_GE_ATOM:
+  case BV_SGE_ATOM: {
+    composite_term_t* c = get_composite(terms, kind, t);
+    for (i = 0; i < c->arity; ++i) ivector_push(out, c->arg[i]);
+    break;
+  }
+  default:
+    /* Atomic kinds (CONSTANT_TERM, UNINTERPRETED_TERM, VARIABLE, BIT_TERM,
+     * arithmetic/BV constants, etc.) have no children to blast first. */
+    break;
+  }
+}
+
+/**
+ * Memoized: does the DAG rooted at t contain any tuple type?
+ * Walks the DAG iteratively so deep DAGs don't blow the C stack. The
+ * answer is polarity-insensitive (cached per index_of(t)) and covers
+ * t's own type plus the types of every reachable sub-term.
+ */
+static
+bool term_has_tuples_in_subdag(preprocessor_t* pre, term_t t) {
+  int32_t t_idx = index_of(t);
+  int_hmap_pair_t* rec = int_hmap_find(&pre->term_has_tuples_cache, t_idx);
+  if (rec != NULL) {
+    return rec->val != 0;
+  }
+
+  term_table_t* terms = pre->terms;
+  ivector_t stack;
+  init_ivector(&stack, 0);
+  ivector_push(&stack, t);
+
+  uint64_t safety = 0;
+  while (stack.size > 0) {
+    /* Hard upper bound: 2 * (term-table size) is a generous loose bound on
+     * the number of distinct (term, polarity) revisits we should ever see
+     * here. Aborting on overflow is far better than hanging a debug build. */
+    assert(++safety < ((uint64_t) 1 << 28));
+    (void) safety;
+
+    term_t current = stack.data[stack.size - 1];
+    int32_t cur_idx = index_of(current);
+    int_hmap_pair_t* crec = int_hmap_find(&pre->term_has_tuples_cache, cur_idx);
+    if (crec != NULL) {
+      ivector_pop(&stack);
+      continue;
+    }
+
+    if (!type_is_tuple_free(pre, term_type(terms, current))) {
+      int_hmap_add(&pre->term_has_tuples_cache, cur_idx, 1);
+      ivector_pop(&stack);
+      continue;
+    }
+
+    ivector_t children;
+    init_ivector(&children, 0);
+    tuple_blast_children(pre, current, &children);
+    bool any_true = false;
+    bool all_done = true;
+    for (uint32_t i = 0; i < children.size; ++i) {
+      int32_t c_idx = index_of(children.data[i]);
+      int_hmap_pair_t* crec2 = int_hmap_find(&pre->term_has_tuples_cache, c_idx);
+      if (crec2 == NULL) {
+        ivector_push(&stack, children.data[i]);
+        all_done = false;
+      } else if (crec2->val != 0) {
+        any_true = true;
+      }
+    }
+    delete_ivector(&children);
+    if (!all_done) continue;
+
+    int_hmap_add(&pre->term_has_tuples_cache, cur_idx, any_true ? 1 : 0);
+    ivector_pop(&stack);
+  }
+
+  delete_ivector(&stack);
+
+  rec = int_hmap_find(&pre->term_has_tuples_cache, t_idx);
+  assert(rec != NULL);
+  return rec->val != 0;
+}
 
 static
 void tuple_blast_collect_arg(preprocessor_t* pre, term_t t, ivector_t* out) {
@@ -302,8 +501,15 @@ term_t tuple_blast_eq_vector(term_manager_t* tm, const ivector_t* a, const ivect
   }
 }
 
+/*
+ * Per-term combine. Computes blast(t) assuming the iterative driver
+ * tuple_blast_term has already blasted every direct child returned by
+ * tuple_blast_children. The recursive tuple_blast_term(pre, child) calls in
+ * the body therefore bottom out at the early-return in the driver and do
+ * not grow the C stack.
+ */
 static
-void tuple_blast_term(preprocessor_t* pre, term_t t) {
+void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
   term_table_t* terms = pre->terms;
   type_table_t* types = terms->types;
   term_manager_t* tm = &pre->tm;
@@ -820,6 +1026,80 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
 
   tuple_blast_set(pre, t, &result);
   delete_ivector(&result);
+}
+
+/*
+ * Iterative bottom-up driver for tuple-blasting.
+ *  - C stack depth is O(1) regardless of input DAG depth (M4).
+ *  - Sub-DAGs that contain no tuple type anywhere are identity-blasted in
+ *    one step without descending into them, using the memoized
+ *    term_has_tuples_in_subdag (M3).
+ *  - For each not-yet-blasted term on the work stack we either (a) push
+ *    its un-blasted children, or (b) all children are blasted and we run
+ *    tuple_blast_term_body once. Children come from tuple_blast_children
+ *    which mirrors exactly the recursive descent in tuple_blast_term_body.
+ */
+static
+void tuple_blast_term(preprocessor_t* pre, term_t t) {
+  if (tuple_blast_done(pre, t)) {
+    return;
+  }
+
+  if (!term_has_tuples_in_subdag(pre, t)) {
+    ivector_t result;
+    init_ivector(&result, 0);
+    ivector_push(&result, t);
+    tuple_blast_set(pre, t, &result);
+    delete_ivector(&result);
+    return;
+  }
+
+  ivector_t stack;
+  init_ivector(&stack, 0);
+  ivector_push(&stack, t);
+
+  uint64_t safety = 0;
+  while (stack.size > 0) {
+    /* Defensive bound. Real workloads visit each term O(1) times; 2^28
+     * iterations is far more than any reachable DAG should ever need. */
+    assert(++safety < ((uint64_t) 1 << 28));
+    (void) safety;
+
+    term_t current = stack.data[stack.size - 1];
+
+    if (tuple_blast_done(pre, current)) {
+      ivector_pop(&stack);
+      continue;
+    }
+
+    if (!term_has_tuples_in_subdag(pre, current)) {
+      ivector_t result;
+      init_ivector(&result, 0);
+      ivector_push(&result, current);
+      tuple_blast_set(pre, current, &result);
+      delete_ivector(&result);
+      ivector_pop(&stack);
+      continue;
+    }
+
+    ivector_t children;
+    init_ivector(&children, 0);
+    tuple_blast_children(pre, current, &children);
+    bool all_done = true;
+    for (uint32_t i = 0; i < children.size; ++i) {
+      if (!tuple_blast_done(pre, children.data[i])) {
+        ivector_push(&stack, children.data[i]);
+        all_done = false;
+      }
+    }
+    delete_ivector(&children);
+    if (!all_done) continue;
+
+    tuple_blast_term_body(pre, current);
+    ivector_pop(&stack);
+  }
+
+  delete_ivector(&stack);
 }
 
 typedef struct composite_term1_s {

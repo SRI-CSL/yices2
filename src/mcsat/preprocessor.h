@@ -64,6 +64,11 @@ typedef struct {
    * Same lifetime/keying argument as type_is_tuple_free_cache. */
   int_hmap_t type_leaf_count_cache;
 
+  /** Memoization: term-index -> 0/1 for "DAG rooted at term contains any
+   * tuple type". Polarity-insensitive (key = index_of(t)). Term IDs are
+   * stable so this never needs invalidation. */
+  int_hmap_t term_has_tuples_cache;
+
   /** Purification map, term to its variable */
   int_hmap_t purification_map;
 
