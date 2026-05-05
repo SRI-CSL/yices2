@@ -22,6 +22,7 @@
 
 #include <inttypes.h>
 
+#include "api/context_config.h"
 #include "context/context.h"
 #include "context/context_simplifier.h"
 #include "context/context_utils.h"
@@ -31,10 +32,13 @@
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
 #include "solvers/funs/fun_solver.h"
+#include "solvers/mcsat_satellite.h"
 #include "solvers/quant/quant_solver.h"
 #include "solvers/simplex/simplex.h"
 #include "terms/poly_buffer_terms.h"
+#include "terms/term_explorer.h"
 #include "terms/term_utils.h"
+#include "utils/int_hash_map.h"
 #include "utils/memalloc.h"
 
 #include "mcsat/solver.h"
@@ -72,6 +76,421 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t);
 static literal_t internalize_to_literal(context_t *ctx, term_t t);
 static thvar_t internalize_to_arith(context_t *ctx, term_t t);
 static thvar_t internalize_to_bv(context_t *ctx, term_t t);
+
+static inline mcsat_satellite_t *context_mcsat_satellite(context_t *ctx);
+static bool context_atom_requires_mcsat(context_t *ctx, term_t atom);
+static literal_t map_mcsat_atom_to_literal(context_t *ctx, term_t atom);
+static int32_t context_enable_mcsat_supplement(context_t *ctx);
+static void context_disable_mcsat_supplement(context_t *ctx);
+static bool context_assertions_need_mcsat_supplement(context_t *ctx, uint32_t n, const term_t *a);
+static int32_t context_seed_mcsat_satellite(context_t *ctx);
+
+
+/*
+ * Supplementary MCSAT support (CDCL(T) mode)
+ */
+static inline mcsat_satellite_t *context_mcsat_satellite(context_t *ctx) {
+  if (ctx->egraph == NULL) {
+    return NULL;
+  }
+  return (mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT];
+}
+
+static inline bool divisor_requires_mcsat(term_table_t *terms, term_t t) {
+  t = unsigned_term(t);
+  return term_kind(terms, t) != ARITH_CONSTANT;
+}
+
+/*
+ * Detect whether t contains arithmetic or finite-field subterms.
+ * This is used to route all relevant arithmetic/FF atoms to the supplementary
+ * MCSAT context once supplementation is active.
+ */
+static bool term_contains_arith_or_ff(context_t *ctx, term_t t, int_hmap_t *cache) {
+  term_table_t *terms;
+  int_hmap_pair_t *p;
+  type_t tau;
+  type_kind_t tkind;
+  bool found;
+  uint32_t i, nchildren;
+
+  if (t < 0) {
+    return false;
+  }
+
+  t = unsigned_term(t);
+  p = int_hmap_find(cache, t);
+  if (p != NULL) {
+    return p->val != 0;
+  }
+
+  terms = ctx->terms;
+  tau = term_type(terms, t);
+  tkind = type_kind(terms->types, tau);
+
+  /*
+   * Variables of arithmetic/finite-field type may not satisfy
+   * is_arithmetic_term/is_finitefield_term, so include type-based detection.
+   */
+  found = is_arithmetic_term(terms, t) || is_finitefield_term(terms, t) ||
+          tkind == INT_TYPE || tkind == REAL_TYPE || is_ff_type(terms->types, tau);
+
+  if (!found) {
+    if (term_is_projection(terms, t)) {
+      found = term_contains_arith_or_ff(ctx, proj_term_arg(terms, t), cache);
+
+    } else if (term_is_sum(terms, t)) {
+      nchildren = term_num_children(terms, t);
+      for (i = 0; i < nchildren && !found; i++) {
+        term_t child;
+        mpq_t q;
+        mpq_init(q);
+        sum_term_component(terms, t, i, q, &child);
+        found = term_contains_arith_or_ff(ctx, child, cache);
+        mpq_clear(q);
+      }
+
+    } else if (term_is_bvsum(terms, t)) {
+      int32_t *aux;
+      uint32_t nbits;
+      term_t child;
+
+      nbits = term_bitsize(terms, t);
+      aux = (int32_t *) safe_malloc(nbits * sizeof(int32_t));
+      nchildren = term_num_children(terms, t);
+      for (i = 0; i < nchildren && !found; i++) {
+        bvsum_term_component(terms, t, i, aux, &child);
+        found = term_contains_arith_or_ff(ctx, child, cache);
+      }
+      safe_free(aux);
+
+    } else if (term_is_product(terms, t)) {
+      nchildren = term_num_children(terms, t);
+      for (i = 0; i < nchildren && !found; i++) {
+        term_t child;
+        uint32_t exp;
+        product_term_component(terms, t, i, &child, &exp);
+        found = term_contains_arith_or_ff(ctx, child, cache);
+      }
+
+    } else if (term_is_composite(terms, t)) {
+      nchildren = term_num_children(terms, t);
+      for (i = 0; i < nchildren && !found; i++) {
+        found = term_contains_arith_or_ff(ctx, term_child(terms, t, i), cache);
+      }
+    }
+  }
+
+  p = int_hmap_get(cache, t);
+  p->val = found ? 1 : 0;
+  return found;
+}
+
+static bool term_requires_mcsat_supplement(context_t *ctx, term_t t, int_hmap_t *cache) {
+  term_table_t *terms;
+  int_hmap_pair_t *p;
+  bool trigger;
+  uint32_t i, nchildren;
+
+  if (t < 0) {
+    return false;
+  }
+
+  t = unsigned_term(t);
+  p = int_hmap_find(cache, t);
+  if (p != NULL) {
+    return p->val != 0;
+  }
+
+  terms = ctx->terms;
+  trigger = false;
+
+  // finite-field usage
+  if (is_finitefield_term(terms, t)) {
+    trigger = true;
+  }
+
+  if (!trigger) {
+    switch (term_kind(terms, t)) {
+    case ARITH_ROOT_ATOM:
+    case ARITH_FF_CONSTANT:
+    case ARITH_FF_POLY:
+    case ARITH_FF_EQ_ATOM:
+    case ARITH_FF_BINEQ_ATOM:
+      trigger = true;
+      break;
+
+    case ARITH_RDIV:
+      trigger = divisor_requires_mcsat(terms, arith_rdiv_term_desc(terms, t)->arg[1]);
+      break;
+
+    case ARITH_IDIV:
+      trigger = divisor_requires_mcsat(terms, arith_idiv_term_desc(terms, t)->arg[1]);
+      break;
+
+    case ARITH_MOD:
+      trigger = divisor_requires_mcsat(terms, arith_mod_term_desc(terms, t)->arg[1]);
+      break;
+
+    case ARITH_DIVIDES_ATOM:
+      trigger = divisor_requires_mcsat(terms, arith_divides_atom_desc(terms, t)->arg[0]);
+      break;
+
+    default:
+      break;
+    }
+  }
+
+  // arithmetic nonlinearity (including deep products in arithmetic predicates)
+  if (!trigger && is_arithmetic_term(terms, t) && term_degree(terms, t) > 1) {
+    trigger = true;
+  }
+
+  if (!trigger) {
+    if (term_is_projection(terms, t)) {
+      trigger = term_requires_mcsat_supplement(ctx, proj_term_arg(terms, t), cache);
+
+    } else if (term_is_sum(terms, t)) {
+      nchildren = term_num_children(terms, t);
+      for (i=0; i<nchildren && !trigger; i++) {
+        term_t child;
+        mpq_t q;
+        mpq_init(q);
+        sum_term_component(terms, t, i, q, &child);
+        trigger = term_requires_mcsat_supplement(ctx, child, cache);
+        mpq_clear(q);
+      }
+
+    } else if (term_is_bvsum(terms, t)) {
+      int32_t *aux;
+      uint32_t nbits;
+      term_t child;
+
+      nbits = term_bitsize(terms, t);
+      aux = (int32_t *) safe_malloc(nbits * sizeof(int32_t));
+      nchildren = term_num_children(terms, t);
+      for (i=0; i<nchildren && !trigger; i++) {
+        bvsum_term_component(terms, t, i, aux, &child);
+        trigger = term_requires_mcsat_supplement(ctx, child, cache);
+      }
+      safe_free(aux);
+
+    } else if (term_is_product(terms, t)) {
+      nchildren = term_num_children(terms, t);
+      for (i=0; i<nchildren && !trigger; i++) {
+        term_t child;
+        uint32_t exp;
+        product_term_component(terms, t, i, &child, &exp);
+        trigger = term_requires_mcsat_supplement(ctx, child, cache);
+      }
+
+    } else if (term_is_composite(terms, t)) {
+      nchildren = term_num_children(terms, t);
+      for (i=0; i<nchildren && !trigger; i++) {
+        trigger = term_requires_mcsat_supplement(ctx, term_child(terms, t, i), cache);
+      }
+    }
+  }
+
+  p = int_hmap_get(cache, t);
+  p->val = trigger ? 1 : 0;
+  return trigger;
+}
+
+static bool context_assertions_need_mcsat_supplement(context_t *ctx, uint32_t n, const term_t *a) {
+  int_hmap_t cache;
+  uint32_t i;
+  bool trigger;
+
+  init_int_hmap(&cache, 0);
+  trigger = false;
+  for (i=0; i<n && !trigger; i++) {
+    trigger = term_requires_mcsat_supplement(ctx, a[i], &cache);
+  }
+  delete_int_hmap(&cache);
+
+  return trigger;
+}
+
+static int32_t context_enable_mcsat_supplement(context_t *ctx) {
+  mcsat_satellite_t *sat;
+  int32_t code;
+
+  if (ctx->mcsat_supplement_active) {
+    return CTX_NO_ERROR;
+  }
+  if (ctx->arch == CTX_ARCH_MCSAT || ctx->egraph == NULL) {
+    return CONTEXT_UNSUPPORTED_THEORY;
+  }
+
+  sat = new_mcsat_satellite(ctx);
+  egraph_attach_mcsat_solver(ctx->egraph, sat,
+                             mcsat_satellite_ctrl_interface(sat),
+                             mcsat_satellite_smt_interface(sat),
+                             mcsat_satellite_egraph_interface(sat));
+  ctx->mcsat_supplement_active = true;
+
+  code = context_seed_mcsat_satellite(ctx);
+  if (code < 0) {
+    context_disable_mcsat_supplement(ctx);
+    return code;
+  }
+
+  return CTX_NO_ERROR;
+}
+
+static void context_disable_mcsat_supplement(context_t *ctx) {
+  mcsat_satellite_t *sat;
+
+  if (!ctx->mcsat_supplement_active || ctx->egraph == NULL) {
+    return;
+  }
+
+  sat = context_mcsat_satellite(ctx);
+  egraph_detach_mcsat_solver(ctx->egraph);
+  delete_mcsat_satellite(sat);
+  ctx->mcsat_supplement_active = false;
+}
+
+/*
+ * Import already-internalized arithmetic/FF atoms when supplementary MCSAT
+ * is activated after earlier assertions.
+ */
+static int32_t context_seed_mcsat_satellite(context_t *ctx) {
+  mcsat_satellite_t *sat;
+  term_table_t *terms;
+  uint32_t i, n;
+  uint32_t seeded = 0;
+  bool trace_seed;
+
+  sat = context_mcsat_satellite(ctx);
+  if (sat == NULL) {
+    return CTX_NO_ERROR;
+  }
+
+  terms = ctx->terms;
+  trace_seed = tracing_tag(ctx->trace, "mcsat::supplement::seed");
+  n = intern_tbl_num_terms(&ctx->intern);
+  for (i = 1; i < n; i++) {
+    term_t t;
+    int32_t code;
+    literal_t l;
+
+    if (!good_term_idx(terms, i)) {
+      continue;
+    }
+
+    t = pos_term(i);
+    if (!is_boolean_term(terms, t) ||
+        !intern_tbl_is_root(&ctx->intern, t) ||
+        !intern_tbl_root_is_mapped(&ctx->intern, t)) {
+      continue;
+    }
+
+    if (!context_atom_requires_mcsat(ctx, t)) {
+      continue;
+    }
+
+    code = intern_tbl_map_of_root(&ctx->intern, t);
+    if (code_is_var(code)) {
+      l = code2literal(code);
+    } else {
+      occ_t u = code2occ(code);
+      if (u == true_occ) {
+        l = true_literal;
+      } else if (u == false_occ) {
+        l = false_literal;
+      } else if (ctx->egraph != NULL) {
+        l = egraph_occ2literal(ctx->egraph, u);
+      } else {
+        continue;
+      }
+    }
+
+    code = mcsat_satellite_register_atom(sat, t, l, NULL);
+    if (code < 0) {
+      return code;
+    }
+    seeded ++;
+    if (trace_seed) {
+      trace_printf(ctx->trace, 1, "mcsat supplement seed: lit=%"PRId32" atom=", l);
+      trace_pp_term(ctx->trace, 1, terms, t);
+    }
+  }
+
+  if (trace_seed) {
+    trace_printf(ctx->trace, 1, "mcsat supplement seeded %"PRIu32" atoms\n", seeded);
+  }
+
+  return CTX_NO_ERROR;
+}
+
+static bool mcsat_satellite_candidate_atom(term_table_t *terms, term_t atom) {
+  switch (term_kind(terms, atom)) {
+  case EQ_TERM:
+  case DISTINCT_TERM:
+  case ARITH_ROOT_ATOM:
+  case ARITH_FF_EQ_ATOM:
+  case ARITH_FF_BINEQ_ATOM:
+  case ARITH_IS_INT_ATOM:
+  case ARITH_EQ_ATOM:
+  case ARITH_GE_ATOM:
+  case ARITH_BINEQ_ATOM:
+  case ARITH_DIVIDES_ATOM:
+    return true;
+
+  default:
+    return false;
+  }
+}
+
+static bool context_atom_requires_mcsat(context_t *ctx, term_t atom) {
+  int_hmap_t cache;
+  bool trigger, all_arith_mode;
+
+  atom = unsigned_term(atom);
+  if (!ctx->mcsat_supplement_active || !is_boolean_term(ctx->terms, atom)) {
+    return false;
+  }
+  if (!mcsat_satellite_candidate_atom(ctx->terms, atom)) {
+    return false;
+  }
+
+  init_int_hmap(&cache, 0);
+  /*
+   * In supplementary mode, route every arithmetic/FF atom to MCSAT so that
+   * MCSAT sees the complete arithmetic conjunction (not just unsupported atoms).
+   */
+  all_arith_mode = true;
+  if (all_arith_mode) {
+    trigger = term_contains_arith_or_ff(ctx, atom, &cache);
+  } else {
+    trigger = term_requires_mcsat_supplement(ctx, atom, &cache);
+  }
+  delete_int_hmap(&cache);
+
+  return trigger;
+}
+
+static literal_t map_mcsat_atom_to_literal(context_t *ctx, term_t atom) {
+  mcsat_satellite_t *sat;
+  literal_t l;
+  void *obj;
+  int32_t code;
+
+  sat = context_mcsat_satellite(ctx);
+  assert(sat != NULL);
+
+  l = pos_lit(create_boolean_variable(ctx->core));
+  obj = NULL;
+  code = mcsat_satellite_register_atom(sat, atom, l, &obj);
+  if (code < 0) {
+    longjmp(ctx->env, code);
+  }
+
+  attach_atom_to_bvar(ctx->core, var_of(l), tagged_mcsat_atom(obj));
+  return l;
+}
 
 
 
@@ -1848,6 +2267,13 @@ static thvar_t map_bvpoly_buffer_to_bv(context_t *ctx, bvpoly_buffer_t *b) {
     free_bvpoly(q);
   }
 
+  if (ctx->mcsat_supplement_active) {
+    mcsat_satellite_t *sat = context_mcsat_satellite(ctx);
+    if (sat != NULL) {
+      mcsat_satellite_register_arith_term(sat, x, r);
+    }
+  }
+
   return x;
 }
 
@@ -2967,6 +3393,14 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
 
   }
 
+  if (ctx->mcsat_supplement_active) {
+    mcsat_satellite_t *sat;
+    sat = context_mcsat_satellite(ctx);
+    if (sat != NULL) {
+      mcsat_satellite_register_arith_term(sat, x, unsigned_term(r));
+    }
+  }
+
   return x;
 
  abort:
@@ -3222,6 +3656,12 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
     /*
      * Recursively compute r's internalization
      */
+    if (context_atom_requires_mcsat(ctx, r)) {
+      l = map_mcsat_atom_to_literal(ctx, r);
+      intern_tbl_map_root(&ctx->intern, r, literal2code(l));
+      goto done;
+    }
+
     terms = ctx->terms;
     switch (term_kind(terms, r)) {
     case CONSTANT_TERM:
@@ -3272,6 +3712,15 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t) {
 
     case ARITH_DIVIDES_ATOM:
       l = map_arith_divides_to_literal(ctx, arith_divides_atom_desc(terms, r));
+      break;
+
+    case ARITH_ROOT_ATOM:
+      longjmp(ctx->env, FORMULA_NOT_LINEAR);
+      break;
+
+    case ARITH_FF_EQ_ATOM:
+    case ARITH_FF_BINEQ_ATOM:
+      longjmp(ctx->env, CONTEXT_UNSUPPORTED_THEORY);
       break;
 
     case APP_TERM:
@@ -4725,6 +5174,7 @@ static void assert_toplevel_bvsge(context_t *ctx, composite_term_t *sge, bool tt
 static void assert_toplevel_formula(context_t *ctx, term_t t) {
   term_table_t *terms;
   int32_t code;
+  literal_t l;
   bool tt;
 
   assert(is_boolean_term(ctx->terms, t) &&
@@ -4741,6 +5191,14 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
    *   tt false: assert (not t)
    */
   terms = ctx->terms;
+  if (context_atom_requires_mcsat(ctx, t)) {
+    l = map_mcsat_atom_to_literal(ctx, t);
+    code = literal2code(l);
+    intern_tbl_remap_root(&ctx->intern, t, code);
+    assert_internalization_code(ctx, code, tt);
+    return;
+  }
+
   switch (term_kind(terms, t)) {
   case CONSTANT_TERM:
   case UNINTERPRETED_TERM:
@@ -4845,6 +5303,7 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
 static void assert_term(context_t *ctx, term_t t, bool tt) {
   term_table_t *terms;
   int32_t code;
+  literal_t l;
 
   assert(is_boolean_term(ctx->terms, t));
 
@@ -4866,6 +5325,14 @@ static void assert_term(context_t *ctx, term_t t, bool tt) {
     assert_internalization_code(ctx, code, tt);
 
   } else {
+    if (context_atom_requires_mcsat(ctx, t)) {
+      l = map_mcsat_atom_to_literal(ctx, t);
+      code = literal2code(l);
+      intern_tbl_map_root(&ctx->intern, t, code);
+      assert_internalization_code(ctx, code, tt);
+      return;
+    }
+
     // store the mapping t --> tt
     intern_tbl_map_root(&ctx->intern, t, bool2code(tt));
 
@@ -5536,6 +6003,7 @@ static void init_solvers(context_t *ctx) {
   ctx->bv_solver = NULL;
   ctx->fun_solver = NULL;
   ctx->quant_solver = NULL;
+  ctx->mcsat_supplement_active = false;
 
   // Create egraph first, then satellite solvers
   if (solvers & EGRPH) {
@@ -5782,6 +6250,10 @@ void delete_context(context_t *ctx) {
     ctx->mcsat = NULL;
   }
 
+  if (ctx->mcsat_supplement_active) {
+    context_disable_mcsat_supplement(ctx);
+  }
+
   if (ctx->egraph != NULL) {
     delete_egraph(ctx->egraph);
     safe_free(ctx->egraph);
@@ -5872,6 +6344,10 @@ void reset_context(context_t *ctx) {
 
   reset_smt_core(ctx->core); // this propagates reset to all solvers
 
+  if (ctx->mcsat_supplement_active) {
+    context_disable_mcsat_supplement(ctx);
+  }
+
   if (ctx->mcsat != NULL) {
     mcsat_reset(ctx->mcsat);
   }
@@ -5928,6 +6404,12 @@ void context_set_trace(context_t *ctx, tracer_t *trace) {
   smt_core_set_trace(ctx->core, trace);
   if (ctx->mcsat != NULL) {
     mcsat_set_tracer(ctx->mcsat, trace);
+  }
+  if (ctx->mcsat_supplement_active) {
+    mcsat_satellite_t *sat = context_mcsat_satellite(ctx);
+    if (sat != NULL) {
+      mcsat_satellite_set_trace(sat, trace);
+    }
   }
 }
 
@@ -6033,6 +6515,25 @@ static int32_t context_process_assertions(context_t *ctx, uint32_t n, const term
   ivector_reset(&ctx->subst_eqs);
   ivector_reset(&ctx->aux_eqs);
   ivector_reset(&ctx->aux_atoms);
+
+  if (ctx->arch != CTX_ARCH_MCSAT && context_has_egraph(ctx)) {
+    if (context_assertions_need_mcsat_supplement(ctx, n, a)) {
+      code = context_enable_mcsat_supplement(ctx);
+      if (code < 0) {
+        return code;
+      }
+    }
+  }
+
+  if (ctx->mcsat_supplement_active) {
+    mcsat_satellite_t *sat = context_mcsat_satellite(ctx);
+    if (sat != NULL) {
+      code = mcsat_satellite_assert_formulas(sat, n, a);
+      if (code < 0) {
+        return code;
+      }
+    }
+  }
 
   code = setjmp(ctx->env);
   if (code == 0) {
@@ -6373,6 +6874,15 @@ int32_t context_internalize(context_t *ctx, term_t t) {
   ivector_reset(&ctx->subst_eqs);
   ivector_reset(&ctx->aux_eqs);
 
+  if (ctx->arch != CTX_ARCH_MCSAT && context_has_egraph(ctx) && !ctx->mcsat_supplement_active) {
+    if (context_assertions_need_mcsat_supplement(ctx, 1, &t)) {
+      code = context_enable_mcsat_supplement(ctx);
+      if (code < 0) {
+        return code;
+      }
+    }
+  }
+
   code = setjmp(ctx->env);
   if (code == 0) {
     // we must call internalization start first
@@ -6452,6 +6962,15 @@ int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f) {
   ivector_reset(&ctx->subst_eqs);
   ivector_reset(&ctx->aux_eqs);
   ivector_reset(&ctx->aux_atoms);
+
+  if (ctx->arch != CTX_ARCH_MCSAT && context_has_egraph(ctx)) {
+    if (context_assertions_need_mcsat_supplement(ctx, n, f)) {
+      code = context_enable_mcsat_supplement(ctx);
+      if (code < 0) {
+        return code;
+      }
+    }
+  }
 
   code = setjmp(ctx->env);
   if (code == 0) {
@@ -6753,5 +7272,11 @@ void context_gc_mark(context_t *ctx) {
 
   if (ctx->mcsat != NULL) {
     mcsat_gc_mark(ctx->mcsat);
+  }
+  if (ctx->mcsat_supplement_active) {
+    mcsat_satellite_t *sat = context_mcsat_satellite(ctx);
+    if (sat != NULL) {
+      mcsat_satellite_gc_mark(sat);
+    }
   }
 }

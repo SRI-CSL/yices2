@@ -3086,10 +3086,21 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model) {
         mcsat_trace_printf(mcsat->ctx->trace, "\n");
       }
 
-      // Add to model
-      model_map_term(model, x_term, x_value);
-    }
-  }
+	      // Add to model
+	      {
+	        int_hmap_pair_t *entry = int_hmap_get(&model->map, x_term);
+	        if (entry->val < 0) {
+	          model_map_term(model, x_term, x_value);
+	        } else {
+	          /*
+	           * Supplemental use may overlay values onto a model that already
+	           * contains assignments from other CDCL(T) satellites.
+	           */
+	          entry->val = x_value;
+	        }
+	      }
+	    }
+	  }
 
   // Let the plugins run add to the model (e.g. UF, division, ...)
   for (i = 0; i < mcsat->plugins_count; ++ i) {

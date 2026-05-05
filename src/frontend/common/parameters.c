@@ -91,6 +91,7 @@ static const char * const param_names[NUM_PARAMETERS] = {
   "mcsat-partial-restart",
   "mcsat-rand-dec-freq",
   "mcsat-rand-dec-seed",
+  "mcsat-supplement-check",
   "mcsat-var-order",
   "optimistic-fcheck",
   "prop-threshold",
@@ -167,6 +168,7 @@ static const yices_param_t param_code[NUM_PARAMETERS] = {
   PARAM_MCSAT_PARTIAL_RESTART,
   PARAM_MCSAT_RAND_DEC_FREQ,
   PARAM_MCSAT_RAND_DEC_SEED,
+  PARAM_MCSAT_SUPPLEMENT_CHECK,
   PARAM_MCSAT_VAR_ORDER,
   PARAM_OPTIMISTIC_FCHECK,
   PARAM_PROP_THRESHOLD,
@@ -205,6 +207,21 @@ static const branch_t branching_code[NUM_BRANCHING_MODES] = {
   BRANCHING_TH_NEG,
   BRANCHING_TH_POS,
   BRANCHING_THEORY,
+};
+
+/*
+ * Supplementary MCSAT check modes
+ */
+#define NUM_MCSAT_SUPPLEMENT_CHECK_MODES 2
+
+static const char * const mcsat_supplement_check_modes[NUM_MCSAT_SUPPLEMENT_CHECK_MODES] = {
+  "both",
+  "final-only",
+};
+
+static const mcsat_supplement_check_t mcsat_supplement_check_code[NUM_MCSAT_SUPPLEMENT_CHECK_MODES] = {
+  MCSAT_SUPPLEMENT_CHECK_BOTH,
+  MCSAT_SUPPLEMENT_CHECK_FINAL_ONLY,
 };
 
 
@@ -450,6 +467,28 @@ bool param_val_to_branching(const char *name, const param_val_t *v, branch_t *va
     }
   }
   *reason = "must be one of 'default' 'positive' 'negative' 'theory' 'th-neg' 'th-pos";
+
+  return false;
+}
+
+/*
+ * Supplementary MCSAT check mode
+ * - allowed modes are "both" and "final-only"
+ */
+bool param_val_to_mcsat_supplement_check(const char *name, const param_val_t *v,
+                                         mcsat_supplement_check_t *value, char **reason) {
+  int32_t i;
+
+  if (v->tag == PARAM_VAL_SYMBOL) {
+    i = binary_search_string(v->val.symbol, mcsat_supplement_check_modes,
+                             NUM_MCSAT_SUPPLEMENT_CHECK_MODES);
+    if (i >= 0) {
+      assert(i < NUM_MCSAT_SUPPLEMENT_CHECK_MODES);
+      *value = mcsat_supplement_check_code[i];
+      return true;
+    }
+  }
+  *reason = "must be one of 'both' 'final-only'";
 
   return false;
 }

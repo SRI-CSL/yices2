@@ -48,11 +48,11 @@ static char **name = NULL;
 
 
 static const char * const etype2string[] = {
-  "int ", "real", "bv  ", "quant ", "fun ", "bool", "tupl", "none", "<invalid etype>",
+  "int ", "real", "bv  ", "quant ", "fun ", "mcsat", "bool", "tupl", "none", "<invalid etype>",
 };
 
 static const char * const etype2theory[] = {
-  "arith", "arith", "bv", "quant", "fun", "bool", "tuple", "none", "<invalid etype>",
+  "arith", "arith", "bv", "quant", "fun", "mcsat", "bool", "tuple", "none", "<invalid etype>",
 };
 
 static const char * const cmpkind2string[] = {
@@ -903,5 +903,4 @@ void print_egraph_congruence_roots(FILE *f, egraph_t *egraph) {
 
   delete_pvector(&v);
 }
-
 

@@ -1466,6 +1466,7 @@ struct egraph_s {
    * Theory specific descriptors
    * - arith_smt:   core interface for arith solver
    * - bv_smt:      core interface for bitvector solver
+   * - mcsat_smt:   core interface for supplementary mcsat solver
    * - arith_eg: egraph interface for arith solver
    * - bv_eg:    egraph interface for the bitvector solver
    * - fun_eg:   egraph interface for the array/function solver
@@ -1477,6 +1478,7 @@ struct egraph_s {
 
   th_smt_interface_t *arith_smt;
   th_smt_interface_t *bv_smt;
+  th_smt_interface_t *mcsat_smt;
 
   arith_egraph_interface_t *arith_eg;
   bv_egraph_interface_t  *bv_eg;

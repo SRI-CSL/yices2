@@ -135,6 +135,12 @@ static void sharing_map_visit_poly(sharing_map_t *map, polynomial_t *c, int32_t 
   }  
 }
 
+static void sharing_map_visit_root_atom(sharing_map_t *map, root_atom_t *c, int32_t p) {
+  assert(c == root_atom_for_idx(map->terms, p));
+  sharing_map_process_occurrence(map, index_of(c->x), p);
+  sharing_map_process_occurrence(map, index_of(c->p), p);
+}
+
 static void sharing_map_visit_bvpoly64(sharing_map_t *map, bvpoly64_t *c, int32_t p) {
   uint32_t i, n;
 
@@ -176,6 +182,7 @@ static void sharing_map_visit_subterms(sharing_map_t *map, int32_t i) {
   switch (kind_for_idx(map->terms, i)) {
   case CONSTANT_TERM:
   case ARITH_CONSTANT:
+  case ARITH_FF_CONSTANT:
   case BV64_CONSTANT:
   case BV_CONSTANT:
   case VARIABLE:
@@ -189,10 +196,11 @@ static void sharing_map_visit_subterms(sharing_map_t *map, int32_t i) {
   case ARITH_FLOOR:
   case ARITH_CEIL:
   case ARITH_ABS:
+  case ARITH_FF_EQ_ATOM:
     sharing_map_process_occurrence(map, index_of(integer_value_for_idx(map->terms, i)), i);
     break;
   case ARITH_ROOT_ATOM:
-    assert(false);
+    sharing_map_visit_root_atom(map, root_atom_for_idx(map->terms, i), i);
     break;
 
   case ITE_TERM:
@@ -211,6 +219,7 @@ static void sharing_map_visit_subterms(sharing_map_t *map, int32_t i) {
   case ARITH_IDIV:
   case ARITH_MOD:
   case ARITH_DIVIDES_ATOM:
+  case ARITH_FF_BINEQ_ATOM:
   case BV_ARRAY:
   case BV_DIV:
   case BV_REM:
@@ -236,6 +245,7 @@ static void sharing_map_visit_subterms(sharing_map_t *map, int32_t i) {
     break;
 
   case ARITH_POLY:
+  case ARITH_FF_POLY:
     sharing_map_visit_poly(map, polynomial_for_idx(map->terms, i), i);
     break;
 
@@ -245,14 +255,6 @@ static void sharing_map_visit_subterms(sharing_map_t *map, int32_t i) {
 
   case BV_POLY:
     sharing_map_visit_bvpoly(map, bvpoly_for_idx(map->terms, i), i);
-    break;
-
-  case ARITH_FF_CONSTANT:
-  case ARITH_FF_POLY:
-  case ARITH_FF_EQ_ATOM:
-  case ARITH_FF_BINEQ_ATOM:
-    // FF arithmetic is not supported in the non-mcsat solver yet
-    assert(false);
     break;
 
   case UNUSED_TERM:
@@ -350,4 +352,3 @@ term_t unique_parent(sharing_map_t *map, term_t t) {
 
   return parent;
 }
-

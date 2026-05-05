@@ -1622,11 +1622,20 @@ static const help_record_t help_data[] = {
     "whose values matter for satisfying the assertions.\n",
     NULL, },
 
-  // END MARKER: index 162
+  // mcsat-supplement-check: index 163
+  { HPARAM,
+    "(set-param mcsat-supplement-check [mode])",
+    "Control supplementary MCSAT checks in CDCL(T) mode",
+    "Allowed modes are:\n"
+    "   both        --> check in propagate and final-check\n"
+    "   final-only  --> check only in final-check.\n",
+    NULL, },
+
+  // END MARKER: index 164
   { HMISC, NULL, NULL, NULL, NULL },
 };
 
-#define END_HELP_DATA 163
+#define END_HELP_DATA 164
 
 
 
@@ -2087,6 +2096,7 @@ static const help_index_t help_index[] = {
   { "max-extensionality", NULL, 139, help_basic },
   { "max-interface-eqs", NULL, 130, help_basic },
   { "max-update-conflicts", NULL, 138, help_basic },
+  { "mcsat-supplement-check", NULL, 163, help_basic },
   { "mk-bv", NULL, 58, help_basic },
   { "mk-tuple", NULL, 36, help_basic },
   { "mod", NULL, 156, help_basic },
