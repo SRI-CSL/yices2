@@ -215,7 +215,7 @@ fi
 ./"$bin_dir"/yices_smt2 --mcsat >& /dev/null < /dev/null
 if [ $? -ne 0 ]
 then
-    MCSAT_FILTER="-v mcsat"
+    MCSAT_FILTER="-v -E /(mcsat|both)/"
 else
     MCSAT_FILTER="."
 fi
