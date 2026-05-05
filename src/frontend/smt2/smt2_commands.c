@@ -1102,6 +1102,10 @@ static void print_yices_error(bool full) {
     print_out("mcsat: checking with assumptions only supports variables as assumptions");
     break;
 
+  case MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED:
+    print_out("mcsat: assumption variable has a type that mcsat cannot decide on");
+    break;
+
   case OUTPUT_ERROR:
     print_out(" IO error");
     break;

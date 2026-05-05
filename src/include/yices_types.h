@@ -480,6 +480,7 @@ typedef enum error_code {
    */
   MCSAT_ERROR_UNSUPPORTED_THEORY = 1000,
   MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED = 1001,
+  MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED = 1002,
 
   /*
    * Input/output and system errors
