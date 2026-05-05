@@ -3370,6 +3370,10 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  * if one of the terms t[i] is not an uninterpreted term
  *   code = MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED
  *
+ * if one of the terms t[i] has a type that MCSAT cannot decide on
+ * (i.e. not Bool, Int, Real, scalar, or BitVector)
+ *   code = MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED
+ *
  * If the context does not have the MCSAT solver enabled
  *   code = CTX_OPERATION_NOT_SUPPORTED
  *
@@ -3417,6 +3421,10 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *
  *
  * if one of the terms t[i] is not an uninterpreted term
  *   code = MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED
+ *
+ * if one of the terms t[i] has a type that MCSAT cannot decide on
+ * (i.e. not Bool, Int, Real, scalar, or BitVector)
+ *   code = MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED
  *
  * If the context does not have the MCSAT solver enabled
  *   code = CTX_OPERATION_NOT_SUPPORTED
