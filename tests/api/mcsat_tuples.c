@@ -340,6 +340,146 @@ static void test_tuple_function_component_with_tuple_domain(void) {
   yices_free_context(ctx);
 }
 
+static void test_tuple_selectors_in_arith_and_bv_terms(void) {
+  context_t* ctx = make_mcsat_context(false);
+
+  type_t int_t = yices_int_type();
+  type_t bv4_t = yices_bv_type(4);
+  type_t tuple_t = yices_tuple_type3(int_t, int_t, bv4_t);
+
+  term_t x = yices_new_uninterpreted_term(tuple_t);
+  term_t x1 = yices_select(1, x);
+  term_t x2 = yices_select(2, x);
+  term_t x3 = yices_select(3, x);
+
+  term_t arith = yices_add(yices_mul(x1, x2), x1);
+  term_t bv = yices_bvadd(x3, yices_bvconst_uint32(4, 1));
+
+  term_t constraints[5] = {
+    yices_arith_eq_atom(x1, yices_int32(2)),
+    yices_arith_eq_atom(x2, yices_int32(3)),
+    yices_arith_eq_atom(arith, yices_int32(8)),
+    yices_bveq_atom(x3, yices_bvconst_uint32(4, 3)),
+    yices_bveq_atom(bv, yices_bvconst_uint32(4, 4)),
+  };
+
+  for (uint32_t i = 0; i < 5; ++i) {
+    assert(yices_assert_formula(ctx, constraints[i]) == 0);
+  }
+
+  assert(yices_check_context(ctx, NULL) == YICES_STATUS_SAT);
+  model_t* model = yices_get_model(ctx, 1);
+  assert(model != NULL);
+
+  for (uint32_t i = 0; i < 5; ++i) {
+    assert(yices_formula_true_in_model(model, constraints[i]) == 1);
+  }
+
+  yices_free_model(model);
+  yices_free_context(ctx);
+}
+
+static void test_tuple_update_rewrite_model(void) {
+  context_t* ctx = make_mcsat_context(false);
+
+  type_t int_t = yices_int_type();
+  type_t bool_t = yices_bool_type();
+  type_t tuple_t = yices_tuple_type2(int_t, bool_t);
+
+  term_t x = yices_new_uninterpreted_term(tuple_t);
+  term_t updated = yices_tuple_update(x, 2, yices_true());
+
+  term_t constraints[3] = {
+    yices_arith_eq_atom(yices_select(1, x), yices_int32(11)),
+    yices_eq(yices_select(2, x), yices_false()),
+    yices_eq(updated, yices_tuple(2, (term_t[]){ yices_int32(11), yices_true() })),
+  };
+
+  for (uint32_t i = 0; i < 3; ++i) {
+    assert(yices_assert_formula(ctx, constraints[i]) == 0);
+  }
+
+  assert(yices_check_context(ctx, NULL) == YICES_STATUS_SAT);
+  model_t* model = yices_get_model(ctx, 1);
+  assert(model != NULL);
+
+  for (uint32_t i = 0; i < 3; ++i) {
+    assert(yices_formula_true_in_model(model, constraints[i]) == 1);
+  }
+  assert_tuple_int_bool_value(model, updated, 11, 1);
+
+  yices_free_model(model);
+  yices_free_context(ctx);
+}
+
+static void test_tuple_variable_term(void) {
+  context_t* ctx = make_mcsat_context(false);
+
+  type_t int_t = yices_int_type();
+  type_t bool_t = yices_bool_type();
+  type_t tuple_t = yices_tuple_type2(int_t, bool_t);
+
+  term_t x = yices_new_variable(tuple_t);
+  term_t constraints[2] = {
+    yices_arith_eq_atom(yices_select(1, x), yices_int32(14)),
+    yices_eq(yices_select(2, x), yices_true()),
+  };
+
+  for (uint32_t i = 0; i < 2; ++i) {
+    assert(yices_assert_formula(ctx, constraints[i]) == 0);
+  }
+
+  assert(yices_check_context(ctx, NULL) == YICES_STATUS_SAT);
+  model_t* model = yices_get_model(ctx, 1);
+  assert(model != NULL);
+
+  for (uint32_t i = 0; i < 2; ++i) {
+    assert(yices_formula_true_in_model(model, constraints[i]) == 1);
+  }
+  assert_tuple_int_bool_value(model, x, 14, 1);
+
+  yices_free_model(model);
+  yices_free_context(ctx);
+}
+
+static void test_function_component_with_tuple_domain_and_range(void) {
+  context_t* ctx = make_mcsat_context(false);
+
+  type_t int_t = yices_int_type();
+  type_t bool_t = yices_bool_type();
+  type_t tuple_t = yices_tuple_type2(int_t, bool_t);
+  type_t fun_t = yices_function_type1(tuple_t, tuple_t);
+  type_t wrapper_t = yices_tuple_type2(fun_t, int_t);
+
+  term_t x = yices_new_uninterpreted_term(wrapper_t);
+  term_t f = yices_select(1, x);
+  term_t arg = yices_tuple(2, (term_t[]){ yices_int32(6), yices_false() });
+  term_t out = yices_tuple(2, (term_t[]){ yices_int32(8), yices_true() });
+  term_t app = yices_application1(f, arg);
+
+  term_t constraints[3] = {
+    yices_arith_eq_atom(yices_select(2, x), yices_int32(12)),
+    yices_eq(app, out),
+    yices_arith_gt_atom(yices_select(1, app), yices_select(1, arg)),
+  };
+
+  for (uint32_t i = 0; i < 3; ++i) {
+    assert(yices_assert_formula(ctx, constraints[i]) == 0);
+  }
+
+  assert(yices_check_context(ctx, NULL) == YICES_STATUS_SAT);
+  model_t* model = yices_get_model(ctx, 1);
+  assert(model != NULL);
+
+  for (uint32_t i = 0; i < 3; ++i) {
+    assert(yices_formula_true_in_model(model, constraints[i]) == 1);
+  }
+  assert_tuple_int_bool_value(model, app, 8, 1);
+
+  yices_free_model(model);
+  yices_free_context(ctx);
+}
+
 static void assert_named_term_occurs_in_interpolant(term_t interpolant, const char* name) {
   char* text = yices_term_to_string(interpolant, 1000, 100, 0);
   assert(text != NULL);
@@ -412,6 +552,36 @@ static void test_interpolant_with_tuple_function_component_domain(void) {
   yices_free_context(ctx);
 }
 
+static void test_interpolant_with_tuple_function_component_domain_and_range(void) {
+  context_t* ctx = make_mcsat_context(true);
+
+  type_t int_t = yices_int_type();
+  type_t bool_t = yices_bool_type();
+  type_t tuple_t = yices_tuple_type2(int_t, bool_t);
+  type_t fun_t = yices_function_type1(tuple_t, tuple_t);
+  type_t wrapper_t = yices_tuple_type2(fun_t, int_t);
+
+  term_t x = yices_new_uninterpreted_term(wrapper_t);
+  assert(yices_set_term_name(x, "tuple_fun_both") == 0);
+  term_t f = yices_select(1, x);
+  term_t arg = yices_tuple(2, (term_t[]){ yices_int32(4), yices_false() });
+  term_t out = yices_tuple(2, (term_t[]){ yices_int32(9), yices_true() });
+  term_t app = yices_application1(f, arg);
+
+  assert(yices_assert_formula(ctx, yices_eq(app, out)) == 0);
+
+  term_t assumption = yices_not(yices_arith_gt_atom(yices_select(1, app), yices_int32(8)));
+  smt_status_t status = yices_check_context_with_assumptions(ctx, NULL, 1, &assumption);
+  assert(status == YICES_STATUS_UNSAT);
+
+  term_t interpolant = yices_get_model_interpolant(ctx);
+  assert(interpolant != NULL_TERM);
+  assert(yices_term_is_bool(interpolant));
+  assert_named_term_occurs_in_interpolant(interpolant, "tuple_fun_both");
+
+  yices_free_context(ctx);
+}
+
 int main(void) {
   if (!yices_has_mcsat()) {
     return 1; // skipped
@@ -426,8 +596,13 @@ int main(void) {
   test_unsat_and_interpolant_with_tuple_function();
   test_tuple_function_component_with_tuple_range();
   test_tuple_function_component_with_tuple_domain();
+  test_tuple_selectors_in_arith_and_bv_terms();
+  test_tuple_update_rewrite_model();
+  test_tuple_variable_term();
+  test_function_component_with_tuple_domain_and_range();
   test_interpolant_with_tuple_function_component_range();
   test_interpolant_with_tuple_function_component_domain();
+  test_interpolant_with_tuple_function_component_domain_and_range();
 
   yices_exit();
   return 0;

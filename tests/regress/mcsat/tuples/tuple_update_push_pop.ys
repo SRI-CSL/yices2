@@ -1,0 +1,18 @@
+(define-type Pair (tuple int bool))
+
+(define x::Pair)
+(define flag::bool)
+(define u::Pair (tuple-update x 2 true))
+(define v::Pair (if flag u x))
+
+(assert flag)
+(assert (= (select x 1) 11))
+(assert (= (select x 2) false))
+(assert (= v (mk-tuple 11 true)))
+
+(check)
+(push)
+(assert (= (select v 2) false))
+(check)
+(pop)
+(check)

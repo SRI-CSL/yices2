@@ -319,7 +319,8 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
     ivector_push(&result, t);
     break;
 
-  case UNINTERPRETED_TERM: {
+  case UNINTERPRETED_TERM:
+  case VARIABLE: {
     if (type_is_tuple_free(types, tau)) {
       ivector_push(&result, t);
     } else {
@@ -336,14 +337,6 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
     }
     break;
   }
-
-  case VARIABLE:
-    if (!type_is_tuple_free(types, tau)) {
-      delete_ivector(&result);
-      longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
-    }
-    ivector_push(&result, t);
-    break;
 
   case TUPLE_TERM: {
     composite_term_t* tuple = tuple_term_desc(terms, t);

@@ -1,0 +1,14 @@
+(define-type Pair (tuple int bool))
+(define-type Wrapper (tuple (-> Pair Pair) int))
+
+(define w::Wrapper)
+(define arg::Pair (mk-tuple 6 false))
+(define out::Pair (mk-tuple 8 true))
+(define f::(-> Pair Pair) (select w 1))
+(define app::Pair (f arg))
+
+(assert (= (select w 2) 12))
+(assert (= app out))
+(assert (> (select app 1) (select arg 1)))
+
+(check)
