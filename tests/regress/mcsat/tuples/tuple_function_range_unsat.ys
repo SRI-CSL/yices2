@@ -1,0 +1,15 @@
+;; Function int -> Pair (tuple range, scalar domain), wrapped in an
+;; outer tuple so the function lives behind a tuple selector. Asserts
+;; (f 0) = (3,true) and ((f 0).1) <= 2, which is unsatisfiable.
+
+(define-type Pair (tuple int bool))
+(define-type Wrapper (tuple (-> int Pair) int))
+
+(define w::Wrapper)
+(define f::(-> int Pair) (select w 1))
+(define app::Pair (f 0))
+
+(assert (= app (mk-tuple 3 true)))
+(assert (<= (select app 1) 2))
+
+(check)

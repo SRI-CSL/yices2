@@ -52,6 +52,8 @@
 
 #include "mcsat/utils/statistics.h"
 
+#include "terms/term_substitution.h"
+
 #include "utils/dprng.h"
 #include "model/model_queries.h"
 #include "io/model_printer.h"
@@ -263,7 +265,17 @@ struct mcsat_solver_s {
   /** Model used for assumptions solving */
   model_t* assumptions_model;
 
-  /** Interpolant */
+  /**
+   * Current sticky interpolant. Always stored in the public/postprocessed
+   * world: i.e. any tuple-blasted leaf variables have already been replaced
+   * by accessors over the original tuple/function atoms (see
+   * preprocessor_unblast_term). Writers MUST go through
+   * mcsat_set_interpolant_from_internal (applies unblast) for values
+   * produced by conflict analysis, or assign directly when the value is
+   * already in the public world (constants such as false_term, or values
+   * already retrieved via mcsat_get_unsat_model_interpolant). The getter
+   * is a plain field read.
+   */
   term_t interpolant;
 
   /** Statistics */
@@ -322,6 +334,9 @@ bool mcsat_is_consistent(mcsat_solver_t* mcsat) {
 
 static
 void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bound);
+
+static
+void mcsat_set_interpolant_from_internal(mcsat_solver_t* mcsat, term_t interpolant);
 
 static
 void propagation_check(const ivector_t* reasons, term_t x, term_t subst);
@@ -1180,7 +1195,7 @@ void mcsat_clear(mcsat_solver_t* mcsat) {
   mcsat->assumptions_decided_level = -1;
   mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, true);
   mcsat->status = YICES_STATUS_IDLE;
-  mcsat->interpolant = NULL_TERM; // BD
+  mcsat->interpolant = NULL_TERM;
 }
 
 /**
@@ -2091,6 +2106,11 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* input_conflict) {
 }
 
 static
+void mcsat_set_interpolant_from_internal(mcsat_solver_t* mcsat, term_t interpolant) {
+  mcsat->interpolant = preprocessor_unblast_term(&mcsat->preprocessor, interpolant);
+}
+
+static
 bool mcsat_conflict_with_assumptions(mcsat_solver_t* mcsat, uint32_t conflict_level) {
   // If we decided some assumptions, then backtracked under that level
   if ((int32_t) conflict_level <= mcsat->assumptions_decided_level) {
@@ -2154,15 +2174,16 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
         // but x_eq_t evaluates to true with trail
         ivector_push(&reason, opposite_term(x_eq_t));
         conflict_construct(&conflict, &reason, false, (mcsat_evaluator_interface_t*) &mcsat->evaluator, mcsat->var_db, mcsat->trail, &mcsat->tm, mcsat->ctx->trace);
-        mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
+        mcsat_set_interpolant_from_internal(mcsat, mcsat_analyze_final(mcsat, &conflict));
         conflict_destruct(&conflict);
       } else {
         // an assertion, interpolant is !assertion
-        mcsat->interpolant = variable_db_get_term(mcsat->var_db, mcsat->variable_in_conflict);
+        term_t interpolant = variable_db_get_term(mcsat->var_db, mcsat->variable_in_conflict);
         bool value = trail_get_boolean_value(mcsat->trail, mcsat->variable_in_conflict);
         if (!value) {
-          mcsat->interpolant = opposite_term(mcsat->interpolant);
+          interpolant = opposite_term(interpolant);
         }
+        mcsat_set_interpolant_from_internal(mcsat, interpolant);
       }
     }
     mcsat->status = YICES_STATUS_UNSAT;
@@ -2328,7 +2349,7 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   if (mcsat_conflict_with_assumptions(mcsat, conflict_level)) {
     mcsat->status = YICES_STATUS_UNSAT;
     if (mcsat->ctx->mcsat_options.model_interpolation) {
-      mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
+      mcsat_set_interpolant_from_internal(mcsat, mcsat_analyze_final(mcsat, &conflict));
     }
     mcsat->assumptions_decided_level = -1;
     mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
@@ -2811,6 +2832,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
   // If we're already unsat, just return
   if (!mcsat_is_consistent(mcsat)) {
+    /* false_term is already in the public world */
     mcsat->interpolant = false_term;
     mcsat->status = YICES_STATUS_UNSAT;
     assert(int_queue_is_empty(&mcsat->registration_queue));
@@ -2916,6 +2938,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
     // If at level 0 we're unsat
     if (n_assumptions == 0 && trail_is_at_base_level(mcsat->trail)) {
+      /* false_term is already in the public world */
       mcsat->interpolant = false_term;
       mcsat->status = YICES_STATUS_UNSAT;
       break;
@@ -2927,6 +2950,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     // Analysis might have discovered base level conflict
     if (mcsat->status == YICES_STATUS_UNSAT) {
       if (n_assumptions == 0) {
+        /* false_term is already in the public world */
         mcsat->interpolant = false_term;
       }
       break;
@@ -3126,7 +3150,21 @@ term_t mcsat_get_unsat_model_interpolant(mcsat_solver_t* mcsat) {
   return mcsat->interpolant;
 }
 
-void mcsat_set_unsat_result(mcsat_solver_t* mcsat, term_t interpolant) {
+void mcsat_set_unsat_result_from_labeled_interpolant(mcsat_solver_t* mcsat, term_t interpolant,
+                                                     uint32_t n, const term_t* labels,
+                                                     const term_t* assumptions) {
+  term_subst_t subst;
+
   mcsat->status = YICES_STATUS_UNSAT;
+  /*
+   * check_context_with_assumptions substitutes temporary labels with the
+   * caller's original assumptions before popping the temporary context frame.
+   * The input interpolant is already public/postprocessed; this only removes
+   * the temporary Boolean labels.
+   */
+  init_term_subst(&subst, &mcsat->tm, n, labels, assumptions);
+  interpolant = apply_term_subst(&subst, interpolant);
+  delete_term_subst(&subst);
+  /* Substituted interpolant remains in the public world */
   mcsat->interpolant = interpolant;
 }

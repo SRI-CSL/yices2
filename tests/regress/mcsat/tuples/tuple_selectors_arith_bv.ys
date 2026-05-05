@@ -1,0 +1,11 @@
+(define-type Cell (tuple int int (bitvector 4)))
+
+(define x::Cell)
+
+(assert (= (select x 1) 2))
+(assert (= (select x 2) 3))
+(assert (= (+ (* (select x 1) (select x 2)) (select x 1)) 8))
+(assert (= (select x 3) 0b0011))
+(assert (= (bv-add (select x 3) 0b0001) 0b0100))
+
+(check)

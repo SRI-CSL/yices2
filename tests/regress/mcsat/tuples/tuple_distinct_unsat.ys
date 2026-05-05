@@ -1,0 +1,10 @@
+(define-type Pair (tuple int bool))
+
+(define x::Pair)
+(define y::Pair)
+
+(assert (= (select x 1) (select y 1)))
+(assert (= (select x 2) (select y 2)))
+(assert (/= x y))
+
+(check)
