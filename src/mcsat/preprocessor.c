@@ -276,8 +276,12 @@ void tuple_blast_get(preprocessor_t* pre, term_t t, ivector_t* out) {
  * into tuple_blast_data, so the caller MUST NOT hold the returned pointer
  * across any operation that can grow tuple_blast_data -- most notably a
  * subsequent tuple_blast_term call. Intended for read-only hot paths
- * (ITE / DISTINCT / EQ / tuple_blast_collect_arg) where the current
- * ivector-based tuple_blast_get pays a malloc + memcpy per sub-term.
+ * (NOT, SELECT, EQ, ITE, DISTINCT, OR/XOR, POWER_PRODUCT, *_POLY,
+ * generic-composite combine, tuple_blast_collect_arg) where the
+ * ivector-based tuple_blast_get would pay a malloc + memcpy per sub-term.
+ * Use tuple_blast_get when the snapshot must outlive a subsequent
+ * tuple_blast_term call (APP, UPDATE, top-level substitution, model
+ * reconstruction).
  */
 static
 void tuple_blast_peek(preprocessor_t* pre, term_t t, const term_t** data_out, uint32_t* n_out) {
@@ -542,17 +546,15 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
 
   if (is_neg_term(t)) {
     term_t c = unsigned_term(t);
-    ivector_t c_blast;
+    const term_t* c_data;
+    uint32_t c_n;
     tuple_blast_term(pre, c);
-    init_ivector(&c_blast, 0);
-    tuple_blast_get(pre, c, &c_blast);
-    if (c_blast.size != 1) {
-      delete_ivector(&c_blast);
+    tuple_blast_peek(pre, c, &c_data, &c_n);
+    if (c_n != 1) {
       delete_ivector(&result);
       longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
     }
-    ivector_push(&result, opposite_term(c_blast.data[0]));
-    delete_ivector(&c_blast);
+    ivector_push(&result, opposite_term(c_data[0]));
     tuple_blast_set(pre, t, &result);
     delete_ivector(&result);
     return;
@@ -600,7 +602,8 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
 
   case SELECT_TERM: {
     select_term_t* sel = select_term_desc(terms, t);
-    ivector_t arg_blast;
+    const term_t* arg_data;
+    uint32_t arg_n;
     tuple_type_t* tuple_type;
     uint32_t i, start, len;
     type_t arg_type = term_type(terms, sel->arg);
@@ -609,21 +612,18 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
       longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
     }
     tuple_blast_term(pre, sel->arg);
-    init_ivector(&arg_blast, 0);
-    tuple_blast_get(pre, sel->arg, &arg_blast);
+    tuple_blast_peek(pre, sel->arg, &arg_data, &arg_n);
     tuple_type = tuple_type_desc(types, arg_type);
     start = 0;
     for (i = 0; i < sel->idx; ++i) {
       start += type_leaf_count(pre, tuple_type->elem[i]);
     }
     len = type_leaf_count(pre, tuple_type->elem[sel->idx]);
-    if (start + len > arg_blast.size) {
-      delete_ivector(&arg_blast);
+    if (start + len > arg_n) {
       delete_ivector(&result);
       longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
     }
-    ivector_add(&result, arg_blast.data + start, len);
-    delete_ivector(&arg_blast);
+    ivector_add(&result, (int32_t*) (arg_data + start), len);
     break;
   }
 
@@ -820,18 +820,16 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
     uint32_t i;
     init_ivector(&args, c->arity);
     for (i = 0; i < c->arity; ++i) {
-      ivector_t child;
+      const term_t* child_data;
+      uint32_t child_n;
       tuple_blast_term(pre, c->arg[i]);
-      init_ivector(&child, 0);
-      tuple_blast_get(pre, c->arg[i], &child);
-      if (child.size != 1) {
-        delete_ivector(&child);
+      tuple_blast_peek(pre, c->arg[i], &child_data, &child_n);
+      if (child_n != 1) {
         delete_ivector(&args);
         delete_ivector(&result);
         longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
       }
-      ivector_push(&args, child.data[0]);
-      delete_ivector(&child);
+      ivector_push(&args, child_data[0]);
     }
     ivector_push(&result, kind == OR_TERM ? mk_or(tm, args.size, args.data) : mk_xor(tm, args.size, args.data));
     delete_ivector(&args);
@@ -845,18 +843,16 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
     bool changed = false;
 
     for (i = 0; i < pp->len; ++i) {
-      ivector_t child;
+      const term_t* child_data;
+      uint32_t child_n;
       tuple_blast_term(pre, pp->prod[i].var);
-      init_ivector(&child, 0);
-      tuple_blast_get(pre, pp->prod[i].var, &child);
-      if (child.size != 1) {
-        delete_ivector(&child);
+      tuple_blast_peek(pre, pp->prod[i].var, &child_data, &child_n);
+      if (child_n != 1) {
         delete_ivector(&result);
         longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
       }
-      args[i] = child.data[0];
+      args[i] = child_data[0];
       changed |= args[i] != pp->prod[i].var;
-      delete_ivector(&child);
     }
     ivector_push(&result, changed ? mk_pprod(tm, pp, pp->len, args) : t);
     break;
@@ -873,18 +869,16 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
       if (x == const_idx) {
         args[i] = const_idx;
       } else {
-        ivector_t child;
+        const term_t* child_data;
+        uint32_t child_n;
         tuple_blast_term(pre, x);
-        init_ivector(&child, 0);
-        tuple_blast_get(pre, x, &child);
-        if (child.size != 1) {
-          delete_ivector(&child);
+        tuple_blast_peek(pre, x, &child_data, &child_n);
+        if (child_n != 1) {
           delete_ivector(&result);
           longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
         }
-        args[i] = child.data[0];
+        args[i] = child_data[0];
         changed |= args[i] != x;
-        delete_ivector(&child);
       }
     }
     ivector_push(&result, changed ? mk_arith_poly(tm, p, p->nterms, args) : t);
@@ -903,18 +897,16 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
       if (x == const_idx) {
         args[i] = const_idx;
       } else {
-        ivector_t child;
+        const term_t* child_data;
+        uint32_t child_n;
         tuple_blast_term(pre, x);
-        init_ivector(&child, 0);
-        tuple_blast_get(pre, x, &child);
-        if (child.size != 1) {
-          delete_ivector(&child);
+        tuple_blast_peek(pre, x, &child_data, &child_n);
+        if (child_n != 1) {
           delete_ivector(&result);
           longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
         }
-        args[i] = child.data[0];
+        args[i] = child_data[0];
         changed |= args[i] != x;
-        delete_ivector(&child);
       }
     }
     ivector_push(&result, changed ? mk_arith_ff_poly(tm, p, p->nterms, args, mod) : t);
@@ -932,18 +924,16 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
       if (x == const_idx) {
         args[i] = const_idx;
       } else {
-        ivector_t child;
+        const term_t* child_data;
+        uint32_t child_n;
         tuple_blast_term(pre, x);
-        init_ivector(&child, 0);
-        tuple_blast_get(pre, x, &child);
-        if (child.size != 1) {
-          delete_ivector(&child);
+        tuple_blast_peek(pre, x, &child_data, &child_n);
+        if (child_n != 1) {
           delete_ivector(&result);
           longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
         }
-        args[i] = child.data[0];
+        args[i] = child_data[0];
         changed |= args[i] != x;
-        delete_ivector(&child);
       }
     }
     ivector_push(&result, changed ? mk_bvarith64_poly(tm, p, p->nterms, args) : t);
@@ -961,18 +951,16 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
       if (x == const_idx) {
         args[i] = const_idx;
       } else {
-        ivector_t child;
+        const term_t* child_data;
+        uint32_t child_n;
         tuple_blast_term(pre, x);
-        init_ivector(&child, 0);
-        tuple_blast_get(pre, x, &child);
-        if (child.size != 1) {
-          delete_ivector(&child);
+        tuple_blast_peek(pre, x, &child_data, &child_n);
+        if (child_n != 1) {
           delete_ivector(&result);
           longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
         }
-        args[i] = child.data[0];
+        args[i] = child_data[0];
         changed |= args[i] != x;
-        delete_ivector(&child);
       }
     }
     ivector_push(&result, changed ? mk_bvarith_poly(tm, p, p->nterms, args) : t);
@@ -1003,18 +991,16 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
     bool changed = false;
 
     for (i = 0; i < c->arity; ++i) {
-      ivector_t child;
+      const term_t* child_data;
+      uint32_t child_n;
       tuple_blast_term(pre, c->arg[i]);
-      init_ivector(&child, 0);
-      tuple_blast_get(pre, c->arg[i], &child);
-      if (child.size != 1) {
-        delete_ivector(&child);
+      tuple_blast_peek(pre, c->arg[i], &child_data, &child_n);
+      if (child_n != 1) {
         delete_ivector(&result);
         longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
       }
-      args[i] = child.data[0];
+      args[i] = child_data[0];
       changed |= args[i] != c->arg[i];
-      delete_ivector(&child);
     }
 
     term_t rebuilt = changed ? mk_composite(pre, kind, c->arity, args) : t;
