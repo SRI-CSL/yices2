@@ -490,6 +490,53 @@ static void assert_named_term_occurs_in_interpolant(term_t interpolant, const ch
   yices_free_string(text);
 }
 
+/*
+ * Recursive tree walk that aborts if any reachable node has constructor
+ * YICES_LAMBDA_TERM.
+ *
+ * A residual lambda in an interpolant retrieved via
+ * yices_get_model_interpolant would indicate that the unblast path built
+ * a (lambda v. ...) wrapper for a function-valued tuple atom and the
+ * subsequent term_subst did not beta-reduce the resulting application
+ * (lambda v. ...) arg. The interpolant is supposed to live in the
+ * ordinary public term world (no lambdas), so any such residue is a bug.
+ *
+ * We don't memoize visited subterms: the interpolants returned by these
+ * tests are very small, so plain tree-walking terminates quickly and
+ * stays well below the (bounded) recursion depth.
+ */
+static bool assert_no_lambda_walk(term_t t, int depth) {
+  if (depth > 64) {
+    fprintf(stderr, "assert_no_lambda: walk depth exceeded 64, giving up\n");
+    return true;  /* don't block the test on excessive nesting */
+  }
+  term_constructor_t kind = yices_term_constructor(t);
+  if (kind == YICES_LAMBDA_TERM) {
+    char* s = yices_term_to_string(t, 200, 10, 0);
+    fprintf(stderr, "assert_no_lambda: residual lambda at subterm %s\n", s ? s : "<nil>");
+    yices_free_string(s);
+    return false;
+  }
+  int32_t n = yices_term_num_children(t);
+  if (n <= 0) return true;
+  for (int32_t i = 0; i < n; ++i) {
+    term_t c = yices_term_child(t, i);
+    if (c == NULL_TERM) continue;
+    if (!assert_no_lambda_walk(c, depth + 1)) return false;
+  }
+  return true;
+}
+
+static void assert_interpolant_has_no_lambda_residue(term_t interpolant) {
+  bool ok = assert_no_lambda_walk(interpolant, 0);
+  if (!ok) {
+    char* text = yices_term_to_string(interpolant, 4000, 100, 0);
+    fprintf(stderr, "interpolant with lambda residue: %s\n", text ? text : "<nil>");
+    yices_free_string(text);
+  }
+  assert(ok);
+}
+
 static void test_interpolant_with_tuple_function_component_range(void) {
   context_t* ctx = make_mcsat_context(true);
 
@@ -517,6 +564,7 @@ static void test_interpolant_with_tuple_function_component_range(void) {
   assert(interpolant != NULL_TERM);
   assert(yices_term_is_bool(interpolant));
   assert_named_term_occurs_in_interpolant(interpolant, "tuple_fun_range");
+  assert_interpolant_has_no_lambda_residue(interpolant);
 
   yices_free_context(ctx);
 }
@@ -548,6 +596,7 @@ static void test_interpolant_with_tuple_function_component_domain(void) {
   assert(interpolant != NULL_TERM);
   assert(yices_term_is_bool(interpolant));
   assert_named_term_occurs_in_interpolant(interpolant, "tuple_fun_domain");
+  assert_interpolant_has_no_lambda_residue(interpolant);
 
   yices_free_context(ctx);
 }
@@ -578,6 +627,7 @@ static void test_interpolant_with_tuple_function_component_domain_and_range(void
   assert(interpolant != NULL_TERM);
   assert(yices_term_is_bool(interpolant));
   assert_named_term_occurs_in_interpolant(interpolant, "tuple_fun_both");
+  assert_interpolant_has_no_lambda_residue(interpolant);
 
   yices_free_context(ctx);
 }
