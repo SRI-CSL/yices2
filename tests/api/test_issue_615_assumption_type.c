@@ -12,25 +12,12 @@
  * MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED.
  */
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <yices.h>
-
-/*
- * CHECK(cond) is used instead of assert() so the test still fails when the
- * code is compiled with -DNDEBUG (release builds). Otherwise the smt_status_t
- * variables we check would also become "unused" under -Werror=unused-variable.
- */
-#define CHECK(cond)                                                           \
-  do {                                                                        \
-    if (!(cond)) {                                                            \
-      fprintf(stderr, "%s:%d: CHECK failed: %s\n",                            \
-              __FILE__, __LINE__, #cond);                                     \
-      exit(1);                                                                \
-    }                                                                         \
-  } while (0)
 
 static context_t *make_mcsat_context(bool model_interpolation) {
   ctx_config_t *config = yices_new_config();
@@ -54,7 +41,7 @@ static context_t *make_mcsat_context(bool model_interpolation) {
  */
 static void check_uninterpreted_sort_assumption_rejected(void) {
   context_t *ctx = make_mcsat_context(false);
-  CHECK(ctx != NULL);
+  assert(ctx != NULL);
 
   type_t T = yices_new_uninterpreted_type();
   term_t x = yices_new_uninterpreted_term(T);
@@ -70,15 +57,16 @@ static void check_uninterpreted_sort_assumption_rejected(void) {
 
   smt_status_t s =
     yices_check_context_with_model(ctx, NULL, mdl, 2, assumptions);
+  (void) s;
 
-  CHECK(s == YICES_STATUS_ERROR);
-  CHECK(yices_error_code() == MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED);
+  assert(s == YICES_STATUS_ERROR);
+  assert(yices_error_code() == MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED);
   yices_clear_error();
 
   s = yices_check_context_with_model_and_hint(ctx, NULL, mdl, 2,
                                               assumptions, /*m=*/1);
-  CHECK(s == YICES_STATUS_ERROR);
-  CHECK(yices_error_code() == MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED);
+  assert(s == YICES_STATUS_ERROR);
+  assert(yices_error_code() == MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED);
   yices_clear_error();
 
   yices_free_model(mdl);
@@ -91,7 +79,7 @@ static void check_uninterpreted_sort_assumption_rejected(void) {
  */
 static void check_function_type_assumption_rejected(void) {
   context_t *ctx = make_mcsat_context(false);
-  CHECK(ctx != NULL);
+  assert(ctx != NULL);
 
   type_t int_t = yices_int_type();
   type_t dom[1] = { int_t };
@@ -107,9 +95,10 @@ static void check_function_type_assumption_rejected(void) {
 
   smt_status_t s =
     yices_check_context_with_model(ctx, NULL, mdl, 1, assumptions);
+  (void) s;
 
-  CHECK(s == YICES_STATUS_ERROR);
-  CHECK(yices_error_code() == MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED);
+  assert(s == YICES_STATUS_ERROR);
+  assert(yices_error_code() == MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED);
   yices_clear_error();
 
   yices_free_model(mdl);
@@ -123,7 +112,7 @@ static void check_function_type_assumption_rejected(void) {
  */
 static void check_supported_types_still_work(void) {
   context_t *ctx = make_mcsat_context(false);
-  CHECK(ctx != NULL);
+  assert(ctx != NULL);
 
   /* x : Real; assert x > 0; assumption x with model x = 1 -> SAT */
   term_t x = yices_new_uninterpreted_term(yices_real_type());
@@ -136,8 +125,9 @@ static void check_supported_types_still_work(void) {
   term_t assumptions[1] = { x };
   smt_status_t s =
     yices_check_context_with_model(ctx, NULL, mdl, 1, assumptions);
+  (void) s;
   /* Must not error and must not crash. */
-  CHECK(s == YICES_STATUS_SAT || s == YICES_STATUS_UNKNOWN);
+  assert(s == YICES_STATUS_SAT || s == YICES_STATUS_UNKNOWN);
 
   yices_free_model(mdl);
   yices_free_context(ctx);
@@ -150,7 +140,7 @@ static void check_supported_types_still_work(void) {
  */
 static void check_term_shape_check_preserved(void) {
   context_t *ctx = make_mcsat_context(false);
-  CHECK(ctx != NULL);
+  assert(ctx != NULL);
 
   term_t x = yices_new_uninterpreted_term(yices_int_type());
   term_t not_a_var = yices_add(x, yices_int32(1));  /* x + 1, not a variable */
@@ -160,8 +150,9 @@ static void check_term_shape_check_preserved(void) {
 
   smt_status_t s =
     yices_check_context_with_model(ctx, NULL, mdl, 1, assumptions);
-  CHECK(s == YICES_STATUS_ERROR);
-  CHECK(yices_error_code() == MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED);
+  (void) s;
+  assert(s == YICES_STATUS_ERROR);
+  assert(yices_error_code() == MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED);
   yices_clear_error();
 
   yices_free_model(mdl);
