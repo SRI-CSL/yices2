@@ -31,6 +31,7 @@
 #include "utils/ptr_array_sort2.h"
 #include "utils/int_hash_sets.h"
 
+#include "model/fresh_value_maker.h"
 #include "model/models.h"
 
 #include "terms/terms.h"
@@ -655,31 +656,78 @@ void uf_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
 typedef struct {
   term_table_t* terms;
   variable_db_t* var_db;
+  const mcsat_trail_t* trail;
 } model_sort_data_t;
 
 
-// Compare two terms by function application: group same functions together
 static
-bool uf_plugin_build_model_compare(void *data, term_t t1, term_t t2) {
+bool uf_plugin_get_function_id_from_trail(term_table_t* terms, variable_db_t* var_db, const mcsat_trail_t* trail, term_t t, int32_t* id) {
+  variable_t t_var = variable_db_get_variable_if_exists(var_db, t);
+  assert(t_var != variable_null);
+  assert(trail_has_value(trail, t_var));
+
+  const mcsat_value_t* t_value = trail_get_value(trail, t_var);
+  assert(t_value->type == VALUE_RATIONAL);
+
+  bool ok = q_get32((rational_t*) &t_value->q, id);
+  if (!ok) {
+    // Function ids are allocated as small non-negative integers by
+    // uf_plugin_decide; overflow into an unrepresentable rational would
+    // indicate a serious internal inconsistency. Assert in debug; in release
+    // builds, report failure so callers don't collapse unrelated overflowed
+    // ids into one sentinel hashmap key.
+    // LCOV_EXCL_START - unreachable on supported inputs
+    assert(false);
+    return false;
+    // LCOV_EXCL_STOP
+  }
+
+  return true;
+}
+
+static
+bool uf_plugin_get_function_id(uf_plugin_t* uf, term_t t, int32_t* id) {
+  return uf_plugin_get_function_id_from_trail(uf->ctx->terms, uf->ctx->var_db, uf->ctx->trail, t, id);
+}
+
+
+// Compare applications by the function value of their head term
+static
+bool uf_plugin_build_app_model_compare(void *data, term_t t1, term_t t2) {
   model_sort_data_t* ctx = (model_sort_data_t*) data;
+  term_t t1_fun = app_term_desc(ctx->terms, t1)->arg[0];
+  term_t t2_fun = app_term_desc(ctx->terms, t2)->arg[0];
+  int32_t t1_fun_id, t2_fun_id;
 
-  int32_t t1_app = term_kind(ctx->terms, t1);
-  int32_t t2_app = term_kind(ctx->terms, t2);
-
-  if (t1_app != t2_app) {
-    return t1_app < t2_app;
+  if (!uf_plugin_get_function_id_from_trail(ctx->terms, ctx->var_db, ctx->trail, t1_fun, &t1_fun_id) ||
+      !uf_plugin_get_function_id_from_trail(ctx->terms, ctx->var_db, ctx->trail, t2_fun, &t2_fun_id)) {
+    return t1 < t2;  // LCOV_EXCL_LINE - defensive fallback, unreachable on supported inputs
   }
 
-  if (t1_app == APP_TERM) {
-    t1_app = app_term_desc(ctx->terms, t1)->arg[0];
-    t2_app = app_term_desc(ctx->terms, t2)->arg[0];
-    if (t1_app != t2_app) {
-      return t1_app < t2_app;
-    }
+  if (t1_fun_id != t2_fun_id) {
+    return t1_fun_id < t2_fun_id;
   }
+
   return t1 < t2;
 }
 
+static
+bool uf_plugin_build_special_model_compare(void *data, term_t t1, term_t t2) {
+  term_table_t* terms = (term_table_t*) data;
+  term_kind_t t1_kind = term_kind(terms, t1);
+  term_kind_t t2_kind = term_kind(terms, t2);
+
+  if (t1_kind != t2_kind) {
+    return t1_kind < t2_kind;
+  }
+
+  return t1 < t2;
+}
+
+// Returns the function type for an application-shaped term whose kind is
+// app_kind. For APP_TERM/UPDATE_TERM the type is read from the head term f;
+// for div/mod it is the well-known one-argument arithmetic function type and
+// f is unused. Callers in the div/mod branches may pass NULL_TERM for f.
 static inline
 type_t get_function_application_type(term_table_t* terms, term_kind_t app_kind, term_t f) {
 
@@ -690,6 +738,7 @@ type_t get_function_application_type(term_table_t* terms, term_kind_t app_kind, 
   switch (app_kind) {
   case UPDATE_TERM:
   case APP_TERM:
+    assert(f != NULL_TERM);
     return term_type(terms, f);
   case ARITH_RDIV:
     return function_type(types, reals, 1, &reals);
@@ -716,28 +765,216 @@ value_t uf_plugin_get_term_value(uf_plugin_t* uf, value_table_t* vtbl, term_t t)
   }
 }
 
+// Default value of type tau for use as the "else" branch of a function.
+// Kept as a wrapper for readability at call sites.
 static inline
-value_t vtbl_mk_default(type_table_t* types, value_table_t *vtbl, type_t tau) {
-  type_kind_t tau_kind = type_kind(types, tau);
-  switch(tau_kind) {
-  case BOOL_TYPE:
-    return vtbl_mk_false(vtbl);
-    break;
-  case REAL_TYPE:
-  case INT_TYPE:
-    return vtbl_mk_int32(vtbl, 0);
-    break;
-  case BITVECTOR_TYPE:
-    return vtbl_mk_bv_zero(vtbl, bv_type_size(types, tau));
-    break;
-  case UNINTERPRETED_TYPE:
-    return vtbl_mk_const(vtbl, tau, 0, "");
-    break;
-  default:
-    assert(false);
+value_t vtbl_mk_default(value_table_t *vtbl, type_t tau) {
+  return vtbl_make_object(vtbl, tau);
+}
+
+typedef struct {
+  uf_plugin_t* uf;
+  value_table_t* vtbl;
+  fresh_val_maker_t maker;
+  ivector_t app_terms;
+  ivector_t arguments;
+  int_hmap_t app_term_first;
+  int_hmap_t function_term;
+  int_hmap_t function_value;
+} uf_model_builder_t;
+
+static
+void uf_model_builder_construct(uf_model_builder_t* builder, uf_plugin_t* uf, value_table_t* vtbl) {
+  builder->uf = uf;
+  builder->vtbl = vtbl;
+  init_fresh_val_maker(&builder->maker, vtbl);
+  init_ivector(&builder->app_terms, 0);
+  init_ivector(&builder->arguments, 0);
+  init_int_hmap(&builder->app_term_first, 0);
+  init_int_hmap(&builder->function_term, 0);
+  init_int_hmap(&builder->function_value, 0);
+}
+
+static
+void uf_model_builder_destruct(uf_model_builder_t* builder) {
+  delete_int_hmap(&builder->function_value);
+  delete_int_hmap(&builder->function_term);
+  delete_int_hmap(&builder->app_term_first);
+  delete_ivector(&builder->arguments);
+  delete_ivector(&builder->app_terms);
+  delete_fresh_val_maker(&builder->maker);
+}
+
+// Record 't' as a candidate canonical term for its function-id.
+// Priority rule: once an UNINTERPRETED_TERM is stored for a given function-id,
+// keep it. Otherwise (no term yet, or a non-uninterpreted term stored), overwrite
+// with 't'. This ensures the canonical representative is an uninterpreted function
+// symbol when one is available, which is preferred for model printing.
+static
+void uf_model_builder_remember_function_term(uf_model_builder_t* builder, term_t t) {
+  int32_t function_id;
+  int_hmap_pair_t* find;
+  term_table_t* terms = builder->uf->ctx->terms;
+
+  if (term_type_kind(terms, t) != FUNCTION_TYPE) {
+    return;
   }
 
-  return null_value;
+  if (!uf_plugin_get_function_id(builder->uf, t, &function_id)) {
+    return;  // LCOV_EXCL_LINE - defensive fallback, unreachable on supported inputs
+  }
+
+  find = int_hmap_get(&builder->function_term, function_id);
+
+  if (find->val < 0 || term_kind(terms, find->val) != UNINTERPRETED_TERM) {
+    find->val = t;
+  }
+}
+
+static
+value_t uf_model_builder_get_term_value(uf_model_builder_t* builder, term_t t);
+
+static
+value_t uf_model_builder_get_function_value(uf_model_builder_t* builder, term_t t) {
+  uint32_t i;
+  int32_t function_id;
+  int_hmap_pair_t* find;
+  term_table_t* terms = builder->uf->ctx->terms;
+  value_t f_value;
+  ivector_t arguments;
+
+  assert(term_type_kind(terms, t) == FUNCTION_TYPE);
+
+  if (!uf_plugin_get_function_id(builder->uf, t, &function_id)) {
+    return null_value;  // LCOV_EXCL_LINE - defensive fallback, unreachable on supported inputs
+  }
+
+  uf_model_builder_remember_function_term(builder, t);
+
+  find = int_hmap_get(&builder->function_value, function_id);
+  if (find->val >= 0) {
+    return find->val;
+  }
+
+  init_ivector(&arguments, 0);
+
+  term_t fun_term = int_hmap_find(&builder->function_term, function_id)->val;
+  type_t fun_type = term_type(terms, fun_term);
+  f_value = make_fresh_function(&builder->maker, fun_type);
+  if (f_value == null_value) {
+    // Unreachable on supported inputs: the MCSAT preprocessor guard
+    // (term_needs_function_diseq_guard in mcsat/preprocessor.c) rejects
+    // equality atoms whose type contains a finite-domain function sort, so
+    // make_fresh_function should always succeed for any function type that
+    // reaches model construction. If we ever reach here, the guard has a
+    // hole; fail closed rather than silently constructing a collapsing
+    // default function value.
+    // LCOV_EXCL_START - unreachable, rejected by preprocessor guard
+    assert(false && "unreachable: preprocessor guard should have rejected this type");
+    delete_ivector(&arguments);
+    return null_value;
+    // LCOV_EXCL_STOP
+  }
+
+  // Cache the fresh base function first to handle recursive calls that come
+  // back to the same function_id. Such cycles arise when an application
+  // ((t x) ...) has an argument or result whose mcsat-trail function id
+  // coincides with t's function id (rare but possible). The cached value at
+  // that point is the bare fresh base, without the updates that this call is
+  // still in the middle of applying.
+  //
+  // KNOWN LIMITATION: if such a cycle occurs, the inner call returns a
+  // partial function value, and any value_t built from that view (e.g., as
+  // an argument or result of vtbl_mk_update below) encodes the partial,
+  // pre-update view rather than the final updated function. The model
+  // emitted on such inputs is best-effort and may not be extensional on the
+  // self-referential pair. Without a visited-set + theory-conflict path,
+  // this is the cheapest cycle break we can make. Avoiding the cache write
+  // here would loop indefinitely.
+  find->val = f_value;
+  find = NULL; // invalidated once we recurse (int_hmap_get may resize the table)
+
+  int_hmap_pair_t* first_app = int_hmap_find(&builder->app_term_first, function_id);
+  if (first_app != NULL) {
+    for (i = first_app->val; i < builder->app_terms.size; ++ i) {
+      term_t app_term = builder->app_terms.data[i];
+      composite_term_t* app_desc = app_term_desc(terms, app_term);
+
+      int32_t app_function_id;
+      if (!uf_plugin_get_function_id(builder->uf, app_desc->arg[0], &app_function_id) ||
+          app_function_id != function_id) {
+        break;
+      }
+
+      ivector_reset(&arguments);
+      uint32_t arg_i;
+      for (arg_i = 1; arg_i < app_desc->arity; ++ arg_i) {
+        ivector_push(&arguments, uf_model_builder_get_term_value(builder, app_desc->arg[arg_i]));
+      }
+
+      value_t result_value = uf_model_builder_get_term_value(builder, app_term);
+      f_value = vtbl_mk_update(builder->vtbl, f_value, arguments.size, arguments.data, result_value);
+    }
+
+    // Re-fetch: the recursive calls above may have inserted new entries into
+    // builder->function_value and triggered int_hmap_extend, which invalidates
+    // any int_hmap_pair_t* obtained before recursion.
+    int_hmap_get(&builder->function_value, function_id)->val = f_value;
+  }
+
+  delete_ivector(&arguments);
+  return f_value;
+}
+
+static
+value_t uf_model_builder_get_term_value(uf_model_builder_t* builder, term_t t) {
+  if (term_type_kind(builder->uf->ctx->terms, t) == FUNCTION_TYPE) {
+    return uf_model_builder_get_function_value(builder, t);
+  }
+
+  return uf_plugin_get_term_value(builder->uf, builder->vtbl, t);
+}
+
+static
+void uf_model_builder_prepare(uf_model_builder_t* builder) {
+  uf_plugin_t* uf = builder->uf;
+  term_table_t* terms = uf->ctx->terms;
+  model_sort_data_t sort_ctx;
+  uint32_t i;
+
+  sort_ctx.terms = terms;
+  sort_ctx.var_db = uf->ctx->var_db;
+  sort_ctx.trail = uf->ctx->trail;
+
+  for (i = 0; i < uf->eq_graph_addition_trail.size; ++ i) {
+    term_t t = uf->eq_graph_addition_trail.data[i];
+    if (term_kind(terms, t) == APP_TERM) {
+      ivector_push(&builder->app_terms, t);
+    }
+  }
+
+  if (builder->app_terms.size == 0) {
+    return;
+  }
+
+  int_array_sort2(builder->app_terms.data, builder->app_terms.size, &sort_ctx, uf_plugin_build_app_model_compare);
+
+  for (i = 0; i < builder->app_terms.size; ++ i) {
+    term_t app_term = builder->app_terms.data[i];
+    composite_term_t* app_desc = app_term_desc(terms, app_term);
+    int32_t function_id;
+    if (!uf_plugin_get_function_id(builder->uf, app_desc->arg[0], &function_id)) {
+      continue;  // LCOV_EXCL_LINE - defensive fallback, unreachable on supported inputs
+    }
+
+    int_hmap_pair_t* first = int_hmap_get(&builder->app_term_first, function_id);
+    if (first->val < 0) {
+      first->val = i;
+    }
+
+    uf_model_builder_remember_function_term(builder, app_desc->arg[0]);
+    uf_model_builder_remember_function_term(builder, app_term);
+  }
 }
 
 static
@@ -748,53 +985,56 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
   value_table_t* vtbl = &model->vtbl;
   variable_db_t* var_db = uf->ctx->var_db;
   const mcsat_trail_t* trail = uf->ctx->trail;
+  uf_model_builder_t builder;
+  uf_model_builder_construct(&builder, uf, vtbl);
+  uf_model_builder_prepare(&builder);
 
-  // Data for sorting
-  model_sort_data_t sort_ctx;
-  sort_ctx.terms = terms;
-  sort_ctx.var_db = var_db;
+  // Build values for all top-level uninterpreted functions in the trail.
+  uint32_t i;
+  const ivector_t* trail_elements = &trail->elements;
+  for (i = 0; i < trail_elements->size; ++ i) {
+    variable_t x = trail_elements->data[i];
+    term_t x_term = variable_db_get_term(var_db, x);
+    if (term_kind(terms, x_term) == UNINTERPRETED_TERM &&
+        term_type_kind(terms, x_term) == FUNCTION_TYPE) {
+      value_t x_value;
+      uf_model_builder_remember_function_term(&builder, x_term);
+      x_value = uf_model_builder_get_function_value(&builder, x_term);
+      if (x_value != null_value) {
+        model_map_term(model, x_term, x_value);
+      }
+    }
+  }
 
-  // Sort the terms from the equality graph by function used: we get a list of function
-  // applications where we can easily collect them by linear scan
-  ivector_t app_terms;
-  init_ivector(&app_terms, uf->eq_graph_addition_trail.size);
-  ivector_copy(&app_terms, uf->eq_graph_addition_trail.data, uf->eq_graph_addition_trail.size);
-  int_array_sort2(app_terms.data, app_terms.size, &sort_ctx, uf_plugin_build_model_compare);
+  // Now construct special interpreted functions for division-by-zero cases.
+  ivector_t special_terms;
+  init_ivector(&special_terms, 0);
+  for (i = 0; i < uf->eq_graph_addition_trail.size; ++ i) {
+    term_t t = uf->eq_graph_addition_trail.data[i];
+    term_kind_t kind = term_kind(terms, t);
+    if (kind == ARITH_RDIV || kind == ARITH_IDIV || kind == ARITH_MOD) {
+      ivector_push(&special_terms, t);
+    }
+  }
 
-  // Mappings that we collect for a single function
+  int_array_sort2(special_terms.data, special_terms.size, terms, uf_plugin_build_special_model_compare);
+
   ivector_t mappings;
   init_ivector(&mappings, 0);
 
-  // Temp for arguments of a one concrete mapping
-  ivector_t arguments;
-  init_ivector(&arguments, 0);
+  // Go through the special (div/mod) applications sorted by kind. While the kind
+  // is unchanged, collect concrete mappings; when the kind changes, emit the
+  // function value for the previous kind.
+  //
+  // Note: only div-by-zero cases contribute mappings; other divisors are skipped.
+  term_t app_term;
+  term_kind_t app_kind = UNUSED_TERM, prev_app_kind = UNUSED_TERM;
+  bool has_prev = false;
+  for (i = 0; i < special_terms.size; ++ i) {
 
-  // Got through all the representatives that have a set value and
-  // - while same function, collect the concrete mappings
-  // - if different function, construct the function and add to model
-  uint32_t i;
-  term_t app_f = NULL_TERM, prev_app_f = NULL_TERM;  // Current and previous function symbol
-  term_t app_term, prev_app_term = NULL_TERM; // Current and previous function application term
-  term_kind_t app_kind = UNUSED_TERM, prev_app_kind = UNUSED_TERM; // Kind of the current and previous function
-  bool app_construct = true; // Whether to construct it
-  for (i = 0; i < app_terms.size; ++ i) {
-
-    // Current representative application
-    app_term = app_terms.data[i];
-
-    // Only need to do functions and uninterpreted
+    app_term = special_terms.data[i];
     app_kind = term_kind(terms, app_term);
-    switch (app_kind) {
-    case APP_TERM:
-    case ARITH_RDIV:
-    case ARITH_IDIV:
-    case ARITH_MOD:
-      app_construct = true;
-      break;
-    default:
-      app_construct = false;
-      break;
-    }
+    assert(app_kind == ARITH_RDIV || app_kind == ARITH_IDIV || app_kind == ARITH_MOD);
 
     composite_term_t* app_comp = composite_term_desc(terms, app_term);
 
@@ -803,98 +1043,65 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
       ctx_trace_term(uf->ctx, app_term);
     }
 
-    if (app_kind == APP_TERM) {
-      app_f = app_comp->arg[0];
-    } else {
-      app_f = NULL_TERM;
-      // Division only if division by 0
-      assert(app_comp->arity == 2);
-      term_t divisor_term = app_comp->arg[1];
-      variable_t divisor_var = variable_db_get_variable(var_db, divisor_term);
-      assert(trail_has_value(trail, divisor_var));
-      const mcsat_value_t* divisor_value = trail_get_value(trail, divisor_var);
-      if (!mcsat_value_is_zero(divisor_value)) {
-        continue;
-      }
+    // Division only if division by 0
+    assert(app_comp->arity == 2);
+    term_t divisor_term = app_comp->arg[1];
+    variable_t divisor_var = variable_db_get_variable(var_db, divisor_term);
+    assert(trail_has_value(trail, divisor_var));
+    const mcsat_value_t* divisor_value = trail_get_value(trail, divisor_var);
+    if (!mcsat_value_is_zero(divisor_value)) {
+      continue;
     }
 
-    // If we changed the function, construct the previous one
-    if (prev_app_term != NULL_TERM) {
-      if (app_f != prev_app_f || app_kind != prev_app_kind) {
-        type_t tau = get_function_application_type(terms, prev_app_kind, prev_app_f);
-        type_t range_tau = function_type_range(terms->types, tau);
-        value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(terms->types, vtbl, range_tau));
-        switch (prev_app_kind) {
-        case ARITH_RDIV:
-          vtbl_set_zero_rdiv(vtbl, f_value);
-          break;
-        case ARITH_IDIV:
-          vtbl_set_zero_idiv(vtbl, f_value);
-          break;
-        case ARITH_MOD:
-          vtbl_set_zero_mod(vtbl, f_value);
-          break;
-        case APP_TERM:
-          model_map_term(model, prev_app_f, f_value);
-          break;
-        default:
-          assert(false);
-        }
-        // Reset the mapping
-        ivector_reset(&mappings);
+    // If the kind changed, emit the previous function.
+    if (has_prev && app_kind != prev_app_kind) {
+      type_t tau = get_function_application_type(terms, prev_app_kind, NULL_TERM);
+      type_t range_tau = function_type_range(terms->types, tau);
+      value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(vtbl, range_tau));
+      switch (prev_app_kind) {
+      case ARITH_RDIV: vtbl_set_zero_rdiv(vtbl, f_value); break;
+      case ARITH_IDIV: vtbl_set_zero_idiv(vtbl, f_value); break;
+      case ARITH_MOD:  vtbl_set_zero_mod(vtbl, f_value);  break;
+      default: assert(false);
       }
+      ivector_reset(&mappings);
     }
 
-    // Next concrete mapping f : (x1, x2, ..., xn) -> v
-    // a) Get the v value
+    // Next concrete mapping f : (x1, ..., xn) -> v. For div/mod the "function"
+    // consumes only the numerator (arity - 1 args); the divisor is always 0 here.
     value_t v = uf_plugin_get_term_value(uf, vtbl, app_term);
-    // b) Get the argument values
     uint32_t arg_i;
-    uint32_t arg_start = app_kind == APP_TERM ? 1 : 0;
-    uint32_t arg_end = app_kind == APP_TERM ? app_comp->arity : app_comp->arity - 1;
-    ivector_reset(&arguments);
-    for (arg_i = arg_start; arg_i < arg_end; ++ arg_i) {
+    uint32_t arg_end = app_comp->arity - 1;
+    ivector_reset(&builder.arguments);
+    for (arg_i = 0; arg_i < arg_end; ++ arg_i) {
       term_t arg_term = app_comp->arg[arg_i];
       value_t arg_v = uf_plugin_get_term_value(uf, vtbl, arg_term);
-      ivector_push(&arguments, arg_v);
+      ivector_push(&builder.arguments, arg_v);
     }
-    // c) Construct the concrete mapping, and save in the list for f
-    value_t map_value = vtbl_mk_map(vtbl, arguments.size, arguments.data, v);
+    value_t map_value = vtbl_mk_map(vtbl, builder.arguments.size, builder.arguments.data, v);
     ivector_push(&mappings, map_value);
 
-    // Remember the previous one
-    prev_app_f = app_f;
-    prev_app_term = app_term;
     prev_app_kind = app_kind;
+    has_prev = true;
   }
 
-  // Since we make functions when we see a new one, we also construct the last function
-  if (app_terms.size > 0 && mappings.size > 0 && app_construct) {
-    type_t tau = get_function_application_type(terms, app_kind, app_f);
+  // Emit the last pending function, if any.
+  if (has_prev && mappings.size > 0) {
+    type_t tau = get_function_application_type(terms, prev_app_kind, NULL_TERM);
     type_t range_tau = function_type_range(terms->types, tau);
-    value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(terms->types, vtbl, range_tau));
-    switch (app_kind) {
-    case ARITH_RDIV:
-      vtbl_set_zero_rdiv(vtbl, f_value);
-      break;
-    case ARITH_IDIV:
-      vtbl_set_zero_idiv(vtbl, f_value);
-      break;
-    case ARITH_MOD:
-      vtbl_set_zero_mod(vtbl, f_value);
-      break;
-    case APP_TERM:
-      model_map_term(model, app_f, f_value);
-      break;
-    default:
-      assert(false);
+    value_t f_value = vtbl_mk_function(vtbl, tau, mappings.size, mappings.data, vtbl_mk_default(vtbl, range_tau));
+    switch (prev_app_kind) {
+    case ARITH_RDIV: vtbl_set_zero_rdiv(vtbl, f_value); break;
+    case ARITH_IDIV: vtbl_set_zero_idiv(vtbl, f_value); break;
+    case ARITH_MOD:  vtbl_set_zero_mod(vtbl, f_value);  break;
+    default: assert(false);
     }
   }
 
   // Remove temps
-  delete_ivector(&arguments);
   delete_ivector(&mappings);
-  delete_ivector(&app_terms);
+  delete_ivector(&special_terms);
+  uf_model_builder_destruct(&builder);
 }
 
 plugin_t* uf_plugin_allocator(void) {

@@ -170,6 +170,52 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
   }
 }
 
+static bool type_needs_function_diseq_guard(type_table_t* types, type_t tau) {
+  uint32_t i, n;
+
+  switch (type_kind(types, tau)) {
+  case FUNCTION_TYPE:
+    if (type_has_finite_domain(types, tau) ||
+        is_unit_type(types, function_type_range(types, tau))) {
+      return true;
+    }
+
+    n = function_type_arity(types, tau);
+    for (i = 0; i < n; ++ i) {
+      if (type_needs_function_diseq_guard(types, function_type_domain(types, tau, i))) {
+        return true;
+      }
+    }
+
+    return type_needs_function_diseq_guard(types, function_type_range(types, tau));
+
+  case TUPLE_TYPE:
+    n = tuple_type_arity(types, tau);
+    for (i = 0; i < n; ++ i) {
+      if (type_needs_function_diseq_guard(types, tuple_type_component(types, tau, i))) {
+        return true;
+      }
+    }
+    return false;
+
+  case INSTANCE_TYPE:
+    n = instance_type_arity(types, tau);
+    for (i = 0; i < n; ++ i) {
+      if (type_needs_function_diseq_guard(types, instance_type_param(types, tau, i))) {
+        return true;
+      }
+    }
+    return false;
+
+  default:
+    return false;
+  }
+}
+
+static bool term_needs_function_diseq_guard(term_table_t* terms, term_t t) {
+  return type_needs_function_diseq_guard(terms->types, term_type(terms, t));
+}
+
 static
 term_t mk_composite(preprocessor_t* pre, term_kind_t kind, uint32_t n, term_t* children) {
   term_manager_t* tm = &pre->tm;
@@ -504,13 +550,13 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
 
       n = desc->arity;
 
-      /*
-      // Arrays not supported yet
-      if (current_kind == EQ_TERM && term_type_kind(terms, desc->arg[0]) == FUNCTION_TYPE) {
+      // MCSAT does not yet enforce all extensionality/cardinality constraints
+      // for function-sort disequalities. Reject equality atoms whose type needs
+      // that monitoring; the Boolean abstraction may assert them either way.
+      if (current_kind == EQ_TERM && term_needs_function_diseq_guard(terms, desc->arg[0])) {
         longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
       }
-      */
- 
+
       // Is this a top-level equality assertion
       bool is_equality =
           current_kind == EQ_TERM ||
@@ -1104,6 +1150,14 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       bool children_done = true;
       n = desc->arity;
 
+      // DISTINCT_TERM is lowered below into pairwise disequalities. Apply the
+      // same function-sort guard before that expansion.
+      for (i = 0; i < n; ++ i) {
+        if (term_needs_function_diseq_guard(terms, desc->arg[i])) {
+          longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+        }
+      }
+
       ivector_t children;
       init_ivector(&children, n);
 
@@ -1139,6 +1193,10 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
 
       break;
     }
+
+    case LAMBDA_TERM:
+      longjmp(*pre->exception, LAMBDAS_NOT_SUPPORTED);
+      break;
 
     default:
       // UNSUPPORTED TERM/THEORY
@@ -1281,4 +1339,3 @@ void preprocessor_gc_mark(preprocessor_t* pre) {
     preprocessor_gc_mark_term(pre, t_pure);
   }
 }
-

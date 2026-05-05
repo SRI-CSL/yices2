@@ -2976,6 +2976,7 @@ static literal_t map_bit_select_to_literal(context_t *ctx, select_term_t *select
 
 static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
   term_table_t *terms;
+  term_t root;
   term_t r;
   uint32_t polarity;
   int32_t code;
@@ -2990,9 +2991,10 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
     goto abort;
   }
 
-  r = intern_tbl_get_root(&ctx->intern, t);
-  polarity = polarity_of(r);
-  r  = unsigned_term(r);
+  root = intern_tbl_get_root(&ctx->intern, t);
+  polarity = polarity_of(root);
+  root = unsigned_term(root);
+  r = root;
 
   /*
    * r is a positive root in the internalization table
@@ -3015,6 +3017,28 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
      */
     terms = ctx->terms;
     tau = type_of_root(ctx, r);
+    if (is_unit_type(ctx->types, tau)) {
+      // Canonicalize singleton types to one representative term.
+      r = get_unit_type_rep(terms, tau);
+      r = intern_tbl_get_root(&ctx->intern, r);
+      r = unsigned_term(r);
+      assert(is_pos_term(r) && intern_tbl_is_root(&ctx->intern, r));
+      if (intern_tbl_root_is_mapped(&ctx->intern, r)) {
+        code = intern_tbl_map_of_root(&ctx->intern, r);
+        u = translate_code_to_eterm(ctx, r, code);
+        if (root != r) {
+          if (intern_tbl_root_is_free(&ctx->intern, root)) {
+            intern_tbl_map_root(&ctx->intern, root, occ2code(u));
+          } else {
+            // If root is already mapped, it must map to the same egraph
+            // occurrence we are about to return for the unit-type rep.
+            assert(intern_tbl_map_of_root(&ctx->intern, root) == occ2code(u));  // LCOV_EXCL_LINE - consistency check, unreachable on well-formed inputs
+          }
+        }
+        return u ^ polarity;
+      }
+    }
+
     if (is_boolean_type(tau)) {
       l = internalize_to_literal(ctx, r);
       u = egraph_literal2occ(ctx->egraph, l);
@@ -3188,6 +3212,19 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
 
       // store the mapping r --> u
       intern_tbl_map_root(&ctx->intern, r, occ2code(u));
+    }
+  }
+
+  // If we canonicalized root to a different unit-type representative r,
+  // remember that root internalizes to the same egraph occurrence.
+  if (root != r) {
+    if (intern_tbl_root_is_free(&ctx->intern, root)) {
+      intern_tbl_map_root(&ctx->intern, root, occ2code(u));
+    } else {
+      // If root was mapped during the recursive internalization of r (e.g.,
+      // because root was reached as a sub-term), the mapping must agree
+      // with the occurrence we are about to return.
+      assert(intern_tbl_map_of_root(&ctx->intern, root) == occ2code(u));  // LCOV_EXCL_LINE - consistency check, unreachable on well-formed inputs
     }
   }
 
