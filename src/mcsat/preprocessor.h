@@ -55,6 +55,15 @@ typedef struct {
   /** Original uninterpreted atoms that were tuple-blasted */
   ivector_t tuple_blast_atoms;
 
+  /** Memoization: type -> 0/1 for type_is_tuple_free.
+   * Type IDs are stable for the lifetime of the term/type table, so we never
+   * need to invalidate this cache. Keyed by type_t (always >= 0). */
+  int_hmap_t type_is_tuple_free_cache;
+
+  /** Memoization: type -> leaf count for type_leaf_count.
+   * Same lifetime/keying argument as type_is_tuple_free_cache. */
+  int_hmap_t type_leaf_count_cache;
+
   /** Purification map, term to its variable */
   int_hmap_t purification_map;
 

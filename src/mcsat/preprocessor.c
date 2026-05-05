@@ -48,6 +48,8 @@ void preprocessor_construct(preprocessor_t* pre, term_table_t* terms, jmp_buf* h
   init_ivector(&pre->tuple_blast_data, 0);
   init_ivector(&pre->tuple_blast_list, 0);
   init_ivector(&pre->tuple_blast_atoms, 0);
+  init_int_hmap(&pre->type_is_tuple_free_cache, 0);
+  init_int_hmap(&pre->type_leaf_count_cache, 0);
   init_int_hmap(&pre->purification_map, 0);
   init_ivector(&pre->purification_map_list, 0);
   init_ivector(&pre->preprocessing_stack, 0);
@@ -70,6 +72,8 @@ void preprocessor_destruct(preprocessor_t* pre) {
   delete_ivector(&pre->tuple_blast_data);
   delete_ivector(&pre->tuple_blast_list);
   delete_ivector(&pre->tuple_blast_atoms);
+  delete_int_hmap(&pre->type_is_tuple_free_cache);
+  delete_int_hmap(&pre->type_leaf_count_cache);
   delete_int_hmap(&pre->preprocess_map);
   delete_ivector(&pre->preprocess_map_list);
   delete_ivector(&pre->preprocessing_stack);
@@ -97,9 +101,16 @@ void preprocessor_set(preprocessor_t* pre, term_t t, term_t t_pre) {
 }
 
 static
-bool type_is_tuple_free(type_table_t* types, type_t tau) {
+bool type_is_tuple_free(preprocessor_t* pre, type_t tau) {
+  int_hmap_pair_t* rec = int_hmap_find(&pre->type_is_tuple_free_cache, tau);
+  if (rec != NULL) {
+    return rec->val != 0;
+  }
+
+  type_table_t* types = pre->terms->types;
   type_kind_t kind = type_kind(types, tau);
   uint32_t i;
+  bool result;
   switch (kind) {
   case BOOL_TYPE:
   case INT_TYPE:
@@ -108,28 +119,38 @@ bool type_is_tuple_free(type_table_t* types, type_t tau) {
   case SCALAR_TYPE:
   case UNINTERPRETED_TYPE:
   case FF_TYPE:
-    return true;
+    result = true;
+    break;
   case TUPLE_TYPE:
-    return false;
+    result = false;
+    break;
   case FUNCTION_TYPE: {
     function_type_t* fun = function_type_desc(types, tau);
-    if (!type_is_tuple_free(types, fun->range)) {
-      return false;
-    }
-    for (i = 0; i < fun->ndom; ++i) {
-      if (!type_is_tuple_free(types, fun->domain[i])) {
-        return false;
+    result = type_is_tuple_free(pre, fun->range);
+    for (i = 0; result && i < fun->ndom; ++i) {
+      if (!type_is_tuple_free(pre, fun->domain[i])) {
+        result = false;
       }
     }
-    return true;
+    break;
   }
   default:
-    return false;
+    result = false;
+    break;
   }
+
+  int_hmap_add(&pre->type_is_tuple_free_cache, tau, result ? 1 : 0);
+  return result;
 }
 
 static
-uint32_t type_leaf_count(type_table_t* types, type_t tau) {
+uint32_t type_leaf_count(preprocessor_t* pre, type_t tau) {
+  int_hmap_pair_t* rec = int_hmap_find(&pre->type_leaf_count_cache, tau);
+  if (rec != NULL) {
+    return (uint32_t) rec->val;
+  }
+
+  type_table_t* types = pre->terms->types;
   tuple_type_t* tuple;
   uint32_t i, count;
   switch (type_kind(types, tau)) {
@@ -137,14 +158,19 @@ uint32_t type_leaf_count(type_table_t* types, type_t tau) {
     tuple = tuple_type_desc(types, tau);
     count = 0;
     for (i = 0; i < tuple->nelem; ++i) {
-      count += type_leaf_count(types, tuple->elem[i]);
+      count += type_leaf_count(pre, tuple->elem[i]);
     }
-    return count;
+    break;
   case FUNCTION_TYPE:
-    return type_leaf_count(types, function_type_desc(types, tau)->range);
+    count = type_leaf_count(pre, function_type_desc(types, tau)->range);
+    break;
   default:
-    return 1;
+    count = 1;
+    break;
   }
+
+  int_hmap_add(&pre->type_leaf_count_cache, tau, (int32_t) count);
+  return count;
 }
 
 static void function_type_collect_blasted(type_table_t* types, type_t tau, ivector_t* out);
@@ -321,7 +347,7 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
 
   case UNINTERPRETED_TERM:
   case VARIABLE: {
-    if (type_is_tuple_free(types, tau)) {
+    if (type_is_tuple_free(pre, tau)) {
       ivector_push(&result, t);
     } else {
       ivector_t atom_types;
@@ -363,9 +389,9 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
     tuple_type = tuple_type_desc(types, arg_type);
     start = 0;
     for (i = 0; i < sel->idx; ++i) {
-      start += type_leaf_count(types, tuple_type->elem[i]);
+      start += type_leaf_count(pre, tuple_type->elem[i]);
     }
-    len = type_leaf_count(types, tuple_type->elem[sel->idx]);
+    len = type_leaf_count(pre, tuple_type->elem[sel->idx]);
     if (start + len > arg_blast.size) {
       delete_ivector(&arg_blast);
       delete_ivector(&result);
@@ -2036,7 +2062,7 @@ value_t build_value_from_flat(preprocessor_t* pre, value_table_t* vtbl, type_t t
     }
     return vtbl_mk_tuple(vtbl, n, elem);
   } else if (type_kind(types, tau) == FUNCTION_TYPE) {
-    uint32_t n = type_leaf_count(types, tau);
+    uint32_t n = type_leaf_count(pre, tau);
     value_t v = merge_blasted_function_value(pre, vtbl, tau, flat + *idx, n);
     *idx += n;
     return v;
@@ -2278,7 +2304,7 @@ term_t merge_blasted_function_term(preprocessor_t* pre, type_t tau, const term_t
   ivector_t flat_args;
 
   assert(type_kind(types, tau) == FUNCTION_TYPE);
-  assert(nleaves == type_leaf_count(types, tau));
+  assert(nleaves == type_leaf_count(pre, tau));
 
   for (i = 0; i < fun->ndom; ++i) {
     vars[i] = new_variable(terms, fun->domain[i]);
@@ -2328,7 +2354,7 @@ term_t build_term_from_flat(preprocessor_t* pre, type_t tau, const term_t* flat,
   }
 
   case FUNCTION_TYPE: {
-    uint32_t n = type_leaf_count(types, tau);
+    uint32_t n = type_leaf_count(pre, tau);
     term_t f = merge_blasted_function_term(pre, tau, flat + *idx, n);
     *idx += n;
     return f;
