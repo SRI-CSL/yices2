@@ -20,6 +20,7 @@
  * PRETTY PRINTER FOR CONCRETE VALUES USING THE SMT2 SYNTAX
  */
 
+#include <assert.h>
 #include <inttypes.h>
 
 #ifdef HAVE_MCSAT
@@ -173,7 +174,7 @@ static void append_dyadic_rational_smt2_real(string_buffer_t *buf, const lp_dyad
 
   char *num_str = lp_integer_to_string(&q->a);  // includes '-' if negative
   const char *abs_str = (sgn < 0) ? num_str + 1 : num_str;
-  unsigned long k = q->n;
+  unsigned long k = (unsigned long)q->n;  /* dyadic exponents are small; fits in ulong on all platforms */
 
   if (k == 0) {
     if (sgn < 0) string_buffer_append_string(buf, "(- ");
@@ -202,6 +203,11 @@ static void append_dyadic_rational_smt2_real(string_buffer_t *buf, const lp_dyad
 }
 #endif /* HAVE_MCSAT */
 
+/*
+ * Print an algebraic model value in the SMT-COMP 2026 model-validation format:
+ *   (root-of-with-interval (coeffs p_0 ... p_n) min max)
+ * See https://smt-comp.github.io/2026/ and PR #623.
+ */
 static void smt2_pp_algebraic(smt2_pp_t *printer, void *a) {
 #ifdef HAVE_MCSAT
   const lp_algebraic_number_t *an = (const lp_algebraic_number_t *) a;
@@ -223,6 +229,12 @@ static void smt2_pp_algebraic(smt2_pp_t *printer, void *a) {
   /*
    * Proper algebraic: output (root-of-with-interval (coeffs p0 ... pn) min max)
    *
+   * libpoly always returns a strictly open isolating interval (a_open == b_open == 1),
+   * which matches root-of-with-interval's exclusive-bound convention.
+   */
+  assert(an->I.a_open && an->I.b_open);
+
+  /*
    * Normalize the polynomial: compute the square-free part via
    *   f_sqfree = f / gcd(f, f')
    * then take the primitive part (coprime coefficients, positive leading coeff).
