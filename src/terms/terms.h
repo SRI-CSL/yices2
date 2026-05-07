@@ -1832,4 +1832,11 @@ static inline bool term_idx_is_marked(const term_table_t *table, int32_t i) {
 extern void term_table_gc(term_table_t *table, bool keep_named);
 
 
+/*
+ * Composite term handling: get the composite descriptor for a term.
+ * The term must be positive and its kind must match 'kind'.
+ */
+extern composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t);
+
+
 #endif /* __TERMS_H */
