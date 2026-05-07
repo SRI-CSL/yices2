@@ -2891,6 +2891,25 @@ void preprocessor_gc_mark_term(preprocessor_t* pre, term_t t) {
 void preprocessor_gc_mark(preprocessor_t* pre) {
   uint32_t i;
 
+  /* Drop the type/term memoization caches before any GC sweep that may
+   * follow. These caches are keyed on raw type/term IDs (`tau` and
+   * `index_of(t)`), and Yices recycles those IDs for new types/terms once
+   * the originals are swept (see `indexed_table_free` under src/terms).
+   * If we left stale entries in place, a freshly recycled ID could pick up
+   * a cached classification that belongs to the freed term/type, which
+   * would then drive the iterative tuple-blast dispatch down the wrong
+   * arm. Clearing here is cheap (the caches repopulate on first use) and
+   * makes the "no invalidation needed for the lifetime of the table"
+   * comments on these caches actually true: each "lifetime" now ends at
+   * GC, where we reset.
+   *
+   * `tuple_blast_map`/`preprocess_map`/`purification_map` are kept --
+   * their entries are explicitly marked alive below, so they survive GC
+   * by construction. Only the *opportunistic* memos need to be dropped. */
+  int_hmap_reset(&pre->type_is_tuple_free_cache);
+  int_hmap_reset(&pre->type_leaf_count_cache);
+  int_hmap_reset(&pre->term_has_tuples_cache);
+
   for (i = 0; i < pre->preprocess_map_list.size; ++ i) {
     term_t t = pre->preprocess_map_list.data[i];
     preprocessor_gc_mark_term(pre, t);

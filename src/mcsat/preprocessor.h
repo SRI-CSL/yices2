@@ -56,17 +56,21 @@ typedef struct {
   ivector_t tuple_blast_atoms;
 
   /** Memoization: type -> 0/1 for type_is_tuple_free.
-   * Type IDs are stable for the lifetime of the term/type table, so we never
-   * need to invalidate this cache. Keyed by type_t (always >= 0). */
+   * Keyed by type_t (always >= 0). The cache is reset by
+   * preprocessor_gc_mark before every GC sweep, because Yices recycles
+   * type IDs once the originals are freed -- a stale entry under a
+   * recycled ID would misclassify a fresh type. Between GCs, type IDs
+   * are stable, so no other invalidation is needed. */
   int_hmap_t type_is_tuple_free_cache;
 
   /** Memoization: type -> leaf count for type_leaf_count.
-   * Same lifetime/keying argument as type_is_tuple_free_cache. */
+   * Same lifetime / GC-reset argument as type_is_tuple_free_cache. */
   int_hmap_t type_leaf_count_cache;
 
   /** Memoization: term-index -> 0/1 for "DAG rooted at term contains any
-   * tuple type". Polarity-insensitive (key = index_of(t)). Term IDs are
-   * stable so this never needs invalidation. */
+   * tuple type". Polarity-insensitive (key = index_of(t)). Reset by
+   * preprocessor_gc_mark for the same reason as the type caches: term
+   * IDs are recycled across GC. Between GCs, term IDs are stable. */
   int_hmap_t term_has_tuples_cache;
 
   /** Purification map, term to its variable */

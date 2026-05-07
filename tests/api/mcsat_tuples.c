@@ -632,6 +632,91 @@ static void test_interpolant_with_tuple_function_component_domain_and_range(void
   yices_free_context(ctx);
 }
 
+/*
+ * Regression for the tuple-blast memo caches across GC.
+ *
+ * The preprocessor caches type_is_tuple_free / type_leaf_count /
+ * term_has_tuples_in_subdag results keyed by raw type/term IDs. Yices
+ * recycles those IDs after `yices_garbage_collect`, so a stale cache
+ * entry could misclassify a fresh, unrelated type/term reusing the same
+ * slot. preprocessor_gc_mark resets these caches before each sweep; this
+ * test exercises that path.
+ *
+ * We solve a tuple-typed problem (populates the caches), free everything
+ * solver-side, run GC explicitly with no roots, then build and solve a
+ * second tuple-typed problem of *different shape* that is likely to
+ * reuse the freed type/term IDs. If the cache reset path were missing,
+ * the second solve could either misclassify a reused type as tuple-free
+ * and pass an un-blasted SELECT into the old preprocessor, or pick up a
+ * stale leaf-count that no longer matches the new tuple's shape. Either
+ * way the call below would fail (status != SAT or assertion in mcsat).
+ */
+static void test_tuple_preprocessing_then_gc(void) {
+  /* First problem: a Pair=(int,bool) tuple constrained on both fields.
+   * This populates type_is_tuple_free_cache, type_leaf_count_cache, and
+   * term_has_tuples_cache for the relevant types and selector subterms. */
+  {
+    context_t* ctx = make_mcsat_context(false);
+    type_t int_t  = yices_int_type();
+    type_t bool_t = yices_bool_type();
+    type_t pair_t = yices_tuple_type2(int_t, bool_t);
+    term_t x = yices_new_uninterpreted_term(pair_t);
+    assert(yices_assert_formula(ctx, yices_arith_eq_atom(yices_select(1, x), yices_int32(2))) == 0);
+    assert(yices_assert_formula(ctx, yices_eq(yices_select(2, x), yices_true())) == 0);
+    assert(yices_check_context(ctx, NULL) == YICES_STATUS_SAT);
+    model_t* m = yices_get_model(ctx, 1);
+    assert(m != NULL);
+    assert_tuple_int_bool_value(m, x, 2, 1);
+    yices_free_model(m);
+    yices_free_context(ctx);
+  }
+
+  /* Force recycling: no roots kept => everything from the first problem,
+   * including the Pair type and the selector terms we cached against, is
+   * eligible for sweep. yices_garbage_collect does the sweep, after
+   * which type/term IDs from the first problem may be reused below. */
+  yices_garbage_collect(NULL, 0, NULL, 0, 0);
+
+  /* Second problem: a *different* tuple shape -- Triple=(bool,int,int) --
+   * plus a function tuple component. If a stale leaf-count or
+   * tuple-free entry were inherited from a recycled ID, the iterative
+   * driver would build a malformed blasted form here; the call would
+   * either fail to be SAT or trip an internal assertion. We assert SAT
+   * and verify the model agrees with the constraints. */
+  {
+    context_t* ctx = make_mcsat_context(false);
+    type_t int_t   = yices_int_type();
+    type_t bool_t  = yices_bool_type();
+    type_t triple_t = yices_tuple_type3(bool_t, int_t, int_t);
+    term_t y = yices_new_uninterpreted_term(triple_t);
+
+    assert(yices_assert_formula(ctx, yices_eq(yices_select(1, y), yices_false())) == 0);
+    assert(yices_assert_formula(ctx, yices_arith_eq_atom(yices_select(2, y), yices_int32(7))) == 0);
+    assert(yices_assert_formula(ctx,
+      yices_arith_eq_atom(yices_select(3, y),
+                          yices_add(yices_select(2, y), yices_int32(1)))) == 0);
+
+    assert(yices_check_context(ctx, NULL) == YICES_STATUS_SAT);
+    model_t* m = yices_get_model(ctx, 1);
+    assert(m != NULL);
+
+    int32_t bv = -1, iv2 = -1, iv3 = -1;
+    yval_t val, kids[3];
+    assert(yices_get_value(m, y, &val) == 0);
+    assert(yices_val_tuple_arity(m, &val) == 3);
+    assert(yices_val_expand_tuple(m, &val, kids) == 0);
+    assert(yices_val_get_bool(m, &kids[0], &bv) == 0);
+    assert(yices_val_get_int32(m, &kids[1], &iv2) == 0);
+    assert(yices_val_get_int32(m, &kids[2], &iv3) == 0);
+    assert(bv == 0);
+    assert(iv2 == 7);
+    assert(iv3 == 8);
+
+    yices_free_model(m);
+    yices_free_context(ctx);
+  }
+}
+
 int main(void) {
   if (!yices_has_mcsat()) {
     return 1; // skipped
@@ -653,6 +738,7 @@ int main(void) {
   test_interpolant_with_tuple_function_component_range();
   test_interpolant_with_tuple_function_component_domain();
   test_interpolant_with_tuple_function_component_domain_and_range();
+  test_tuple_preprocessing_then_gc();
 
   yices_exit();
   return 0;
