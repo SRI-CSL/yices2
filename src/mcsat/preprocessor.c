@@ -417,8 +417,34 @@ void tuple_blast_children(preprocessor_t* pre, term_t t, ivector_t* out) {
     for (i = 0; i < c->arity; ++i) ivector_push(out, c->arg[i]);
     break;
   }
+  case BIT_TERM:
+    /* (bit i e) where e is a bv-typed term. Recurse into e so a tuple
+     * select inside e is blasted away before we rebuild. */
+    ivector_push(out, bit_term_arg(terms, t));
+    break;
+  case ARITH_IS_INT_ATOM:
+    ivector_push(out, arith_is_int_arg(terms, t));
+    break;
+  case ARITH_FLOOR:
+    ivector_push(out, arith_floor_arg(terms, t));
+    break;
+  case ARITH_CEIL:
+    ivector_push(out, arith_ceil_arg(terms, t));
+    break;
+  case ARITH_ABS:
+    ivector_push(out, arith_abs_arg(terms, t));
+    break;
+  case ARITH_FF_EQ_ATOM:
+    ivector_push(out, arith_ff_eq_arg(terms, t));
+    break;
+  case ARITH_FF_BINEQ_ATOM: {
+    composite_term_t* c = arith_ff_bineq_atom_desc(terms, t);
+    ivector_push(out, c->arg[0]);
+    ivector_push(out, c->arg[1]);
+    break;
+  }
   default:
-    /* Atomic kinds (CONSTANT_TERM, UNINTERPRETED_TERM, VARIABLE, BIT_TERM,
+    /* Truly atomic kinds (CONSTANT_TERM, UNINTERPRETED_TERM, VARIABLE,
      * arithmetic/BV constants, etc.) have no children to blast first. */
     break;
   }
@@ -568,7 +594,6 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
   case ARITH_FF_CONSTANT:
   case BV64_CONSTANT:
   case BV_CONSTANT:
-  case BIT_TERM:
     ivector_push(&result, t);
     break;
 
@@ -1004,6 +1029,119 @@ void tuple_blast_term_body(preprocessor_t* pre, term_t t) {
     }
 
     term_t rebuilt = changed ? mk_composite(pre, kind, c->arity, args) : t;
+    if (rebuilt == NULL_TERM) {
+      delete_ivector(&result);
+      longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+    }
+    ivector_push(&result, rebuilt);
+    break;
+  }
+
+  /*
+   * Unary kinds that take a single arithmetic / FF / BV operand and
+   * produce one scalar result. They are not handled by mk_composite, so
+   * we rebuild via the dedicated term_manager builder for each kind.
+   * If the underlying operand expands to more than one blasted leaf
+   * (i.e. it is itself tuple-typed), the operator does not make sense
+   * and we report an unsupported-theory error -- the same convention as
+   * the composite cluster above.
+   */
+  case BIT_TERM: {
+    term_t arg = bit_term_arg(terms, t);
+    uint32_t idx = bit_term_index(terms, t);
+    const term_t* child_data;
+    uint32_t child_n;
+    tuple_blast_term(pre, arg);
+    tuple_blast_peek(pre, arg, &child_data, &child_n);
+    if (child_n != 1) {
+      delete_ivector(&result);
+      longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+    }
+    term_t rebuilt = (child_data[0] == arg) ? t :
+                     mk_bitextract(&pre->tm, child_data[0], idx);
+    if (rebuilt == NULL_TERM) {
+      delete_ivector(&result);
+      longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+    }
+    ivector_push(&result, rebuilt);
+    break;
+  }
+  case ARITH_IS_INT_ATOM:
+  case ARITH_FLOOR:
+  case ARITH_CEIL:
+  case ARITH_ABS: {
+    term_t arg;
+    switch (kind) {
+    case ARITH_IS_INT_ATOM: arg = arith_is_int_arg(terms, t); break;
+    case ARITH_FLOOR:       arg = arith_floor_arg(terms, t);  break;
+    case ARITH_CEIL:        arg = arith_ceil_arg(terms, t);   break;
+    case ARITH_ABS:         arg = arith_abs_arg(terms, t);    break;
+    default: assert(false); arg = NULL_TERM;
+    }
+    const term_t* child_data;
+    uint32_t child_n;
+    tuple_blast_term(pre, arg);
+    tuple_blast_peek(pre, arg, &child_data, &child_n);
+    if (child_n != 1) {
+      delete_ivector(&result);
+      longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+    }
+    term_t rebuilt;
+    if (child_data[0] == arg) {
+      rebuilt = t;
+    } else {
+      switch (kind) {
+      case ARITH_IS_INT_ATOM: rebuilt = mk_arith_is_int(&pre->tm, child_data[0]); break;
+      case ARITH_FLOOR:       rebuilt = mk_arith_floor(&pre->tm, child_data[0]);  break;
+      case ARITH_CEIL:        rebuilt = mk_arith_ceil(&pre->tm, child_data[0]);   break;
+      case ARITH_ABS:         rebuilt = mk_arith_abs(&pre->tm, child_data[0]);    break;
+      default: assert(false); rebuilt = NULL_TERM;
+      }
+    }
+    if (rebuilt == NULL_TERM) {
+      delete_ivector(&result);
+      longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+    }
+    ivector_push(&result, rebuilt);
+    break;
+  }
+  case ARITH_FF_EQ_ATOM: {
+    term_t arg = arith_ff_eq_arg(terms, t);
+    const term_t* child_data;
+    uint32_t child_n;
+    tuple_blast_term(pre, arg);
+    tuple_blast_peek(pre, arg, &child_data, &child_n);
+    if (child_n != 1) {
+      delete_ivector(&result);
+      longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+    }
+    term_t rebuilt = (child_data[0] == arg) ? t :
+                     mk_arith_ff_term_eq0(&pre->tm, child_data[0]);
+    if (rebuilt == NULL_TERM) {
+      delete_ivector(&result);
+      longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+    }
+    ivector_push(&result, rebuilt);
+    break;
+  }
+  case ARITH_FF_BINEQ_ATOM: {
+    composite_term_t* c = arith_ff_bineq_atom_desc(terms, t);
+    term_t args[2];
+    bool changed = false;
+    uint32_t i;
+    for (i = 0; i < 2; ++i) {
+      const term_t* child_data;
+      uint32_t child_n;
+      tuple_blast_term(pre, c->arg[i]);
+      tuple_blast_peek(pre, c->arg[i], &child_data, &child_n);
+      if (child_n != 1) {
+        delete_ivector(&result);
+        longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+      }
+      args[i] = child_data[0];
+      changed |= args[i] != c->arg[i];
+    }
+    term_t rebuilt = changed ? mk_arith_ff_eq(&pre->tm, args[0], args[1]) : t;
     if (rebuilt == NULL_TERM) {
       delete_ivector(&result);
       longjmp(*pre->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);

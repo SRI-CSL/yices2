@@ -633,6 +633,59 @@ static void test_interpolant_with_tuple_function_component_domain_and_range(void
 }
 
 /*
+ * Regression for tuple selectors under term kinds that the tuple-blast
+ * dispatch previously missed (BIT_TERM, ARITH_IS_INT_ATOM, ARITH_FLOOR,
+ * ARITH_CEIL, ARITH_ABS, ARITH_FF_EQ_ATOM, ARITH_FF_BINEQ_ATOM).
+ *
+ * Without the dispatch entries, term_has_tuples_in_subdag would not
+ * descend through these kinds and would classify `(<op> (select x i))`
+ * as tuple-free, after which the iterative driver would forward an
+ * un-blasted SELECT into the old preprocessor. With the entries in
+ * place each operator is rebuilt over the blasted operand and the
+ * solver succeeds.
+ *
+ * BIT_TERM over a tuple-component bv is exercised here at the C-API
+ * level. ARITH_FLOOR / ARITH_IS_INT_ATOM / ARITH_ABS share the same
+ * dispatch shape and are exercised at the .ys frontend level under
+ * tests/regress/mcsat/tuples/tuple_unary_arith.ys. ARITH_CEIL gets
+ * the same dispatch entry but cannot be exercised end-to-end (mcsat's
+ * nra plugin currently fails to solve any ceil constraint, even on a
+ * bare real). ARITH_FF_EQ_ATOM / ARITH_FF_BINEQ_ATOM share the unary-
+ * /binary-arith dispatch shape but cannot be tested either: tuples are
+ * not part of SMT2 and the .ys frontend has no FF arithmetic.
+ */
+static void test_tuple_blast_bit_over_tuple_component(void) {
+  context_t* ctx = make_mcsat_context(false);
+
+  type_t int_t = yices_int_type();
+  type_t bv4_t = yices_bv_type(4);
+  type_t tup_t = yices_tuple_type2(int_t, bv4_t);
+
+  term_t x  = yices_new_uninterpreted_term(tup_t);
+  term_t x2 = yices_select(2, x);  /* bv4 */
+
+  term_t cs[] = {
+    yices_bveq_atom(x2, yices_bvconst_uint32(4, 0xa)),
+    yices_bitextract(x2, 1),              /* bit1 of 0b1010 -> true  */
+    yices_not(yices_bitextract(x2, 0)),   /* bit0 of 0b1010 -> false */
+  };
+  for (uint32_t i = 0; i < sizeof(cs)/sizeof(cs[0]); ++i) {
+    assert(yices_assert_formula(ctx, cs[i]) == 0);
+  }
+
+  smt_status_t s = yices_check_context(ctx, NULL);
+  assert(s == YICES_STATUS_SAT);
+
+  model_t* m = yices_get_model(ctx, 1);
+  assert(m != NULL);
+  for (uint32_t i = 0; i < sizeof(cs)/sizeof(cs[0]); ++i) {
+    assert(yices_formula_true_in_model(m, cs[i]) == 1);
+  }
+  yices_free_model(m);
+  yices_free_context(ctx);
+}
+
+/*
  * Regression for the tuple-blast memo caches across GC.
  *
  * The preprocessor caches type_is_tuple_free / type_leaf_count /
@@ -738,6 +791,7 @@ int main(void) {
   test_interpolant_with_tuple_function_component_range();
   test_interpolant_with_tuple_function_component_domain();
   test_interpolant_with_tuple_function_component_domain_and_range();
+  test_tuple_blast_bit_over_tuple_component();
   test_tuple_preprocessing_then_gc();
 
   yices_exit();
