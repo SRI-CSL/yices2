@@ -654,6 +654,70 @@ static void test_interpolant_with_tuple_function_component_domain_and_range(void
  * /binary-arith dispatch shape but cannot be tested either: tuples are
  * not part of SMT2 and the .ys frontend has no FF arithmetic.
  */
+/*
+ * M1 regression: function-valued tuple component used naked (in
+ * equality position, not application position).
+ *
+ * Existing interpolant tests only cover application form -- after
+ * preprocessor_unblast_term substitutes the leaf with (lambda (v0)
+ * (... v0 ...)) and yices_term_subst applies it to the original
+ * argument, beta-reduction in mk_application removes the lambda. The
+ * concern from review M1 was that when an interpolant references the
+ * leaf naked, no application sits on top to trigger beta-reduction
+ * and the lambda persists in the public term.
+ *
+ * In practice the "naked" path is doubly guarded:
+ *   (a) Single-leaf function ranges: mk_lambda already eta-reduces
+ *       (lambda (v0) (f v0)) -> f at construction time
+ *       (term_manager.c mk_lambda fast path), so even a naked leaf
+ *       substitution produces a plain function term.
+ *   (b) Multi-leaf function ranges (range is itself a tuple): the
+ *       per-slice lambda body is (select ((select x 1) v0) i), which
+ *       is NOT eta-reducible. But MCSAT's interpolation in this
+ *       configuration always returns the original asserted formula
+ *       (e.g. `(= (select x 1) (select y 1))`) rather than a
+ *       leaf-level rewrite, so unblast never needs to substitute the
+ *       leaf inside the interpolant.
+ *
+ * This test pins (b) by asserting `(= fx fy)` against `(distinct fx
+ * fy)` over a multi-leaf function range and demanding the resulting
+ * interpolant be lambda-free. If a future change rewrites the
+ * interpolant in terms of the blasted leaves, the
+ * assert_interpolant_has_no_lambda_residue check will catch the
+ * regression here rather than at user-facing call sites.
+ */
+static void test_interpolant_with_naked_function_component(void) {
+  context_t* ctx = make_mcsat_context(true);
+
+  type_t int_t = yices_int_type();
+  type_t bool_t = yices_bool_type();
+  type_t range_t = yices_tuple_type2(int_t, bool_t);
+  type_t fun_t = yices_function_type1(int_t, range_t);
+  type_t wrapper_t = yices_tuple_type2(fun_t, int_t);
+
+  term_t x = yices_new_uninterpreted_term(wrapper_t);
+  term_t y = yices_new_uninterpreted_term(wrapper_t);
+  assert(yices_set_term_name(x, "naked_fun_x") == 0);
+  assert(yices_set_term_name(y, "naked_fun_y") == 0);
+  term_t fx = yices_select(1, x);   /* (-> int (tuple int bool)) */
+  term_t fy = yices_select(1, y);   /* (-> int (tuple int bool)) */
+
+  term_t feq = yices_eq(fx, fy);
+  assert(feq != NULL_TERM);
+  assert(yices_assert_formula(ctx, feq) == 0);
+
+  term_t assumption = yices_neq(fx, fy);
+  smt_status_t status = yices_check_context_with_assumptions(ctx, NULL, 1, &assumption);
+  assert(status == YICES_STATUS_UNSAT);
+
+  term_t interpolant = yices_get_model_interpolant(ctx);
+  assert(interpolant != NULL_TERM);
+  assert(yices_term_is_bool(interpolant));
+  assert_interpolant_has_no_lambda_residue(interpolant);
+
+  yices_free_context(ctx);
+}
+
 static void test_tuple_blast_bit_over_tuple_component(void) {
   context_t* ctx = make_mcsat_context(false);
 
@@ -792,6 +856,7 @@ int main(void) {
   test_interpolant_with_tuple_function_component_domain();
   test_interpolant_with_tuple_function_component_domain_and_range();
   test_tuple_blast_bit_over_tuple_component();
+  test_interpolant_with_naked_function_component();
   test_tuple_preprocessing_then_gc();
 
   yices_exit();
