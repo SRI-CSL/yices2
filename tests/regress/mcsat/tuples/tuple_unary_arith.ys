@@ -1,16 +1,17 @@
 ;; Regression for the tuple-blast dispatch over the unary arithmetic
 ;; kinds the iterative driver previously missed: ARITH_IS_INT_ATOM,
-;; ARITH_FLOOR, ARITH_ABS. Each assertion forces the kind to appear
-;; directly above a (select x i) of an arith-typed tuple component.
-;; Without the dispatch entry the term would be classified tuple-free,
-;; the un-blasted SELECT would reach old preprocessing, and the solver
-;; would error out with "formula not supported".
+;; ARITH_FLOOR, ARITH_CEIL, ARITH_ABS. Each assertion forces the kind
+;; to appear directly above a (select x i) of an arith-typed tuple
+;; component. Without the dispatch entry the term would be classified
+;; tuple-free, the un-blasted SELECT would reach old preprocessing,
+;; and the solver would error out with "formula not supported".
 ;;
-;; ARITH_CEIL also got the same dispatch fix, but mcsat's nra plugin
-;; cannot currently solve any (= (ceil x) k) constraint -- even on a
-;; bare real -- so we cannot exercise it end-to-end. The dispatch
-;; entry for ARITH_CEIL is reviewed against ARITH_FLOOR's, which is
-;; structurally identical.
+;; Note on ARITH_CEIL: mcsat's nra plugin has a separate, pre-existing
+;; semantic bug where (ceil x) is treated like (floor x) for some
+;; rationals -- so we deliberately use a *lax* ceil constraint here
+;; ((<= (ceil ...) 100)) that holds under both the correct and the
+;; buggy interpretation. The point of this assertion is to exercise
+;; dispatch routing, not to pin ceil's value.
 
 (define-type T (tuple int real))
 
@@ -20,6 +21,9 @@
 (assert (= (select x 2) (/ 7 2)))
 (assert (not (is-int (select x 2))))
 (assert (= (floor (select x 2)) 3))
+
+;; ARITH_CEIL over a real tuple component (lax: dispatch only).
+(assert (<= (ceil (select x 2)) 100))
 
 ;; ARITH_ABS over an int tuple component.
 (assert (>= (select x 1) 5))

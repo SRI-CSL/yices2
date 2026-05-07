@@ -645,14 +645,14 @@ static void test_interpolant_with_tuple_function_component_domain_and_range(void
  * solver succeeds.
  *
  * BIT_TERM over a tuple-component bv is exercised here at the C-API
- * level. ARITH_FLOOR / ARITH_IS_INT_ATOM / ARITH_ABS share the same
- * dispatch shape and are exercised at the .ys frontend level under
- * tests/regress/mcsat/tuples/tuple_unary_arith.ys. ARITH_CEIL gets
- * the same dispatch entry but cannot be exercised end-to-end (mcsat's
- * nra plugin currently fails to solve any ceil constraint, even on a
- * bare real). ARITH_FF_EQ_ATOM / ARITH_FF_BINEQ_ATOM share the unary-
- * /binary-arith dispatch shape but cannot be tested either: tuples are
- * not part of SMT2 and the .ys frontend has no FF arithmetic.
+ * level. ARITH_FLOOR / ARITH_IS_INT_ATOM / ARITH_CEIL / ARITH_ABS
+ * share the same dispatch shape and are exercised at the .ys frontend
+ * level under tests/regress/mcsat/tuples/tuple_unary_arith.ys (ceil
+ * uses a lax assertion there because of an unrelated semantic bug in
+ * the nra plugin -- see that file's header). ARITH_FF_EQ_ATOM /
+ * ARITH_FF_BINEQ_ATOM share the unary-/binary-arith dispatch shape
+ * but cannot be tested either: tuples are not part of SMT2 and the
+ * .ys frontend has no FF arithmetic.
  */
 /*
  * M1 regression: function-valued tuple component used naked (in
