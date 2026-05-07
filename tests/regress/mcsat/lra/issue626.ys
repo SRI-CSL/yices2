@@ -1,0 +1,32 @@
+;; Regression for issue #626: the mcsat preprocessor's ARITH_CEIL arm
+;; was a copy-paste of the ARITH_FLOOR arm and silently rewrote
+;; (ceil x) to (floor x) when x had been substituted to a non-integer
+;; rational. Each (check) below would have produced the wrong answer
+;; pre-fix.
+
+(define x::real)
+
+;; Test 1: ceil(7/2) = 4 must be sat (true value of ceil).
+;; Pre-fix: rewritten to (floor x) = 4, which is unsat for x = 7/2.
+(push)
+(assert (= x (/ 7 2)))
+(assert (= (ceil x) 4))
+(check)
+(pop)
+
+;; Test 2: ceil(7/2) = 3 must be unsat (3 is the floor, not the ceil).
+;; Pre-fix: rewritten to (floor x) = 3, which is sat for x = 7/2.
+(push)
+(assert (= x (/ 7 2)))
+(assert (= (ceil x) 3))
+(check)
+(pop)
+
+;; Test 3: tautology ceil(x) >= x must hold, so its negation is unsat.
+;; Pre-fix: rewritten to floor(x) >= x, which is sat for any non-integer
+;; value of x (here x = 7/2 makes floor(x) = 3 < x).
+(push)
+(assert (= x (/ 7 2)))
+(assert (not (>= (ceil x) x)))
+(check)
+(pop)
