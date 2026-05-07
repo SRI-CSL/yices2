@@ -17,8 +17,6 @@ void substitution_destruct(substitution_t* subst) {
 }
 
 /**
- * Construct a composite term.
- *
  * The main application of substitution is in the context of conflict
  * resolution. Once of the constraints there is to make sure that if we
  * substitute x -> t in a constraint C(x) this constraint doesn't shift
@@ -29,91 +27,6 @@ void substitution_destruct(substitution_t* subst) {
  *   -> might result in just (b1 or b2): BV constraint -> Boolean constraint
  *
  */
-static inline
-term_t mk_composite(term_manager_t* tm, term_kind_t kind, uint32_t n, term_t* c) {
-
-  term_t result = NULL_TERM;
-
-  switch (kind) {
-  case EQ_TERM:            // equality
-    assert(n == 2);
-    result = mk_eq(tm, c[0], c[1]);
-    break;
-  case OR_TERM:            // n-ary OR
-    assert(n > 1);
-    result = mk_or(tm, n, c);
-    break;
-  case XOR_TERM:           // n-ary XOR
-    result = mk_xor(tm, n, c);
-    break;
-  case BV_ARRAY:
-    assert(n >= 1);
-    result = mk_bvarray(tm, n, c);
-    break;
-  case BV_DIV:
-    assert(n == 2);
-    result = mk_bvdiv(tm, c[0], c[1]);
-    break;
-  case BV_REM:
-    assert(n == 2);
-    result = mk_bvrem(tm, c[0], c[1]);
-    break;
-  case BV_SDIV:
-    assert(n == 2);
-    result = mk_bvsdiv(tm, c[0], c[1]);
-    break;
-  case BV_SREM:
-    assert(n == 2);
-    result = mk_bvsrem(tm, c[0], c[1]);
-    break;
-  case BV_SMOD:
-    assert(n == 2);
-    result = mk_bvsmod(tm, c[0], c[1]);
-    break;
-  case BV_SHL:
-    assert(n == 2);
-    result = mk_bvshl(tm, c[0], c[1]);
-    break;
-  case BV_LSHR:
-    assert(n == 2);
-    result = mk_bvlshr(tm, c[0], c[1]);
-    break;
-  case BV_ASHR:
-    assert(n == 2);
-    result = mk_bvashr(tm, c[0], c[1]);
-    break;
-  case BV_EQ_ATOM:
-    assert(n == 2);
-    result = mk_bveq(tm, c[0], c[1]);
-    break;
-  case BV_GE_ATOM:
-    assert(n == 2);
-    result = mk_bvge(tm, c[0], c[1]);
-    break;
-  case BV_SGE_ATOM:
-    assert(n == 2);
-    result = mk_bvsge(tm, c[0], c[1]);
-    break;
-  case ITE_TERM: {
-    assert(n == 3);
-    type_t tau = term_type(tm->terms, c[1]);
-    result = mk_ite(tm, c[0], c[1], c[2], tau);
-    break;
-  }
-  case ARITH_BINEQ_ATOM:
-    assert(n == 2);
-    result = mk_arith_eq(tm, c[0], c[1]);
-    break;
-  case ARITH_FF_BINEQ_ATOM:
-    assert(n == 2);
-    result = mk_arith_ff_eq(tm, c[0], c[1]);
-    break;
-  default:
-    assert(false);
-  }
-
-  return result;
-}
 
 static
 term_t substitution_run_core(substitution_t* subst, term_t t, int_hmap_t* cache, const int_hmap_t* frontier) {
