@@ -31,6 +31,7 @@
 #include "terms/bvarith_buffer_terms.h"
 
 #include "model/models.h"
+#include "model/model_eval.h"
 #include "model/model_queries.h"
 #include "model/concrete_values.h"
 
@@ -2700,23 +2701,36 @@ void preprocessor_build_tuple_model(preprocessor_t* pre, model_t* model) {
     for (j = 0; j < n; ++j) {
       value_t v = model_get_term_value(model, leaves.data[j]);
       if (v < 0) {
-        ok = false;
-        break;
+        /* The blasted leaf was never assigned a value by the mcsat
+         * search (typical for unconstrained tuple components) and
+         * the model cannot synthesize a default for us -- this
+         * happens when keep_subst=0 disables the alias-based
+         * default-completion path in eval_uninterpreted. Fall back
+         * to a freshly minted default of the leaf's declared type
+         * so the original tuple atom can still be reconstructed.
+         * vtbl_make_object handles bool / arith / bv / tuple /
+         * function / scalar uniformly. */
+        type_t leaf_tau = term_type(pre->terms, leaves.data[j]);
+        v = vtbl_make_object(vtbl, leaf_tau);
+        if (v < 0) {
+          ok = false;
+          break;
+        }
       }
       leaf_vals[j] = v;
     }
     if (!ok) {
-      /* A blasted leaf was never assigned a value by the mcsat search.
-       * We cannot reconstruct a value for the original atom, so it will
-       * be absent from the returned model. Log which atom and which leaf
-       * index so a user investigating a missing (show-model) entry can
-       * pin the gap. */
+      /* vtbl_make_object failed for some leaf: the type cannot be
+       * inhabited concretely (extremely unusual -- e.g. a malformed
+       * type table entry). Drop the atom and trace which leaf index
+       * was the cause so a user investigating a missing (show-model)
+       * entry can pin the gap. */
       if (trace_enabled(pre->tracer, "mcsat::preprocess")) {
         mcsat_trace_printf(pre->tracer,
                            "preprocessor_build_tuple_model: dropping atom ");
         trace_term_ln(pre->tracer, pre->terms, atom);
         mcsat_trace_printf(pre->tracer,
-                           "  (blasted leaf %u has no value in the trail model)\n", j);
+                           "  (vtbl_make_object failed for blasted leaf %u)\n", j);
       }
       delete_ivector(&leaves);
       continue;
@@ -2986,6 +3000,11 @@ term_t preprocessor_unblast_term(preprocessor_t* pre, term_t t) {
 
 void preprocessor_build_model(preprocessor_t* pre, model_t* model) {
   uint32_t i = 0;
+  /* Lazily-initialized evaluator used only on the keep_subst=0 path
+   * (model->has_alias is false). When keep_subst=1, this is never
+   * touched and the alias-based lazy resolution handles everything. */
+  evaluator_t eval;
+  bool eval_inited = false;
   for (i = 0; i < pre->equalities_list.size; ++ i) {
     term_t eq = pre->equalities_list.data[i];
     term_t eq_var = preprocessor_get_eq_solved_var(pre, eq);
@@ -3008,12 +3027,47 @@ void preprocessor_build_model(preprocessor_t* pre, model_t* model) {
     }
     term_kind_t eq_kind = term_kind(pre->terms, eq);
     composite_term_t* eq_desc = get_composite(pre->terms, eq_kind, eq);
-    if (eq_desc->arity > 1) {
-      term_t eq_subst = eq_desc->arg[0] == eq_var ? eq_desc->arg[1] : eq_desc->arg[0];
+    term_t eq_subst = eq_desc->arity > 1
+      ? (eq_desc->arg[0] == eq_var ? eq_desc->arg[1] : eq_desc->arg[0])
+      : zero_term;
+    if (model->has_alias) {
+      /* Standard path: record the substitution and let the model
+       * evaluator resolve eq_var lazily via eval_term(eq_subst). */
       model_add_substitution(model, eq_var, eq_subst);
     } else {
-      model_add_substitution(model, eq_var, zero_term);
+      /* keep_subst=0 path: model has no alias table, so
+       * model_add_substitution would assert-fail on has_alias.
+       * Concretely evaluate eq_subst now and bind eq_var to that
+       * value. This is sound: eq_var was eliminated by the
+       * preprocessor via eq_var = eq_subst, so any model satisfying
+       * eq must agree. The user asked us not to keep substitutions,
+       * but they still need consistent values for downstream queries
+       * (in particular, tuple-blasted leaves -- see
+       * preprocessor_build_tuple_model below, which would otherwise
+       * silently drop tuple atoms whose leaves remain unmapped).
+       * If eval fails (e.g., eq_subst transitively depends on another
+       * not-yet-mapped eq_var), fall back to a fresh default value. */
+      if (!eval_inited) {
+        init_evaluator(&eval, model);
+        eval_inited = true;
+      }
+      value_t v = eval_in_model(&eval, eq_subst);
+      if (v < 0) {
+        type_t eq_var_tau = term_type(pre->terms, eq_var);
+        v = vtbl_make_object(model_get_vtbl(model), eq_var_tau);
+      }
+      if (v >= 0) {
+        model_map_term(model, eq_var, v);
+      } else if (trace_enabled(pre->tracer, "mcsat::preprocess")) {
+        mcsat_trace_printf(pre->tracer,
+                           "preprocessor_build_model: failed to bind eq_var ");
+        trace_term_ln(pre->tracer, pre->terms, eq_var);
+      }
     }
+  }
+
+  if (eval_inited) {
+    delete_evaluator(&eval);
   }
 
   preprocessor_build_tuple_model(pre, model);

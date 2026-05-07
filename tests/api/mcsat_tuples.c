@@ -718,6 +718,73 @@ static void test_interpolant_with_naked_function_component(void) {
   yices_free_context(ctx);
 }
 
+/*
+ * M2 regression: tuple model reconstruction must not drop the original
+ * atom when a blasted leaf is unconstrained AND the model cannot
+ * synthesize defaults on demand.
+ *
+ * Setup: x : (tuple int int) with only `(select x 1) = 5` asserted.
+ * Component 2's blasted leaf is created by the preprocessor (via
+ * tuple_blast_term_body's UNINTERPRETED_TERM arm) but never appears
+ * in any clause, so it gets no trail value.
+ *
+ * Then yices_get_model(ctx, 0) builds the public model with
+ * has_alias=false, which disables the alias-based default-completion
+ * path in eval_uninterpreted. Without the M2 fix, model_get_term_value
+ * on the unconstrained leaf returns a negative error code, the leaf
+ * loop in preprocessor_build_tuple_model sets ok=false, and the entire
+ * `x` atom is silently dropped from the public model -- so
+ * yices_get_value on `x` fails and `(select x 1)` evaluates without
+ * its parent ever appearing. With the fix, the leaf is filled in via
+ * vtbl_make_object and `x` is reconstructable.
+ */
+static void test_partial_tuple_model_no_keep_subst(void) {
+  context_t* ctx = make_mcsat_context(false);
+
+  type_t int_t = yices_int_type();
+  type_t tup_t = yices_tuple_type2(int_t, int_t);
+  term_t x = yices_new_uninterpreted_term(tup_t);
+  assert(yices_set_term_name(x, "partial_tuple_x") == 0);
+
+  /* Constrain only the first component. */
+  assert(yices_assert_formula(ctx,
+           yices_arith_eq_atom(yices_select(1, x), yices_int32(5))) == 0);
+
+  assert(yices_check_context(ctx, NULL) == YICES_STATUS_SAT);
+
+  /* keep_subst=0: model has no alias table, so eval_uninterpreted has
+   * no default-completion path. Without the fixes, this triggers the
+   * has_alias assertion in model_add_substitution AND drops the tuple
+   * atom in preprocessor_build_tuple_model. */
+  model_t* model = yices_get_model(ctx, 0);
+  assert(model != NULL);
+
+  /* The constrained component must be 5. */
+  int32_t v1 = -1;
+  assert(yices_get_int32_value(model, yices_select(1, x), &v1) == 0);
+  assert(v1 == 5);
+
+  /* The whole tuple atom must reconstruct -- even though component 2
+   * is unconstrained. Before the fix this call would fail because the
+   * preprocessor dropped `x` from the model. */
+  yval_t tup_val;
+  assert(yices_get_value(model, x, &tup_val) == 0);
+  assert(yices_val_tuple_arity(model, &tup_val) == 2);
+
+  yval_t children[2];
+  assert(yices_val_expand_tuple(model, &tup_val, children) == 0);
+  int32_t got_v1 = -1;
+  assert(yices_val_get_int32(model, &children[0], &got_v1) == 0);
+  assert(got_v1 == 5);
+  /* Component 2 may be any int -- we only require that the value
+   * exists and is well-typed. */
+  int32_t got_v2 = 0;
+  assert(yices_val_get_int32(model, &children[1], &got_v2) == 0);
+
+  yices_free_model(model);
+  yices_free_context(ctx);
+}
+
 static void test_tuple_blast_bit_over_tuple_component(void) {
   context_t* ctx = make_mcsat_context(false);
 
@@ -857,6 +924,7 @@ int main(void) {
   test_interpolant_with_tuple_function_component_domain_and_range();
   test_tuple_blast_bit_over_tuple_component();
   test_interpolant_with_naked_function_component();
+  test_partial_tuple_model_no_keep_subst();
   test_tuple_preprocessing_then_gc();
 
   yices_exit();
