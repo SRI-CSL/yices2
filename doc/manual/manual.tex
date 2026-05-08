@@ -1459,12 +1459,14 @@ non-linear arithmetic are presented in a preprint~\cite{jovanovic2021interpolati
 In Yices 2.6.2, we have added support for using third-party Boolean
 satisfiability solvers. Such solvers are optional but can provide
 significant performance improvements on bit-vector problems. Use of
-these SAT solvers is enabled by a command-line option and is currently
-restricted to non-incremental QF\_BV problems. If an external solver
-is selected, Yices will perform ``bit blasting,'' that is, convert the
-problem to an equisatisfiable SAT problem in conjunctive normal form
-(CNF) and use the third-party solver to check satisfiability of this
-CNF formula.
+these SAT solvers is enabled by a command-line option for QF\_BV
+problems. If an external solver is selected, Yices will perform ``bit
+blasting,'' that is, convert the problem to an equisatisfiable SAT
+problem in conjunctive normal form (CNF) and use the selected solver to
+check satisfiability of this CNF formula. CaDiCaL and CryptoMiniSat can
+be used incrementally. Non-incremental delegates such as \texttt{y2sat}
+and Kissat are rebuilt from the current bit-blasted problem on each
+incremental check.
 
 
 
@@ -3772,7 +3774,13 @@ This will use CaDiCaL in quiet mode. To get more output from CaDiCaL, increase v
 problems by preprocessing and simplification, without producing a CNF
 formula. In such cases, the \texttt{delegate} option is irrelevant.
 
-\paragraph{Limitation:} Currently, use of the delegates is restricted to non-incremental problems.
+\paragraph{Incremental use:} Delegates can be used with
+\texttt{--incremental} on QF\_BV problems. CaDiCaL and CryptoMiniSat
+support incremental delegate checks. Non-incremental delegates such as
+\texttt{y2sat} and Kissat are rebuilt from the current bit-blasted
+problem on each \texttt{check-sat}. The selector-frame configuration
+used by the API for incremental delegates has no effect for
+non-incremental delegates.
 
 \subsubsection*{Exporting to Dimacs}
 
@@ -3864,7 +3872,10 @@ Here is the full list of command-line options supported by
 
 \item[--delegate=<solver>] Select an external SAT solver for bit-vector problems,
 
-   The \texttt{<solver>} can be either \texttt{cadical}, or \texttt{cryptominisat}, or \texttt{y2sat}.
+   The \texttt{<solver>} can be either \texttt{cadical},
+   \texttt{cryptominisat}, \texttt{kissat}, or \texttt{y2sat}. In
+   incremental mode, \texttt{y2sat} and Kissat are rebuilt from the
+   current bit-blasted problem on each \texttt{check-sat}.
 
 \item[--dimacs=<filename>] Bitblast then export the CNF to a file (in DIMACS format).
 

@@ -2959,7 +2959,23 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *   ----------------------------------------------------------------------------------------
  *   "model-interpolation" | "false"        | don't enable model interpolation (default)
  *                         | "true"         | enable model interpolation
+ *   ----------------------------------------------------------------------------------------
+ *    "sat-delegate"       | "none"         | use the default SAT solver (default)
+ *                         | "y2sat"        | use y2sat for QF_BV contexts
+ *                         | "cadical"      | use CaDiCaL for QF_BV contexts
+ *                         | "cryptominisat"| use CryptoMiniSat for QF_BV contexts
+ *                         | "kissat"       | use Kissat for QF_BV contexts
+ *   ----------------------------------------------------------------------------------------
+ *    "sat-delegate-selector-frames"        | "false" | rebuild delegate clauses after each
+ *                                          |         | context mutation (default)
+ *                                          | "true"  | keep an incremental delegate live
+ *                                          |         | using selector-guarded frames
  *
+ * The SAT delegate options have an effect only for QF_BV contexts.
+ * CaDiCaL and CryptoMiniSat support incremental delegate checks. Non-incremental
+ * delegates such as y2sat and Kissat are rebuilt from the current bit-blasted
+ * problem on each incremental check. "sat-delegate-selector-frames" is ignored
+ * for non-incremental delegates.
  *
  * The function returns -1 if there's an error, 0 otherwise.
  *
@@ -3593,6 +3609,8 @@ __YICES_DLLSPEC__ extern void yices_default_params_for_context(const context_t *
  * For QF_BV contexts, parameter name "delegate" can be set to "none",
  * "y2sat", "cadical", "cryptominisat", or "kissat" to select the SAT
  * backend used by yices_check_context.
+ * In incremental contexts, non-incremental delegates such as y2sat and Kissat
+ * are rebuilt from the current bit-blasted problem on each check.
  *
  * Return -1 if there's an error, 0 otherwise.
  *
