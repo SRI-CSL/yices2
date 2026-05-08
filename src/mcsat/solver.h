@@ -105,13 +105,32 @@ void mcsat_build_model(mcsat_solver_t* mcsat, model_t* model);
 
 /*
  * Get model interpolant.
+ *
+ * The returned term is always in the public / post-unblast world: it
+ * refers only to the user's original tuple and function atoms via
+ * select/application, never to the internal tuple-blasted leaf
+ * variables introduced by the preprocessor. Internal writers must
+ * therefore unblast before storing (see mcsat_set_interpolant_from_internal
+ * in solver.c); callers that already hold a public-world term may assign
+ * to the field directly via mcsat_set_unsat_result_from_labeled_interpolant
+ * below.
  */
 term_t mcsat_get_unsat_model_interpolant(mcsat_solver_t* mcsat);
 
 /*
- * Restore sticky UNSAT result with a given interpolant.
+ * Restore sticky UNSAT result from a public/postprocessed interpolant by
+ * replacing temporary assumption labels with the user's original
+ * assumptions.
+ *
+ * Pre-condition: `interpolant` is already in the public / post-unblast
+ * world. This entry point performs only label-for-assumption
+ * substitution -- it does NOT run preprocessor_unblast_term -- so
+ * passing an internal-world term here would leak blasted leaf variables
+ * into the sticky interpolant.
  */
-void mcsat_set_unsat_result(mcsat_solver_t* mcsat, term_t interpolant);
+void mcsat_set_unsat_result_from_labeled_interpolant(mcsat_solver_t* mcsat, term_t interpolant,
+                                                     uint32_t n, const term_t* labels,
+                                                     const term_t* assumptions);
 
 /*
  * Interrupt the search

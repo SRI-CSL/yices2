@@ -1,0 +1,14 @@
+;; Regression for the tuple-blast dispatch over BIT_TERM, which used to
+;; be lumped with constant kinds in the leaf cluster (no recursion into
+;; the bv operand) and thus mis-classified `(bit i (select x j))` -- the
+;; un-blasted SELECT would reach old preprocessing and be rejected.
+
+(define-type T (tuple int (bitvector 4)))
+
+(define x::T)
+
+(assert (= (select x 2) 0b1010))
+(assert (bit (select x 2) 1))
+(assert (not (bit (select x 2) 0)))
+
+(check)

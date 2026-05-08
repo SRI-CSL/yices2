@@ -1,0 +1,16 @@
+;; Gold regression for (show-model) on tuple-typed free variables.
+;; Constraints fully determine both components of p and q via selectors,
+;; so the printed model is deterministic across solver configurations.
+
+(define-type Pair (tuple int bool))
+
+(define p::Pair)
+(define q::Pair)
+
+(assert (= (select p 1) 7))
+(assert (= (select p 2) false))
+(assert (= (select q 1) (+ (select p 1) 1)))
+(assert (= (select q 2) (not (select p 2))))
+
+(check)
+(show-model)
