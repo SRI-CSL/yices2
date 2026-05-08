@@ -42,6 +42,7 @@
 #include "terms/term_substitution.h"
 #include "utils/int_hash_map.h"
 #include "utils/int_hash_sets.h"
+#include "utils/memalloc.h"
 
 #include "api/yices_globals.h"
 #include "api/yices_api_lock_free.h"
@@ -980,6 +981,56 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
 
   return stat;
 }
+
+
+/*
+ * Incremental CaDiCaL: persistent CaDiCaL with activation literals.
+ * Allocates ctx->incr_cadical on first call.
+ */
+#if HAVE_CADICAL
+smt_status_t check_with_incremental_cadical(context_t *ctx, uint32_t verbosity) {
+  smt_status_t stat;
+  smt_core_t *core;
+  incremental_cadical_t *ic;
+
+  core = ctx->core;
+
+  stat = smt_status(core);
+  if (stat != YICES_STATUS_IDLE) {
+    return stat;
+  }
+
+  if (ctx->incr_cadical == NULL) {
+    ic = (incremental_cadical_t *) safe_malloc(sizeof(incremental_cadical_t));
+    init_incremental_cadical(ic);
+    ctx->incr_cadical = (void *) ic;
+  } else {
+    ic = (incremental_cadical_t *) ctx->incr_cadical;
+  }
+
+  start_search(core, 0, NULL);
+  smt_process(core);
+  stat = smt_status(core);
+
+  assert(stat == YICES_STATUS_UNSAT || stat == YICES_STATUS_SEARCHING ||
+	 stat == YICES_STATUS_INTERRUPTED);
+
+  if (stat == YICES_STATUS_SEARCHING) {
+    if (smt_easy_sat(core)) {
+      stat = YICES_STATUS_SAT;
+    } else {
+      stat = solve_with_incremental_cadical(ic, core, verbosity);
+      if (stat == YICES_STATUS_UNKNOWN) {
+        /* CaDiCaL returned unexpected status: fall back to smt_core CDCL */
+        smt_process(core);
+        stat = smt_status(core);
+      }
+    }
+  }
+
+  return stat;
+}
+#endif
 
 
 /*

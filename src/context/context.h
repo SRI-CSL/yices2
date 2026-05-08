@@ -395,6 +395,13 @@ extern smt_status_t precheck_context(context_t *ctx);
  */
 extern smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity);
 
+/*
+ * Incremental CaDiCaL version: reuses a persistent CaDiCaL instance
+ * across push/pop boundaries using activation literals.
+ * ctx->incr_cadical is allocated on first call and reused thereafter.
+ */
+extern smt_status_t check_with_incremental_cadical(context_t *ctx, uint32_t verbosity);
+
 
 /*
  * Bit-blast then export to DIMACS

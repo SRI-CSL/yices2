@@ -32,6 +32,7 @@
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
 #include "solvers/funs/fun_solver.h"
 #include "solvers/quant/quant_solver.h"
+#include "solvers/cdcl/delegate.h"
 #include "solvers/simplex/simplex.h"
 #include "terms/poly_buffer_terms.h"
 #include "terms/term_utils.h"
@@ -5760,6 +5761,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
    */
   init_solvers(ctx);
 
+  ctx->incr_cadical = NULL;
   ctx->en_quant = false;
 }
 
@@ -5809,6 +5811,14 @@ void delete_context(context_t *ctx) {
     safe_free(ctx->bv_solver);
     ctx->bv_solver = NULL;
   }
+
+#if HAVE_CADICAL
+  if (ctx->incr_cadical != NULL) {
+    delete_incremental_cadical((incremental_cadical_t *) ctx->incr_cadical);
+    safe_free(ctx->incr_cadical);
+    ctx->incr_cadical = NULL;
+  }
+#endif
 
   delete_gate_manager(&ctx->gate_manager);
   /* delete_mcsat_options(&ctx->mcsat_options); // if used then the same memory is freed twice */
@@ -5869,6 +5879,14 @@ void context_invalidate_unsat_core_cache(context_t *ctx) {
 void reset_context(context_t *ctx) {
   ctx->base_level = 0;
   context_invalidate_unsat_core_cache(ctx);
+
+#if HAVE_CADICAL
+  if (ctx->incr_cadical != NULL) {
+    delete_incremental_cadical((incremental_cadical_t *) ctx->incr_cadical);
+    safe_free(ctx->incr_cadical);
+    ctx->incr_cadical = NULL;
+  }
+#endif
 
   reset_smt_core(ctx->core); // this propagates reset to all solvers
 
