@@ -43,6 +43,36 @@ typedef struct {
   /** List of terms in the preprocess map (for backtracking) */
   ivector_t preprocess_map_list;
 
+  /** Map from term to tuple-blast data offset */
+  int_hmap_t tuple_blast_map;
+
+  /** Packed tuple-blast data: [size, terms...] */
+  ivector_t tuple_blast_data;
+
+  /** Terms with tuple-blast entries (for backtracking) */
+  ivector_t tuple_blast_list;
+
+  /** Original uninterpreted atoms that were tuple-blasted */
+  ivector_t tuple_blast_atoms;
+
+  /** Memoization: type -> 0/1 for type_is_tuple_free.
+   * Keyed by type_t (always >= 0). The cache is reset by
+   * preprocessor_gc_mark before every GC sweep, because Yices recycles
+   * type IDs once the originals are freed -- a stale entry under a
+   * recycled ID would misclassify a fresh type. Between GCs, type IDs
+   * are stable, so no other invalidation is needed. */
+  int_hmap_t type_is_tuple_free_cache;
+
+  /** Memoization: type -> leaf count for type_leaf_count.
+   * Same lifetime / GC-reset argument as type_is_tuple_free_cache. */
+  int_hmap_t type_leaf_count_cache;
+
+  /** Memoization: term-index -> 0/1 for "DAG rooted at term contains any
+   * tuple type". Polarity-insensitive (key = index_of(t)). Reset by
+   * preprocessor_gc_mark for the same reason as the type caches: term
+   * IDs are recycled across GC. Between GCs, term IDs are stable. */
+  int_hmap_t term_has_tuples_cache;
+
   /** Purification map, term to its variable */
   int_hmap_t purification_map;
 
@@ -81,6 +111,14 @@ void preprocessor_destruct(preprocessor_t* pre);
 /** Preprocess the term, add any additional assertions to output vector. */
 term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is_assertion);
 
+/*
+ * Tuple-blast term t and copy its flattened leaves into out.
+ * - out is reset first.
+ * - leaf order matches type_collect_blasted_atom_types/type leaf order.
+ * - leaves are memoized and stable across later tuple-blast calls.
+ */
+void preprocessor_tuple_blast(preprocessor_t* pre, term_t t, ivector_t* out);
+
 /** Set tracer */
 void preprocessor_set_tracer(preprocessor_t* pre, tracer_t* tracer);
 
@@ -95,6 +133,9 @@ void preprocessor_pop(preprocessor_t* pre);
 
 /** Add any variable substitutions to the model */
 void preprocessor_build_model(preprocessor_t* pre, model_t* model);
+
+/** Replace tuple-blasted leaf variables in t by accessors over original tuple atoms */
+term_t preprocessor_unblast_term(preprocessor_t* pre, term_t t);
 
 /** Mark all the terms in the preprocessor */
 void preprocessor_gc_mark(preprocessor_t* pre);
