@@ -993,7 +993,7 @@ term_t mcsat_satellite_get_unsat_model_interpolant(mcsat_satellite_t *sat) {
 }
 
 void mcsat_satellite_set_unsat_model_interpolant(mcsat_satellite_t *sat, term_t t) {
-  mcsat_set_unsat_result(sat->mctx.mcsat, t);
+  mcsat_set_unsat_result_from_labeled_interpolant(sat->mctx.mcsat, t, 0, NULL, NULL);
 }
 
 term_t mcsat_satellite_compute_unsat_model_interpolant(mcsat_satellite_t *sat, const param_t *params, uint32_t n, const term_t *a) {
@@ -1082,7 +1082,7 @@ done:
   }
 
   if (result != NULL_TERM) {
-    mcsat_set_unsat_result(sat->mctx.mcsat, result);
+    mcsat_set_unsat_result_from_labeled_interpolant(sat->mctx.mcsat, result, 0, NULL, NULL);
   }
 
   return result;

@@ -2534,6 +2534,63 @@ static bool check_good_vars_or_uninterpreted(term_manager_t *mngr, uint32_t n, c
   return true;
 }
 
+static bool mcsat_assumption_type_supported(type_table_t *types, type_t tau) {
+  type_kind_t kind = type_kind(types, tau);
+  uint32_t i;
+
+  switch (kind) {
+  case BOOL_TYPE:
+  case INT_TYPE:
+  case REAL_TYPE:
+  case SCALAR_TYPE:
+  case BITVECTOR_TYPE:
+    return true;
+
+  case TUPLE_TYPE: {
+    tuple_type_t *tuple = tuple_type_desc(types, tau);
+    for (i = 0; i < tuple->nelem; i++) {
+      if (! mcsat_assumption_type_supported(types, tuple->elem[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  default:
+    return false;
+  }
+}
+
+// Check that the type of every term in v is one that the MCSAT solver can
+// decide on as an assumption value. Tuple types are supported if all their
+// recursively flattened leaves are supported scalar decision types. Other
+// type kinds (UNINTERPRETED_TYPE, FUNCTION_TYPE, FF_TYPE, etc.) reach the
+// MCSAT solver but trigger an assertion failure inside
+// mcsat_value_construct_from_value (or a NULL decide_assignment dispatch),
+// so we reject them here with a clear error code (issue #615).
+//
+// All elements of v must already be good terms.
+static bool check_mcsat_assumption_types(term_manager_t *mngr, uint32_t n, const term_t *v) {
+  term_table_t *tbl;
+  type_table_t *types;
+  uint32_t i;
+
+  tbl = term_manager_get_terms(mngr);
+  types = tbl->types;
+  for (i=0; i<n; i++) {
+    type_t tau = term_type(tbl, v[i]);
+    if (! mcsat_assumption_type_supported(types, tau)) {
+      error_report_t *error = get_yices_error();
+      error->code = MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED;
+      error->term1 = v[i];
+      error->type1 = tau;
+      return false;
+    }
+  }
+
+  return true;
+}
+
 // Check whether arrays v and a define a valid substitution
 // both must be arrays of n elements
 static bool check_good_substitution(term_manager_t *mngr, uint32_t n, const term_t *v, const term_t *a) {
@@ -8834,6 +8891,9 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
 
   // Additional setup for MCSAT options in the config
   if (config != NULL) {
+    ctx->sat_delegate = config->sat_delegate;
+    ctx->sat_delegate_selector_frames = config->sat_delegate_selector_frames;
+
     // If trace tags are passed in, set them
     if (config->trace_tags != NULL) {
       // Make new tracer
@@ -9387,7 +9447,11 @@ EXPORTED void yices_default_params_for_context(const context_t *ctx, param_t *pa
   yices_set_default_params(params, ctx->logic, ctx->arch, ctx->mode);
 }
 
-
+/*
+ * Check whether the given delegate is supported and set the error
+ * report if not.
+ */
+static bool check_delegate(const char *delegate);
 
 /*
  * Check satisfiability: check whether the assertions stored in ctx
@@ -9421,6 +9485,9 @@ EXPORTED void yices_default_params_for_context(const context_t *ctx, param_t *pa
  */
 EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params) {
   param_t default_params;
+  sat_delegate_t delegate_mode;
+  bool one_shot_delegate;
+  const char *delegate;
   smt_status_t stat;
 
   stat = context_status(ctx);
@@ -9444,7 +9511,24 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
       yices_default_params_for_context(ctx, &default_params);
       params = &default_params;
     }
-    stat = check_context(ctx, params);
+    delegate_mode = effective_sat_delegate_mode(ctx->sat_delegate, params, &one_shot_delegate);
+    delegate = sat_delegate_name(delegate_mode);
+    if (delegate == NULL) {
+      stat = check_context(ctx, params);
+    } else {
+      if (!check_delegate(delegate)) {
+        return YICES_STATUS_ERROR;
+      }
+      if (ctx->logic != QF_BV) {
+        set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+        return YICES_STATUS_ERROR;
+      }
+      if (!one_shot_delegate && ctx->sat_delegate_selector_frames && incremental_delegate(delegate)) {
+        stat = check_with_incremental_delegate(ctx, delegate, 0, 0, NULL, NULL);
+      } else {
+        stat = check_with_delegate(ctx, delegate, 0);
+      }
+    }
     if (stat == YICES_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
       context_cleanup(ctx);
     }
@@ -9573,6 +9657,18 @@ static bool good_terms_for_check_with_model(uint32_t n, const term_t t[]) {
 }
 
 /*
+ * Same as _o_good_terms_for_check_with_model, but additionally checks that
+ * the type of each assumption term is one MCSAT can decide on. This guards
+ * against the crash reported in issue #615. Tuple assumptions are allowed
+ * only if every recursively flattened leaf type is supported by an MCSAT
+ * decision plugin.
+ */
+static bool _o_good_assumption_terms_for_mcsat(uint32_t n, const term_t t[]) {
+  return _o_good_terms_for_check_with_model(n, t)
+      && check_mcsat_assumption_types(__yices_globals.manager, n, t);
+}
+
+/*
  * Check context with model
  * - param = parameter for check sat (or NULL for default parameters)
  * - mdl = a model
@@ -9589,10 +9685,16 @@ static smt_status_t _o_yices_check_context_with_model(context_t *ctx, const para
     return YICES_STATUS_ERROR;
   }
 
-  if (! _o_good_terms_for_check_with_model(n, t)) {
-    // this sets the error code already (to VARIABLE_REQUIRED)
-    // but Dejan created another error code that means the same thing here.
-    set_error_code(MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED);
+  if (! _o_good_assumption_terms_for_mcsat(n, t)) {
+    // Normalize the error code: VARIABLE_REQUIRED (set by the
+    // term-shape check) becomes MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED,
+    // matching the long-standing convention here. The new
+    // MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED (set by the type-kind
+    // check) is left as-is so callers can distinguish "wrong shape" from
+    // "wrong type". term1/type1 fields are preserved.
+    if (yices_error_code() == VARIABLE_REQUIRED) {
+      set_error_code(MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED);
+    }
     return YICES_STATUS_ERROR;
   }
 
@@ -9670,10 +9772,11 @@ static smt_status_t _o_yices_check_context_with_model_and_hint(context_t *ctx, c
     return YICES_STATUS_ERROR;
   }
 
-  if (! _o_good_terms_for_check_with_model(n, t)) {
-    // this sets the error code already (to VARIABLE_REQUIRED)
-    // but Dejan created another error code that means the same thing here.
-    set_error_code(MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED);
+  if (! _o_good_assumption_terms_for_mcsat(n, t)) {
+    // See note in _o_yices_check_context_with_model.
+    if (yices_error_code() == VARIABLE_REQUIRED) {
+      set_error_code(MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED);
+    }
     return YICES_STATUS_ERROR;
   }
 
@@ -9881,16 +9984,28 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
     ctx->model = yices_get_model(ctx->ctx_A, true);
   }
 
-  // Pop both contexts
-  if (result != YICES_STATUS_ERROR) {
+  // Pop both contexts. Preserve the original error report if the loop above
+  // failed (for example, via model-refutation assumption validation).
+  {
+    bool preserve_error = result == YICES_STATUS_ERROR;
+    error_report_t saved_error;
+    if (preserve_error) {
+      saved_error = *get_yices_error();
+    }
+
     ret = yices_pop(ctx->ctx_B);
-    if (ret) {
+    if (ret && !preserve_error) {
       result = YICES_STATUS_ERROR;
-    } else {
-      ret = yices_pop(ctx->ctx_A);
-      if (ret) {
-        result = YICES_STATUS_ERROR;
-      }
+    }
+    // Pop A even if popping B failed: both contexts were pushed above and
+    // must be balanced independently.
+    ret = yices_pop(ctx->ctx_A);
+    if (ret && !preserve_error) {
+      result = YICES_STATUS_ERROR;
+    }
+
+    if (preserve_error) {
+      *get_yices_error() = saved_error;
     }
   }
 

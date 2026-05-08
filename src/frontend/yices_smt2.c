@@ -740,12 +740,6 @@ static void parse_command_line(int argc, char *argv[]) {
     goto exit;
   }
 
-  if (incremental && delegate != NULL) {
-    fprintf(stderr, "%s: delegate %s does not support incremental mode\n", parser.command_name, delegate);
-    code = YICES_EXIT_USAGE;
-    goto exit;
-  }
-
   if (incremental && dimacsfile != NULL) {
     fprintf(stderr, "%s: export to DIMACS is not supported in incremental mode\n", parser.command_name);
     code = YICES_EXIT_USAGE;

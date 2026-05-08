@@ -84,6 +84,7 @@
  * Default branching = the smt_core default
  */
 #define DEFAULT_BRANCHING  BRANCHING_DEFAULT
+#define DEFAULT_SAT_DELEGATE SAT_DELEGATE_NONE
 
 /*
  * The default EGRAPH parameters are defined in egraph_types.h
@@ -145,6 +146,7 @@ static const param_t default_settings = {
   DEFAULT_CLAUSE_DECAY,
   DEFAULT_CACHE_TCLAUSES,
   DEFAULT_TCLAUSE_SIZE,
+  DEFAULT_SAT_DELEGATE,
 
   DEFAULT_USE_DYN_ACK,
   DEFAULT_USE_BOOL_DYN_ACK,
@@ -189,6 +191,7 @@ typedef enum param_key {
   PARAM_D_THRESHOLD,
   PARAM_C_FACTOR,
   PARAM_D_FACTOR,
+  PARAM_DELEGATE,
   // clause deletion heuristic
   PARAM_R_THRESHOLD,
   PARAM_R_FRACTION,
@@ -240,6 +243,7 @@ static const char *const param_key_names[NUM_PARAM_KEYS] = {
   "clause-decay",
   "d-factor",
   "d-threshold",
+  "delegate",
   "dyn-ack",
   "dyn-ack-threshold",
   "dyn-bool-ack",
@@ -278,6 +282,7 @@ static const int32_t param_code[NUM_PARAM_KEYS] = {
   PARAM_CLAUSE_DECAY,
   PARAM_D_FACTOR,
   PARAM_D_THRESHOLD,
+  PARAM_DELEGATE,
   PARAM_DYN_ACK,
   PARAM_DYN_ACK_THRESHOLD,
   PARAM_DYN_BOOL_ACK,
@@ -340,6 +345,76 @@ static const int32_t mcsat_supplement_check_code[NUM_MCSAT_SUPPLEMENT_CHECK_MODE
   MCSAT_SUPPLEMENT_CHECK_FINAL_ONLY,
 };
 
+/*
+ * Names of delegate solvers (in lexicographic order)
+ */
+static const char * const sat_delegate_modes[NUM_SAT_DELEGATES] = {
+  "cadical",
+  "cryptominisat",
+  "kissat",
+  "none",
+  "y2sat",
+};
+
+static const int32_t sat_delegate_code[NUM_SAT_DELEGATES] = {
+  SAT_DELEGATE_CADICAL,
+  SAT_DELEGATE_CRYPTOMINISAT,
+  SAT_DELEGATE_KISSAT,
+  SAT_DELEGATE_NONE,
+  SAT_DELEGATE_Y2SAT,
+};
+
+const char *sat_delegate_name(sat_delegate_t mode) {
+  switch (mode) {
+  case SAT_DELEGATE_Y2SAT:
+    return "y2sat";
+  case SAT_DELEGATE_CADICAL:
+    return "cadical";
+  case SAT_DELEGATE_CRYPTOMINISAT:
+    return "cryptominisat";
+  case SAT_DELEGATE_KISSAT:
+    return "kissat";
+  case SAT_DELEGATE_NONE:
+  default:
+    return NULL;
+  }
+}
+
+int32_t parse_sat_delegate(const char *value, sat_delegate_t *v) {
+  int32_t k;
+
+  k = parse_as_keyword(value, sat_delegate_modes, sat_delegate_code, NUM_SAT_DELEGATES);
+  assert(k >= 0 || k == -1);
+
+  if (k >= 0) {
+    assert(SAT_DELEGATE_NONE <= k && k <= SAT_DELEGATE_KISSAT);
+    *v = (sat_delegate_t) k;
+    return 0;
+  }
+
+  return -2;
+}
+
+sat_delegate_t effective_sat_delegate_mode(sat_delegate_t config_delegate, const param_t *params, bool *one_shot) {
+  sat_delegate_t req;
+
+  req = SAT_DELEGATE_NONE;
+  if (params != NULL) {
+    req = params->delegate;
+  }
+
+  if (req != SAT_DELEGATE_NONE) {
+    if (one_shot != NULL) {
+      *one_shot = (req != config_delegate || config_delegate == SAT_DELEGATE_NONE);
+    }
+    return req;
+  }
+
+  if (one_shot != NULL) {
+    *one_shot = false;
+  }
+  return config_delegate;
+}
 
 
 
@@ -417,8 +492,16 @@ static int32_t set_mcsat_supplement_check_param(const char *value, mcsat_supplem
   } else {
     k = -2;
   }
-
   return k;
+}
+
+/*
+ * Parse value as a SAT delegate mode. Store the result in *v
+ * - return 0 if this works
+ * - return -2 otherwise
+ */
+static int32_t set_sat_delegate_param(const char *value, sat_delegate_t *v) {
+  return parse_sat_delegate(value, v);
 }
 
 
@@ -562,6 +645,10 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
 
   case PARAM_D_FACTOR:
     r = set_double_param(value, &parameters->d_factor, 1.0, DBL_MAX);
+    break;
+
+  case PARAM_DELEGATE:
+    r = set_sat_delegate_param(value, &parameters->delegate);
     break;
 
   case PARAM_R_THRESHOLD:
