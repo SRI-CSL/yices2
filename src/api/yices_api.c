@@ -2534,12 +2534,38 @@ static bool check_good_vars_or_uninterpreted(term_manager_t *mngr, uint32_t n, c
   return true;
 }
 
+static bool mcsat_assumption_type_supported(type_table_t *types, type_t tau) {
+  type_kind_t kind = type_kind(types, tau);
+  uint32_t i;
+
+  switch (kind) {
+  case BOOL_TYPE:
+  case INT_TYPE:
+  case REAL_TYPE:
+  case SCALAR_TYPE:
+  case BITVECTOR_TYPE:
+    return true;
+
+  case TUPLE_TYPE: {
+    tuple_type_t *tuple = tuple_type_desc(types, tau);
+    for (i = 0; i < tuple->nelem; i++) {
+      if (! mcsat_assumption_type_supported(types, tuple->elem[i])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  default:
+    return false;
+  }
+}
+
 // Check that the type of every term in v is one that the MCSAT solver can
-// decide on as an assumption value (i.e. a type whose plugin provides a
-// non-NULL decide_assignment callback). The supported assumption types are:
-//   BOOL_TYPE, INT_TYPE, REAL_TYPE, SCALAR_TYPE, BITVECTOR_TYPE.
-// Other type kinds (UNINTERPRETED_TYPE, FUNCTION_TYPE, TUPLE_TYPE, FF_TYPE,
-// ...) reach the MCSAT solver but trigger an assertion failure inside
+// decide on as an assumption value. Tuple types are supported if all their
+// recursively flattened leaves are supported scalar decision types. Other
+// type kinds (UNINTERPRETED_TYPE, FUNCTION_TYPE, FF_TYPE, etc.) reach the
+// MCSAT solver but trigger an assertion failure inside
 // mcsat_value_construct_from_value (or a NULL decide_assignment dispatch),
 // so we reject them here with a clear error code (issue #615).
 //
@@ -2552,21 +2578,13 @@ static bool check_mcsat_assumption_types(term_manager_t *mngr, uint32_t n, const
   tbl = term_manager_get_terms(mngr);
   types = tbl->types;
   for (i=0; i<n; i++) {
-    type_kind_t kind = type_kind(types, term_type(tbl, v[i]));
-    switch (kind) {
-    case BOOL_TYPE:
-    case INT_TYPE:
-    case REAL_TYPE:
-    case SCALAR_TYPE:
-    case BITVECTOR_TYPE:
-      break;
-    default: {
+    type_t tau = term_type(tbl, v[i]);
+    if (! mcsat_assumption_type_supported(types, tau)) {
       error_report_t *error = get_yices_error();
       error->code = MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED;
       error->term1 = v[i];
-      error->type1 = term_type(tbl, v[i]);
+      error->type1 = tau;
       return false;
-    }
     }
   }
 
@@ -9613,9 +9631,9 @@ static bool good_terms_for_check_with_model(uint32_t n, const term_t t[]) {
 /*
  * Same as _o_good_terms_for_check_with_model, but additionally checks that
  * the type of each assumption term is one MCSAT can decide on. This guards
- * against the crash reported in issue #615, where assumption terms of type
- * UNINTERPRETED_TYPE, FUNCTION_TYPE, TUPLE_TYPE, FF_TYPE, etc. trigger an
- * assertion failure deep in the MCSAT solver.
+ * against the crash reported in issue #615. Tuple assumptions are allowed
+ * only if every recursively flattened leaf type is supported by an MCSAT
+ * decision plugin.
  */
 static bool _o_good_assumption_terms_for_mcsat(uint32_t n, const term_t t[]) {
   return _o_good_terms_for_check_with_model(n, t)
@@ -9938,16 +9956,28 @@ EXPORTED smt_status_t yices_check_context_with_interpolation(interpolation_conte
     ctx->model = yices_get_model(ctx->ctx_A, true);
   }
 
-  // Pop both contexts
-  if (result != YICES_STATUS_ERROR) {
+  // Pop both contexts. Preserve the original error report if the loop above
+  // failed (for example, via model-refutation assumption validation).
+  {
+    bool preserve_error = result == YICES_STATUS_ERROR;
+    error_report_t saved_error;
+    if (preserve_error) {
+      saved_error = *get_yices_error();
+    }
+
     ret = yices_pop(ctx->ctx_B);
-    if (ret) {
+    if (ret && !preserve_error) {
       result = YICES_STATUS_ERROR;
-    } else {
-      ret = yices_pop(ctx->ctx_A);
-      if (ret) {
-        result = YICES_STATUS_ERROR;
-      }
+    }
+    // Pop A even if popping B failed: both contexts were pushed above and
+    // must be balanced independently.
+    ret = yices_pop(ctx->ctx_A);
+    if (ret && !preserve_error) {
+      result = YICES_STATUS_ERROR;
+    }
+
+    if (preserve_error) {
+      *get_yices_error() = saved_error;
     }
   }
 
