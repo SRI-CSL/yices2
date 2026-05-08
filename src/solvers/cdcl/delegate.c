@@ -309,8 +309,11 @@ void init_incremental_cadical(incremental_cadical_t *ic) {
   ccadical_set_option(ic->cadical, "elimands", 0);
   ccadical_set_option(ic->cadical, "elimites", 0);
   ccadical_set_option(ic->cadical, "elimxors", 0);
+  /* Anchor true_literal (DIMACS var 1) as a permanent unit clause */
+  ccadical_add(ic->cadical, 1);
+  ccadical_add(ic->cadical, 0);
   ic->depth        = 0;
-  ic->next_act_var = 0;
+  ic->next_act_var = 1 << 28;  /* 268M: above any realistic bvar range */
   sz = INCR_CADICAL_DEFAULT_SIZE;
   ic->size      = sz;
   ic->act_var     = (int32_t *)  safe_malloc(sz * sizeof(int32_t));
@@ -401,6 +404,35 @@ smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_
 
   d = smt_base_level(core);
   trail_data = core->trail_stack.data;
+
+  /* Detect and recover from pop+repush: if any level k's forward cursor
+   * overshoots the current clause boundary, a pop occurred since the last
+   * solve at that level. Allocate a fresh activation variable and reset. */
+  for (k = 1; k <= d && k <= ic->depth; k++) {
+    uint32_t cur_end_units, cur_end_bins, cur_end_clauses;
+    if (k < d) {
+      cur_end_units   = trail_data[k].nunits;
+      cur_end_bins    = trail_data[k].nbins;
+      cur_end_clauses = trail_data[k].nclauses;
+    } else {  /* k == d */
+      cur_end_units   = core->nb_unit_clauses;
+      cur_end_bins    = (uint32_t) core->binary_clauses.size;
+      cur_end_clauses = (uint32_t) get_cv_size(core->problem_clauses);
+    }
+    if (ic->fwd_units[k]   > cur_end_units   ||
+        ic->fwd_bins[k]    > cur_end_bins     ||
+        ic->fwd_clauses[k] > cur_end_clauses) {
+      /* pop+repush detected: get a fresh activation var and reset cursors */
+      if (ic->next_act_var <= (int32_t) num_vars(core)) {
+        ic->next_act_var = (int32_t) num_vars(core) + 1;
+      }
+      ic->act_var[k] = ic->next_act_var++;
+      ccadical_freeze(ic->cadical, ic->act_var[k]);
+      ic->fwd_units[k]   = trail_data[k-1].nunits;
+      ic->fwd_bins[k]    = trail_data[k-1].nbins;
+      ic->fwd_clauses[k] = trail_data[k-1].nclauses;
+    }
+  }
 
   /* allocate activation variables for new push levels */
   for (k = ic->depth + 1; k <= d; k++) {
