@@ -298,6 +298,170 @@ static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   d->export = NULL;
 }
 
+void init_incremental_cadical(incremental_cadical_t *ic) {
+  uint32_t i, sz;
+
+  ic->cadical = ccadical_init();
+  ccadical_set_option(ic->cadical, "quiet",    1);
+  ccadical_set_option(ic->cadical, "walk",     0);
+  ccadical_set_option(ic->cadical, "lucky",    0);
+  ccadical_set_option(ic->cadical, "chrono",   0);
+  ccadical_set_option(ic->cadical, "elimands", 0);
+  ccadical_set_option(ic->cadical, "elimites", 0);
+  ccadical_set_option(ic->cadical, "elimxors", 0);
+  ic->depth        = 0;
+  ic->next_act_var = 0;
+  sz = INCR_CADICAL_DEFAULT_SIZE;
+  ic->size      = sz;
+  ic->act_var     = (int32_t *)  safe_malloc(sz * sizeof(int32_t));
+  ic->fwd_units   = (uint32_t *) safe_malloc(sz * sizeof(uint32_t));
+  ic->fwd_bins    = (uint32_t *) safe_malloc(sz * sizeof(uint32_t));
+  ic->fwd_clauses = (uint32_t *) safe_malloc(sz * sizeof(uint32_t));
+  for (i = 0; i < sz; i++) {
+    ic->act_var[i]     = 0;
+    ic->fwd_units[i]   = 0;
+    ic->fwd_bins[i]    = 0;
+    ic->fwd_clauses[i] = 0;
+  }
+  /* level-0 cursors already 0 from the loop above */
+}
+
+void delete_incremental_cadical(incremental_cadical_t *ic) {
+  ccadical_reset(ic->cadical);
+  safe_free(ic->act_var);
+  safe_free(ic->fwd_units);
+  safe_free(ic->fwd_bins);
+  safe_free(ic->fwd_clauses);
+}
+
+static void grow_incremental_cadical(incremental_cadical_t *ic) {
+  uint32_t new_size, i;
+
+  new_size = ic->size * 2;
+  ic->act_var     = (int32_t *)  safe_realloc(ic->act_var,     new_size * sizeof(int32_t));
+  ic->fwd_units   = (uint32_t *) safe_realloc(ic->fwd_units,   new_size * sizeof(uint32_t));
+  ic->fwd_bins    = (uint32_t *) safe_realloc(ic->fwd_bins,    new_size * sizeof(uint32_t));
+  ic->fwd_clauses = (uint32_t *) safe_realloc(ic->fwd_clauses, new_size * sizeof(uint32_t));
+  for (i = ic->size; i < new_size; i++) {
+    ic->act_var[i]     = 0;
+    ic->fwd_units[i]   = 0;
+    ic->fwd_bins[i]    = 0;
+    ic->fwd_clauses[i] = 0;
+  }
+  ic->size = new_size;
+}
+
+static void ic_add_unit(incremental_cadical_t *ic, literal_t l, int32_t act_dimacs) {
+  ccadical_add(ic->cadical, lit2dimacs(l));
+  if (act_dimacs != 0) ccadical_add(ic->cadical, -act_dimacs);
+  ccadical_add(ic->cadical, 0);
+}
+
+static void ic_add_binary(incremental_cadical_t *ic, literal_t l1, literal_t l2, int32_t act_dimacs) {
+  ccadical_add(ic->cadical, lit2dimacs(l1));
+  ccadical_add(ic->cadical, lit2dimacs(l2));
+  if (act_dimacs != 0) ccadical_add(ic->cadical, -act_dimacs);
+  ccadical_add(ic->cadical, 0);
+}
+
+static void ic_forward_long_clause(incremental_cadical_t *ic, clause_t *c, int32_t act_dimacs) {
+  uint32_t i;
+  literal_t l;
+
+  i = 0;
+  l = c->cl[0];
+  while (l >= 0) {
+    ccadical_add(ic->cadical, lit2dimacs(l));
+    i++;
+    l = c->cl[i];
+  }
+  if (act_dimacs != 0) ccadical_add(ic->cadical, -act_dimacs);
+  ccadical_add(ic->cadical, 0);
+}
+
+smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_t *core, uint32_t verbosity) {
+  uint32_t d, k, i;
+  uint32_t end_units, end_bins, end_clauses;
+  trail_t *trail_data;
+  int32_t act;
+  bvar_t x;
+  int r;
+
+  if (verbosity == 0) {
+    ccadical_set_option(ic->cadical, "quiet", 1);
+  } else {
+    ccadical_set_option(ic->cadical, "quiet", 0);
+    ccadical_set_option(ic->cadical, "report", 1);
+    if (verbosity == 2) {
+      ccadical_set_option(ic->cadical, "verbose", 1);
+    } else if (verbosity >= 3) {
+      ccadical_set_option(ic->cadical, "verbose", 2);
+    }
+  }
+
+  d = smt_base_level(core);
+  trail_data = core->trail_stack.data;
+
+  /* allocate activation variables for new push levels */
+  for (k = ic->depth + 1; k <= d; k++) {
+    if (k >= ic->size) grow_incremental_cadical(ic);
+    if (ic->next_act_var <= (int32_t) num_vars(core)) {
+      ic->next_act_var = (int32_t) num_vars(core) + 1;
+    }
+    ic->act_var[k] = ic->next_act_var++;
+    ccadical_freeze(ic->cadical, ic->act_var[k]);
+    ic->fwd_units[k]   = trail_data[k - 1].nunits;
+    ic->fwd_bins[k]    = trail_data[k - 1].nbins;
+    ic->fwd_clauses[k] = trail_data[k - 1].nclauses;
+  }
+  ic->depth = d;
+
+  /* forward new clauses for each level */
+  for (k = 0; k <= d; k++) {
+    act = (k == 0) ? 0 : ic->act_var[k];
+
+    end_units   = (k < d) ? trail_data[k].nunits   : core->nb_unit_clauses;
+    end_bins    = (k < d) ? trail_data[k].nbins     : (uint32_t) core->binary_clauses.size;
+    end_clauses = (k < d) ? trail_data[k].nclauses  : (uint32_t) get_cv_size(core->problem_clauses);
+
+    for (i = ic->fwd_units[k]; i < end_units; i++) {
+      ic_add_unit(ic, core->stack.lit[i], act);
+    }
+    ic->fwd_units[k] = end_units;
+
+    for (i = ic->fwd_bins[k]; i < end_bins; i += 2) {
+      ic_add_binary(ic, core->binary_clauses.data[i], core->binary_clauses.data[i + 1], act);
+    }
+    ic->fwd_bins[k] = end_bins;
+
+    for (i = ic->fwd_clauses[k]; i < end_clauses; i++) {
+      ic_forward_long_clause(ic, core->problem_clauses[i], act);
+    }
+    ic->fwd_clauses[k] = end_clauses;
+  }
+
+  /* activate all current push levels */
+  for (k = 1; k <= d; k++) {
+    ccadical_assume(ic->cadical, ic->act_var[k]);
+  }
+
+  r = ccadical_solve(ic->cadical);
+
+  if (r == 10) {
+    set_smt_status(core, YICES_STATUS_SAT);
+    for (x = 0; x < num_vars(core); x++) {
+      int v = ccadical_val(ic->cadical, (int) x + 1);
+      set_bvar_value(core, x, (v <= 0) ? VAL_FALSE : VAL_TRUE);
+    }
+    return YICES_STATUS_SAT;
+  } else if (r == 20) {
+    set_smt_status(core, YICES_STATUS_UNSAT);
+    return YICES_STATUS_UNSAT;
+  } else {
+    return YICES_STATUS_UNKNOWN;
+  }
+}
+
 #endif
 
 

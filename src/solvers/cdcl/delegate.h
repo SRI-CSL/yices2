@@ -161,4 +161,28 @@ extern void delegate_set_verbosity(delegate_t *delegate, uint32_t level);
 
 
 
+/*
+ * Incremental CaDiCaL: persistent instance across push/pop with activation literals.
+ */
+#if HAVE_CADICAL
+
+#define INCR_CADICAL_DEFAULT_SIZE DEFAULT_DPLL_TRAIL_SIZE
+
+typedef struct {
+  void     *cadical;       /* persistent ccadical instance */
+  uint32_t  depth;         /* push depth at last solve */
+  int32_t   next_act_var;  /* next DIMACS activation variable (above num_vars(core)) */
+  uint32_t  size;          /* allocated capacity for per-level arrays */
+  int32_t  *act_var;       /* act_var[k]: DIMACS var for push level k (1-indexed DIMACS) */
+  uint32_t *fwd_units;     /* fwd_units[k]: cursor into core->stack.lit */
+  uint32_t *fwd_bins;      /* fwd_bins[k]: cursor into core->binary_clauses.data (element index) */
+  uint32_t *fwd_clauses;   /* fwd_clauses[k]: cursor into core->problem_clauses */
+} incremental_cadical_t;
+
+extern void         init_incremental_cadical(incremental_cadical_t *ic);
+extern void         delete_incremental_cadical(incremental_cadical_t *ic);
+extern smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_t *core, uint32_t verbosity);
+
+#endif /* HAVE_CADICAL */
+
 #endif /* __DELEGATE_H */
