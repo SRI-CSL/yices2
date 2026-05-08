@@ -10,3 +10,5 @@
 (pop 25)
 (assert (= x #x00000002))
 (check-sat)
+(assert (bvugt x #x00000002))
+(check-sat)
