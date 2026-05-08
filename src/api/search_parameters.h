@@ -58,6 +58,13 @@ typedef enum {
 
 #define NUM_SAT_DELEGATES 5
 
+/*
+ * SAT delegate helpers.
+ */
+extern const char *sat_delegate_name(sat_delegate_t mode);
+extern int32_t parse_sat_delegate(const char *value, sat_delegate_t *v);
+extern sat_delegate_t effective_sat_delegate_mode(sat_delegate_t config_delegate, const param_t *params, bool *one_shot);
+
 
 struct param_s {
   /*

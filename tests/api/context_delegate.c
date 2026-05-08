@@ -398,6 +398,30 @@ static void check_config_delegate_case(const char *delegate) {
   yices_free_context(ctx);
 }
 
+static void check_config_delegate_rebuild_case(const char *delegate) {
+  type_t bv8;
+  term_t x, xeq0, xeq1;
+  context_t *ctx;
+
+  bv8 = yices_bv_type(8);
+  x = yices_new_uninterpreted_term(bv8);
+  xeq0 = yices_bveq_atom(x, yices_bvconst_uint32(8, 0));
+  xeq1 = yices_bveq_atom(x, yices_bvconst_uint32(8, 1));
+
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "false");
+  assert(yices_assert_formula(ctx, xeq0) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+
+  assert(yices_push(ctx) == 0);
+  assert(yices_assert_formula(ctx, xeq1) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_UNSAT);
+
+  assert(yices_pop(ctx) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+
+  yices_free_context(ctx);
+}
+
 static void check_assumptions_delegate_case(const char *delegate) {
   type_t bv8;
   term_t x, f, a;
@@ -532,6 +556,7 @@ int main(void) {
       check_nested_pushpop_case(delegates[i]);
       check_branching_pushpop_case(delegates[i]);
       check_config_delegate_case(delegates[i]);
+      check_config_delegate_rebuild_case(delegates[i]);
       check_assumptions_delegate_case(delegates[i]);
       check_selector_frames_growing_vars_case(delegates[i]);
       check_selector_frames_assumptions_case(delegates[i]);

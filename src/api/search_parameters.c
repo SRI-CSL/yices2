@@ -346,6 +346,58 @@ static const int32_t sat_delegate_code[NUM_SAT_DELEGATES] = {
   SAT_DELEGATE_Y2SAT,
 };
 
+const char *sat_delegate_name(sat_delegate_t mode) {
+  switch (mode) {
+  case SAT_DELEGATE_Y2SAT:
+    return "y2sat";
+  case SAT_DELEGATE_CADICAL:
+    return "cadical";
+  case SAT_DELEGATE_CRYPTOMINISAT:
+    return "cryptominisat";
+  case SAT_DELEGATE_KISSAT:
+    return "kissat";
+  case SAT_DELEGATE_NONE:
+  default:
+    return NULL;
+  }
+}
+
+int32_t parse_sat_delegate(const char *value, sat_delegate_t *v) {
+  int32_t k;
+
+  k = parse_as_keyword(value, sat_delegate_modes, sat_delegate_code, NUM_SAT_DELEGATES);
+  assert(k >= 0 || k == -1);
+
+  if (k >= 0) {
+    assert(SAT_DELEGATE_NONE <= k && k <= SAT_DELEGATE_KISSAT);
+    *v = (sat_delegate_t) k;
+    return 0;
+  }
+
+  return -2;
+}
+
+sat_delegate_t effective_sat_delegate_mode(sat_delegate_t config_delegate, const param_t *params, bool *one_shot) {
+  sat_delegate_t req;
+
+  req = SAT_DELEGATE_NONE;
+  if (params != NULL) {
+    req = params->delegate;
+  }
+
+  if (req != SAT_DELEGATE_NONE) {
+    if (one_shot != NULL) {
+      *one_shot = (req != config_delegate || config_delegate == SAT_DELEGATE_NONE);
+    }
+    return req;
+  }
+
+  if (one_shot != NULL) {
+    *one_shot = false;
+  }
+  return config_delegate;
+}
+
 
 
 
@@ -410,20 +462,7 @@ static int32_t set_branching_param(const char *value, branch_t *v) {
  * - return -2 otherwise
  */
 static int32_t set_sat_delegate_param(const char *value, sat_delegate_t *v) {
-  int32_t k;
-
-  k = parse_as_keyword(value, sat_delegate_modes, sat_delegate_code, NUM_SAT_DELEGATES);
-  assert(k >= 0 || k == -1);
-
-  if (k >= 0) {
-    assert(SAT_DELEGATE_NONE <= k && k <= SAT_DELEGATE_KISSAT);
-    *v = (sat_delegate_t) k;
-    k = 0;
-  } else {
-    k = -2;
-  }
-
-  return k;
+  return parse_sat_delegate(value, v);
 }
 
 

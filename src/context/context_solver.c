@@ -622,7 +622,6 @@ typedef struct delegate_state_s {
   delegate_t delegate;
   sat_delegate_t mode;
   bool live;
-  bool selector_frames;
   uint64_t synced_mutation;
   uint32_t delegate_nvars;
   bvar_t next_selector_var;
@@ -630,44 +629,6 @@ typedef struct delegate_state_s {
   ivector_t assumptions;
   ivector_t failed;
 } delegate_state_t;
-
-static const char *delegate_name(sat_delegate_t mode) {
-  switch (mode) {
-  case SAT_DELEGATE_Y2SAT:
-    return "y2sat";
-  case SAT_DELEGATE_CADICAL:
-    return "cadical";
-  case SAT_DELEGATE_CRYPTOMINISAT:
-    return "cryptominisat";
-  case SAT_DELEGATE_KISSAT:
-    return "kissat";
-  case SAT_DELEGATE_NONE:
-  default:
-    return NULL;
-  }
-}
-
-static sat_delegate_t effective_delegate_mode(const context_t *ctx, const param_t *params, bool *one_shot) {
-  sat_delegate_t req, cfg;
-
-  req = SAT_DELEGATE_NONE;
-  if (params != NULL) {
-    req = params->delegate;
-  }
-  cfg = ctx->sat_delegate;
-
-  if (req != SAT_DELEGATE_NONE) {
-    if (one_shot != NULL) {
-      *one_shot = (req != cfg || cfg == SAT_DELEGATE_NONE);
-    }
-    return req;
-  }
-
-  if (one_shot != NULL) {
-    *one_shot = false;
-  }
-  return cfg;
-}
 
 void context_delegate_state_cleanup(context_t *ctx) {
   delegate_state_t *st;
@@ -695,7 +656,6 @@ static delegate_state_t *context_get_delegate_state(context_t *ctx) {
     st = (delegate_state_t *) safe_malloc(sizeof(delegate_state_t));
     st->mode = SAT_DELEGATE_NONE;
     st->live = false;
-    st->selector_frames = false;
     st->synced_mutation = 0;
     st->delegate_nvars = 0;
     st->next_selector_var = 0;
@@ -738,8 +698,7 @@ static void set_delegate_assumption_state(smt_core_t *core, uint32_t n, const li
 }
 
 static bool context_prepare_incremental_delegate(context_t *ctx, delegate_state_t *st, const char *sat_solver,
-                                                 uint32_t verbosity, bool selector_frames) {
-  sat_delegate_t mode;
+                                                 uint32_t verbosity) {
   smt_core_t *core;
   uint32_t nvars;
   literal_t guard;
@@ -747,12 +706,8 @@ static bool context_prepare_incremental_delegate(context_t *ctx, delegate_state_
 
   core = ctx->core;
   nvars = num_vars(core);
-  mode = effective_delegate_mode(ctx, NULL, NULL);
-  (void) mode;
 
-  if (st->live &&
-      (st->mode != ctx->sat_delegate ||
-       st->selector_frames != selector_frames)) {
+  if (st->live && st->mode != ctx->sat_delegate) {
     delete_delegate(&st->delegate);
     st->live = false;
   }
@@ -763,7 +718,6 @@ static bool context_prepare_incremental_delegate(context_t *ctx, delegate_state_
     }
     delegate_set_verbosity(&st->delegate, verbosity);
     st->mode = ctx->sat_delegate;
-    st->selector_frames = selector_frames;
     st->synced_mutation = 0;
     st->delegate_nvars = nvars;
     st->next_selector_var = nvars;
@@ -771,40 +725,25 @@ static bool context_prepare_incremental_delegate(context_t *ctx, delegate_state_
     st->live = true;
   }
 
-  if (st->selector_frames && st->delegate_nvars < nvars) {
+  if (st->delegate_nvars < nvars) {
     nnew = nvars - st->delegate_nvars;
     delegate_add_vars(&st->delegate, nnew);
     st->delegate_nvars = nvars;
   }
 
   if (st->synced_mutation != ctx->mutation_count) {
-    if (st->selector_frames) {
-      if (st->next_selector_var < st->delegate_nvars) {
-        st->next_selector_var = st->delegate_nvars;
-      }
-      if (st->next_selector_var >= st->delegate_nvars) {
-        nnew = st->next_selector_var - st->delegate_nvars + 1;
-        delegate_add_vars(&st->delegate, nnew);
-        st->delegate_nvars += nnew;
-      }
-      guard = neg_lit(st->next_selector_var);
-      add_problem_clauses_to_delegate(&st->delegate, core, guard);
-      st->active_selector = pos_lit(st->next_selector_var);
-      st->next_selector_var ++;
-    } else {
-      delete_delegate(&st->delegate);
-      st->live = false;
-      if (!init_delegate(&st->delegate, sat_solver, nvars)) {
-        return false;
-      }
-      delegate_set_verbosity(&st->delegate, verbosity);
-      add_problem_clauses_to_delegate(&st->delegate, core, true_literal);
-      st->mode = ctx->sat_delegate;
-      st->delegate_nvars = nvars;
-      st->next_selector_var = nvars;
-      st->active_selector = true_literal;
-      st->live = true;
+    if (st->next_selector_var < st->delegate_nvars) {
+      st->next_selector_var = st->delegate_nvars;
     }
+    if (st->next_selector_var >= st->delegate_nvars) {
+      nnew = st->next_selector_var - st->delegate_nvars + 1;
+      delegate_add_vars(&st->delegate, nnew);
+      st->delegate_nvars += nnew;
+    }
+    guard = neg_lit(st->next_selector_var);
+    add_problem_clauses_to_delegate(&st->delegate, core, guard);
+    st->active_selector = pos_lit(st->next_selector_var);
+    st->next_selector_var ++;
     st->synced_mutation = ctx->mutation_count;
   }
 
@@ -812,8 +751,7 @@ static bool context_prepare_incremental_delegate(context_t *ctx, delegate_state_
 }
 
 smt_status_t check_with_incremental_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity,
-                                             bool selector_frames, uint32_t n, const literal_t *assumptions,
-                                             ivector_t *failed) {
+                                             uint32_t n, const literal_t *assumptions, ivector_t *failed) {
   smt_status_t stat;
   smt_core_t *core;
   delegate_state_t *st;
@@ -844,14 +782,14 @@ smt_status_t check_with_incremental_delegate(context_t *ctx, const char *sat_sol
   }
 
   st = context_get_delegate_state(ctx);
-  if (!context_prepare_incremental_delegate(ctx, st, sat_solver, verbosity, selector_frames)) {
+  if (!context_prepare_incremental_delegate(ctx, st, sat_solver, verbosity)) {
     return YICES_STATUS_UNKNOWN;
   }
 
   init_ivector(&visible_failed, 0);
   ivector_reset(&st->assumptions);
   ivector_reset(&st->failed);
-  if (st->selector_frames && st->active_selector != true_literal) {
+  if (st->active_selector != true_literal) {
     ivector_push(&st->assumptions, st->active_selector);
   }
   for (i=0; i<n; i++) {
@@ -1152,8 +1090,8 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
       ivector_push(&assumptions, l);
     }
 
-    mode = effective_delegate_mode(ctx, params, &one_shot);
-    delegate = delegate_name(mode);
+    mode = effective_sat_delegate_mode(ctx->sat_delegate, params, &one_shot);
+    delegate = sat_delegate_name(mode);
     if (delegate == NULL) {
       stat = check_context_with_assumptions(ctx, params, n, assumptions.data);
       delete_ivector(&assumptions);
@@ -1185,12 +1123,10 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
     }
 
     init_ivector(&failed, 0);
-    if (one_shot) {
+    if (one_shot || !ctx->sat_delegate_selector_frames) {
       stat = check_with_delegate_assumptions(ctx, delegate, 0, n, assumptions.data, &failed);
     } else {
-      stat = check_with_incremental_delegate(ctx, delegate, 0,
-                                             ctx->sat_delegate_selector_frames,
-                                             n, assumptions.data, &failed);
+      stat = check_with_incremental_delegate(ctx, delegate, 0, n, assumptions.data, &failed);
     }
     if (stat == YICES_STATUS_UNSAT) {
       cache_failed_assumptions_core(ctx, n, a, &assumptions, &failed);

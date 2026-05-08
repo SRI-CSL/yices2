@@ -401,15 +401,13 @@ extern smt_status_t precheck_context(context_t *ctx);
 extern smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity);
 
 /*
- * Incremental delegate solve for QF_BV contexts.
+ * Incremental selector-frame delegate solve for QF_BV contexts.
  * - sat_solver must be an incremental delegate (cadical/cryptominisat).
- * - selector_frames controls pop handling strategy (ignored by non-incremental delegates).
  * - assumptions can be NULL if n == 0.
  * - if failed != NULL and result is UNSAT under assumptions, failed literals are appended to *failed.
  */
 extern smt_status_t check_with_incremental_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity,
-                                                    bool selector_frames, uint32_t n, const literal_t *assumptions,
-                                                    ivector_t *failed);
+                                                    uint32_t n, const literal_t *assumptions, ivector_t *failed);
 
 
 /*

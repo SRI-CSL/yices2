@@ -24,6 +24,7 @@
 #include <assert.h>
 
 #include "api/context_config.h"
+#include "api/search_parameters.h"
 #include "utils/memalloc.h"
 #include "utils/string_utils.h"
 
@@ -124,28 +125,6 @@ static const int32_t config_key[NUM_CONFIG_KEYS] = {
   CTX_CONFIG_KEY_TRACE_TAGS,
   CTX_CONFIG_KEY_UF_SOLVER,
 };
-
-/*
- * Names of delegate solvers (in lexicographic order)
- */
-static const char * const sat_delegate_modes[NUM_SAT_DELEGATES] = {
-  "cadical",
-  "cryptominisat",
-  "kissat",
-  "none",
-  "y2sat",
-};
-
-static const int32_t sat_delegate_code[NUM_SAT_DELEGATES] = {
-  SAT_DELEGATE_CADICAL,
-  SAT_DELEGATE_CRYPTOMINISAT,
-  SAT_DELEGATE_KISSAT,
-  SAT_DELEGATE_NONE,
-  SAT_DELEGATE_Y2SAT,
-};
-
-
-
 
 /*
  * CONTEXT SETTING FOR A GIVEN LOGIC CODE
@@ -449,11 +428,8 @@ int32_t config_set_field(ctx_config_t *config, const char *key, const char *valu
     }
     break;
   case CTX_CONFIG_KEY_SAT_DELEGATE:
-    v = parse_as_keyword(value, sat_delegate_modes, sat_delegate_code, NUM_SAT_DELEGATES);
-    if (v < 0) {
+    if (parse_sat_delegate(value, &config->sat_delegate) < 0) {
       r = -2;
-    } else {
-      config->sat_delegate = (sat_delegate_t) v;
     }
     break;
   case CTX_CONFIG_KEY_SAT_DELEGATE_SELECTOR_FRAMES:
