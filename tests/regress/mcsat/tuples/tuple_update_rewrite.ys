@@ -1,0 +1,15 @@
+;; tuple-update rewrite: (update x 2 true) must behave as the tuple
+;; (mk-tuple (select x 1) true) after blasting + model reconstruction.
+;; The asserted equality forces (select x 1) = 11 and (select x 2) = false
+;; so the updated tuple is (11, true), which the last equality demands.
+
+(define-type Pair (tuple int bool))
+
+(define x::Pair)
+(define u::Pair (tuple-update x 2 true))
+
+(assert (= (select x 1) 11))
+(assert (= (select x 2) false))
+(assert (= u (mk-tuple 11 true)))
+
+(check)
