@@ -1,0 +1,3 @@
+sat
+(= p (mk-tuple 7 false))
+(= q (mk-tuple 8 true))

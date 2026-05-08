@@ -356,6 +356,18 @@ __YICES_DLLSPEC__ extern type_t yices_real_type(void);
  */
 __YICES_DLLSPEC__ extern type_t yices_bv_type(uint32_t size);
 
+#ifdef __GMP_H__
+/*
+ * Finite field type of given order.
+ * Requires order > 0 and prime.
+ *
+ * If order <= 0, the error report is set by check_positive_mpz.
+ * If order is not prime, the error report is set to
+ *   code = INVALID_FFSIZE
+ */
+__YICES_DLLSPEC__ extern type_t yices_ff_type(mpz_t order);
+#endif
+
 
 /*
  * New scalar type of given cardinality.
@@ -1353,6 +1365,51 @@ __YICES_DLLSPEC__ extern term_t yices_is_int_atom(term_t t);
 __YICES_DLLSPEC__ extern term_t yices_abs(term_t t);
 __YICES_DLLSPEC__ extern term_t yices_floor(term_t t);
 __YICES_DLLSPEC__ extern term_t yices_ceil(term_t t);
+
+#ifdef __GMP_H__
+/*
+ * Finite-field constant: val modulo mod.
+ * - mod must be positive and prime.
+ *
+ * Error reports:
+ * if mod <= 0
+ *   code = POS_INT_REQUIRED
+ * if mod is not prime
+ *   code = INVALID_FFSIZE
+ */
+__YICES_DLLSPEC__ extern term_t yices_ff_const(const mpz_t val, const mpz_t mod);
+#endif
+
+/*
+ * FINITE-FIELD OPERATIONS
+ *
+ * All arguments must be finite-field terms.
+ * For binary/n-ary operators, all arguments must have the same finite-field type.
+ *
+ * Error reports:
+ * if some argument is not a valid term
+ *   code = INVALID_TERM
+ * if some argument is not a finite-field term
+ *   code = ARITHTERM_REQUIRED
+ * if argument types are incompatible
+ *   code = INCOMPATIBLE_FFSIZES
+ */
+__YICES_DLLSPEC__ extern term_t yices_ff_add(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_ff_sub(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_ff_neg(term_t t);
+__YICES_DLLSPEC__ extern term_t yices_ff_mul(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_ff_square(term_t t);
+__YICES_DLLSPEC__ extern term_t yices_ff_power(term_t t, uint32_t d);
+__YICES_DLLSPEC__ extern term_t yices_ff_sum(uint32_t n, const term_t t[]);
+__YICES_DLLSPEC__ extern term_t yices_ff_product(uint32_t n, const term_t t[]);
+
+/*
+ * FINITE-FIELD ATOMS
+ */
+__YICES_DLLSPEC__ extern term_t yices_ff_eq_atom(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_ff_neq_atom(term_t t1, term_t t2);
+__YICES_DLLSPEC__ extern term_t yices_ff_eq0_atom(term_t t);
+__YICES_DLLSPEC__ extern term_t yices_ff_neq0_atom(term_t t);
 
 
 
@@ -2424,6 +2481,7 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_product(term_t t);
  *
  *    YICES_BOOL_CONSTANT        boolean constant
  *    YICES_ARITH_CONSTANT       rational constant
+ *    YICES_FF_CONSTANT          finite-field constant
  *    YICES_BV_CONSTANT          bitvector constant
  *    YICES_SCALAR_CONSTANT      constant of uninterpreted/scalar
  *    YICES_VARIABLE             variable in quantifiers/lambda terms
@@ -2467,6 +2525,7 @@ __YICES_DLLSPEC__ extern int32_t yices_term_is_product(term_t t);
  *
  *    YICES_BV_SUM               sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
  *    YICES_ARITH_SUM            sum of pairs a * t where a is a rational (and t is an arithmetic term)
+ *    YICES_FF_SUM               sum of pairs a * t where a is a finite-field constant (and t is a finite-field term)
  *
  *  if t is a product
  *
@@ -2573,7 +2632,7 @@ __YICES_DLLSPEC__ extern int32_t yices_bv_const_value(term_t t, int32_t val[]);
 __YICES_DLLSPEC__ extern int32_t yices_scalar_const_value(term_t t, int32_t *val);
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_rational_const_value(term_t t, mpq_t q);
-__YICES_DLLSPEC__ extern int32_t yices_finitefield_const_value(term_t t, mpz_t z);
+__YICES_DLLSPEC__ extern int32_t yices_ff_const_value(term_t t, mpz_t z);
 #endif
 
 
@@ -2581,12 +2640,10 @@ __YICES_DLLSPEC__ extern int32_t yices_finitefield_const_value(term_t t, mpz_t z
  * Components of a sum t
  * - i = index (must be between 0 and t's number of children - 1)
  * - for an arithmetic sum, each component is a pair (rational, term)
- * - for a bitvector sum, each component is a pair (bvconstant, term)
  * - if the term in the pair is NULL_TERM then the component consists of
  *   only the constant
- * - the number of bits in the bvconstant is the same as in t
  *
- * These two functions return 0 on success and -1 on error.
+ * The function returns 0 on success and -1 on error.
  *
  * Error codes:
  * if t is not valid
@@ -2597,8 +2654,16 @@ __YICES_DLLSPEC__ extern int32_t yices_finitefield_const_value(term_t t, mpz_t z
  */
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term);
+__YICES_DLLSPEC__ extern int32_t yices_ffsum_component(term_t t, int32_t i, mpz_t coeff, term_t *term);
 #endif
 
+/*
+ * Components of a bitvector sum:
+ * - each component is a pair (bvconstant, term)
+ * - if the term in the pair is NULL_TERM then the component consists of
+ *   only the constant
+ * - the number of bits in the bvconstant is the same as in t
+ */
 __YICES_DLLSPEC__ extern int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term);
 
 
@@ -2894,7 +2959,40 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *   ----------------------------------------------------------------------------------------
  *   "model-interpolation" | "false"        | don't enable model interpolation (default)
  *                         | "true"         | enable model interpolation
+ *   ----------------------------------------------------------------------------------------
+ *    "sat-delegate"       | "none"         | use the default SAT solver (default)
+ *                         | "y2sat"        | use y2sat for QF_BV contexts
+ *                         | "cadical"      | use CaDiCaL for QF_BV contexts
+ *                         | "cryptominisat"| use CryptoMiniSat for QF_BV contexts
+ *                         | "kissat"       | use Kissat for QF_BV contexts
+ *   ----------------------------------------------------------------------------------------
+ *    "sat-delegate-selector-frames"        | "false" | rebuild delegate clauses after each
+ *                                          |         | context mutation (default)
+ *                                          | "true"  | keep an incremental delegate live
+ *                                          |         | using selector-guarded frames
  *
+ * The SAT delegate options have an effect only for QF_BV contexts. When a
+ * delegate is selected, Yices bit-blasts the bit-vector assertions to CNF as
+ * usual and hands the resulting clause set to the chosen delegate instead of
+ * the internal Yices CDCL SAT solver.
+ *
+ * Delegate capability matrix:
+ *   y2sat         : always available; rebuilt on each incremental check
+ *   cadical       : optional (build flag); incremental, supports check-with-
+ *                   assumptions and unsat-core extraction from assumptions
+ *   cryptominisat : optional (build flag); incremental, supports check-with-
+ *                   assumptions and unsat-core extraction from assumptions
+ *   kissat        : optional (build flag); rebuilt on each incremental check
+ *
+ * "sat-delegate-selector-frames" controls how push/pop is realised against an
+ * incremental delegate: "false" rebuilds the delegate from the current bit-
+ * blasted problem on every mutation (simpler, loses the delegate's learned
+ * clauses), "true" keeps the delegate live across checks with selector-guarded
+ * frames (preserves learned clauses). The option is ignored for non-incremental
+ * delegates.
+ *
+ * yices_has_delegate() reports whether a particular delegate name is included
+ * in the current Yices build.
  *
  * The function returns -1 if there's an error, 0 otherwise.
  *
@@ -3254,8 +3352,6 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context(context_t *ctx, const param_t *params);
 
-
-
 /*
  * Check satisfiability under assumptions.
  *
@@ -3305,6 +3401,11 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  * if one of the terms t[i] is not an uninterpreted term
  *   code = MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED
  *
+ * if one of the terms t[i] has a type that MCSAT cannot decide on
+ * (i.e. not Bool, Int, Real, scalar, BitVector, or a tuple whose
+ * recursively flattened leaves all have one of these types)
+ *   code = MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED
+ *
  * If the context does not have the MCSAT solver enabled
  *   code = CTX_OPERATION_NOT_SUPPORTED
  *
@@ -3352,6 +3453,11 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *
  *
  * if one of the terms t[i] is not an uninterpreted term
  *   code = MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED
+ *
+ * if one of the terms t[i] has a type that MCSAT cannot decide on
+ * (i.e. not Bool, Int, Real, scalar, BitVector, or a tuple whose
+ * recursively flattened leaves all have one of these types)
+ *   code = MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED
  *
  * If the context does not have the MCSAT solver enabled
  *   code = CTX_OPERATION_NOT_SUPPORTED
@@ -3441,8 +3547,9 @@ __YICES_DLLSPEC__ extern smt_status_t yices_mcsat_set_initial_var_order(context_
  * a model is returned in ctx->model. This model must be freed when no-longer needed by
  * calling yices_free_model.
  *
- * If something is wrong, the function returns YICES_STATUS_ERROR and sets the yices error report
- * (code = CTX_INVALID_OPERATION).
+ * If something is wrong, the function returns YICES_STATUS_ERROR and sets the yices error report.
+ * This includes CTX_INVALID_OPERATION and any error propagated from the internal
+ * yices_check_context_with_model call used for model refutation.
  *
  * Since 2.6.4.
  */
@@ -3526,6 +3633,22 @@ __YICES_DLLSPEC__ extern void yices_default_params_for_context(const context_t *
  *
  * The parameters are explained in doc/YICES-LANGUAGE
  * (and at http://yices.csl.sri.com/doc/parameters.html)
+ *
+ * For QF_BV contexts, parameter name "delegate" can be set to "none",
+ * "y2sat", "cadical", "cryptominisat", or "kissat" to select the SAT
+ * backend used by yices_check_context (and its variants).
+ *
+ * If "delegate" differs from the SAT delegate configured on the context (see
+ * "sat-delegate" in yices_set_config), it takes effect for that single call
+ * only; the persistent delegate state of the context is left untouched. If
+ * "delegate" is "none" (the default), the context's configured delegate is
+ * used.
+ *
+ * In incremental contexts, non-incremental delegates (y2sat and Kissat) are
+ * rebuilt from the current bit-blasted problem on each check. CaDiCaL and
+ * CryptoMiniSat support incremental delegate checks (see "sat-delegate-
+ * selector-frames" in yices_set_config). The "delegate" parameter is ignored
+ * for any logic other than QF_BV.
  *
  * Return -1 if there's an error, 0 otherwise.
  *
@@ -3710,6 +3833,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_rational64(model_t *model, term
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_model_set_mpz(model_t *model, term_t var, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_model_set_mpq(model_t *model, term_t var, mpq_t val);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_ff_mpz(model_t *model, term_t var, mpz_t val);
 #endif
 
 #ifdef LIBPOLY_VERSION
@@ -3874,12 +3998,13 @@ __YICES_DLLSPEC__ extern void yices_model_collect_defined_terms(model_t *mdl, te
  * The delegate is an optional argument used only when logic is "QF_BV".
  * If is ignored otherwise. It must either be NULL or be the name of an
  * external SAT solver to use after bit-blasting. Valid delegates
- * are "cadical", "cryptominisat", and "y2sat".
+ * are "cadical", "cryptominisat", "kissat", and "y2sat".
  * If delegate is NULL, the default SAT solver is used.
  *
- * Support for "cadical" and "cryptominisat" must be enabled at compilation
- * time. The "y2sat" solver is always available. The function will return YICES_STATUS_ERROR
- * and store an error code if the requested delegate is not available.
+ * Support for "cadical", "cryptominisat", and "kissat" must be enabled
+ * at compilation time. The "y2sat" solver is always available. The
+ * function will return YICES_STATUS_ERROR and store an error code if
+ * the requested delegate is not available.
  *
  * Error codes:
  *
@@ -3898,11 +4023,11 @@ __YICES_DLLSPEC__ extern void yices_model_collect_defined_terms(model_t *mdl, te
  * if the logic is known but not supported by Yices
  *   code = CTX_LOGIC_NOT_SUPPORTED
  *
- * if delegate is not one of "cadical", "cryptominisat", "y2sat"
+ * if delegate is not one of "cadical", "cryptominisat", "kissat", "y2sat"
  *   code = CTX_UNKNOWN_DELEGATE
  *
- * if delegate is "cadical" or "cryptominisat" but support for these SAT solvers
- * was not implemented at compile time,
+ * if delegate is "cadical", "cryptominisat", or "kissat" but support
+ * for that SAT solver was not implemented at compile time,
  *   code = CTX_DELEGATE_NOT_AVAILABLE
  *
  * other error codes are possible if the formula is not in the specified logic (cf. yices_assert_formula)
@@ -4079,6 +4204,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_double_value(model_t *mdl, term_t t, 
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val);
+__YICES_DLLSPEC__ extern int32_t yices_get_ff_value(model_t *mdl, term_t t, mpz_t val, mpz_t mod);
 #endif
 
 
@@ -4163,6 +4289,7 @@ __YICES_DLLSPEC__ extern int32_t yices_get_scalar_value(model_t *mdl, term_t t, 
  *
  *   YVAL_BOOL       Boolean constant
  *   YVAL_RATIONAL   Rational (or integer) constant
+ *   YVAL_FINITEFIELD  Finite-field constant
  *   YVAL_ALGEBRAIC  Algebraic number
  *   YVAL_BV         Bitvector constant
  *   YVAL_SCALAR     Constant of a scalar or uninterpreted type
@@ -4326,6 +4453,7 @@ __YICES_DLLSPEC__ extern int32_t yices_val_get_double(model_t *mdl, const yval_t
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val);
+__YICES_DLLSPEC__ extern int32_t yices_val_get_ff(model_t *mdl, const yval_t *v, mpz_t val, mpz_t mod);
 #endif
 
 /*

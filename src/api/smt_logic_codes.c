@@ -144,8 +144,8 @@ static const smt_logic_t smt_code[NUM_SMT_LOGIC_NAMES] = {
   AUFNRA,
   AX,
   BV,
-  FFA,
   BVLRA,
+  FFA,
   IDL,
   LIA,
   LIRA,
@@ -240,8 +240,8 @@ smt_logic_t smt_logic_code(const char *logic_name) {
  * Arithmetic fragments: names in lexicographic order
  */
 static const char * const fragment_names[NUM_ARITH_FRAGMENTS] = {
-  "IDL",
   "FFA",
+  "IDL",
   "LIA",
   "LIRA",
   "LRA",
@@ -252,8 +252,8 @@ static const char * const fragment_names[NUM_ARITH_FRAGMENTS] = {
 };
 
 static const arith_fragment_t fragment_code[NUM_ARITH_FRAGMENTS] = {
-  ARITH_IDL,
   ARITH_FFA,
+  ARITH_IDL,
   ARITH_LIA,
   ARITH_LIRA,
   ARITH_LRA,

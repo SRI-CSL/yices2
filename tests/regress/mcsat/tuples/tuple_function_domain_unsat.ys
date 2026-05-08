@@ -1,0 +1,16 @@
+;; Function Pair -> int (tuple domain, scalar range), inside an outer
+;; tuple. (f (2,false)) = 5 while f applied to the same argument must be
+;; <= 4, which is unsatisfiable.
+
+(define-type Pair (tuple int bool))
+(define-type Wrapper (tuple (-> Pair int) int))
+
+(define w::Wrapper)
+(define f::(-> Pair int) (select w 1))
+(define arg::Pair (mk-tuple 2 false))
+(define app::int (f arg))
+
+(assert (= app 5))
+(assert (<= app 4))
+
+(check)

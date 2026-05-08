@@ -1118,6 +1118,32 @@ void vtbl_expand_update(value_table_t *table, value_t i, value_t *def, type_t *t
 
 
 /*
+ * Expand update c and return a private copy of the resulting mapping list.
+ * See concrete_values.h for the rationale and ownership rules.
+ */
+value_t *vtbl_copy_update_maps(value_table_t *table, value_t c, value_t *def, type_t *tau, uint32_t *n) {
+  map_hset_t *hset;
+  value_t *maps;
+  uint32_t i;
+
+  vtbl_expand_update(table, c, def, tau);
+  hset = table->hset1;
+  assert(hset != NULL);
+
+  *n = hset->nelems;
+  if (*n == 0) {
+    return NULL;
+  }
+
+  maps = (value_t *) safe_malloc(*n * sizeof(value_t));
+  for (i = 0; i < *n; ++i) {
+    maps[i] = hset->data[i];
+  }
+  return maps;
+}
+
+
+/*
  * Get the type of a function or update object i
  */
 type_t vtbl_function_type(value_table_t *table, value_t i) {
@@ -1735,7 +1761,7 @@ static value_t build_finitefield_value(ff_hobj_t *o) {
   value_ff_t *v_ff;
   value_t i;
 
-  v_ff = (value_ff_t *) safe_malloc(sizeof(value_bv_t));
+  v_ff = (value_ff_t *) safe_malloc(sizeof(value_ff_t));
   q_init(&v_ff->value);
   q_init(&v_ff->mod);
   q_set(&v_ff->value, o->v);

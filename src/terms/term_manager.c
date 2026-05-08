@@ -3998,10 +3998,6 @@ term_t mk_constant(term_manager_t *manager, type_t tau, int32_t i) {
  * - i.e., this creates a fresh global variable
  */
 term_t mk_uterm(term_manager_t *manager, type_t tau) {
-  if (is_unit_type(manager->types, tau)) {
-    return get_unit_type_rep(manager->terms, tau);
-  }
-
   return new_uninterpreted_term(manager->terms, tau);
 }
 
@@ -6602,4 +6598,3 @@ term_t mk_arith_elim_poly(term_manager_t *mngr, polynomial_t *p, term_t t) {
 
   return mk_arith_term(mngr, b);
 }
-

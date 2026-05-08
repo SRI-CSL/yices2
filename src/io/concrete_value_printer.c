@@ -27,6 +27,7 @@
 
 #include "io/concrete_value_printer.h"
 #include "io/type_printer.h"
+#include "utils/memalloc.h"
 
 
 /*
@@ -275,16 +276,13 @@ void vtbl_print_function(FILE *f, value_table_t *table, value_t c, bool show_def
  */
 void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, const char *name, value_t c, bool show_default) {
   char fake_name[20];
-  map_hset_t *hset;
   value_map_t *mp;
+  value_t *maps;
   value_t def;
   type_t tau;
   uint32_t i, j, n, m;
 
-  // build the mapping for c in hset1
-  vtbl_expand_update(table, c, &def, &tau);
-  hset = table->hset1;
-  assert(hset != NULL);
+  maps = vtbl_copy_update_maps(table, c, &def, &tau, &n);
 
   if (name == NULL) {
     sprintf(fake_name, "fun!%"PRId32, c);
@@ -292,17 +290,16 @@ void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, const char *
   }
 
   /*
-   * hset->data contains an array of mapping objects
-   * hset->nelems = number of elements in hset->data
+   * maps contains an array of mapping objects
+   * n = number of elements in maps
    */
   vtbl_print_function_header(f, table, c, tau, name);
 
   m = vtbl_update(table, c)->arity;
-  n = hset->nelems;
   for (i=0; i<n; i++) {
     fprintf(f, "\n (= (%s", name);
 
-    mp = vtbl_map(table, hset->data[i]);
+    mp = vtbl_map(table, maps[i]);
     assert(mp->arity == m);
     for (j=0; j<m; j++) {
       fputc(' ', f);
@@ -319,6 +316,8 @@ void vtbl_normalize_and_print_update(FILE *f, value_table_t *table, const char *
     fputc(')', f);
   }
   fputs(")\n", f);
+
+  safe_free(maps);
 }
 
 
@@ -563,16 +562,13 @@ void vtbl_pp_function(yices_pp_t *printer, value_table_t *table, value_t c, bool
  */
 void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, const char *name, value_t c, bool show_default) {
   char fake_name[20];
-  map_hset_t *hset;
   value_map_t *mp;
+  value_t *maps;
   value_t def;
   type_t tau;
   uint32_t i, j, n, m;
 
-  // build the mapping for c in hset1
-  vtbl_expand_update(table, c, &def, &tau);
-  hset = table->hset1;
-  assert(hset != NULL);
+  maps = vtbl_copy_update_maps(table, c, &def, &tau, &n);
 
   if (name == NULL) {
     sprintf(fake_name, "fun!%"PRId32, c);
@@ -580,19 +576,18 @@ void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, con
   }
 
   /*
-   * hset->data contains an array of mapping objects
-   * hset->nelems = number of elements in hset->data
+   * maps contains an array of mapping objects
+   * n = number of elements in maps
    */
   vtbl_pp_function_header(printer, table, c, tau, name);
 
   m = vtbl_update(table, c)->arity;
-  n = hset->nelems;
   for (i=0; i<n; i++) {
     pp_open_block(printer, PP_OPEN_EQ);
     pp_open_block(printer, PP_OPEN_PAR);
     pp_string(printer, name);
 
-    mp = vtbl_map(table, hset->data[i]);
+    mp = vtbl_map(table, maps[i]);
     assert(mp->arity == m);
     for (j=0; j<m; j++) {
       vtbl_pp_object(printer, table, mp->arg[j]);
@@ -608,6 +603,8 @@ void vtbl_normalize_and_pp_update(yices_pp_t *printer, value_table_t *table, con
     pp_close_block(printer, true);
   }
   pp_close_block(printer, true);
+
+  safe_free(maps);
 }
 
 

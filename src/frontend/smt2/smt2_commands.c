@@ -1102,6 +1102,10 @@ static void print_yices_error(bool full) {
     print_out("mcsat: checking with assumptions only supports variables as assumptions");
     break;
 
+  case MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED:
+    print_out("mcsat: assumption variable has a type that mcsat cannot decide on");
+    break;
+
   case OUTPUT_ERROR:
     print_out(" IO error");
     break;
@@ -2635,8 +2639,17 @@ static void init_smt2_context(smt2_globals_t *g) {
  *   this must be called after the assertions
  */
 static void init_search_parameters(smt2_globals_t *g) {
+  int32_t code;
+
   assert(g->ctx != NULL);
   yices_default_params_for_context(g->ctx, &g->parameters);
+  if (g->delegate != NULL) {
+    code = params_set_field(&g->parameters, "delegate", g->delegate);
+    assert(code == 0);
+    if (code < 0) {
+      g->parameters.delegate = SAT_DELEGATE_NONE;
+    }
+  }
 }
 
 

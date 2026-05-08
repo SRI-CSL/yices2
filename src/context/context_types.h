@@ -28,6 +28,7 @@
 #include <setjmp.h>
 
 #include "api/smt_logic_codes.h"
+#include "api/search_parameters.h"
 #include "context/assumption_stack.h"
 #include "context/common_conjuncts.h"
 #include "context/divmod_table.h"
@@ -636,6 +637,8 @@ struct context_s {
   context_mode_t mode;
   context_arch_t arch;
   smt_logic_t logic;
+  sat_delegate_t sat_delegate;
+  bool sat_delegate_selector_frames;
 
   // theories flag
   uint32_t theories;
@@ -645,6 +648,7 @@ struct context_s {
 
   // base_level == number of calls to push
   uint32_t base_level;
+  uint64_t mutation_count;
 
   // core and theory solvers
   smt_core_t *core;
@@ -694,6 +698,8 @@ struct context_s {
   assumption_stack_t assumptions;
   // cached unsat core (NULL if cache is invalid)
   ivector_t *unsat_core_cache;
+  // delegate runtime state (allocated lazily)
+  void *delegate_state;
 
   // optional components: allocated if needed
   pseudo_subst_t *subst;
