@@ -135,6 +135,8 @@ extern term_t _o_yices_parse_rational(const char *s);
 
 extern term_t _o_yices_parse_float(const char *s);
 
+extern term_t _o_yices_ff_const(const mpz_t val, const mpz_t mod);
+
 /***************************
  *  ARITHMETIC OPERATIONS  *
  **************************/
@@ -156,6 +158,22 @@ extern term_t _o_yices_sum(uint32_t n, const term_t t[]);
 extern term_t _o_yices_product(uint32_t n, const term_t t[]);
 
 extern term_t _o_yices_division(term_t t1, term_t t2);
+
+extern term_t _o_yices_ff_add(term_t t1, term_t t2);
+
+extern term_t _o_yices_ff_sub(term_t t1, term_t t2);
+
+extern term_t _o_yices_ff_neg(term_t t);
+
+extern term_t _o_yices_ff_mul(term_t t1, term_t t2);
+
+extern term_t _o_yices_ff_square(term_t t);
+
+extern term_t _o_yices_ff_power(term_t t, uint32_t d);
+
+extern term_t _o_yices_ff_sum(uint32_t n, const term_t t[]);
+
+extern term_t _o_yices_ff_product(uint32_t n, const term_t t[]);
 
 /***************************
  *  DIV/MOD AND RELATIVES  *
@@ -220,6 +238,14 @@ extern term_t _o_yices_arith_leq0_atom(term_t t);
 extern term_t _o_yices_arith_gt0_atom(term_t t);
 
 extern term_t _o_yices_arith_lt0_atom(term_t t);
+
+extern term_t _o_yices_ff_eq_atom(term_t t1, term_t t2);
+
+extern term_t _o_yices_ff_neq_atom(term_t t1, term_t t2);
+
+extern term_t _o_yices_ff_eq0_atom(term_t t);
+
+extern term_t _o_yices_ff_neq0_atom(term_t t);
 
 
 /**************************
@@ -503,9 +529,11 @@ extern int32_t _o_yices_scalar_const_value(term_t t, int32_t *val);
 
 extern int32_t _o_yices_rational_const_value(term_t t, mpq_t q);
 
-extern int32_t _o_yices_finitefield_const_value(term_t t, mpz_t z);
+extern int32_t _o_yices_ff_const_value(term_t t, mpz_t z);
 
 extern int32_t _o_yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term);
+
+extern int32_t _o_yices_ffsum_component(term_t t, int32_t i, mpz_t coeff, term_t *term);
 
 extern int32_t _o_yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term);
 
@@ -632,6 +660,8 @@ extern int32_t _o_yices_model_set_mpz(model_t *model, term_t var, mpz_t val);
 
 extern int32_t _o_yices_model_set_mpq(model_t *model, term_t var, mpq_t val);
 
+extern int32_t _o_yices_model_set_ff_mpz(model_t *model, term_t var, mpz_t val);
+
 extern int32_t _o_yices_model_set_algebraic_number(model_t *model, term_t var, const lp_algebraic_number_t *val);
 
 extern int32_t _o_yices_model_set_bv_int32(model_t *model, term_t var, int32_t val);
@@ -686,6 +716,8 @@ extern int32_t _o_yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val);
 
 extern int32_t _o_yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val);
 
+extern int32_t _o_yices_get_ff_value(model_t *mdl, term_t t, mpz_t val, mpz_t mod);
+
 extern int32_t _o_yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a);
 
 extern int32_t _o_yices_get_bv_value(model_t *mdl, term_t t, int32_t val[]);
@@ -731,6 +763,8 @@ extern int32_t _o_yices_val_get_rational64(model_t *mdl, const yval_t *v, int64_
 extern int32_t _o_yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val);
 
 extern int32_t _o_yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val);
+
+extern int32_t _o_yices_val_get_ff(model_t *mdl, const yval_t *v, mpz_t val, mpz_t mod);
 
 extern int32_t _o_yices_val_get_double(model_t *mdl, const yval_t *v, double *val);
 

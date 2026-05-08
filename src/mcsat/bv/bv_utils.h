@@ -466,6 +466,12 @@ uint32_t fix_htbl_index(term_t* htbl, uint32_t size, term_t key){
 
 static inline
 bool check_rewrite(plugin_context_t* ctx, term_t old, term_t t){
+#ifdef THREAD_SAFE
+  (void) ctx;
+  (void) old;
+  (void) t;
+  return true;
+#else
   if (t == old) return true;
   term_manager_t* tm   = ctx->tm;
   context_t* yctx      = _o_yices_new_context(NULL);
@@ -482,6 +488,7 @@ bool check_rewrite(plugin_context_t* ctx, term_t old, term_t t){
   }
   _o_yices_free_context(yctx);
   return result;
+#endif
 }
 
 #endif

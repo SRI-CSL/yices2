@@ -44,6 +44,7 @@
 #include "utils/int_hash_sets.h"
 
 #include "api/yices_globals.h"
+#include "api/yices_api_lock_free.h"
 #include "mt/thread_macros.h"
 
 
@@ -1002,6 +1003,103 @@ static smt_status_t check_with_delegate_assumptions(context_t *ctx, const char *
                                                     uint32_t n, const literal_t *assumptions, ivector_t *failed);
 
 /*
+ * MCSAT variant of check_context_with_term_assumptions.
+ * Caller must hold __yices_globals.lock.
+ */
+static smt_status_t _o_check_context_with_term_assumptions_mcsat(context_t *ctx, const param_t *params, uint32_t n, const term_t *a, int32_t *error) {
+  smt_status_t stat;
+  ivector_t assumptions;
+  uint32_t i;
+
+  /*
+   * MCSAT: create fresh labels b_i, assert (b_i => a_i), then solve with model b_i=true.
+   * We extract interpolant/core before cleanup, then restore sticky UNSAT artifacts.
+   */
+  if (!context_supports_model_interpolation(ctx)) {
+    if (error != NULL) {
+      *error = CTX_OPERATION_NOT_SUPPORTED;
+    }
+    return YICES_STATUS_ERROR;
+  }
+
+  {
+    model_t mdl;               // temporary model: sets all label terms b_i to true
+    int_hmap_t label_map;      // map label b_i -> original assumption a_i
+    ivector_t mapped_core;     // translated core over original assumptions
+    term_t interpolant = NULL_TERM; // raw/substituted interpolant for sticky UNSAT result
+    int32_t code;              // return code from assert_formula (negative on internalization error)
+    bool pushed;               // whether we pushed a temporary scope and must pop it
+    term_manager_t tm;
+
+    init_model(&mdl, ctx->terms, true);
+    init_int_hmap(&label_map, 0);
+    init_ivector(&assumptions, n);
+    init_ivector(&mapped_core, 0);
+    init_term_manager(&tm, ctx->terms);
+    stat = YICES_STATUS_IDLE;
+
+    pushed = false;
+    if (context_supports_pushpop(ctx)) {
+      context_push(ctx);
+      pushed = true;
+    }
+
+    for (i=0; i<n; i++) {
+      term_t b = new_uninterpreted_term(ctx->terms, bool_id);
+      term_t implication = mk_implies(&tm, b, a[i]);
+
+      int_hmap_add(&label_map, b, a[i]);
+      code = _o_assert_formula(ctx, implication);
+      if (code < 0) {
+        if (error != NULL) {
+          *error = code;
+        }
+        stat = YICES_STATUS_ERROR;
+        break;
+      }
+      model_map_term(&mdl, b, vtbl_mk_bool(&mdl.vtbl, true));
+      ivector_push(&assumptions, b);
+    }
+
+    if (stat != YICES_STATUS_ERROR) {
+      stat = check_context_with_model(ctx, params, &mdl, n, assumptions.data);
+      if (stat == YICES_STATUS_UNSAT) {
+        term_subst_t subst;
+
+        interpolant = context_get_unsat_model_interpolant(ctx);
+        assert(interpolant != NULL_TERM);
+        core_from_labeled_interpolant(ctx, interpolant, &assumptions, &label_map, &mapped_core);
+
+        init_term_subst(&subst, &tm, n, assumptions.data, a);
+        interpolant = apply_term_subst(&subst, interpolant);
+        delete_term_subst(&subst);
+      }
+    }
+
+    if (pushed) {
+      mcsat_cleanup_assumptions(ctx->mcsat);
+      context_pop(ctx);
+    }
+    if (stat == YICES_STATUS_UNSAT) {
+      mcsat_set_unsat_result(ctx->mcsat, interpolant);
+      cache_unsat_core(ctx, &mapped_core);
+    }
+
+    delete_term_manager(&tm);
+    delete_ivector(&mapped_core);
+    delete_ivector(&assumptions);
+    delete_int_hmap(&label_map);
+    delete_model(&mdl);
+
+    return stat;
+  }
+}
+
+static smt_status_t check_context_with_term_assumptions_mcsat(context_t *ctx, const param_t *params, uint32_t n, const term_t *a, int32_t *error) {
+  MT_PROTECT(smt_status_t, __yices_globals.lock, _o_check_context_with_term_assumptions_mcsat(ctx, params, n, a, error));
+}
+
+/*
  * Check under assumptions given as terms.
  * - if MCSAT is enabled, this uses temporary labels + model interpolation.
  * - otherwise terms are converted to literals and handled by the CDCL(T) path.
@@ -1010,10 +1108,6 @@ static smt_status_t check_with_delegate_assumptions(context_t *ctx, const char *
  * - context status must be IDLE.
  */
 smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *params, uint32_t n, const term_t *a, int32_t *error) {
-  smt_status_t stat;
-  ivector_t assumptions;
-  uint32_t i;
-
   if (error != NULL) {
     *error = CTX_NO_ERROR;
   }
@@ -1021,12 +1115,15 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
   context_invalidate_unsat_core_cache(ctx);
 
   if (ctx->mcsat == NULL) {
+    smt_status_t stat;
     sat_delegate_t mode;
     bool one_shot;
     const char *delegate;
     bool unknown;
-    literal_t l;
+    ivector_t assumptions;
     ivector_t failed;
+    uint32_t i;
+    literal_t l;
 
     init_ivector(&assumptions, n);
     for (i=0; i<n; i++) {
@@ -1089,88 +1186,7 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
     return stat;
   }
 
-  /*
-   * MCSAT: create fresh labels b_i, assert (b_i => a_i), then solve with model b_i=true.
-   * We extract interpolant/core before cleanup, then restore sticky UNSAT artifacts.
-   */
-  if (!context_supports_model_interpolation(ctx)) {
-    if (error != NULL) {
-      *error = CTX_OPERATION_NOT_SUPPORTED;
-    }
-    return YICES_STATUS_ERROR;
-  }
-
-  {
-    model_t mdl;               // temporary model: sets all label terms b_i to true
-    int_hmap_t label_map;      // map label b_i -> original assumption a_i
-    ivector_t mapped_core;     // translated core over original assumptions
-    term_t interpolant = NULL_TERM; // raw/substituted interpolant for sticky UNSAT result
-    int32_t code;              // return code from assert_formula (negative on internalization error)
-    bool pushed;               // whether we pushed a temporary scope and must pop it
-    term_manager_t tm;
-
-    init_model(&mdl, ctx->terms, true);
-    init_int_hmap(&label_map, 0);
-    init_ivector(&assumptions, n);
-    init_ivector(&mapped_core, 0);
-    init_term_manager(&tm, ctx->terms);
-    stat = YICES_STATUS_IDLE;
-
-    pushed = false;
-    if (context_supports_pushpop(ctx)) {
-      context_push(ctx);
-      pushed = true;
-    }
-
-    for (i=0; i<n; i++) {
-      term_t b = new_uninterpreted_term(ctx->terms, bool_id);
-      term_t implication = mk_implies(&tm, b, a[i]);
-
-      int_hmap_add(&label_map, b, a[i]);
-      code = assert_formula(ctx, implication);
-      if (code < 0) {
-        if (error != NULL) {
-          *error = code;
-        }
-        stat = YICES_STATUS_ERROR;
-        break;
-      }
-      model_map_term(&mdl, b, vtbl_mk_bool(&mdl.vtbl, true));
-      ivector_push(&assumptions, b);
-    }
-
-    if (stat != YICES_STATUS_ERROR) {
-      stat = check_context_with_model(ctx, params, &mdl, n, assumptions.data);
-      if (stat == YICES_STATUS_UNSAT) {
-        term_subst_t subst;
-
-        interpolant = context_get_unsat_model_interpolant(ctx);
-        assert(interpolant != NULL_TERM);
-        core_from_labeled_interpolant(ctx, interpolant, &assumptions, &label_map, &mapped_core);
-
-        init_term_subst(&subst, &tm, n, assumptions.data, a);
-        interpolant = apply_term_subst(&subst, interpolant);
-        delete_term_subst(&subst);
-      }
-    }
-
-    if (pushed) {
-      mcsat_cleanup_assumptions(ctx->mcsat);
-      context_pop(ctx);
-    }
-    if (stat == YICES_STATUS_UNSAT) {
-      mcsat_set_unsat_result(ctx->mcsat, interpolant);
-      cache_unsat_core(ctx, &mapped_core);
-    }
-
-    delete_term_manager(&tm);
-    delete_ivector(&mapped_core);
-    delete_ivector(&assumptions);
-    delete_int_hmap(&label_map);
-    delete_model(&mdl);
-
-    return stat;
-  }
+  return check_context_with_term_assumptions_mcsat(ctx, params, n, a, error);
 }
 
 /*

@@ -135,7 +135,8 @@ typedef enum term_constructor {
   // atomic terms
   YICES_BOOL_CONSTANT,       // boolean constant
   YICES_ARITH_CONSTANT,      // rational constant
-  YICES_ARITH_FF_CONSTANT,   // finite field rational constant
+  YICES_FF_CONSTANT,         // finite-field constant
+  YICES_ARITH_FF_CONSTANT = YICES_FF_CONSTANT, // compatibility alias
   YICES_BV_CONSTANT,         // bitvector constant
   YICES_SCALAR_CONSTANT,     // constant of uninterpreted/scalar
   YICES_VARIABLE,            // variable in quantifiers
@@ -185,7 +186,8 @@ typedef enum term_constructor {
   // sums
   YICES_BV_SUM,              // sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
   YICES_ARITH_SUM,           // sum of pairs a * t where a is a rational (and t is an arithmetic term)
-  YICES_ARITH_FF_SUM,        // sum of pairs a * t where a is an finite field constant (and t is an finite field arithmetic term)
+  YICES_FF_SUM,              // sum of pairs a * t where a is a finite-field constant (and t is a finite-field term)
+  YICES_ARITH_FF_SUM = YICES_FF_SUM, // compatibility alias
 
   // products
   YICES_POWER_PRODUCT        // power products: (t1^d1 * ... * t_n^d_n)
@@ -241,7 +243,7 @@ typedef enum yval_tag {
   YVAL_BOOL,
   YVAL_RATIONAL,
   YVAL_ALGEBRAIC,
-  YVAL_FINITEFIELD,  // TODO establish me in API
+  YVAL_FINITEFIELD,
   YVAL_BV,
   YVAL_SCALAR,
   YVAL_TUPLE,
