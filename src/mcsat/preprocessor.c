@@ -2397,6 +2397,12 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
   return t_pre;
 }
 
+void preprocessor_tuple_blast(preprocessor_t* pre, term_t t, ivector_t* out) {
+  ivector_reset(out);
+  tuple_blast_term(pre, t);
+  tuple_blast_get(pre, t, out);
+}
+
 void preprocessor_set_exception_handler(preprocessor_t* pre, jmp_buf* handler) {
   pre->exception = handler;
 }

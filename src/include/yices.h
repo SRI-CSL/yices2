@@ -3370,6 +3370,11 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  * if one of the terms t[i] is not an uninterpreted term
  *   code = MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED
  *
+ * if one of the terms t[i] has a type that MCSAT cannot decide on
+ * (i.e. not Bool, Int, Real, scalar, BitVector, or a tuple whose
+ * recursively flattened leaves all have one of these types)
+ *   code = MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED
+ *
  * If the context does not have the MCSAT solver enabled
  *   code = CTX_OPERATION_NOT_SUPPORTED
  *
@@ -3417,6 +3422,11 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *
  *
  * if one of the terms t[i] is not an uninterpreted term
  *   code = MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED
+ *
+ * if one of the terms t[i] has a type that MCSAT cannot decide on
+ * (i.e. not Bool, Int, Real, scalar, BitVector, or a tuple whose
+ * recursively flattened leaves all have one of these types)
+ *   code = MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED
  *
  * If the context does not have the MCSAT solver enabled
  *   code = CTX_OPERATION_NOT_SUPPORTED
@@ -3506,8 +3516,9 @@ __YICES_DLLSPEC__ extern smt_status_t yices_mcsat_set_initial_var_order(context_
  * a model is returned in ctx->model. This model must be freed when no-longer needed by
  * calling yices_free_model.
  *
- * If something is wrong, the function returns YICES_STATUS_ERROR and sets the yices error report
- * (code = CTX_INVALID_OPERATION).
+ * If something is wrong, the function returns YICES_STATUS_ERROR and sets the yices error report.
+ * This includes CTX_INVALID_OPERATION and any error propagated from the internal
+ * yices_check_context_with_model call used for model refutation.
  *
  * Since 2.6.4.
  */

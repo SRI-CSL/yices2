@@ -111,6 +111,14 @@ void preprocessor_destruct(preprocessor_t* pre);
 /** Preprocess the term, add any additional assertions to output vector. */
 term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is_assertion);
 
+/*
+ * Tuple-blast term t and copy its flattened leaves into out.
+ * - out is reset first.
+ * - leaf order matches type_collect_blasted_atom_types/type leaf order.
+ * - leaves are memoized and stable across later tuple-blast calls.
+ */
+void preprocessor_tuple_blast(preprocessor_t* pre, term_t t, ivector_t* out);
+
 /** Set tracer */
 void preprocessor_set_tracer(preprocessor_t* pre, tracer_t* tracer);
 
