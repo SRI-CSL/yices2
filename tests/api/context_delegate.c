@@ -430,6 +430,84 @@ static void check_assumptions_delegate_case(const char *delegate) {
   yices_free_context(ctx);
 }
 
+static void check_selector_frames_growing_vars_case(const char *delegate) {
+  type_t bv8;
+  term_t x, y, z, xeq0, yneq0, zneq0;
+  context_t *ctx;
+
+  if (!is_incremental_delegate_name(delegate)) {
+    return;
+  }
+
+  bv8 = yices_bv_type(8);
+  x = yices_new_uninterpreted_term(bv8);
+  y = yices_new_uninterpreted_term(bv8);
+  z = yices_new_uninterpreted_term(bv8);
+  xeq0 = yices_bveq_atom(x, yices_bvconst_uint32(8, 0));
+  yneq0 = yices_not(yices_bveq_atom(y, yices_bvconst_uint32(8, 0)));
+  zneq0 = yices_not(yices_bveq_atom(z, yices_bvconst_uint32(8, 0)));
+
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "true");
+
+  assert(yices_assert_formula(ctx, xeq0) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+
+  assert(yices_push(ctx) == 0);
+  assert(yices_assert_formula(ctx, yneq0) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+  assert_formula_true_in_context_model(ctx, yneq0);
+  assert(yices_pop(ctx) == 0);
+
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+
+  assert(yices_push(ctx) == 0);
+  assert(yices_assert_formula(ctx, zneq0) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+  assert_formula_true_in_context_model(ctx, zneq0);
+  assert(yices_pop(ctx) == 0);
+
+  yices_free_context(ctx);
+}
+
+static void check_selector_frames_assumptions_case(const char *delegate) {
+  type_t bv8;
+  term_t x, y, xeq0, xeq1, yeq1;
+  context_t *ctx;
+  smt_status_t stat;
+  term_vector_t core;
+
+  if (!is_incremental_delegate_name(delegate)) {
+    return;
+  }
+
+  bv8 = yices_bv_type(8);
+  x = yices_new_uninterpreted_term(bv8);
+  y = yices_new_uninterpreted_term(bv8);
+  xeq0 = yices_bveq_atom(x, yices_bvconst_uint32(8, 0));
+  xeq1 = yices_bveq_atom(x, yices_bvconst_uint32(8, 1));
+  yeq1 = yices_bveq_atom(y, yices_bvconst_uint32(8, 1));
+
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "true");
+
+  assert(yices_assert_formula(ctx, xeq0) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+
+  assert(yices_push(ctx) == 0);
+  assert(yices_assert_formula(ctx, yeq1) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+
+  stat = yices_check_context_with_assumptions(ctx, NULL, 1, &xeq1);
+  assert(stat == YICES_STATUS_UNSAT);
+
+  yices_init_term_vector(&core);
+  assert(yices_get_unsat_core(ctx, &core) == 0);
+  assert(core.size == 1);
+  assert(core.data[0] == xeq1);
+  yices_delete_term_vector(&core);
+
+  yices_free_context(ctx);
+}
+
 int main(void) {
   const char *delegates[] = { "y2sat", "cadical", "cryptominisat", "kissat" };
   context_t *ctx;
@@ -455,6 +533,8 @@ int main(void) {
       check_branching_pushpop_case(delegates[i]);
       check_config_delegate_case(delegates[i]);
       check_assumptions_delegate_case(delegates[i]);
+      check_selector_frames_growing_vars_case(delegates[i]);
+      check_selector_frames_assumptions_case(delegates[i]);
     }
   }
 

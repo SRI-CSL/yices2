@@ -304,7 +304,18 @@ static void cadical_add_vars(void *solver, uint32_t n) {
 
 static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = ccadical_init();
+  ccadical_set_option(d->solver, "quiet", 1); // no output from cadical by default
   init_ivector(&d->buffer, 0); // not used
+
+  // fine tuning
+  ccadical_set_option(d->solver, "walk", 0);
+  ccadical_set_option(d->solver, "lucky", 0);
+  ccadical_set_option(d->solver, "chrono", 0);
+  ccadical_set_option(d->solver, "elimands", 0);
+  ccadical_set_option(d->solver, "elimites", 0);
+  ccadical_set_option(d->solver, "elimxors", 0);
+  // end of fine tuning
+
   cadical_add_vars(d->solver, nvars);
   d->add_empty_clause = cadical_add_empty_clause;
   d->add_unit_clause = cadical_add_unit_clause;
@@ -411,6 +422,10 @@ static void cryptominisat_collect_failed_assumptions(void *solver, uint32_t n, c
   }
 
   if (conflict.lit != NULL) {
+    /*
+     * The supported CryptoMiniSat C API allocates this vector with malloc
+     * and does not provide a vector-specific deallocator.
+     */
     free(conflict.lit);
   }
 }
