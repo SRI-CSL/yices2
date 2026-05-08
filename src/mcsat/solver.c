@@ -3157,10 +3157,19 @@ void mcsat_set_unsat_result_from_labeled_interpolant(mcsat_solver_t* mcsat, term
 
   mcsat->status = YICES_STATUS_UNSAT;
   /*
-   * check_context_with_assumptions substitutes temporary labels with the
-   * caller's original assumptions before popping the temporary context frame.
-   * The input interpolant is already public/postprocessed; this only removes
-   * the temporary Boolean labels.
+   * Called from check_context_with_assumptions *after* the temporary
+   * context frame has been popped. That is safe because:
+   *   - the temporary Boolean labels were created via
+   *     new_uninterpreted_term in the global term table and remain
+   *     valid: mcsat_pop sweeps mcsat-internal state (var_db,
+   *     plugin/preprocessor caches) but does not invoke term_table_gc,
+   *     so the labels' term ids are still good_term;
+   *   - the input interpolant has already been unblasted by the
+   *     mcsat_set_interpolant_from_internal writer, so it lives in the
+   *     public/postprocessed world (see the contract on
+   *     mcsat->interpolant in solver.h).
+   * This routine just rewrites the public interpolant to replace each
+   * temporary label b_i with the caller's original assumption a_i.
    */
   init_term_subst(&subst, &mcsat->tm, n, labels, assumptions);
   interpolant = apply_term_subst(&subst, interpolant);
