@@ -1,0 +1,73 @@
+;; Regression for issue #626: the mcsat preprocessor's ARITH_CEIL arm
+;; was a copy-paste of the ARITH_FLOOR arm and silently rewrote
+;; (ceil x) to (floor x) when x had been substituted to a non-integer
+;; rational. Each (check) below would have produced the wrong answer
+;; pre-fix.
+
+(define x::real)
+
+;; Test 1: ceil(7/2) = 4 must be sat (true value of ceil).
+;; Pre-fix: rewritten to (floor x) = 4, which is unsat for x = 7/2.
+(push)
+(assert (= x (/ 7 2)))
+(assert (= (ceil x) 4))
+(check)
+(pop)
+
+;; Test 2: ceil(7/2) = 3 must be unsat (3 is the floor, not the ceil).
+;; Pre-fix: rewritten to (floor x) = 3, which is sat for x = 7/2.
+(push)
+(assert (= x (/ 7 2)))
+(assert (= (ceil x) 3))
+(check)
+(pop)
+
+;; Test 3: tautology ceil(x) >= x must hold, so its negation is unsat.
+;; Pre-fix: rewritten to floor(x) >= x, which is sat for any non-integer
+;; value of x (here x = 7/2 makes floor(x) = 3 < x).
+(push)
+(assert (= x (/ 7 2)))
+(assert (not (>= (ceil x) x)))
+(check)
+(pop)
+
+;; Test 4: pin the non-constant ARITH_CEIL path. The argument is the
+;; polynomial (+ x 1/2), and x is bounded but not equality-substituted
+;; to a constant, so the preprocessor's ARITH_CEIL arm finds child_pre
+;; non-constant, calls preprocessor_purify (introducing a fresh proxy p
+;; with p = x + 1/2), and rebuilds (ceil p). Pre-fix that rebuild used
+;; arith_floor instead of arith_ceil. With x in (5/2, 3], the polynomial
+;; lies in (3, 7/2]: the correct ceil is always 4, the buggy floor is
+;; always 3.
+(push)
+(assert (> x (/ 5 2)))
+(assert (<= x 3))
+(assert (= (ceil (+ x (/ 1 2))) 4))
+(check)
+(pop)
+
+;; Test 5: same non-constant ARITH_CEIL path, opposite truth value.
+;; Asserting (= (ceil (+ x 1/2)) 3) over the same x range must be
+;; unsat under the correct ceil (which is uniformly 4 there) and sat
+;; under the buggy floor rewrite (which is uniformly 3).
+(push)
+(assert (> x (/ 5 2)))
+(assert (<= x 3))
+(assert (= (ceil (+ x (/ 1 2))) 3))
+(check)
+(pop)
+
+;; Test 6: pin the "argument unchanged after purify" arm of the
+;; non-constant ARITH_CEIL path -- (ceil x) where x is uninterpreted
+;; and bounded by inequalities only. preprocessor_purify is the
+;; identity on UNINTERPRETED_TERM, so child_pre == child and the arm
+;; takes the inner else: current_pre = current. (ceil x) >= x is a
+;; tautology over the reals, so its negation is unsat. Pre-fix this
+;; would have rebuilt the outer term as (>= x x) via the spurious
+;; floor rewrite for x in (0, 1) and reported sat.
+(push)
+(assert (>= x 0))
+(assert (<= x 1))
+(assert (not (>= (ceil x) x)))
+(check)
+(pop)
