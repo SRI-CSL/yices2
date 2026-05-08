@@ -3131,7 +3131,16 @@ static void check_delayed_assertions(smt2_globals_t *g, bool report) {
          * Special case: QF_BV with delegate
          */
         if (g->dimacs_file == NULL) {
+#if HAVE_CADICAL
+          if (strcmp(g->delegate, "cadical") == 0 &&
+              (g->ctx->mode == CTX_MODE_PUSHPOP || g->ctx->mode == CTX_MODE_INTERACTIVE)) {
+            status = check_with_incremental_cadical(g->ctx, g->verbosity);
+          } else {
+            status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
+          }
+#else
           status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
+#endif
         } else {
           code = process_then_export_to_dimacs(g->ctx, g->dimacs_file, &status);
           if (code < 0) {
