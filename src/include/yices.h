@@ -3998,12 +3998,13 @@ __YICES_DLLSPEC__ extern void yices_model_collect_defined_terms(model_t *mdl, te
  * The delegate is an optional argument used only when logic is "QF_BV".
  * If is ignored otherwise. It must either be NULL or be the name of an
  * external SAT solver to use after bit-blasting. Valid delegates
- * are "cadical", "cryptominisat", and "y2sat".
+ * are "cadical", "cryptominisat", "kissat", and "y2sat".
  * If delegate is NULL, the default SAT solver is used.
  *
- * Support for "cadical" and "cryptominisat" must be enabled at compilation
- * time. The "y2sat" solver is always available. The function will return YICES_STATUS_ERROR
- * and store an error code if the requested delegate is not available.
+ * Support for "cadical", "cryptominisat", and "kissat" must be enabled
+ * at compilation time. The "y2sat" solver is always available. The
+ * function will return YICES_STATUS_ERROR and store an error code if
+ * the requested delegate is not available.
  *
  * Error codes:
  *
@@ -4022,11 +4023,11 @@ __YICES_DLLSPEC__ extern void yices_model_collect_defined_terms(model_t *mdl, te
  * if the logic is known but not supported by Yices
  *   code = CTX_LOGIC_NOT_SUPPORTED
  *
- * if delegate is not one of "cadical", "cryptominisat", "y2sat"
+ * if delegate is not one of "cadical", "cryptominisat", "kissat", "y2sat"
  *   code = CTX_UNKNOWN_DELEGATE
  *
- * if delegate is "cadical" or "cryptominisat" but support for these SAT solvers
- * was not implemented at compile time,
+ * if delegate is "cadical", "cryptominisat", or "kissat" but support
+ * for that SAT solver was not implemented at compile time,
  *   code = CTX_DELEGATE_NOT_AVAILABLE
  *
  * other error codes are possible if the formula is not in the specified logic (cf. yices_assert_formula)

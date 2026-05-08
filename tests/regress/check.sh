@@ -155,8 +155,17 @@ bin_dir=$2
 shift 2
 all_tests="$@"
 
+# REGRESS_DELEGATE_MODE selects whether the regression run also fans out
+# into one extra pass per installed external SAT delegate (CaDiCaL,
+# CryptoMiniSat, Kissat) on QF_BV tests:
+#
+#   off  : baseline pass only. This is the default so that "make check"
+#          and "make regress" keep their pre-delegate runtime.
+#   auto : baseline pass + one pass per installed delegate (opt-in).
+#   only : delegate passes only, no baseline. Used by the
+#          delegate-regress / static-delegate-regress make targets.
 if [[ -z "$REGRESS_DELEGATE_MODE" ]]; then
-    REGRESS_DELEGATE_MODE="auto"
+    REGRESS_DELEGATE_MODE="off"
 fi
 
 case "$REGRESS_DELEGATE_MODE" in
