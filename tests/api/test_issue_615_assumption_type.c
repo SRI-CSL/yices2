@@ -336,6 +336,24 @@ static void check_tuple_repeat_solve_resets_assumptions(void) {
   yices_free_context(ctx);
 }
 
+static void check_tuple_empty_model_uses_default_value(void) {
+  context_t *ctx = make_mcsat_context(false);
+  assert(ctx != NULL);
+
+  type_t tuple_t = yices_tuple_type2(yices_int_type(), yices_bool_type());
+  term_t x = yices_new_uninterpreted_term(tuple_t);
+  term_t assumptions[1] = { x };
+
+  model_t *mdl = yices_new_model();
+
+  smt_status_t s = yices_check_context_with_model(ctx, NULL, mdl, 1, assumptions);
+  assert(s == YICES_STATUS_SAT || s == YICES_STATUS_UNKNOWN);
+  assert(yices_error_code() == YICES_NO_ERROR);
+
+  yices_free_model(mdl);
+  yices_free_context(ctx);
+}
+
 static void check_tuple_model_hint(void) {
   context_t *ctx = make_mcsat_context(false);
   assert(ctx != NULL);
@@ -376,6 +394,29 @@ static void check_tuple_interpolation_refutation(void) {
   smt_status_t s = yices_check_context_with_interpolation(&ictx, NULL, 0);
   assert(s == YICES_STATUS_UNSAT);
   assert(ictx.interpolant != NULL_TERM);
+
+  yices_free_context(ctx_B);
+  yices_free_context(ctx_A);
+}
+
+static void check_interpolation_preserves_refutation_error(void) {
+  context_t *ctx_A = make_mcsat_context(true);
+  context_t *ctx_B = yices_new_context(NULL);
+  assert(ctx_A != NULL && ctx_B != NULL);
+
+  type_t u_t = yices_new_uninterpreted_type();
+  term_t x = yices_new_uninterpreted_term(u_t);
+  term_t y = yices_new_uninterpreted_term(u_t);
+  assert(yices_set_term_name(x, "issue615_interp_bad_x") == 0);
+  assert(yices_set_term_name(y, "issue615_interp_bad_y") == 0);
+
+  assert(yices_assert_formula(ctx_B, yices_neq(x, y)) == 0);
+
+  interpolation_context_t ictx = { ctx_A, ctx_B, NULL_TERM, NULL };
+  smt_status_t s = yices_check_context_with_interpolation(&ictx, NULL, 0);
+  assert(s == YICES_STATUS_ERROR);
+  assert(yices_error_code() == MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED);
+  yices_clear_error();
 
   yices_free_context(ctx_B);
   yices_free_context(ctx_A);
@@ -454,8 +495,10 @@ int main(void) {
   check_nested_tuple_assumption_sat();
   check_tuple_with_scalar_leaf();
   check_tuple_repeat_solve_resets_assumptions();
+  check_tuple_empty_model_uses_default_value();
   check_tuple_model_hint();
   check_tuple_interpolation_refutation();
+  check_interpolation_preserves_refutation_error();
   check_tuple_with_unsupported_leaf_rejected();
   check_term_shape_check_preserved();
 
