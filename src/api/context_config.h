@@ -106,6 +106,8 @@ struct ctx_config_s {
   solver_code_t         arith_config;
   arith_fragment_t      arith_fragment;
   bool                  model_interpolation;
+  sat_delegate_t        sat_delegate;
+  bool                  sat_delegate_selector_frames;
   char*                 trace_tags;
 };
 

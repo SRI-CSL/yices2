@@ -8891,6 +8891,9 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
 
   // Additional setup for MCSAT options in the config
   if (config != NULL) {
+    ctx->sat_delegate = config->sat_delegate;
+    ctx->sat_delegate_selector_frames = config->sat_delegate_selector_frames;
+
     // If trace tags are passed in, set them
     if (config->trace_tags != NULL) {
       // Make new tracer
@@ -9443,7 +9446,11 @@ EXPORTED void yices_default_params_for_context(const context_t *ctx, param_t *pa
   yices_set_default_params(params, ctx->logic, ctx->arch, ctx->mode);
 }
 
-
+/*
+ * Check whether the given delegate is supported and set the error
+ * report if not.
+ */
+static bool check_delegate(const char *delegate);
 
 /*
  * Check satisfiability: check whether the assertions stored in ctx
@@ -9477,6 +9484,9 @@ EXPORTED void yices_default_params_for_context(const context_t *ctx, param_t *pa
  */
 EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params) {
   param_t default_params;
+  sat_delegate_t delegate_mode;
+  bool one_shot_delegate;
+  const char *delegate;
   smt_status_t stat;
 
   stat = context_status(ctx);
@@ -9500,7 +9510,24 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
       yices_default_params_for_context(ctx, &default_params);
       params = &default_params;
     }
-    stat = check_context(ctx, params);
+    delegate_mode = effective_sat_delegate_mode(ctx->sat_delegate, params, &one_shot_delegate);
+    delegate = sat_delegate_name(delegate_mode);
+    if (delegate == NULL) {
+      stat = check_context(ctx, params);
+    } else {
+      if (!check_delegate(delegate)) {
+        return YICES_STATUS_ERROR;
+      }
+      if (ctx->logic != QF_BV) {
+        set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+        return YICES_STATUS_ERROR;
+      }
+      if (!one_shot_delegate && ctx->sat_delegate_selector_frames && incremental_delegate(delegate)) {
+        stat = check_with_incremental_delegate(ctx, delegate, 0, 0, NULL, NULL);
+      } else {
+        stat = check_with_delegate(ctx, delegate, 0);
+      }
+    }
     if (stat == YICES_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
       context_cleanup(ctx);
     }
