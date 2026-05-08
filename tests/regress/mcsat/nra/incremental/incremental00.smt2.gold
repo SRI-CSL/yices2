@@ -1,13 +1,13 @@
 sat
-(= x 1.414214)
+(= x (root-of-with-interval (coeffs (- 2) 0 1) (/ 45.0 32.0) (/ 23.0 16.0)))
 (= y 1)
 sat
-(= x 1.414214)
-(= y 1.732051)
+(= x (root-of-with-interval (coeffs (- 2) 0 1) (/ 45.0 32.0) (/ 23.0 16.0)))
+(= y (root-of-with-interval (coeffs (- 3) 0 1) (/ 55.0 32.0) (/ 7.0 4.0)))
 unsat
 sat
-(= x 1.414214)
-(= y 1.732051)
+(= x (root-of-with-interval (coeffs (- 2) 0 1) (/ 45.0 32.0) (/ 23.0 16.0)))
+(= y (root-of-with-interval (coeffs (- 3) 0 1) (/ 55.0 32.0) (/ 7.0 4.0)))
 sat
-(= x 1.414214)
-(= y 1.732051)
+(= x (root-of-with-interval (coeffs (- 2) 0 1) (/ 45.0 32.0) (/ 23.0 16.0)))
+(= y (root-of-with-interval (coeffs (- 3) 0 1) (/ 55.0 32.0) (/ 7.0 4.0)))

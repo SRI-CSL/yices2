@@ -20,12 +20,21 @@
  * PRETTY PRINTER FOR CONCRETE VALUES USING THE SMT2 SYNTAX
  */
 
+#include <assert.h>
 #include <inttypes.h>
+
+#ifdef HAVE_MCSAT
+#include <poly/algebraic_number.h>
+#include <poly/upolynomial.h>
+#include <poly/integer.h>
+#include <poly/dyadic_rational.h>
+#endif
 
 #include "frontend/smt2/smt2_printer.h"
 #include "frontend/smt2/smt2_symbol_printer.h"
 #include "frontend/smt2/smt2_type_printer.h"
 #include "utils/memalloc.h"
+#include "utils/string_buffers.h"
 
 
 /*
@@ -129,8 +138,153 @@ static void smt2_pp_finitefield(smt2_pp_t *printer, value_ff_t *v) {
   pp_finitefield(&printer->pp, v);
 }
 
+#ifdef HAVE_MCSAT
+/*
+ * Append an lp_integer_t as an SMT2 integer numeral into buf.
+ * Negative values use the (- N) form required by SMT2.
+ */
+static void append_lp_integer_smt2_coeff(string_buffer_t *buf, const lp_integer_t *c) {
+  int sgn = lp_integer_sgn(lp_Z, c);
+  if (sgn == 0) {
+    string_buffer_append_string(buf, "0");
+    return;
+  }
+  char *s = lp_integer_to_string(c);  // decimal string, includes '-' if negative
+  if (sgn < 0) {
+    string_buffer_append_string(buf, "(- ");
+    string_buffer_append_string(buf, s + 1);  // skip leading '-'
+    string_buffer_append_char(buf, ')');
+  } else {
+    string_buffer_append_string(buf, s);
+  }
+  free(s);
+}
+
+/*
+ * Append a lp_dyadic_rational_t as an SMT2 real literal into buf.
+ * Dyadic rational q = q->a / 2^(q->n).
+ * Formats: 0.0 | a.0 | (- a.0) | (/ a.0 2^k.0) | (/ (- a.0) 2^k.0)
+ */
+static void append_dyadic_rational_smt2_real(string_buffer_t *buf, const lp_dyadic_rational_t *q) {
+  int sgn = lp_dyadic_rational_sgn(q);
+  if (sgn == 0) {
+    string_buffer_append_string(buf, "0.0");
+    return;
+  }
+
+  char *num_str = lp_integer_to_string(&q->a);  // includes '-' if negative
+  const char *abs_str = (sgn < 0) ? num_str + 1 : num_str;
+  unsigned long k = (unsigned long)q->n;  /* dyadic exponents are small; fits in ulong on all platforms */
+
+  if (k == 0) {
+    if (sgn < 0) string_buffer_append_string(buf, "(- ");
+    string_buffer_append_string(buf, abs_str);
+    string_buffer_append_string(buf, ".0");
+    if (sgn < 0) string_buffer_append_char(buf, ')');
+  } else {
+    mpz_t pow2;
+    mpz_init(pow2);
+    mpz_ui_pow_ui(pow2, 2, k);
+    char *den_str = mpz_get_str(NULL, 10, pow2);  // caller must free
+    mpz_clear(pow2);
+
+    string_buffer_append_string(buf, "(/ ");
+    if (sgn < 0) string_buffer_append_string(buf, "(- ");
+    string_buffer_append_string(buf, abs_str);
+    string_buffer_append_string(buf, ".0");
+    if (sgn < 0) string_buffer_append_char(buf, ')');
+    string_buffer_append_char(buf, ' ');
+    string_buffer_append_string(buf, den_str);
+    string_buffer_append_string(buf, ".0)");
+    free(den_str);
+  }
+
+  free(num_str);
+}
+#endif /* HAVE_MCSAT */
+
+/*
+ * Print an algebraic model value in the SMT-COMP 2026 model-validation format:
+ *   (root-of-with-interval (coeffs p_0 ... p_n) min max)
+ * See https://smt-comp.github.io/2026/ and PR #623.
+ */
 static void smt2_pp_algebraic(smt2_pp_t *printer, void *a) {
+#ifdef HAVE_MCSAT
+  const lp_algebraic_number_t *an = (const lp_algebraic_number_t *) a;
+  string_buffer_t buf;
+
+  if (an->f == NULL) {
+    /*
+     * Rational point: the value is exactly the dyadic rational an->I.a.
+     * Print it as a real literal.
+     */
+    init_string_buffer(&buf, 32);
+    append_dyadic_rational_smt2_real(&buf, &an->I.a);
+    string_buffer_close(&buf);
+    pp_clone_string(&printer->pp, buf.data);
+    delete_string_buffer(&buf);
+    return;
+  }
+
+  /*
+   * Proper algebraic: output (root-of-with-interval (coeffs p0 ... pn) min max)
+   *
+   * libpoly always returns a strictly open isolating interval (a_open == b_open == 1),
+   * which matches root-of-with-interval's exclusive-bound convention.
+   */
+  assert(an->I.a_open && an->I.b_open);
+
+  /*
+   * Normalize the polynomial: compute the square-free part via
+   *   f_sqfree = f / gcd(f, f')
+   * then take the primitive part (coprime coefficients, positive leading coeff).
+   * This is done at print time so it never affects solving performance.
+   */
+  lp_upolynomial_t *f_deriv  = lp_upolynomial_derivative(an->f);
+  lp_upolynomial_t *g        = lp_upolynomial_gcd(an->f, f_deriv);
+  lp_upolynomial_delete(f_deriv);
+
+  lp_upolynomial_t *f_sqfree;
+  bool sqfree_allocated;
+  if (lp_upolynomial_degree(g) == 0) {
+    f_sqfree = an->f;
+    sqfree_allocated = false;
+  } else {
+    f_sqfree = lp_upolynomial_div_exact(an->f, g);
+    sqfree_allocated = true;
+  }
+  lp_upolynomial_delete(g);
+
+  lp_upolynomial_t *f_prim = lp_upolynomial_primitive_part_Z(f_sqfree);
+  if (sqfree_allocated) lp_upolynomial_delete(f_sqfree);
+
+  size_t deg = lp_upolynomial_degree(f_prim);
+  lp_integer_t *coeffs = safe_malloc((deg + 1) * sizeof(lp_integer_t));
+  for (size_t i = 0; i <= deg; i++) lp_integer_construct(&coeffs[i]);
+  lp_upolynomial_unpack(f_prim, coeffs);
+
+  init_string_buffer(&buf, 128);
+  string_buffer_append_string(&buf, "(root-of-with-interval (coeffs");
+  for (size_t i = 0; i <= deg; i++) {
+    string_buffer_append_char(&buf, ' ');
+    append_lp_integer_smt2_coeff(&buf, &coeffs[i]);
+  }
+  string_buffer_append_string(&buf, ") ");
+  append_dyadic_rational_smt2_real(&buf, &an->I.a);
+  string_buffer_append_char(&buf, ' ');
+  append_dyadic_rational_smt2_real(&buf, &an->I.b);
+  string_buffer_append_char(&buf, ')');
+  string_buffer_close(&buf);
+
+  pp_clone_string(&printer->pp, buf.data);
+  delete_string_buffer(&buf);
+
+  for (size_t i = 0; i <= deg; i++) lp_integer_destruct(&coeffs[i]);
+  safe_free(coeffs);
+  lp_upolynomial_delete(f_prim);
+#else
   pp_algebraic(&printer->pp, a);
+#endif
 }
 
 
