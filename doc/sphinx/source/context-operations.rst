@@ -226,6 +226,53 @@ specialized for difference logic and support only mode one-shot.
 The default mode is push-pop.
 
 
+.. _sat_delegate_config:
+
+**SAT Delegate (QF_BV only)**
+
+For QF_BV contexts, Yices can be configured to use a third-party
+Boolean SAT solver --- called a *delegate* --- as the back-end CNF
+engine. When a delegate is selected, Yices bit-blasts the assertions
+to CNF as usual and hands the resulting clause set to the chosen
+delegate instead of the internal Yices CDCL SAT solver.
+
+Yices recognizes four delegate names. ``y2sat`` is an internal SAT
+solver always available in any Yices build. ``cadical``,
+``cryptominisat``, and ``kissat`` are external solvers; their
+inclusion in a particular Yices build is optional and can be checked
+at runtime with :c:func:`yices_has_delegate`. The capabilities of each
+delegate are summarized in the following table.
+
+   +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
+   | Delegate          | Always available  | Incremental push/pop    | ``check_with_assumptions``| Unsat core from assumptions      |
+   +===================+===================+=========================+===========================+==================================+
+   | ``y2sat``         | yes               | rebuild on each check   | rebuild on each check     | no                               |
+   +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
+   | ``cadical``       | optional          | yes (selector frames)   | yes                       | yes                              |
+   +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
+   | ``cryptominisat`` | optional          | yes (selector frames)   | yes                       | yes                              |
+   +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
+   | ``kissat``        | optional          | rebuild on each check   | rebuild on each check     | no                               |
+   +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
+
+For incremental QF_BV contexts (``push-pop`` or ``multi-checks``
+mode), CaDiCaL and CryptoMiniSat support a *selector-frames* strategy
+that keeps the delegate live across :c:func:`yices_check_context`
+calls and uses fresh selector literals to retract clauses on
+``yices_pop``. This strategy preserves the delegate's learned clauses
+between checks. It is opt-in via the
+``sat-delegate-selector-frames`` configuration parameter described
+below. When the option is ``"false"`` (the default) or the delegate
+is non-incremental, Yices rebuilds the delegate from the current
+bit-blasted problem at every mutation.
+
+The delegate can also be selected, or one-shot overridden, on a
+per-check basis through the ``delegate`` field of a search-parameter
+record (see :ref:`heuristic_parameters`).
+
+The SAT delegate options are ignored for any logic other than QF_BV.
+
+
 
 Configuration Descriptor
 ........................
@@ -286,6 +333,31 @@ arithmetic fragment and the operating mode:
    +--------------------+-----------------------------------------------------+
    | mode               |  one-shot, multi-checks, push-pop, or interactive   |
    +--------------------+-----------------------------------------------------+
+
+
+Two more parameters control the SAT back-end for QF_BV contexts.
+They are ignored for any other logic. See
+:ref:`sat_delegate_config` above for the meaning of each value.
+
+   +--------------------------------+---------------------+----------------------------------------------+
+   | Name                           |  Value              |  Meaning                                     |
+   +================================+=====================+==============================================+
+   | sat-delegate                   | ``"none"``          |  use the internal Yices SAT solver (default) |
+   |                                +---------------------+----------------------------------------------+
+   |                                | ``"y2sat"``         |  use y2sat as the SAT back-end               |
+   |                                +---------------------+----------------------------------------------+
+   |                                | ``"cadical"``       |  use CaDiCaL as the SAT back-end             |
+   |                                +---------------------+----------------------------------------------+
+   |                                | ``"cryptominisat"`` |  use CryptoMiniSat as the SAT back-end       |
+   |                                +---------------------+----------------------------------------------+
+   |                                | ``"kissat"``        |  use Kissat as the SAT back-end              |
+   +--------------------------------+---------------------+----------------------------------------------+
+   | sat-delegate-selector-frames   | ``"false"``         |  rebuild the delegate on each context        |
+   |                                |                     |  mutation (default)                          |
+   |                                +---------------------+----------------------------------------------+
+   |                                | ``"true"``          |  keep an incremental delegate live across    |
+   |                                |                     |  checks using selector-guarded frames        |
+   +--------------------------------+---------------------+----------------------------------------------+
 
 
 

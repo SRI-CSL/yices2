@@ -2971,11 +2971,28 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *                                          | "true"  | keep an incremental delegate live
  *                                          |         | using selector-guarded frames
  *
- * The SAT delegate options have an effect only for QF_BV contexts.
- * CaDiCaL and CryptoMiniSat support incremental delegate checks. Non-incremental
- * delegates such as y2sat and Kissat are rebuilt from the current bit-blasted
- * problem on each incremental check. "sat-delegate-selector-frames" is ignored
- * for non-incremental delegates.
+ * The SAT delegate options have an effect only for QF_BV contexts. When a
+ * delegate is selected, Yices bit-blasts the bit-vector assertions to CNF as
+ * usual and hands the resulting clause set to the chosen delegate instead of
+ * the internal Yices CDCL SAT solver.
+ *
+ * Delegate capability matrix:
+ *   y2sat         : always available; rebuilt on each incremental check
+ *   cadical       : optional (build flag); incremental, supports check-with-
+ *                   assumptions and unsat-core extraction from assumptions
+ *   cryptominisat : optional (build flag); incremental, supports check-with-
+ *                   assumptions and unsat-core extraction from assumptions
+ *   kissat        : optional (build flag); rebuilt on each incremental check
+ *
+ * "sat-delegate-selector-frames" controls how push/pop is realised against an
+ * incremental delegate: "false" rebuilds the delegate from the current bit-
+ * blasted problem on every mutation (simpler, loses the delegate's learned
+ * clauses), "true" keeps the delegate live across checks with selector-guarded
+ * frames (preserves learned clauses). The option is ignored for non-incremental
+ * delegates.
+ *
+ * yices_has_delegate() reports whether a particular delegate name is included
+ * in the current Yices build.
  *
  * The function returns -1 if there's an error, 0 otherwise.
  *
@@ -3608,9 +3625,19 @@ __YICES_DLLSPEC__ extern void yices_default_params_for_context(const context_t *
  *
  * For QF_BV contexts, parameter name "delegate" can be set to "none",
  * "y2sat", "cadical", "cryptominisat", or "kissat" to select the SAT
- * backend used by yices_check_context.
- * In incremental contexts, non-incremental delegates such as y2sat and Kissat
- * are rebuilt from the current bit-blasted problem on each check.
+ * backend used by yices_check_context (and its variants).
+ *
+ * If "delegate" differs from the SAT delegate configured on the context (see
+ * "sat-delegate" in yices_set_config), it takes effect for that single call
+ * only; the persistent delegate state of the context is left untouched. If
+ * "delegate" is "none" (the default), the context's configured delegate is
+ * used.
+ *
+ * In incremental contexts, non-incremental delegates (y2sat and Kissat) are
+ * rebuilt from the current bit-blasted problem on each check. CaDiCaL and
+ * CryptoMiniSat support incremental delegate checks (see "sat-delegate-
+ * selector-frames" in yices_set_config). The "delegate" parameter is ignored
+ * for any logic other than QF_BV.
  *
  * Return -1 if there's an error, 0 otherwise.
  *

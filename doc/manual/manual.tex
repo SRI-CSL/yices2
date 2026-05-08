@@ -1455,18 +1455,71 @@ of these concepts and application to interpolant construction for
 non-linear arithmetic are presented in a preprint~\cite{jovanovic2021interpolation}.
 
 \section{Third-Party SAT Solvers}
+\label{delegates}
 
-In Yices 2.6.2, we have added support for using third-party Boolean
-satisfiability solvers. Such solvers are optional but can provide
-significant performance improvements on bit-vector problems. Use of
-these SAT solvers is enabled by a command-line option for QF\_BV
-problems. If an external solver is selected, Yices will perform ``bit
-blasting,'' that is, convert the problem to an equisatisfiable SAT
-problem in conjunctive normal form (CNF) and use the selected solver to
-check satisfiability of this CNF formula. CaDiCaL and CryptoMiniSat can
-be used incrementally. Non-incremental delegates such as \texttt{y2sat}
-and Kissat are rebuilt from the current bit-blasted problem on each
-incremental check.
+Yices supports using third-party Boolean satisfiability solvers as the
+back-end CNF engine for QF\_BV problems. Such solvers, called
+\emph{delegates}, are optional but can provide significant performance
+improvements. When a delegate is selected, Yices performs ``bit
+blasting'' as usual --- converting the problem to an equisatisfiable
+SAT problem in conjunctive normal form (CNF) --- and then hands the
+resulting CNF to the selected delegate instead of the internal Yices
+CDCL SAT solver. Bit-blasting itself is unchanged.
+
+Yices recognizes four delegate names. \texttt{y2sat} is an internal
+SAT solver always available in any Yices build. CaDiCaL,
+CryptoMiniSat, and Kissat are external solvers; support for each must
+be enabled at compilation time as explained in
+Chapter~\ref{compilation}. The capability matrix is summarized below.
+\begin{center}
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+Delegate            & Always available & Incremental push/pop &
+                      \texttt{check-sat-assuming} & Unsat core from assumptions \\
+\hline
+\texttt{y2sat}        & yes & rebuild on each check & rebuild on each check & no \\
+\texttt{cadical}      & no  & yes (selector frames) & yes & yes \\
+\texttt{cryptominisat}& no  & yes (selector frames) & yes & yes \\
+\texttt{kissat}       & no  & rebuild on each check & rebuild on each check & no \\
+\hline
+\end{tabular}
+\end{center}
+
+A delegate can be selected in three ways:
+\begin{itemize}
+\item from the SMT-LIB~2 frontend, by passing
+  \texttt{--delegate=<solver>} to \texttt{yices-smt2}
+  (Section~\ref{smt2-tool});
+\item from the API, by setting the \texttt{sat-delegate} parameter on
+  the context configuration with \texttt{yices\_set\_config} before
+  the context is created;
+\item from the API on a per-check basis, by setting the
+  \texttt{delegate} field of a search-parameter record with
+  \texttt{yices\_set\_param}, and passing that record to
+  \texttt{yices\_check\_context} (or one of its variants).
+\end{itemize}
+The one-shot helpers \texttt{yices\_check\_formula} and
+\texttt{yices\_check\_formulas} also accept a delegate name as their
+last argument; they bit-blast the input formulas into a fresh CNF and
+hand it to the chosen delegate.
+
+For incremental QF\_BV contexts (\texttt{push-pop} or
+\texttt{multi-checks} mode), CaDiCaL and CryptoMiniSat support a
+\emph{selector-frames} strategy that keeps the delegate live across
+\texttt{check-sat} calls and uses fresh selector literals to retract
+clauses on \texttt{pop}. This strategy preserves learned clauses
+between checks and is selected by setting the
+\texttt{sat-delegate-selector-frames} configuration parameter to
+\texttt{"true"} on the context. The default is \texttt{"false"}, in
+which case the delegate is rebuilt from the current bit-blasted
+problem at every mutation. The non-incremental delegates
+\texttt{y2sat} and Kissat are always rebuilt on each check; the
+\texttt{sat-delegate-selector-frames} option has no effect for them.
+
+The full list of API names recognized by these mechanisms, together
+with their possible values and error codes, is documented in the
+\texttt{yices.h} header and on the Yices website (see
+Section~\ref{full-api}).
 
 
 
@@ -3654,6 +3707,7 @@ of the language in detail~\cite{SMTLIB:tutorial:2013}.
 
 
 \subsection{Tool Invocation}
+\label{smt2-tool}
 
 To run \texttt{yices-smt2} on an input file, type
 \begin{small}
@@ -4652,6 +4706,7 @@ a model.
 
 
 \section{Full API}
+\label{full-api}
 
 The main header file \texttt{yices.h} includes documentation about all
 API functions. We provide more documentation on the Yices website:
