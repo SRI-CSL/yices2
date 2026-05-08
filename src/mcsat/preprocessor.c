@@ -2699,7 +2699,12 @@ void preprocessor_build_tuple_model(preprocessor_t* pre, model_t* model) {
     value_t leaf_vals[n];
     bool ok = true;
     for (j = 0; j < n; ++j) {
-      value_t v = model_get_term_value(model, leaves.data[j]);
+      term_t leaf = leaves.data[j];
+      value_t v = model_find_term_value(model, leaf);
+      if (v == null_value &&
+          (model->has_alias || term_kind(pre->terms, leaf) != UNINTERPRETED_TERM)) {
+        v = model_get_term_value(model, leaf);
+      }
       if (v < 0) {
         /* The blasted leaf was never assigned a value by the mcsat
          * search (typical for unconstrained tuple components) and
@@ -2710,7 +2715,7 @@ void preprocessor_build_tuple_model(preprocessor_t* pre, model_t* model) {
          * so the original tuple atom can still be reconstructed.
          * vtbl_make_object handles bool / arith / bv / tuple /
          * function / scalar uniformly. */
-        type_t leaf_tau = term_type(pre->terms, leaves.data[j]);
+        type_t leaf_tau = term_type(pre->terms, leaf);
         v = vtbl_make_object(vtbl, leaf_tau);
         if (v < 0) {
           ok = false;
