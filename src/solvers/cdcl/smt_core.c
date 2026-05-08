@@ -2891,11 +2891,8 @@ static void direct_binary_clause(smt_core_t *s, literal_t l1, literal_t l2) {
   add_literal_to_vector(s->bin + l2, l1);
   s->nb_bin_clauses ++;
 
-  if (s->base_level > 0) {
-    // make a copy for push/pop
-    ivector_push(&s->binary_clauses, l1);
-    ivector_push(&s->binary_clauses, l2);
-  }
+  ivector_push(&s->binary_clauses, l1);
+  ivector_push(&s->binary_clauses, l2);
 }
 
 
