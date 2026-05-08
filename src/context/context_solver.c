@@ -778,15 +778,9 @@ static smt_status_t _o_check_context_with_term_assumptions_mcsat(context_t *ctx,
     if (stat != YICES_STATUS_ERROR) {
       stat = check_context_with_model(ctx, params, &mdl, n, assumptions.data);
       if (stat == YICES_STATUS_UNSAT) {
-        term_subst_t subst;
-
         interpolant = context_get_unsat_model_interpolant(ctx);
         assert(interpolant != NULL_TERM);
         core_from_labeled_interpolant(ctx, interpolant, &assumptions, &label_map, &mapped_core);
-
-        init_term_subst(&subst, &tm, n, assumptions.data, a);
-        interpolant = apply_term_subst(&subst, interpolant);
-        delete_term_subst(&subst);
       }
     }
 
@@ -795,7 +789,7 @@ static smt_status_t _o_check_context_with_term_assumptions_mcsat(context_t *ctx,
       context_pop(ctx);
     }
     if (stat == YICES_STATUS_UNSAT) {
-      mcsat_set_unsat_result(ctx->mcsat, interpolant);
+      mcsat_set_unsat_result_from_labeled_interpolant(ctx->mcsat, interpolant, n, assumptions.data, a);
       cache_unsat_core(ctx, &mapped_core);
     }
 
