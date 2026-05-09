@@ -310,14 +310,14 @@ void init_incremental_cadical(incremental_cadical_t *ic) {
   ccadical_set_option(ic->cadical, "elimands", 0);
   ccadical_set_option(ic->cadical, "elimites", 0);
   ccadical_set_option(ic->cadical, "elimxors", 0);
-  ccadical_set_option(ic->cadical, "factor",   0);  /* CaDiCaL 3.0: factor requires explicit reserve() */
-  /* Anchor true_literal (DIMACS var 1) as a permanent unit clause */
-  ccadical_add(ic->cadical, 1);
-  ccadical_add(ic->cadical, 0);
-  ic->depth          = 0;
-  ic->next_act_var   = 1 << 28;  /* 268M: above any realistic bvar range */
-  ic->push_epoch      = 0;
-  ic->last_push_epoch = 0;
+  /* variable declarations and true_literal unit clause deferred to first solve */
+  ic->depth             = 0;
+  ic->declared_vars     = 0;
+  ic->bvar_to_dimacs    = NULL;
+  ic->bvar_map_size     = 0;
+  ic->pop_epoch         = 0;
+  ic->last_pop_epoch    = 0;
+  ic->min_popped_level  = UINT32_MAX;
   sz = INCR_CADICAL_DEFAULT_SIZE;
   ic->size      = sz;
   ic->act_var     = (int32_t *)  safe_malloc(sz * sizeof(int32_t));
@@ -335,6 +335,7 @@ void init_incremental_cadical(incremental_cadical_t *ic) {
 
 void delete_incremental_cadical(incremental_cadical_t *ic) {
   ccadical_reset(ic->cadical);
+  safe_free(ic->bvar_to_dimacs);
   safe_free(ic->act_var);
   safe_free(ic->fwd_units);
   safe_free(ic->fwd_bins);
@@ -364,15 +365,20 @@ static void grow_incremental_cadical(incremental_cadical_t *ic) {
   ic->size = new_size;
 }
 
+static inline int ic_lit2dimacs(const incremental_cadical_t *ic, literal_t l) {
+  int d = ic->bvar_to_dimacs[var_of(l)];
+  return is_pos(l) ? d : -d;
+}
+
 static void ic_add_unit(incremental_cadical_t *ic, literal_t l, int32_t act_dimacs) {
-  ccadical_add(ic->cadical, lit2dimacs(l));
+  ccadical_add(ic->cadical, ic_lit2dimacs(ic, l));
   if (act_dimacs != 0) ccadical_add(ic->cadical, -act_dimacs);
   ccadical_add(ic->cadical, 0);
 }
 
 static void ic_add_binary(incremental_cadical_t *ic, literal_t l1, literal_t l2, int32_t act_dimacs) {
-  ccadical_add(ic->cadical, lit2dimacs(l1));
-  ccadical_add(ic->cadical, lit2dimacs(l2));
+  ccadical_add(ic->cadical, ic_lit2dimacs(ic, l1));
+  ccadical_add(ic->cadical, ic_lit2dimacs(ic, l2));
   if (act_dimacs != 0) ccadical_add(ic->cadical, -act_dimacs);
   ccadical_add(ic->cadical, 0);
 }
@@ -384,7 +390,7 @@ static void ic_forward_long_clause(incremental_cadical_t *ic, clause_t *c, int32
   i = 0;
   l = c->cl[0];
   while (l >= 0) {
-    ccadical_add(ic->cadical, lit2dimacs(l));
+    ccadical_add(ic->cadical, ic_lit2dimacs(ic, l));
     i++;
     l = c->cl[i];
   }
@@ -400,42 +406,57 @@ smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_
   bvar_t x;
   int r;
 
-  if (verbosity == 0) {
-    ccadical_set_option(ic->cadical, "quiet", 1);
-  } else {
-    ccadical_set_option(ic->cadical, "quiet", 0);
-    ccadical_set_option(ic->cadical, "report", 1);
-    if (verbosity == 2) {
-      ccadical_set_option(ic->cadical, "verbose", 1);
-    } else if (verbosity >= 3) {
-      ccadical_set_option(ic->cadical, "verbose", 2);
-    }
-  }
+  cadical_set_verbosity(ic->cadical, verbosity);
 
   d = smt_base_level(core);
   trail_data = core->trail_stack.data;
 
-  /* Assign activation variables for all current push levels.
-   * Every push (first-time or repush after pop) gets a fresh activation
-   * literal, so stale clauses from a previous push cycle are never
-   * re-activated.  When push_epoch is unchanged (consecutive check-sats
-   * at the same depth, no push/pop between them), existing activation
-   * variables are reused and only new clauses are forwarded incrementally. */
-  bool new_push = (ic->push_epoch != ic->last_push_epoch);
+  /* Declare any new Yices bvars in CaDiCaL. Each bvar gets its own fresh
+   * DIMACS variable via declare_one_more_variable(), which protects it from
+   * BVA (factor) reuse even when CaDiCaL adds extension variables between
+   * solves.  The mapping bvar_to_dimacs[] is the authoritative mapping used
+   * for all clause forwarding and model readback. */
+  uint32_t n = (uint32_t) num_vars(core);
+  if (n > ic->declared_vars) {
+    if (n > ic->bvar_map_size) {
+      uint32_t new_sz = (n < 64) ? 64 : n * 2;
+      ic->bvar_to_dimacs = (int32_t *) safe_realloc(ic->bvar_to_dimacs,
+                                                    new_sz * sizeof(int32_t));
+      ic->bvar_map_size = new_sz;
+    }
+    bool first_decl = (ic->declared_vars == 0);
+    for (uint32_t vi = ic->declared_vars; vi < n; vi++) {
+      ic->bvar_to_dimacs[vi] = ccadical_declare_one_more_variable(ic->cadical);
+    }
+    if (first_decl) {
+      /* Anchor true_literal (Yices bvar 0) as a permanent unit clause */
+      ccadical_add(ic->cadical, ic->bvar_to_dimacs[0]);
+      ccadical_add(ic->cadical, 0);
+    }
+    ic->declared_vars = n;
+  }
+
+  /* Assign fresh activation variables only for levels that were popped since
+   * the last solve (tracked via pop_epoch + min_popped_level).  Levels above
+   * the deepest repush always get a new activation variable.  Levels that
+   * haven't been touched keep their existing act_var and just forward new
+   * clauses incrementally — avoiding O(n²) re-forwarding on deep stacks. */
+  bool pop_occurred = (ic->pop_epoch != ic->last_pop_epoch);
+  uint32_t refresh_from = pop_occurred ? ic->min_popped_level : (ic->depth + 1);
   for (k = 1; k <= d; k++) {
     if (k >= ic->size) grow_incremental_cadical(ic);
-    if (k > ic->depth || new_push) {
-      if (ic->next_act_var <= (int32_t) num_vars(core)) {
-        ic->next_act_var = (int32_t) num_vars(core) + 1;
-      }
-      ic->act_var[k] = ic->next_act_var++;
+    if (k >= refresh_from) {
+      ic->act_var[k] = ccadical_declare_one_more_variable(ic->cadical);
       ccadical_freeze(ic->cadical, ic->act_var[k]);
       ic->fwd_units[k]   = trail_data[k-1].nunits;
       ic->fwd_bins[k]    = trail_data[k-1].nbins;
       ic->fwd_clauses[k] = trail_data[k-1].nclauses;
     }
   }
-  if (new_push) ic->last_push_epoch = ic->push_epoch;
+  if (pop_occurred) {
+    ic->last_pop_epoch   = ic->pop_epoch;
+    ic->min_popped_level = UINT32_MAX;
+  }
   ic->depth = d;
 
   /* forward new clauses for each level */
@@ -456,6 +477,8 @@ smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_
     }
     ic->fwd_bins[k] = end_bins;
 
+    /* Level-0 simplification may compact problem_clauses; clamp cursor to avoid overshoot */
+    if (k == 0 && ic->fwd_clauses[k] > end_clauses) ic->fwd_clauses[k] = end_clauses;
     for (i = ic->fwd_clauses[k]; i < end_clauses; i++) {
       ic_forward_long_clause(ic, core->problem_clauses[i], act);
     }
@@ -472,7 +495,7 @@ smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_
   if (r == 10) {
     set_smt_status(core, YICES_STATUS_SAT);
     for (x = 0; x < num_vars(core); x++) {
-      int v = ccadical_val(ic->cadical, (int) x + 1);
+      int v = ccadical_val(ic->cadical, ic->bvar_to_dimacs[x]);
       set_bvar_value(core, x, (v <= 0) ? VAL_FALSE : VAL_TRUE);
     }
     return YICES_STATUS_SAT;

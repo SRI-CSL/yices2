@@ -5814,7 +5814,7 @@ void delete_context(context_t *ctx) {
 
 #if HAVE_CADICAL
   if (ctx->incr_cadical != NULL) {
-    delete_incremental_cadical((incremental_cadical_t *) ctx->incr_cadical);
+    delete_incremental_cadical(ctx->incr_cadical);
     safe_free(ctx->incr_cadical);
     ctx->incr_cadical = NULL;
   }
@@ -5882,7 +5882,7 @@ void reset_context(context_t *ctx) {
 
 #if HAVE_CADICAL
   if (ctx->incr_cadical != NULL) {
-    delete_incremental_cadical((incremental_cadical_t *) ctx->incr_cadical);
+    delete_incremental_cadical(ctx->incr_cadical);
     safe_free(ctx->incr_cadical);
     ctx->incr_cadical = NULL;
   }
@@ -5965,12 +5965,6 @@ void context_push(context_t *ctx) {
   context_eq_cache_push(ctx);
   context_divmod_table_push(ctx);
 
-#if HAVE_CADICAL
-  if (ctx->incr_cadical != NULL) {
-    ((incremental_cadical_t *) ctx->incr_cadical)->push_epoch++;
-  }
-#endif
-
   ctx->base_level ++;
 }
 
@@ -5988,8 +5982,12 @@ void context_pop(context_t *ctx) {
 
 #if HAVE_CADICAL
   if (ctx->incr_cadical != NULL) {
-    incremental_cadical_melt_level((incremental_cadical_t *) ctx->incr_cadical,
-                                   ctx->base_level);
+    incremental_cadical_t *ic = ctx->incr_cadical;
+    incremental_cadical_melt_level(ic, ctx->base_level);
+    ic->pop_epoch++;
+    if (ctx->base_level < ic->min_popped_level) {
+      ic->min_popped_level = ctx->base_level;
+    }
   }
 #endif
 

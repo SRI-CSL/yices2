@@ -400,7 +400,9 @@ extern smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, 
  * across push/pop boundaries using activation literals.
  * ctx->incr_cadical is allocated on first call and reused thereafter.
  */
+#if HAVE_CADICAL
 extern smt_status_t check_with_incremental_cadical(context_t *ctx, uint32_t verbosity);
+#endif
 
 
 /*

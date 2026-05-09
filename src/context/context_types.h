@@ -627,6 +627,9 @@ typedef struct dl_data_s {
 
 
 
+/* Forward declaration for incremental CaDiCaL state (defined in delegate.h) */
+struct incremental_cadical_s;
+
 /**************
  *  CONTEXT   *
  *************/
@@ -734,8 +737,8 @@ struct context_s {
   // initial ordering for forcing mcsat assignment order
   ivector_t mcsat_initial_var_order;
 
-  // incremental CaDiCaL state (NULL if not in use; cast to incremental_cadical_t *)
-  void *incr_cadical;
+  // incremental CaDiCaL state (NULL if not in use)
+  struct incremental_cadical_s *incr_cadical;
 
   // flag for enabling adding quant instances
   bool en_quant;

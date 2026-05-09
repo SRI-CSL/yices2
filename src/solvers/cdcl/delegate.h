@@ -168,17 +168,20 @@ extern void delegate_set_verbosity(delegate_t *delegate, uint32_t level);
 
 #define INCR_CADICAL_DEFAULT_SIZE DEFAULT_DPLL_TRAIL_SIZE
 
-typedef struct {
-  void     *cadical;       /* persistent ccadical instance */
-  uint32_t  depth;         /* push depth at last solve */
-  int32_t   next_act_var;  /* next DIMACS activation variable (above num_vars(core)) */
-  uint32_t  size;          /* allocated capacity for per-level arrays */
-  int32_t  *act_var;       /* act_var[k]: DIMACS var for push level k (1-indexed DIMACS) */
-  uint32_t *fwd_units;     /* fwd_units[k]: cursor into core->stack.lit */
-  uint32_t *fwd_bins;      /* fwd_bins[k]: cursor into core->binary_clauses.data (element index) */
-  uint32_t *fwd_clauses;   /* fwd_clauses[k]: cursor into core->problem_clauses */
-  uint32_t  push_epoch;      /* incremented by context_push; signals a new push occurred */
-  uint32_t  last_push_epoch; /* value of push_epoch seen at the last solve */
+typedef struct incremental_cadical_s {
+  void     *cadical;         /* persistent ccadical instance */
+  uint32_t  depth;           /* push depth at last solve */
+  uint32_t  declared_vars;   /* number of Yices bvars declared in CaDiCaL (0 until first solve) */
+  int32_t  *bvar_to_dimacs;  /* maps Yices bvar x to CaDiCaL DIMACS var; NULL until first solve */
+  uint32_t  bvar_map_size;   /* capacity of bvar_to_dimacs */
+  uint32_t  size;            /* allocated capacity for per-level arrays */
+  int32_t  *act_var;         /* act_var[k]: DIMACS var for push level k (1-indexed DIMACS) */
+  uint32_t *fwd_units;       /* fwd_units[k]: cursor into core->stack.lit */
+  uint32_t *fwd_bins;        /* fwd_bins[k]: cursor into core->binary_clauses.data (element index) */
+  uint32_t *fwd_clauses;     /* fwd_clauses[k]: cursor into core->problem_clauses */
+  uint32_t  pop_epoch;       /* incremented by context_pop; signals a pop occurred */
+  uint32_t  last_pop_epoch;  /* value of pop_epoch seen at the last solve */
+  uint32_t  min_popped_level;/* shallowest level popped since last solve (UINT32_MAX if none) */
 } incremental_cadical_t;
 
 extern void         init_incremental_cadical(incremental_cadical_t *ic);

@@ -1003,9 +1003,9 @@ smt_status_t check_with_incremental_cadical(context_t *ctx, uint32_t verbosity) 
   if (ctx->incr_cadical == NULL) {
     ic = (incremental_cadical_t *) safe_malloc(sizeof(incremental_cadical_t));
     init_incremental_cadical(ic);
-    ctx->incr_cadical = (void *) ic;
+    ctx->incr_cadical = ic;
   } else {
-    ic = (incremental_cadical_t *) ctx->incr_cadical;
+    ic = ctx->incr_cadical;
   }
 
   start_search(core, 0, NULL);
@@ -1020,11 +1020,6 @@ smt_status_t check_with_incremental_cadical(context_t *ctx, uint32_t verbosity) 
       stat = YICES_STATUS_SAT;
     } else {
       stat = solve_with_incremental_cadical(ic, core, verbosity);
-      if (stat == YICES_STATUS_UNKNOWN) {
-        /* CaDiCaL returned unexpected status: fall back to smt_core CDCL */
-        smt_process(core);
-        stat = smt_status(core);
-      }
     }
   }
 
