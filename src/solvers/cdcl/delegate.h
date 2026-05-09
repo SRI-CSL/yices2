@@ -183,6 +183,7 @@ typedef struct {
 
 extern void         init_incremental_cadical(incremental_cadical_t *ic);
 extern void         delete_incremental_cadical(incremental_cadical_t *ic);
+extern void         incremental_cadical_melt_level(incremental_cadical_t *ic, uint32_t level);
 extern smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_t *core, uint32_t verbosity);
 
 #endif /* HAVE_CADICAL */

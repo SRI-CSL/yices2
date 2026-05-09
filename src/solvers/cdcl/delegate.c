@@ -339,6 +339,12 @@ void delete_incremental_cadical(incremental_cadical_t *ic) {
   safe_free(ic->fwd_clauses);
 }
 
+void incremental_cadical_melt_level(incremental_cadical_t *ic, uint32_t level) {
+  if (level < ic->size && ic->act_var[level] != 0) {
+    ccadical_melt(ic->cadical, ic->act_var[level]);
+  }
+}
+
 static void grow_incremental_cadical(incremental_cadical_t *ic) {
   uint32_t new_size, i;
 

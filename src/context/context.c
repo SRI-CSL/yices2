@@ -5986,6 +5986,13 @@ void context_pop(context_t *ctx) {
   context_eq_cache_pop(ctx);
   context_divmod_table_pop(ctx);
 
+#if HAVE_CADICAL
+  if (ctx->incr_cadical != NULL) {
+    incremental_cadical_melt_level((incremental_cadical_t *) ctx->incr_cadical,
+                                   ctx->base_level);
+  }
+#endif
+
   ctx->base_level --;
 }
 
