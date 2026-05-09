@@ -281,6 +281,7 @@ static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   //  ccadical_set_option(d->solver, "elimequivs", 0);
   ccadical_set_option(d->solver, "elimites", 0);
   ccadical_set_option(d->solver, "elimxors", 0);
+  ccadical_set_option(d->solver, "factor", 0);   /* CaDiCaL 3.0: factor requires explicit reserve() */
   // end of fine tuning
   d->add_empty_clause = cadical_add_empty_clause;
   d->add_unit_clause = cadical_add_unit_clause;
@@ -309,6 +310,7 @@ void init_incremental_cadical(incremental_cadical_t *ic) {
   ccadical_set_option(ic->cadical, "elimands", 0);
   ccadical_set_option(ic->cadical, "elimites", 0);
   ccadical_set_option(ic->cadical, "elimxors", 0);
+  ccadical_set_option(ic->cadical, "factor",   0);  /* CaDiCaL 3.0: factor requires explicit reserve() */
   /* Anchor true_literal (DIMACS var 1) as a permanent unit clause */
   ccadical_add(ic->cadical, 1);
   ccadical_add(ic->cadical, 0);
