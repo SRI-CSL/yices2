@@ -312,8 +312,10 @@ void init_incremental_cadical(incremental_cadical_t *ic) {
   /* Anchor true_literal (DIMACS var 1) as a permanent unit clause */
   ccadical_add(ic->cadical, 1);
   ccadical_add(ic->cadical, 0);
-  ic->depth        = 0;
-  ic->next_act_var = 1 << 28;  /* 268M: above any realistic bvar range */
+  ic->depth          = 0;
+  ic->next_act_var   = 1 << 28;  /* 268M: above any realistic bvar range */
+  ic->push_epoch      = 0;
+  ic->last_push_epoch = 0;
   sz = INCR_CADICAL_DEFAULT_SIZE;
   ic->size      = sz;
   ic->act_var     = (int32_t *)  safe_malloc(sz * sizeof(int32_t));
@@ -405,24 +407,16 @@ smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_
   d = smt_base_level(core);
   trail_data = core->trail_stack.data;
 
-  /* Detect and recover from pop+repush: if any level k's forward cursor
-   * overshoots the current clause boundary, a pop occurred since the last
-   * solve at that level. Allocate a fresh activation variable and reset. */
-  for (k = 1; k <= d && k <= ic->depth; k++) {
-    uint32_t cur_end_units, cur_end_bins, cur_end_clauses;
-    if (k < d) {
-      cur_end_units   = trail_data[k].nunits;
-      cur_end_bins    = trail_data[k].nbins;
-      cur_end_clauses = trail_data[k].nclauses;
-    } else {  /* k == d */
-      cur_end_units   = core->nb_unit_clauses;
-      cur_end_bins    = (uint32_t) core->binary_clauses.size;
-      cur_end_clauses = (uint32_t) get_cv_size(core->problem_clauses);
-    }
-    if (ic->fwd_units[k]   > cur_end_units   ||
-        ic->fwd_bins[k]    > cur_end_bins     ||
-        ic->fwd_clauses[k] > cur_end_clauses) {
-      /* pop+repush detected: get a fresh activation var and reset cursors */
+  /* Assign activation variables for all current push levels.
+   * Every push (first-time or repush after pop) gets a fresh activation
+   * literal, so stale clauses from a previous push cycle are never
+   * re-activated.  When push_epoch is unchanged (consecutive check-sats
+   * at the same depth, no push/pop between them), existing activation
+   * variables are reused and only new clauses are forwarded incrementally. */
+  bool new_push = (ic->push_epoch != ic->last_push_epoch);
+  for (k = 1; k <= d; k++) {
+    if (k >= ic->size) grow_incremental_cadical(ic);
+    if (k > ic->depth || new_push) {
       if (ic->next_act_var <= (int32_t) num_vars(core)) {
         ic->next_act_var = (int32_t) num_vars(core) + 1;
       }
@@ -433,19 +427,7 @@ smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_
       ic->fwd_clauses[k] = trail_data[k-1].nclauses;
     }
   }
-
-  /* allocate activation variables for new push levels */
-  for (k = ic->depth + 1; k <= d; k++) {
-    if (k >= ic->size) grow_incremental_cadical(ic);
-    if (ic->next_act_var <= (int32_t) num_vars(core)) {
-      ic->next_act_var = (int32_t) num_vars(core) + 1;
-    }
-    ic->act_var[k] = ic->next_act_var++;
-    ccadical_freeze(ic->cadical, ic->act_var[k]);
-    ic->fwd_units[k]   = trail_data[k - 1].nunits;
-    ic->fwd_bins[k]    = trail_data[k - 1].nbins;
-    ic->fwd_clauses[k] = trail_data[k - 1].nclauses;
-  }
+  if (new_push) ic->last_push_epoch = ic->push_epoch;
   ic->depth = d;
 
   /* forward new clauses for each level */

@@ -5965,6 +5965,12 @@ void context_push(context_t *ctx) {
   context_eq_cache_push(ctx);
   context_divmod_table_push(ctx);
 
+#if HAVE_CADICAL
+  if (ctx->incr_cadical != NULL) {
+    ((incremental_cadical_t *) ctx->incr_cadical)->push_epoch++;
+  }
+#endif
+
   ctx->base_level ++;
 }
 

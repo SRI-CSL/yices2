@@ -177,6 +177,8 @@ typedef struct {
   uint32_t *fwd_units;     /* fwd_units[k]: cursor into core->stack.lit */
   uint32_t *fwd_bins;      /* fwd_bins[k]: cursor into core->binary_clauses.data (element index) */
   uint32_t *fwd_clauses;   /* fwd_clauses[k]: cursor into core->problem_clauses */
+  uint32_t  push_epoch;      /* incremented by context_push; signals a new push occurred */
+  uint32_t  last_push_epoch; /* value of push_epoch seen at the last solve */
 } incremental_cadical_t;
 
 extern void         init_incremental_cadical(incremental_cadical_t *ic);
