@@ -1361,6 +1361,13 @@ smt_status_t check_with_incremental_cadical(context_t *ctx, uint32_t verbosity,
   }
 
   set_delegate_assumption_state(core, n, assumptions, stat, failed);
+  /*
+   * The assumptions pointer stored above points into a caller-owned ivector
+   * that will be freed immediately after we return.  We only need the
+   * has_assumptions / bad_assumption flags (for smt_clear_unsat), so clear
+   * the raw pointer now to prevent any use-after-free.
+   */
+  core->assumptions = NULL;
   return stat;
 }
 #endif
