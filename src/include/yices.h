@@ -2959,7 +2959,40 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *   ----------------------------------------------------------------------------------------
  *   "model-interpolation" | "false"        | don't enable model interpolation (default)
  *                         | "true"         | enable model interpolation
+ *   ----------------------------------------------------------------------------------------
+ *    "sat-delegate"       | "none"         | use the default SAT solver (default)
+ *                         | "y2sat"        | use y2sat for QF_BV contexts
+ *                         | "cadical"      | use CaDiCaL for QF_BV contexts
+ *                         | "cryptominisat"| use CryptoMiniSat for QF_BV contexts
+ *                         | "kissat"       | use Kissat for QF_BV contexts
+ *   ----------------------------------------------------------------------------------------
+ *    "sat-delegate-selector-frames"        | "false" | rebuild delegate clauses after each
+ *                                          |         | context mutation (default)
+ *                                          | "true"  | keep an incremental delegate live
+ *                                          |         | using selector-guarded frames
  *
+ * The SAT delegate options have an effect only for QF_BV contexts. When a
+ * delegate is selected, Yices bit-blasts the bit-vector assertions to CNF as
+ * usual and hands the resulting clause set to the chosen delegate instead of
+ * the internal Yices CDCL SAT solver.
+ *
+ * Delegate capability matrix:
+ *   y2sat         : always available; rebuilt on each incremental check
+ *   cadical       : optional (build flag); incremental, supports check-with-
+ *                   assumptions and unsat-core extraction from assumptions
+ *   cryptominisat : optional (build flag); incremental, supports check-with-
+ *                   assumptions and unsat-core extraction from assumptions
+ *   kissat        : optional (build flag); rebuilt on each incremental check
+ *
+ * "sat-delegate-selector-frames" controls how push/pop is realised against an
+ * incremental delegate: "false" rebuilds the delegate from the current bit-
+ * blasted problem on every mutation (simpler, loses the delegate's learned
+ * clauses), "true" keeps the delegate live across checks with selector-guarded
+ * frames (preserves learned clauses). The option is ignored for non-incremental
+ * delegates.
+ *
+ * yices_has_delegate() reports whether a particular delegate name is included
+ * in the current Yices build.
  *
  * The function returns -1 if there's an error, 0 otherwise.
  *
@@ -3319,8 +3352,6 @@ __YICES_DLLSPEC__ extern int32_t yices_assert_formulas(context_t *ctx, uint32_t 
  */
 __YICES_DLLSPEC__ extern smt_status_t yices_check_context(context_t *ctx, const param_t *params);
 
-
-
 /*
  * Check satisfiability under assumptions.
  *
@@ -3370,6 +3401,11 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_assumptions(conte
  * if one of the terms t[i] is not an uninterpreted term
  *   code = MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED
  *
+ * if one of the terms t[i] has a type that MCSAT cannot decide on
+ * (i.e. not Bool, Int, Real, scalar, BitVector, or a tuple whose
+ * recursively flattened leaves all have one of these types)
+ *   code = MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED
+ *
  * If the context does not have the MCSAT solver enabled
  *   code = CTX_OPERATION_NOT_SUPPORTED
  *
@@ -3417,6 +3453,11 @@ __YICES_DLLSPEC__ extern smt_status_t yices_check_context_with_model(context_t *
  *
  * if one of the terms t[i] is not an uninterpreted term
  *   code = MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED
+ *
+ * if one of the terms t[i] has a type that MCSAT cannot decide on
+ * (i.e. not Bool, Int, Real, scalar, BitVector, or a tuple whose
+ * recursively flattened leaves all have one of these types)
+ *   code = MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED
  *
  * If the context does not have the MCSAT solver enabled
  *   code = CTX_OPERATION_NOT_SUPPORTED
@@ -3506,8 +3547,9 @@ __YICES_DLLSPEC__ extern smt_status_t yices_mcsat_set_initial_var_order(context_
  * a model is returned in ctx->model. This model must be freed when no-longer needed by
  * calling yices_free_model.
  *
- * If something is wrong, the function returns YICES_STATUS_ERROR and sets the yices error report
- * (code = CTX_INVALID_OPERATION).
+ * If something is wrong, the function returns YICES_STATUS_ERROR and sets the yices error report.
+ * This includes CTX_INVALID_OPERATION and any error propagated from the internal
+ * yices_check_context_with_model call used for model refutation.
  *
  * Since 2.6.4.
  */
@@ -3591,6 +3633,22 @@ __YICES_DLLSPEC__ extern void yices_default_params_for_context(const context_t *
  *
  * The parameters are explained in doc/YICES-LANGUAGE
  * (and at http://yices.csl.sri.com/doc/parameters.html)
+ *
+ * For QF_BV contexts, parameter name "delegate" can be set to "none",
+ * "y2sat", "cadical", "cryptominisat", or "kissat" to select the SAT
+ * backend used by yices_check_context (and its variants).
+ *
+ * If "delegate" differs from the SAT delegate configured on the context (see
+ * "sat-delegate" in yices_set_config), it takes effect for that single call
+ * only; the persistent delegate state of the context is left untouched. If
+ * "delegate" is "none" (the default), the context's configured delegate is
+ * used.
+ *
+ * In incremental contexts, non-incremental delegates (y2sat and Kissat) are
+ * rebuilt from the current bit-blasted problem on each check. CaDiCaL and
+ * CryptoMiniSat support incremental delegate checks (see "sat-delegate-
+ * selector-frames" in yices_set_config). The "delegate" parameter is ignored
+ * for any logic other than QF_BV.
  *
  * Return -1 if there's an error, 0 otherwise.
  *
@@ -3940,12 +3998,13 @@ __YICES_DLLSPEC__ extern void yices_model_collect_defined_terms(model_t *mdl, te
  * The delegate is an optional argument used only when logic is "QF_BV".
  * If is ignored otherwise. It must either be NULL or be the name of an
  * external SAT solver to use after bit-blasting. Valid delegates
- * are "cadical", "cryptominisat", and "y2sat".
+ * are "cadical", "cryptominisat", "kissat", and "y2sat".
  * If delegate is NULL, the default SAT solver is used.
  *
- * Support for "cadical" and "cryptominisat" must be enabled at compilation
- * time. The "y2sat" solver is always available. The function will return YICES_STATUS_ERROR
- * and store an error code if the requested delegate is not available.
+ * Support for "cadical", "cryptominisat", and "kissat" must be enabled
+ * at compilation time. The "y2sat" solver is always available. The
+ * function will return YICES_STATUS_ERROR and store an error code if
+ * the requested delegate is not available.
  *
  * Error codes:
  *
@@ -3964,11 +4023,11 @@ __YICES_DLLSPEC__ extern void yices_model_collect_defined_terms(model_t *mdl, te
  * if the logic is known but not supported by Yices
  *   code = CTX_LOGIC_NOT_SUPPORTED
  *
- * if delegate is not one of "cadical", "cryptominisat", "y2sat"
+ * if delegate is not one of "cadical", "cryptominisat", "kissat", "y2sat"
  *   code = CTX_UNKNOWN_DELEGATE
  *
- * if delegate is "cadical" or "cryptominisat" but support for these SAT solvers
- * was not implemented at compile time,
+ * if delegate is "cadical", "cryptominisat", or "kissat" but support
+ * for that SAT solver was not implemented at compile time,
  *   code = CTX_DELEGATE_NOT_AVAILABLE
  *
  * other error codes are possible if the formula is not in the specified logic (cf. yices_assert_formula)

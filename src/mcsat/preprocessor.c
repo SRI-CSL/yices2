@@ -2284,17 +2284,26 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
       break;
     }
 
-    case ARITH_CEIL:        // floor: purify, but its interpreted
+    case ARITH_CEIL:        // ceil: purify, but its interpreted
     {
       term_t child = arith_ceil_arg(terms, current);
       term_t child_pre = preprocessor_get(pre, child);
 
       if (child_pre != NULL_TERM) {
-        child_pre = preprocessor_purify(pre, child_pre, out);
-        if (child_pre != child) {
-          current_pre = arith_floor(terms, child_pre);
+        if (term_kind(terms, child_pre) == ARITH_CONSTANT) {
+          rational_t ceil;
+          q_init(&ceil);
+          q_set(&ceil, rational_term_desc(terms, child_pre));
+          q_ceil(&ceil);
+          current_pre = arith_constant(terms, &ceil);
+          q_clear(&ceil);
         } else {
-          current_pre = current;
+          child_pre = preprocessor_purify(pre, child_pre, out);
+          if (child_pre != child) {
+            current_pre = arith_ceil(terms, child_pre);
+          } else {
+            current_pre = current;
+          }
         }
       } else {
         ivector_push(pre_stack, child);
@@ -2386,6 +2395,12 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
 
   assert(t_pre != NULL_TERM);
   return t_pre;
+}
+
+void preprocessor_tuple_blast(preprocessor_t* pre, term_t t, ivector_t* out) {
+  ivector_reset(out);
+  tuple_blast_term(pre, t);
+  tuple_blast_get(pre, t, out);
 }
 
 void preprocessor_set_exception_handler(preprocessor_t* pre, jmp_buf* handler) {
