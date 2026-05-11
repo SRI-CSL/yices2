@@ -603,7 +603,8 @@ static void process_command_line(int argc, char *argv[]) {
     switch (logic_code) {
     case SMT_UNKNOWN:
       if (arith_code == ARITH_FLOYD_WARSHALL) {
-	fprintf(stderr, "%s: please specify the logic (either QF_IDL or QF_RDL)\n", parser.command_name);
+	fprintf(stderr, "%s: please specify a difference-logic fragment (QF_IDL, QF_RDL, QF_UFIDL, or QF_UFRDL)\n",
+                parser.command_name);
 	goto bad_usage;
       }
       // use default settings
@@ -631,6 +632,26 @@ static void process_command_line(int argc, char *argv[]) {
 	arch = CTX_ARCH_RFW;
       } else {
 	arch = CTX_ARCH_AUTO_RDL;
+      }
+      iflag = false;
+      qflag = false;
+      break;
+
+    case QF_UFIDL:
+      if (arith_code == ARITH_FLOYD_WARSHALL) {
+	arch = CTX_ARCH_EGIFW;
+      } else {
+	arch = CTX_ARCH_EGSPLX;
+      }
+      iflag = false;
+      qflag = false;
+      break;
+
+    case QF_UFRDL:
+      if (arith_code == ARITH_FLOYD_WARSHALL) {
+	arch = CTX_ARCH_EGRFW;
+      } else {
+	arch = CTX_ARCH_EGSPLX;
       }
       iflag = false;
       qflag = false;
@@ -666,7 +687,7 @@ static void process_command_line(int argc, char *argv[]) {
    * Set the mode
    */
   if (mode_code < 0) {
-    if ((logic_code == QF_IDL || logic_code == QF_RDL) && arch != CTX_ARCH_SPLX) {
+    if (context_arch_has_ifw(arch) || context_arch_has_rfw(arch)) {
       // Floyd-Warshall or 'Auto' --> mode must be one-shot
       mode = CTX_MODE_ONECHECK;
     } else if (input_filename != NULL) {
@@ -691,7 +712,7 @@ static void process_command_line(int argc, char *argv[]) {
   } else {
     assert(CTX_MODE_ONECHECK <= mode_code && mode_code <= CTX_MODE_INTERACTIVE);
     mode = (context_mode_t) mode_code;
-    if ((logic_code == QF_IDL || logic_code == QF_RDL) && arch != CTX_ARCH_SPLX) {
+    if (context_arch_has_ifw(arch) || context_arch_has_rfw(arch)) {
       if (mode != CTX_MODE_ONECHECK) {
         fprintf(stderr, "%s: the Floyd-Warshall solvers support only mode='one-shot'\n", parser.command_name);
         goto bad_usage;
@@ -4114,4 +4135,3 @@ int yices_main(int argc, char *argv[]) {
 
   return exit_code;
 }
-

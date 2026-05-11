@@ -21,8 +21,9 @@
  */
 
 /*
- * This solver is for integer difference logic only. It cannot be
- * attached to the egraph.
+ * This solver is for integer difference logic only. It supports
+ * E-graph attachment only when shared equalities/disequalities between
+ * attached variables remain representable as difference-logic triples.
  *
  * WARNING: All path length computations are done using signed 32bit
  * integers. There's some check for this now (not very precise).
@@ -79,6 +80,8 @@
 
 #include "context/context_types.h"
 #include "solvers/cdcl/smt_core.h"
+#include "solvers/egraph/egraph.h"
+#include "solvers/egraph/egraph_assertion_queues.h"
 #include "solvers/floyd_warshall/dl_vartable.h"
 #include "terms/poly_buffer.h"
 #include "utils/arena.h"
@@ -119,6 +122,7 @@ typedef struct idl_edge_s {
 /*
  * Stack of edges + a literal for each edge
  * - for edge i: lit[i] == true_literal if i was asserted as an axiom
+ * - lit[i] == null_literal if i was asserted by an E-graph equality
  * - otherwise lit[i] = a literal l in the smt_core, such that l is true
  *   and l is attached to an idl atom
  */
@@ -127,6 +131,9 @@ typedef struct edge_stack_s {
   uint32_t top;
   idl_edge_t *data;
   literal_t *lit;
+  thvar_t *eq_var0;
+  thvar_t *eq_var1;
+  int32_t *eq_id;
 } edge_stack_t;
 
 #define DEFAULT_IDL_EDGE_STACK_SIZE 100
@@ -211,16 +218,25 @@ typedef struct idl_atom_s {
 
 
 /*
- * Conversion from atom index to void* (and back)
- * TODO: add a 2bit tag to make this consistent with the egraph
- * tagging of atoms??
+ * Conversion from atom index to void* (and back).
+ *
+ * The pointer stored in the SMT core's atom map must be tagged with
+ * ARITH_ATM_TAG so that the egraph (when IDL is attached as an
+ * arithmetic satellite) routes literal-level assertions of IDL atoms
+ * back to idl_assert_atom rather than treating them as egraph atom_t*
+ * pointers.  The encoding mirrors arithatom_idx2tagged_ptr in
+ * arith_atomtable.h: shift the index left by 2 and OR in the tag.
+ *
+ * In pure (non-egraph) IDL mode the encoding is irrelevant beyond
+ * round-tripping, but using the same tagged form keeps IDL consistent
+ * with simplex and avoids two encodings of the same atom map entry.
  */
 static inline void *index2atom(int32_t i) {
-  return (void *) ((size_t) i);
+  return (void *) (((size_t) i << 2) | ARITH_ATM_TAG);
 }
 
 static inline int32_t atom2index(void *a) {
-  return (int32_t) ((size_t) a);
+  return (int32_t) (((size_t) a & ~ATM_TAG_MASK) >> 2);
 }
 
 
@@ -352,6 +368,7 @@ typedef struct idl_solver_s {
    */
   smt_core_t *core;
   gate_manager_t *gate_manager;
+  egraph_t *egraph;
 
   /*
    * Base level and decision level (same interpretation as in smt_core)
@@ -384,6 +401,7 @@ typedef struct idl_solver_s {
    */
   idl_atbl_t atoms;
   idl_astack_t astack;
+  eassertion_queue_t egraph_queue;
 
   /*
    * Backtracking stack
@@ -438,7 +456,7 @@ typedef struct idl_solver_s {
  * - core = the attached smt-core object
  * - gates = the attached gate manager
  */
-extern void init_idl_solver(idl_solver_t *solver, smt_core_t *core, gate_manager_t *gates);
+extern void init_idl_solver(idl_solver_t *solver, smt_core_t *core, gate_manager_t *gates, egraph_t *egraph);
 
 
 /*
@@ -458,6 +476,8 @@ extern void delete_idl_solver(idl_solver_t *solver);
  */
 extern th_ctrl_interface_t *idl_ctrl_interface(idl_solver_t *solver);
 extern th_smt_interface_t  *idl_smt_interface(idl_solver_t *solver);
+extern th_egraph_interface_t *idl_egraph_interface(idl_solver_t *solver);
+extern arith_egraph_interface_t *idl_arith_egraph_interface(idl_solver_t *solver);
 
 
 /*

@@ -25,6 +25,9 @@
  * Most of the algorithms and data structures are copied from
  * idl_floyd_warshall. The main difference is the use of
  * rational constants as edge labels.
+ *
+ * E-graph attachment is supported only when shared equalities/disequalities
+ * between attached variables remain representable as difference-logic triples.
  */
 
 /*
@@ -78,6 +81,8 @@
 
 #include "context/context_types.h"
 #include "solvers/cdcl/smt_core.h"
+#include "solvers/egraph/egraph.h"
+#include "solvers/egraph/egraph_assertion_queues.h"
 #include "solvers/floyd_warshall/dl_vartable.h"
 #include "terms/poly_buffer.h"
 #include "terms/rationals.h"
@@ -143,6 +148,7 @@ typedef struct rdl_edge_s {
 /*
  * Stack of edges + a literal for each edge
  * - for edge i: lit[i] == true_literal if i was asserted as an axiom
+ * - lit[i] == null_literal if i was asserted by an E-graph equality
  * - otherwise lit[i] = a literal l in the smt_core, such that l is true
  *   and l is attached to an rdl atom
  */
@@ -151,6 +157,9 @@ typedef struct rdl_edge_stack_s {
   uint32_t top;
   rdl_edge_t *data;
   literal_t *lit;
+  thvar_t *eq_var0;
+  thvar_t *eq_var1;
+  int32_t *eq_id;
   rdl_const_t *cost;
 } rdl_edge_stack_t;
 
@@ -241,16 +250,23 @@ typedef struct rdl_atom_s {
 
 
 /*
- * Conversion from atom index to void* (and back)
- * TODO: add a 2bit tag to make this consistent with the egraph
- * tagging of atoms??
+ * Conversion from atom index to void* (and back).
+ *
+ * The pointer stored in the SMT core's atom map must be tagged with
+ * ARITH_ATM_TAG so that the egraph (when RDL is attached as an
+ * arithmetic satellite) routes literal-level assertions of RDL atoms
+ * back to rdl_assert_atom rather than treating them as egraph atom_t*
+ * pointers.  Encoding mirrors arithatom_idx2tagged_ptr in
+ * arith_atomtable.h.  In pure (non-egraph) RDL mode the encoding only
+ * needs to round-trip; using the same tagged form keeps RDL consistent
+ * with simplex.
  */
 static inline void *rdl_index2atom(int32_t i) {
-  return (void *) ((size_t) i);
+  return (void *) (((size_t) i << 2) | ARITH_ATM_TAG);
 }
 
 static inline int32_t rdl_atom2index(void *a) {
-  return (int32_t) ((size_t) a);
+  return (int32_t) (((size_t) a & ~ATM_TAG_MASK) >> 2);
 }
 
 
@@ -382,6 +398,7 @@ typedef struct rdl_solver_s {
    */
   smt_core_t *core;
   gate_manager_t *gate_manager;
+  egraph_t *egraph;
 
   /*
    * Base level and decision level (same interpretation as in smt_core)
@@ -414,6 +431,7 @@ typedef struct rdl_solver_s {
    */
   rdl_atbl_t atoms;
   rdl_astack_t astack;
+  eassertion_queue_t egraph_queue;
 
   /*
    * Backtracking stack
@@ -480,7 +498,7 @@ typedef struct rdl_solver_s {
  * - core = the attached smt-core object
  * - gates = the attached gate manager
  */
-extern void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core, gate_manager_t *gates);
+extern void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core, gate_manager_t *gates, egraph_t *egraph);
 
 
 /*
@@ -500,6 +518,8 @@ extern void delete_rdl_solver(rdl_solver_t *solver);
  */
 extern th_ctrl_interface_t *rdl_ctrl_interface(rdl_solver_t *solver);
 extern th_smt_interface_t  *rdl_smt_interface(rdl_solver_t *solver);
+extern th_egraph_interface_t *rdl_egraph_interface(rdl_solver_t *solver);
+extern arith_egraph_interface_t *rdl_arith_egraph_interface(rdl_solver_t *solver);
 
 
 /*

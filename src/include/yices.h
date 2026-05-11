@@ -2843,8 +2843,12 @@ __YICES_DLLSPEC__ extern void yices_garbage_collect(const term_t t[], uint32_t n
  * - real Floyd-Warshall solver alone
  * - egraph + bitvector solver
  * - egraph + simplex solver
+ * - egraph + integer Floyd-Warshall solver
+ * - egraph + real Floyd-Warshall solver
  * - egraph + array solver
  * - egraph + bitvector + array solver
+ * - egraph + bitvector + integer Floyd-Warshall solver
+ * - egraph + bitvector + real Floyd-Warshall solver
  * - egraph + simplex + array solver
  * - egraph + simplex + bitvector + array solver
  *
@@ -2866,6 +2870,12 @@ __YICES_DLLSPEC__ extern void yices_garbage_collect(const term_t t[], uint32_t n
  * - push/pop: push and pop are supported (implies multiple checks)
  * - clean interrupts are supported (implies push/pop)
  * Currently, the Floyd-Warshall solvers can only be used in one-shot mode.
+ * They can be used alone, or with the egraph, or with egraph + bitvector
+ * solver. They cannot be combined with the array/function solver. If the
+ * bitvector solver is requested together with a Floyd-Warshall solver, the
+ * egraph is added implicitly. Disequalities and distinct constraints between
+ * Floyd-Warshall-attached arithmetic terms are handled lazily during model
+ * reconciliation, not eagerly during theory propagation.
  *
  * By default, a new solver is configured as follows:
  * - solvers: egraph + simplex + bitvector + array solver

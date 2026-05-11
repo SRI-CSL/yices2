@@ -8813,8 +8813,17 @@ static void context_set_default_options(context_t *ctx, smt_logic_t logic, conte
     enable_ite_flattening(ctx);
     break;
 
+  case CTX_ARCH_EGIFW:
+  case CTX_ARCH_EGRFW:
+    enable_diseq_and_or_flattening(ctx);
+    enable_assert_ite_bounds(ctx);
+    enable_ite_flattening(ctx);
+    break;
+
   case CTX_ARCH_EGBV:
   case CTX_ARCH_EGFUNBV:
+  case CTX_ARCH_EGBVIFW:
+  case CTX_ARCH_EGBVRFW:
     // no ite_flattening (TO BE CONFIRMED)
     enable_diseq_and_or_flattening(ctx);
     break;
@@ -9384,8 +9393,21 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
     }
     break;
 
+  case CTX_ARCH_EGIFW:        // egraph+integer floyd-warshall
+  case CTX_ARCH_EGRFW:        // egraph+real floyd-warshall
+    params->use_dyn_ack = true;
+    params->use_bool_dyn_ack = true;
+    params->cache_tclauses = true;
+    params->tclause_size = 20;
+    params->use_optimistic_fcheck = true;
+    params->branching = BRANCHING_NEGATIVE;
+    params->max_interface_eqs = 15;
+    break;
+
   case CTX_ARCH_EGBV:         // egraph+bitvector solver
   case CTX_ARCH_EGFUNBV:      // egraph+fun+bitvector
+  case CTX_ARCH_EGBVIFW:      // egraph+bitvector+integer floyd-warshall
+  case CTX_ARCH_EGBVRFW:      // egraph+bitvector+real floyd-warshall
     // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
 #if 1
     params->fast_restart = true;
@@ -9400,6 +9422,11 @@ void yices_set_default_params(param_t *params, smt_logic_t logic, context_arch_t
 #endif
     params->randomness = 0.0;
     params->max_interface_eqs = 15;
+    if (arch == CTX_ARCH_EGBVIFW || arch == CTX_ARCH_EGBVRFW) {
+      params->cache_tclauses = true;
+      params->tclause_size = 20;
+      params->use_optimistic_fcheck = true;
+    }
     if (logic == QF_UFBV) {
       // randomness helps for the SMT benchmarks
       params->randomness = 0.02;

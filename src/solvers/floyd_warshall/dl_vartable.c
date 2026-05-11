@@ -133,6 +133,7 @@ void init_dl_vartable(dl_vartable_t *tbl) {
   tbl->nvars = 0;
   tbl->size = n;
   tbl->triple = (dl_triple_t *) safe_malloc(n * sizeof(dl_triple_t));
+  tbl->eterm = NULL;
   init_int_htbl(&tbl->htbl, 0);
   init_dl_trail_stack(&tbl->stack);
 }
@@ -141,14 +142,21 @@ void init_dl_vartable(dl_vartable_t *tbl) {
  * Make the table 50% larger
  */
 static void extend_dl_vartable(dl_vartable_t *tbl) {
-  uint32_t n;
+  uint32_t i, n, old_size;
 
+  old_size = tbl->size;
   n = tbl->size + 1;
   n += n >> 1;
   if (n >= MAX_DL_VARTABLE_SIZE) {
     out_of_memory();
   }
   tbl->triple = (dl_triple_t *) safe_realloc(tbl->triple, n * sizeof(dl_triple_t));
+  if (tbl->eterm != NULL) {
+    tbl->eterm = (eterm_t *) safe_realloc(tbl->eterm, n * sizeof(eterm_t));
+    for (i=old_size; i<n; i++) {
+      tbl->eterm[i] = null_eterm;
+    }
+  }
   tbl->size = n;
 }
 
@@ -157,7 +165,9 @@ static void extend_dl_vartable(dl_vartable_t *tbl) {
  */
 void delete_dl_vartable(dl_vartable_t *tbl) {
   safe_free(tbl->triple);
+  safe_free(tbl->eterm);
   tbl->triple = NULL;
+  tbl->eterm = NULL;
   delete_int_htbl(&tbl->htbl);
   delete_dl_trail_stack(&tbl->stack);
 }
@@ -169,6 +179,27 @@ void reset_dl_vartable(dl_vartable_t *tbl) {
   tbl->nvars = 0;
   reset_int_htbl(&tbl->htbl);
   reset_dl_trail_stack(&tbl->stack);
+}
+
+
+/*
+ * Remove attached eterms whose id is >= nterms
+ */
+void dl_vartable_remove_eterms(dl_vartable_t *tbl, uint32_t nterms) {
+  eterm_t *tmp;
+  eterm_t t;
+  uint32_t i, n;
+
+  tmp = tbl->eterm;
+  if (tmp != NULL) {
+    n = tbl->nvars;
+    for (i=0; i<n; i++) {
+      t = tmp[i];
+      if (t != null_eterm && t >= nterms) {
+        tmp[i] = null_eterm;
+      }
+    }
+  }
 }
 
 
@@ -458,6 +489,9 @@ static int32_t build_dl_var(dl_var_hobj_t *o) {
   tbl->triple[x].source = d->source;
   q_init(&tbl->triple[x].constant);
   q_set(&tbl->triple[x].constant, &d->constant);
+  if (tbl->eterm != NULL) {
+    tbl->eterm[x] = null_eterm;
+  }
 
   return x;
 }
@@ -477,6 +511,30 @@ thvar_t get_dl_var(dl_vartable_t *tbl, dl_triple_t *d) {
   hobj.triple= d;
 
   return int_htbl_get_obj(&tbl->htbl, (int_hobj_t*) &hobj);
+}
+
+
+/*
+ * Attach eterm t to variable x
+ */
+void attach_eterm_to_dl_var(dl_vartable_t *tbl, thvar_t x, eterm_t t) {
+  eterm_t *tmp;
+  uint32_t i, n;
+
+  assert(0 <= x && x < tbl->nvars && t != null_eterm);
+
+  tmp = tbl->eterm;
+  if (tmp == NULL) {
+    n = tbl->size;
+    tmp = (eterm_t *) safe_malloc(n * sizeof(eterm_t));
+    for (i=0; i<n; i++) {
+      tmp[i] = null_eterm;
+    }
+    tbl->eterm = tmp;
+  }
+
+  assert(tmp[x] == null_eterm || tmp[x] == t);
+  tmp[x] = t;
 }
 
 
@@ -690,5 +748,3 @@ bool rescale_poly_buffer_to_dl_triple(poly_buffer_t *b, dl_triple_t *d) {
 
   return true;
 }
-
-

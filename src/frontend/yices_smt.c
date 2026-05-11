@@ -1901,9 +1901,9 @@ static int process_benchmark(char *filename) {
 
     case QF_UFIDL:
       /*
-       * Some SMT-LIB benchmarks labeled as QF_UFIDL are actually
-       * pure IDL so we allow IDL floyd-warshall here.
-       * The default is EGRAPH + SIMPLEX.
+       * The default is EGRAPH + SIMPLEX. If Floyd-Warshall is selected,
+       * attach it as an E-graph arithmetic satellite so UF equalities are
+       * still handled by the E-graph.
        */
       switch (arith_solver) {
       case ARITH_SOLVER_AUTOMATIC:
@@ -1911,7 +1911,7 @@ static int process_benchmark(char *filename) {
         arch = CTX_ARCH_EGSPLX;
         break;
       case ARITH_SOLVER_FLOYD_WARSHALL:
-        arch = CTX_ARCH_IFW;
+        arch = CTX_ARCH_EGIFW;
         break;
       }
       break;
@@ -1921,6 +1921,21 @@ static int process_benchmark(char *filename) {
        * EGRAPH + SIMPLEX
        */
       arch = CTX_ARCH_EGSPLX;
+      break;
+
+    case QF_UFRDL:
+      /*
+       * EGRAPH + SIMPLEX by default; EGRAPH + RFW if requested.
+       */
+      switch (arith_solver) {
+      case ARITH_SOLVER_AUTOMATIC:
+      case ARITH_SOLVER_SIMPLEX:
+        arch = CTX_ARCH_EGSPLX;
+        break;
+      case ARITH_SOLVER_FLOYD_WARSHALL:
+        arch = CTX_ARCH_EGRFW;
+        break;
+      }
       break;
 
     case QF_UFLIA:
@@ -2108,4 +2123,3 @@ int main(int argc, char *argv[]) {
   parse_command_line(argc, argv);
   return process_benchmark(filename);
 }
-

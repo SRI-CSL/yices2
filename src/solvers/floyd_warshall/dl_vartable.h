@@ -98,6 +98,7 @@ typedef struct dl_trail_stack_s {
  * Variable table:
  * - nvars = number of variables in the table
  * - table->triple[i] = triple for variable x
+ * - table->eterm[i] = attached E-graph term for x, if any
  * - size = full size of array triple
  * - hash table for hash consing
  * - stack for push/pop
@@ -106,6 +107,7 @@ typedef struct dl_vartable_s {
   uint32_t nvars;
   uint32_t size;
   dl_triple_t *triple;
+  eterm_t *eterm;
 
   int_htbl_t htbl;
   dl_trail_stack_t stack;
@@ -141,6 +143,13 @@ extern void delete_dl_vartable(dl_vartable_t *table);
  * Reset: clear the mapping/remove all variables
  */
 extern void reset_dl_vartable(dl_vartable_t *table);
+
+
+/*
+ * Remove attached eterms whose id is >= nterms
+ * - used after E-graph pop
+ */
+extern void dl_vartable_remove_eterms(dl_vartable_t *table, uint32_t nterms);
 
 
 /*
@@ -191,6 +200,31 @@ extern void copy_dl_var_triple(dl_vartable_t *table, thvar_t x, dl_triple_t *d);
  * - create a fresh variable with the given triple as descriptor otherwise
  */
 extern thvar_t get_dl_var(dl_vartable_t *table, dl_triple_t *d);
+
+
+/*
+ * Attach eterm t to variable x
+ * - x must not have an existing different eterm attached
+ */
+extern void attach_eterm_to_dl_var(dl_vartable_t *table, thvar_t x, eterm_t t);
+
+
+/*
+ * Check whether x has an attached eterm
+ */
+static inline bool dl_var_has_eterm(dl_vartable_t *table, thvar_t x) {
+  assert(0 <= x && x < table->nvars);
+  return table->eterm != NULL && table->eterm[x] != null_eterm;
+}
+
+
+/*
+ * Return the attached eterm, or null_eterm
+ */
+static inline eterm_t dl_var_get_eterm(dl_vartable_t *table, thvar_t x) {
+  assert(0 <= x && x < table->nvars);
+  return table->eterm == NULL ? null_eterm : table->eterm[x];
+}
 
 
 /*

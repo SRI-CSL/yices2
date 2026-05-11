@@ -182,10 +182,14 @@ typedef enum {
   CTX_ARCH_BV,           // bitvector solver
   CTX_ARCH_EGFUN,        // egraph+array/function theory
   CTX_ARCH_EGSPLX,       // egraph+simplex
+  CTX_ARCH_EGIFW,        // egraph+integer floyd-warshall
+  CTX_ARCH_EGRFW,        // egraph+real floyd-warshall
   CTX_ARCH_EGBV,         // egraph+bitvector solver
   CTX_ARCH_EGFUNSPLX,    // egraph+fun+simplex
   CTX_ARCH_EGFUNBV,      // egraph+fun+bitvector
   CTX_ARCH_EGSPLXBV,     // egraph+simplex+bitvector
+  CTX_ARCH_EGBVIFW,      // egraph+bitvector+integer floyd-warshall
+  CTX_ARCH_EGBVRFW,      // egraph+bitvector+real floyd-warshall
   CTX_ARCH_EGFUNSPLXBV,  // all solvers (should be the default)
 
   CTX_ARCH_AUTO_IDL,     // either simplex or integer floyd-warshall

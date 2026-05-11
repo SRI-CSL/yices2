@@ -36,6 +36,7 @@
 
 #include "solvers/floyd_warshall/idl_floyd_warshall.h"
 #include "utils/hash_functions.h"
+#include "utils/index_vectors.h"
 #include "utils/memalloc.h"
 
 
@@ -51,6 +52,10 @@
 #endif
 
 
+static bool idl_process_egraph_assertions(idl_solver_t *solver);
+static void idl_remove_dead_eterms(idl_solver_t *solver);
+
+
 
 /****************
  *  EDGE STACK  *
@@ -61,10 +66,20 @@
  * - n = initial size
  */
 static void init_edge_stack(edge_stack_t *stack, uint32_t n) {
+  uint32_t i;
+
   assert(n < MAX_IDL_EDGE_STACK_SIZE);
 
   stack->data = (idl_edge_t *) safe_malloc(n * sizeof(idl_edge_t));
   stack->lit = (literal_t *) safe_malloc(n * sizeof(literal_t));
+  stack->eq_var0 = (thvar_t *) safe_malloc(n * sizeof(thvar_t));
+  stack->eq_var1 = (thvar_t *) safe_malloc(n * sizeof(thvar_t));
+  stack->eq_id = (int32_t *) safe_malloc(n * sizeof(int32_t));
+  for (i=0; i<n; i++) {
+    stack->eq_var0[i] = null_thvar;
+    stack->eq_var1[i] = null_thvar;
+    stack->eq_id[i] = -1;
+  }
   stack->size = n;
   stack->top = 0;
 }
@@ -74,8 +89,9 @@ static void init_edge_stack(edge_stack_t *stack, uint32_t n) {
  * Make the stack 50% larger
  */
 static void extend_edge_stack(edge_stack_t *stack) {
-  uint32_t n;
+  uint32_t i, n, old_size;
 
+  old_size = stack->size;
   n = stack->size + 1;
   n += n>>1;
   if (n >= MAX_IDL_EDGE_STACK_SIZE) {
@@ -84,6 +100,14 @@ static void extend_edge_stack(edge_stack_t *stack) {
 
   stack->data = (idl_edge_t *) safe_realloc(stack->data, n * sizeof(idl_edge_t));
   stack->lit = (literal_t *) safe_realloc(stack->lit, n * sizeof(literal_t));
+  stack->eq_var0 = (thvar_t *) safe_realloc(stack->eq_var0, n * sizeof(thvar_t));
+  stack->eq_var1 = (thvar_t *) safe_realloc(stack->eq_var1, n * sizeof(thvar_t));
+  stack->eq_id = (int32_t *) safe_realloc(stack->eq_id, n * sizeof(int32_t));
+  for (i=old_size; i<n; i++) {
+    stack->eq_var0[i] = null_thvar;
+    stack->eq_var1[i] = null_thvar;
+    stack->eq_id[i] = -1;
+  }
   stack->size = n;
 }
 
@@ -106,6 +130,34 @@ static void push_edge(edge_stack_t *stack, int32_t x, int32_t y, int32_t c, lite
   stack->data[i].cost = c;
 #endif
   stack->lit[i] = l;
+  stack->eq_var0[i] = null_thvar;
+  stack->eq_var1[i] = null_thvar;
+  stack->eq_id[i] = -1;
+  stack->top = i+1;
+}
+
+
+/*
+ * Add an E-graph equality edge to the stack
+ */
+static void push_egraph_edge(edge_stack_t *stack, int32_t x, int32_t y, int32_t c,
+                             thvar_t v0, thvar_t v1, int32_t id) {
+  uint32_t i;
+
+  i = stack->top;
+  if (i == stack->size) {
+    extend_edge_stack(stack);
+  }
+  assert(i < stack->size);
+  stack->data[i].source = x;
+  stack->data[i].target = y;
+#ifndef NDEBUG
+  stack->data[i].cost = c;
+#endif
+  stack->lit[i] = null_literal;
+  stack->eq_var0[i] = v0;
+  stack->eq_var1[i] = v1;
+  stack->eq_id[i] = id;
   stack->top = i+1;
 }
 
@@ -124,8 +176,14 @@ static inline void reset_edge_stack(edge_stack_t *stack) {
 static inline void delete_edge_stack(edge_stack_t *stack) {
   safe_free(stack->data);
   safe_free(stack->lit);
+  safe_free(stack->eq_var0);
+  safe_free(stack->eq_var1);
+  safe_free(stack->eq_id);
   stack->data = NULL;
   stack->lit = NULL;
+  stack->eq_var0 = NULL;
+  stack->eq_var1 = NULL;
+  stack->eq_id = NULL;
 }
 
 
@@ -434,7 +492,8 @@ static inline void idl_graph_save_cell(idl_graph_t *graph, idl_cell_t *r) {
  * - x and y must be valid vertices, and x must be different from y
  * - the new edge must not introduce a negative circuit
  */
-static void idl_graph_add_edge(idl_graph_t *graph, int32_t x, int32_t y, int32_t c, literal_t l, int32_t k) {
+static void idl_graph_add_edge(idl_graph_t *graph, int32_t x, int32_t y, int32_t c, literal_t l,
+                               thvar_t eq_var0, thvar_t eq_var1, int32_t eq_id, int32_t k) {
   int32_t id, z, w, d;
   idl_cell_t *r, *s;
   ivector_t *v;
@@ -454,7 +513,11 @@ static void idl_graph_add_edge(idl_graph_t *graph, int32_t x, int32_t y, int32_t
   assert(0 <= x && x < m->dim && 0 <= y && y < m->dim && x != y);
 
   id = graph->edges.top; // index of the new edge
-  push_edge(&graph->edges, x, y, c, l);
+  if (l == null_literal) {
+    push_egraph_edge(&graph->edges, x, y, c, eq_var0, eq_var1, eq_id);
+  } else {
+    push_edge(&graph->edges, x, y, c, l);
+  }
 
   /*
    * collect relevant vertices in vector v:
@@ -539,13 +602,31 @@ static void idl_graph_remove_edges(idl_graph_t *graph, int32_t e, uint32_t c) {
 
 
 /*
+ * Add the E-graph explanation for edge i to vector v.
+ */
+static void idl_explain_egraph_edge(idl_solver_t *solver, int32_t i, ivector_t *v) {
+  edge_stack_t *edges;
+  eterm_t t0, t1;
+
+  assert(solver->egraph != NULL);
+  edges = &solver->graph.edges;
+  t0 = dl_var_get_eterm(&solver->vtbl, edges->eq_var0[i]);
+  t1 = dl_var_get_eterm(&solver->vtbl, edges->eq_var1[i]);
+  assert(t0 != null_eterm && t1 != null_eterm && edges->eq_id[i] >= 0);
+  egraph_explain_term_eq(solver->egraph, t0, t1, edges->eq_id[i], v);
+}
+
+
+/*
  * Build explanation: get all literals appearing along the shortest path from x to y
  * - the literals are stored in vector v
  */
-static void idl_graph_explain_path(idl_graph_t *graph, int32_t x, int32_t y, ivector_t *v) {
+static void idl_explain_path(idl_solver_t *solver, int32_t x, int32_t y, ivector_t *v) {
+  idl_graph_t *graph;
   int32_t i;
   literal_t l;
 
+  graph = &solver->graph;
   if (x != y) {
     i = idl_edge_id(&graph->matrix, x, y);
     assert(1 <= i && i < graph->edges.top);
@@ -553,12 +634,14 @@ static void idl_graph_explain_path(idl_graph_t *graph, int32_t x, int32_t y, ive
      * The shortest path from x to y is x ---> s -> t ---> y
      * where s = source of edge i and t = target of edge i.
      */
-    idl_graph_explain_path(graph, x, graph->edges.data[i].source, v);
+    idl_explain_path(solver, x, graph->edges.data[i].source, v);
     l = graph->edges.lit[i];
-    if (l != true_literal) {
+    if (l == null_literal) {
+      idl_explain_egraph_edge(solver, i, v);
+    } else if (l != true_literal) {
       ivector_push(v, l);
     }
-    idl_graph_explain_path(graph, graph->edges.data[i].target, y, v);
+    idl_explain_path(solver, graph->edges.data[i].target, y, v);
   }
 }
 
@@ -1360,7 +1443,7 @@ void idl_add_axiom_edge(idl_solver_t *solver, int32_t x, int32_t y, int32_t d) {
   k = idl_undo_stack_top(&solver->stack)->edge_id;
 
   // add the edge
-  idl_graph_add_edge(&solver->graph, x, y, d, true_literal, k);
+  idl_graph_add_edge(&solver->graph, x, y, d, true_literal, null_thvar, null_thvar, -1, k);
 }
 
 
@@ -1392,7 +1475,7 @@ static bool idl_add_edge(idl_solver_t *solver, int32_t x, int32_t y, int32_t d, 
   if (cell->id >= 0 && cell->dist + d < 0) {
     v = &solver->expl_buffer;
     ivector_reset(v);
-    idl_graph_explain_path(&solver->graph, y, x, v);
+    idl_explain_path(solver, y, x, v);
     ivector_push(v, l);
     /*
      * the conflict is not (v[0] ... v[n-1])
@@ -1417,7 +1500,7 @@ static bool idl_add_edge(idl_solver_t *solver, int32_t x, int32_t y, int32_t d, 
      */
     assert(solver->stack.top == solver->decision_level + 1);
     k = idl_undo_stack_top(&solver->stack)->edge_id;
-    idl_graph_add_edge(&solver->graph, x, y, d, l, k);
+    idl_graph_add_edge(&solver->graph, x, y, d, l, null_thvar, null_thvar, -1, k);
   }
   return true;
 }
@@ -1441,7 +1524,7 @@ static literal_t *gen_idl_prop_antecedent(idl_solver_t *solver, int32_t x, int32
 
   v = &solver->expl_buffer;
   ivector_reset(v);
-  idl_graph_explain_path(&solver->graph, x, y, v);
+  idl_explain_path(solver, x, y, v);
 
   // copy v + end marker into the arena
   n = v->size;
@@ -1616,6 +1699,10 @@ bool idl_propagate(idl_solver_t *solver) {
 
   resize_idl_graph(&solver->graph, solver->nvertices);
 
+  if (! idl_process_egraph_assertions(solver)) {
+    return false;
+  }
+
   a = solver->astack.data;
   n = solver->astack.top;
   for (i=solver->astack.prop_ptr; i<n; i++) {
@@ -1764,6 +1851,7 @@ void idl_pop(idl_solver_t *solver) {
 
   // remove variables
   dl_vartable_pop(&solver->vtbl);
+  idl_remove_dead_eterms(solver);
 
   // remove atoms from the hash table
   p = top->natoms;
@@ -1808,6 +1896,7 @@ void idl_reset(idl_solver_t *solver) {
 
   reset_idl_atbl(&solver->atoms);
   reset_idl_astack(&solver->astack);
+  reset_eassertion_queue(&solver->egraph_queue);
   reset_idl_undo_stack(&solver->stack);
   reset_idl_trail_stack(&solver->trail_stack);
 
@@ -2517,6 +2606,236 @@ void idl_assert_clause_vareq_axiom(idl_solver_t *solver, uint32_t n, literal_t *
 
 
 
+/*********************************
+ *   INTERFACE WITH THE EGRAPH   *
+ ********************************/
+
+/*
+ * Attach E-graph term t to variable v.
+ */
+void idl_attach_eterm(idl_solver_t *solver, thvar_t v, eterm_t t) {
+  attach_eterm_to_dl_var(&solver->vtbl, v, t);
+}
+
+
+/*
+ * Get the E-graph term attached to v, or null_eterm.
+ */
+eterm_t idl_eterm_of_var(idl_solver_t *solver, thvar_t v) {
+  return dl_var_get_eterm(&solver->vtbl, v);
+}
+
+
+/*
+ * Save E-graph equality/disequality assertions in the queue.
+ */
+void idl_assert_var_eq(idl_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id) {
+  assert(dl_var_has_eterm(&solver->vtbl, x1) && dl_var_has_eterm(&solver->vtbl, x2));
+  eassertion_push_eq(&solver->egraph_queue, x1, x2, id);
+}
+
+void idl_assert_var_diseq(idl_solver_t *solver, thvar_t x1, thvar_t x2, composite_t *hint) {
+  assert(dl_var_has_eterm(&solver->vtbl, x1) && dl_var_has_eterm(&solver->vtbl, x2));
+  eassertion_push_diseq(&solver->egraph_queue, x1, x2, hint);
+}
+
+void idl_assert_var_distinct(idl_solver_t *solver, uint32_t n, thvar_t *a, composite_t *hint) {
+#ifndef NDEBUG
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    assert(dl_var_has_eterm(&solver->vtbl, a[i]));
+  }
+#endif
+  eassertion_push_distinct(&solver->egraph_queue, n, a, hint);
+}
+
+
+/*
+ * Convert explanation vector v from conjunction to conflict clause.
+ */
+static void idl_expl_to_clause(ivector_t *v) {
+  uint32_t i, n;
+
+  ivector_remove_duplicates(v);
+  n = v->size;
+  for (i=0; i<n; i++) {
+    v->data[i] = not(v->data[i]);
+  }
+  ivector_push(v, null_literal);
+}
+
+
+/*
+ * Add E-graph explanation for x1 == x2 to vector v.
+ */
+static void idl_explain_egraph_eq(idl_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id, ivector_t *v) {
+  eterm_t t1, t2;
+
+  assert(solver->egraph != NULL);
+  t1 = dl_var_get_eterm(&solver->vtbl, x1);
+  t2 = dl_var_get_eterm(&solver->vtbl, x2);
+  assert(t1 != null_eterm && t2 != null_eterm);
+  egraph_explain_term_eq(solver->egraph, t1, t2, id, v);
+}
+
+
+/*
+ * Record a conflict caused by an E-graph equality.
+ */
+static void idl_record_egraph_eq_conflict(idl_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id) {
+  ivector_t *v;
+
+  v = &solver->expl_buffer;
+  ivector_reset(v);
+  idl_explain_egraph_eq(solver, x1, x2, id, v);
+  idl_expl_to_clause(v);
+  record_theory_conflict(solver->core, v->data);
+}
+
+
+/*
+ * Try to add an edge whose explanation is the E-graph equality x1 == x2.
+ */
+static bool idl_add_egraph_edge(idl_solver_t *solver, int32_t x, int32_t y, int32_t d,
+                                thvar_t x1, thvar_t x2, int32_t id) {
+  idl_cell_t *cell;
+  int32_t k;
+  ivector_t *v;
+
+  assert(0 <= x && x < solver->nvertices && 0 <= y && y < solver->nvertices);
+
+  cell = idl_cell(&solver->graph.matrix, y, x);
+  if (cell->id >= 0 && cell->dist + d < 0) {
+    v = &solver->expl_buffer;
+    ivector_reset(v);
+    idl_explain_path(solver, y, x, v);
+    idl_explain_egraph_eq(solver, x1, x2, id, v);
+    idl_expl_to_clause(v);
+    record_theory_conflict(solver->core, v->data);
+    return false;
+  }
+
+  cell = idl_cell(&solver->graph.matrix, x, y);
+  if (cell->id < 0 || cell->dist > d) {
+    assert(solver->stack.top == solver->decision_level + 1);
+    k = idl_undo_stack_top(&solver->stack)->edge_id;
+    idl_graph_add_edge(&solver->graph, x, y, d, null_literal, x1, x2, id, k);
+  }
+
+  return true;
+}
+
+
+/*
+ * Process E-graph equality x1 == x2.
+ */
+static bool idl_process_var_eq(idl_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id) {
+  dl_triple_t *triple;
+  int32_t x, y, c;
+
+  if (x1 == x2) {
+    return true;
+  }
+
+  triple = &solver->triple;
+  if (! diff_dl_vars(&solver->vtbl, x1, x2, triple)) {
+    idl_exception(solver, FORMULA_NOT_IDL);
+  }
+
+  x = triple->target;
+  y = triple->source;
+
+  if (x == y) {
+    if (q_is_zero(&triple->constant)) {
+      return true;
+    }
+    idl_record_egraph_eq_conflict(solver, x1, x2, id);
+    return false;
+  }
+
+  if (! q_get32(&triple->constant, &c) || c == INT32_MIN) {
+    idl_exception(solver, ARITHSOLVER_EXCEPTION);
+  }
+
+  if (x < 0) {
+    x = idl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = idl_get_zero_vertex(solver);
+  }
+
+  resize_idl_graph(&solver->graph, solver->nvertices);
+
+  /*
+   * x1 == x2 means (x - y + c) == 0.
+   */
+  return idl_add_egraph_edge(solver, y, x, c, x1, x2, id) &&
+    idl_add_egraph_edge(solver, x, y, -c, x1, x2, id);
+}
+
+
+/*
+ * Disequalities are handled lazily by model reconciliation.
+ */
+static void idl_process_var_diseq(idl_solver_t *solver, thvar_t x1, thvar_t x2) {
+  assert(dl_var_has_eterm(&solver->vtbl, x1) && dl_var_has_eterm(&solver->vtbl, x2));
+}
+
+
+static void idl_process_var_distinct(idl_solver_t *solver, uint32_t n, thvar_t *a, composite_t *hint) {
+#ifndef NDEBUG
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    assert(dl_var_has_eterm(&solver->vtbl, a[i]));
+  }
+#endif
+}
+
+
+/*
+ * Process all assertions received from the E-graph.
+ */
+static bool idl_process_egraph_assertions(idl_solver_t *solver) {
+  eassertion_t *a, *end;
+
+  if (eassertion_queue_is_nonempty(&solver->egraph_queue)) {
+    a = eassertion_queue_start(&solver->egraph_queue);
+    end = eassertion_queue_end(&solver->egraph_queue);
+
+    while (a < end) {
+      switch (eassertion_get_kind(a)) {
+      case EGRAPH_VAR_EQ:
+        if (! idl_process_var_eq(solver, a->var[0], a->var[1], a->id)) {
+          reset_eassertion_queue(&solver->egraph_queue);
+          return false;
+        }
+        break;
+
+      case EGRAPH_VAR_DISEQ:
+        idl_process_var_diseq(solver, a->var[0], a->var[1]);
+        break;
+
+      case EGRAPH_VAR_DISTINCT:
+        idl_process_var_distinct(solver, eassertion_get_arity(a), a->var, a->hint);
+        break;
+
+      default:
+        assert(false);
+        break;
+      }
+      a = eassertion_next(a);
+    }
+
+    reset_eassertion_queue(&solver->egraph_queue);
+  }
+
+  return true;
+}
+
+
+
+
 /************************
  *  MODEL CONSTRUCTION  *
  ***********************/
@@ -2694,6 +3013,217 @@ bool idl_value_in_model(idl_solver_t *solver, thvar_t x, rational_t *v) {
 
 
 /*
+ * Check whether two variables have the same value in the current model.
+ */
+static bool idl_var_equal_in_model(idl_solver_t *solver, thvar_t x1, thvar_t x2) {
+  rational_t v1, v2;
+  bool eq;
+
+  assert(solver->value != NULL);
+  q_init(&v1);
+  q_init(&v2);
+  idl_value_in_model(solver, x1, &v1);
+  idl_value_in_model(solver, x2, &v2);
+  eq = q_eq(&v1, &v2);
+  q_clear(&v1);
+  q_clear(&v2);
+
+  return eq;
+}
+
+
+/*
+ * Hash function compatible with idl_var_equal_in_model.
+ */
+static uint32_t idl_model_hash(idl_solver_t *solver, thvar_t x) {
+  rational_t v;
+  uint32_t h1, h2, h;
+
+  assert(solver->value != NULL);
+  q_init(&v);
+  idl_value_in_model(solver, x, &v);
+  q_hash_decompose(&v, &h1, &h2);
+  h = jenkins_hash_pair(h1, h2, 0x4d13c721);
+  q_clear(&v);
+
+  return h;
+}
+
+
+/*
+ * Prepare/release model for E-graph reconciliation.
+ */
+static void idl_prep_model(idl_solver_t *solver) {
+  if (solver->value == NULL) {
+    idl_build_model(solver);
+  }
+}
+
+static void idl_release_model(idl_solver_t *solver) {
+  if (solver->value != NULL) {
+    idl_free_model(solver);
+  }
+}
+
+
+/*
+ * Build the partition of attached variables by model value.
+ */
+static ipart_t *idl_build_model_partition(idl_solver_t *solver) {
+  ipart_t *partition;
+  uint32_t i, n;
+
+  partition = (ipart_t *) safe_malloc(sizeof(ipart_t));
+  init_int_partition(partition, 0, solver, (ipart_hash_fun_t) idl_model_hash,
+                     (ipart_match_fun_t) idl_var_equal_in_model);
+
+  n = solver->vtbl.nvars;
+  for (i=0; i<n; i++) {
+    if (dl_var_has_eterm(&solver->vtbl, i)) {
+      int_partition_add(partition, i);
+    }
+  }
+
+  return partition;
+}
+
+
+static void idl_release_model_partition(idl_solver_t *solver, ipart_t *p) {
+  delete_int_partition(p);
+  safe_free(p);
+}
+
+
+/*
+ * Generate an interface lemma l => x1 != x2.
+ */
+static void idl_gen_interface_lemma(idl_solver_t *solver, literal_t l, thvar_t x1, thvar_t x2, bool equiv) {
+  literal_t eq;
+
+  assert(solver->egraph != NULL && x1 != x2);
+
+  eq = idl_create_vareq_atom(solver, x1, x2);
+  add_binary_clause(solver->core, not(l), not(eq));
+  if (equiv) {
+    add_binary_clause(solver->core, l, eq);
+  }
+}
+
+
+/*
+ * Baseline model reconciliation.
+ */
+uint32_t idl_reconcile_model(idl_solver_t *solver, uint32_t max_eq) {
+  ipart_t *partition;
+  int32_t *v;
+  uint32_t i, j, k, n, m, neq;
+  eterm_t t1, t2;
+  literal_t eq;
+
+  assert(max_eq > 0 && solver->egraph != NULL);
+
+  idl_prep_model(solver);
+  partition = idl_build_model_partition(solver);
+
+  neq = 0;
+  n = int_partition_nclasses(partition);
+  for (i=0; i<n && neq < max_eq; i++) {
+    v = partition->classes[i];
+    m = iv_size(v);
+    for (j=0; j<m && neq < max_eq; j++) {
+      t1 = dl_var_get_eterm(&solver->vtbl, v[j]);
+      for (k=j+1; k<m && neq < max_eq; k++) {
+        t2 = dl_var_get_eterm(&solver->vtbl, v[k]);
+        if (! egraph_equal_terms(solver->egraph, t1, t2)) {
+          eq = egraph_make_simple_eq(solver->egraph, pos_occ(t1), pos_occ(t2));
+          idl_gen_interface_lemma(solver, not(eq), v[j], v[k], true);
+          neq ++;
+        }
+      }
+    }
+  }
+
+  idl_release_model_partition(solver, partition);
+  idl_release_model(solver);
+
+  return neq;
+}
+
+
+/*
+ * Conservative base-level disequality check.
+ */
+static bool idl_check_disequality(idl_solver_t *solver, thvar_t x1, thvar_t x2) {
+  dl_triple_t *triple;
+  int32_t x, y, c;
+  idl_cell_t *cell;
+
+  triple = &solver->triple;
+  if (! diff_dl_vars(&solver->vtbl, x1, x2, triple)) {
+    return false;
+  }
+
+  x = triple->target;
+  y = triple->source;
+  if (x == y) {
+    return q_is_nonzero(&triple->constant);
+  }
+
+  if (! q_get32(&triple->constant, &c) || c == INT32_MIN) {
+    return false;
+  }
+
+  if (x < 0) {
+    x = solver->zero_vertex;
+  } else if (y < 0) {
+    y = solver->zero_vertex;
+  }
+  if (x < 0 || y < 0 || x >= solver->graph.matrix.dim || y >= solver->graph.matrix.dim) {
+    return false;
+  }
+
+  cell = idl_cell(&solver->graph.matrix, x, y);
+  if (cell->id >= 0 && cell->dist < -c) {
+    return true;
+  }
+
+  cell = idl_cell(&solver->graph.matrix, y, x);
+  return cell->id >= 0 && cell->dist < c;
+}
+
+
+/*
+ * Check whether x is a constant triple.
+ */
+static bool idl_var_is_constant(idl_solver_t *solver, thvar_t x) {
+  dl_triple_t *d;
+
+  // Conservative: bounds may force a non-constant triple to a singleton value.
+  d = dl_var_triple(&solver->vtbl, x);
+  return d->target == nil_vertex && d->source == nil_vertex;
+}
+
+
+/*
+ * Select polarity for an E-graph equality using the current IDL model.
+ */
+static literal_t idl_select_eq_polarity(idl_solver_t *solver, thvar_t x1, thvar_t x2, literal_t l) {
+  bool keep_model, eq;
+
+  keep_model = solver->value != NULL;
+  if (! keep_model) {
+    idl_build_model(solver);
+  }
+  eq = idl_var_equal_in_model(solver, x1, x2);
+  if (! keep_model) {
+    idl_free_model(solver);
+  }
+
+  return eq ? l : not(l);
+}
+
+
+/*
  * Interface function: check whether x is an integer variable.
  */
 bool idl_var_is_integer(idl_solver_t *solver, thvar_t x) {
@@ -2759,14 +3289,43 @@ static arith_interface_t idl_intern = {
   (assert_arith_cond_vareq_axiom_fun_t) idl_assert_cond_vareq_axiom,
   (assert_arith_clause_vareq_axiom_fun_t) idl_assert_clause_vareq_axiom,
 
-  NULL, // attach_eterm is not supported
-  NULL, // eterm of var is not supported
+  (attach_eterm_fun_t) idl_attach_eterm,
+  (eterm_of_var_fun_t) idl_eterm_of_var,
 
   (build_model_fun_t) idl_build_model,
   (free_model_fun_t) idl_free_model,
   (arith_val_in_model_fun_t) idl_value_in_model,
 
   (arith_var_is_int_fun_t) idl_var_is_integer,
+};
+
+
+/*
+ * E-graph satellite interfaces.
+ */
+static th_egraph_interface_t idl_egraph = {
+  (assert_eq_fun_t) idl_assert_var_eq,
+  (assert_diseq_fun_t) idl_assert_var_diseq,
+  (assert_distinct_fun_t) idl_assert_var_distinct,
+  (check_diseq_fun_t) idl_check_disequality,
+  (is_constant_fun_t) idl_var_is_constant,
+  NULL,
+  (reconcile_model_fun_t) idl_reconcile_model,
+  (prepare_model_fun_t) idl_prep_model,
+  (equal_in_model_fun_t) idl_var_equal_in_model,
+  (gen_inter_lemma_fun_t) idl_gen_interface_lemma,
+  (release_model_fun_t) idl_release_model,
+  (build_partition_fun_t) idl_build_model_partition,
+  (free_partition_fun_t) idl_release_model_partition,
+  (attach_to_var_fun_t) idl_attach_eterm,
+  (get_eterm_fun_t) idl_eterm_of_var,
+  (select_eq_polarity_fun_t) idl_select_eq_polarity,
+};
+
+
+static arith_egraph_interface_t idl_arith_egraph = {
+  (make_arith_var_fun_t) idl_create_var,
+  (arith_val_fun_t) idl_value_in_model,
 };
 
 
@@ -2781,9 +3340,10 @@ static arith_interface_t idl_intern = {
  * - core = attached smt_core solver
  * - gates = the attached gate manager
  */
-void init_idl_solver(idl_solver_t *solver, smt_core_t *core, gate_manager_t *gates) {
+void init_idl_solver(idl_solver_t *solver, smt_core_t *core, gate_manager_t *gates, egraph_t *egraph) {
   solver->core = core;
   solver->gate_manager = gates;
+  solver->egraph = egraph;
   solver->base_level = 0;
   solver->decision_level = 0;
   solver->unsat_before_search = false;
@@ -2796,6 +3356,7 @@ void init_idl_solver(idl_solver_t *solver, smt_core_t *core, gate_manager_t *gat
 
   init_idl_atbl(&solver->atoms, DEFAULT_IDL_ATBL_SIZE);
   init_idl_astack(&solver->astack, DEFAULT_IDL_ASTACK_SIZE);
+  init_eassertion_queue(&solver->egraph_queue);
   init_idl_undo_stack(&solver->stack, DEFAULT_IDL_UNDO_STACK_SIZE);
   init_idl_trail_stack(&solver->trail_stack);
 
@@ -2831,6 +3392,7 @@ void delete_idl_solver(idl_solver_t *solver) {
   delete_idl_graph(&solver->graph);
   delete_idl_atbl(&solver->atoms);
   delete_idl_astack(&solver->astack);
+  delete_eassertion_queue(&solver->egraph_queue);
   delete_idl_undo_stack(&solver->stack);
   delete_idl_trail_stack(&solver->trail_stack);
 
@@ -2845,6 +3407,16 @@ void delete_idl_solver(idl_solver_t *solver) {
   if (solver->value != NULL) {
     safe_free(solver->value);
     solver->value = NULL;
+  }
+}
+
+
+/*
+ * Remove all eterms no longer present in the E-graph after pop.
+ */
+static void idl_remove_dead_eterms(idl_solver_t *solver) {
+  if (solver->egraph != NULL) {
+    dl_vartable_remove_eterms(&solver->vtbl, egraph_num_terms(solver->egraph));
   }
 }
 
@@ -2867,6 +3439,14 @@ th_ctrl_interface_t *idl_ctrl_interface(idl_solver_t *solver) {
 
 th_smt_interface_t *idl_smt_interface(idl_solver_t *solver) {
   return &idl_smt;
+}
+
+th_egraph_interface_t *idl_egraph_interface(idl_solver_t *solver) {
+  return &idl_egraph;
+}
+
+arith_egraph_interface_t *idl_arith_egraph_interface(idl_solver_t *solver) {
+  return &idl_arith_egraph;
 }
 
 

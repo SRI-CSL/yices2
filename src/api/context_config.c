@@ -495,6 +495,14 @@ static int32_t arch_add_bv(int32_t a) {
     a = CTX_ARCH_EGSPLXBV;
     break;
 
+  case CTX_ARCH_EGIFW:
+    a = CTX_ARCH_EGBVIFW;
+    break;
+
+  case CTX_ARCH_EGRFW:
+    a = CTX_ARCH_EGBVRFW;
+    break;
+
   default:
     a = -1;
     break;
@@ -540,19 +548,45 @@ static int32_t arch_add_simplex(int32_t a) {
 
 // add a Floyd-Warshall solver
 static int32_t arch_add_ifw(int32_t a) {
-  if (a == CTX_ARCH_NOSOLVERS) {
+  switch (a) {
+  case CTX_ARCH_NOSOLVERS:
     a = CTX_ARCH_IFW;
-  } else {
+    break;
+
+  case CTX_ARCH_EG:
+    a = CTX_ARCH_EGIFW;
+    break;
+
+  case CTX_ARCH_BV:
+  case CTX_ARCH_EGBV:
+    a = CTX_ARCH_EGBVIFW;
+    break;
+
+  default:
     a = -1;
+    break;
   }
   return a;
 }
 
 static int32_t arch_add_rfw(int32_t a) {
-  if (a == CTX_ARCH_NOSOLVERS) {
+  switch (a) {
+  case CTX_ARCH_NOSOLVERS:
     a = CTX_ARCH_RFW;
-  } else {
+    break;
+
+  case CTX_ARCH_EG:
+    a = CTX_ARCH_EGRFW;
+    break;
+
+  case CTX_ARCH_BV:
+  case CTX_ARCH_EGBV:
+    a = CTX_ARCH_EGBVRFW;
+    break;
+
+  default:
     a = -1;
+    break;
   }
   return a;
 }
@@ -587,7 +621,9 @@ static int32_t arch_add_arith(int32_t a, solver_code_t c) {
  * - current restriction: IFW and RFW don't support PUSH/POP or MULTIPLE CHECKS
  */
 static bool arch_supports_mode(context_arch_t a, context_mode_t mode) {
-  return (a != CTX_ARCH_IFW && a != CTX_ARCH_RFW) || mode == CTX_MODE_ONECHECK;
+  return (a != CTX_ARCH_IFW && a != CTX_ARCH_RFW &&
+          a != CTX_ARCH_EGIFW && a != CTX_ARCH_EGRFW &&
+          a != CTX_ARCH_EGBVIFW && a != CTX_ARCH_EGBVRFW) || mode == CTX_MODE_ONECHECK;
 }
 
 
@@ -600,6 +636,34 @@ static bool arch_is_supported(context_arch_t a) {
 #else
   return a != CTX_ARCH_MCSAT;
 #endif
+}
+
+
+/*
+ * Architecture selected by an explicit arithmetic-solver setting in a
+ * configuration that also specifies a logic.
+ */
+static int32_t arch_for_logic_and_arith_config(smt_logic_t logic_code, solver_code_t arith_config) {
+  switch (arith_config) {
+  case CTX_CONFIG_ARITH_IFW:
+    if (logic_code == QF_IDL) {
+      return CTX_ARCH_IFW;
+    } else if (logic_code == QF_UFIDL) {
+      return CTX_ARCH_EGIFW;
+    }
+    return -1;
+
+  case CTX_CONFIG_ARITH_RFW:
+    if (logic_code == QF_RDL) {
+      return CTX_ARCH_RFW;
+    } else if (logic_code == QF_UFRDL) {
+      return CTX_ARCH_EGRFW;
+    }
+    return -1;
+
+  default:
+    return logic2arch[logic_code];
+  }
 }
 
 
@@ -653,10 +717,16 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
       }
     }
 
-    a = logic2arch[logic_code];
-    if (a < 0 || !arch_is_supported(a)) {
+    a = arch_for_logic_and_arith_config(logic_code, config->arith_config);
+    if (a < 0) {
+      // invalid combination of logic and arithmetic solver
+      r = -1;
+    } else if (!arch_is_supported(a)) {
       // not supported
       r = -2;
+    } else if (!arch_supports_mode(a, config->mode)) {
+      // mode is not supported by the solvers
+      r = -3;
     } else {
       // good configuration
       *logic = logic_code;

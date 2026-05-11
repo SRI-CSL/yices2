@@ -4989,10 +4989,14 @@ static const uint32_t arch2theories[NUM_ARCH] = {
   BV_MASK,                     //  CTX_ARCH_BV
   UF_MASK|FUN_MASK,            //  CTX_ARCH_EGFUN
   UF_MASK|ARITH_MASK,          //  CTX_ARCH_EGSPLX
+  UF_MASK|IDL_MASK,            //  CTX_ARCH_EGIFW
+  UF_MASK|RDL_MASK,            //  CTX_ARCH_EGRFW
   UF_MASK|BV_MASK,             //  CTX_ARCH_EGBV
   UF_MASK|ARITH_MASK|FUN_MASK, //  CTX_ARCH_EGFUNSPLX
   UF_MASK|BV_MASK|FUN_MASK,    //  CTX_ARCH_EGFUNBV
   UF_MASK|BV_MASK|ARITH_MASK,  //  CTX_ARCH_EGSPLXBV
+  UF_MASK|BV_MASK|IDL_MASK,    //  CTX_ARCH_EGBVIFW
+  UF_MASK|BV_MASK|RDL_MASK,    //  CTX_ARCH_EGBVRFW
   ALLTH_MASK,                  //  CTX_ARCH_EGFUNSPLXBV
 
   IDL_MASK,                    //  CTX_ARCH_AUTO_IDL
@@ -5027,10 +5031,14 @@ static const uint8_t arch_components[NUM_ARCH] = {
   BVSLVR,                   //  CTX_ARCH_BV
   EGRPH|FSLVR,              //  CTX_ARCH_EGFUN
   EGRPH|SPLX,               //  CTX_ARCH_EGSPLX
+  EGRPH|IFW,                //  CTX_ARCH_EGIFW
+  EGRPH|RFW,                //  CTX_ARCH_EGRFW
   EGRPH|BVSLVR,             //  CTX_ARCH_EGBV
   EGRPH|SPLX|FSLVR,         //  CTX_ARCH_EGFUNSPLX
   EGRPH|BVSLVR|FSLVR,       //  CTX_ARCH_EGFUNBV
   EGRPH|SPLX|BVSLVR,        //  CTX_ARCH_EGSPLXBV
+  EGRPH|IFW|BVSLVR,         //  CTX_ARCH_EGBVIFW
+  EGRPH|RFW|BVSLVR,         //  CTX_ARCH_EGBVRFW
   EGRPH|SPLX|BVSLVR|FSLVR,  //  CTX_ARCH_EGFUNSPLXBV
 
   0,                        //  CTX_ARCH_AUTO_IDL
@@ -5257,8 +5265,7 @@ static void create_mcsat(context_t *ctx) {
 
 
 /*
- * Create and initialize the idl solver and attach it to the core
- * - there must be no other solvers and no egraph
+ * Create and initialize the idl solver and attach it to the core or to the egraph
  * - if automatic is true, attach the solver to the core, otherwise
  *   initialize the core
  * - copy the solver's internalization interface into arith
@@ -5267,13 +5274,17 @@ static void create_idl_solver(context_t *ctx, bool automatic) {
   idl_solver_t *solver;
   smt_mode_t cmode;
 
-  assert(ctx->egraph == NULL && ctx->arith_solver == NULL && ctx->bv_solver == NULL &&
+  assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL &&
          ctx->fun_solver == NULL && ctx->core != NULL);
 
   cmode = core_mode[ctx->mode];
   solver = (idl_solver_t *) safe_malloc(sizeof(idl_solver_t));
-  init_idl_solver(solver, ctx->core, &ctx->gate_manager);
-  if (automatic) {
+  init_idl_solver(solver, ctx->core, &ctx->gate_manager, ctx->egraph);
+  if (ctx->egraph != NULL) {
+    egraph_attach_arithsolver(ctx->egraph, solver, idl_ctrl_interface(solver),
+                              idl_smt_interface(solver), idl_egraph_interface(solver),
+                              idl_arith_egraph_interface(solver));
+  } else if (automatic) {
     smt_core_reset_thsolver(ctx->core, solver, idl_ctrl_interface(solver),
 			    idl_smt_interface(solver));
   } else {
@@ -5287,8 +5298,7 @@ static void create_idl_solver(context_t *ctx, bool automatic) {
 
 
 /*
- * Create and initialize the rdl solver and attach it to the core.
- * - there must be no other solvers and no egraph
+ * Create and initialize the rdl solver and attach it to the core or to the egraph.
  * - if automatic is true, attach rdl to the core, otherwise
  *   initialize the core
  * - copy the solver's internalization interface in ctx->arith
@@ -5297,13 +5307,17 @@ static void create_rdl_solver(context_t *ctx, bool automatic) {
   rdl_solver_t *solver;
   smt_mode_t cmode;
 
-  assert(ctx->egraph == NULL && ctx->arith_solver == NULL && ctx->bv_solver == NULL &&
+  assert(ctx->arith_solver == NULL && ctx->bv_solver == NULL &&
          ctx->fun_solver == NULL && ctx->core != NULL);
 
   cmode = core_mode[ctx->mode];
   solver = (rdl_solver_t *) safe_malloc(sizeof(rdl_solver_t));
-  init_rdl_solver(solver, ctx->core, &ctx->gate_manager);
-  if (automatic) {
+  init_rdl_solver(solver, ctx->core, &ctx->gate_manager, ctx->egraph);
+  if (ctx->egraph != NULL) {
+    egraph_attach_arithsolver(ctx->egraph, solver, rdl_ctrl_interface(solver),
+                              rdl_smt_interface(solver), rdl_egraph_interface(solver),
+                              rdl_arith_egraph_interface(solver));
+  } else if (automatic) {
     smt_core_reset_thsolver(ctx->core, solver, rdl_ctrl_interface(solver),
 			    rdl_smt_interface(solver));
   } else {

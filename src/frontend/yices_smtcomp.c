@@ -1193,8 +1193,23 @@ static int process_benchmark(void) {
     enable_splx_eqprop(&context);
     break;
 
+  case CTX_ARCH_EGIFW:        // egraph+integer floyd-warshall
+  case CTX_ARCH_EGRFW:        // egraph+real floyd-warshall
+    enable_variable_elimination(&context);
+    enable_arith_elimination(&context);
+    enable_diseq_and_or_flattening(&context);
+    params.use_dyn_ack = true;
+    params.use_bool_dyn_ack = true;
+    params.cache_tclauses = true;
+    params.tclause_size = 20;
+    params.branching = BRANCHING_NEGATIVE;
+    params.max_interface_eqs = 15;
+    break;
+
   case CTX_ARCH_EGBV:         // egraph+bitvector solver
   case CTX_ARCH_EGFUNBV:      // egraph+fun+bitvector
+  case CTX_ARCH_EGBVIFW:      // egraph+bitvector+integer floyd-warshall
+  case CTX_ARCH_EGBVRFW:      // egraph+bitvector+real floyd-warshall
     // QF_BV options: --var-elim --fast-restarts --randomness=0 --bvarith-elim
     enable_diseq_and_or_flattening(&context);
     enable_variable_elimination(&context);
@@ -1377,4 +1392,3 @@ int main(int argc, char *argv[]) {
 
   return process_benchmark();
 }
-

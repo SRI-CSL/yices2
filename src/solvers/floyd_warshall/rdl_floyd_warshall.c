@@ -27,6 +27,7 @@
 
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
 #include "utils/hash_functions.h"
+#include "utils/index_vectors.h"
 #include "utils/memalloc.h"
 
 
@@ -37,6 +38,9 @@
 #include "solvers/floyd_warshall/rdl_fw_printer.h"
 
 #endif
+
+
+static bool rdl_process_egraph_assertions(rdl_solver_t *solver);
 
 
 
@@ -226,8 +230,14 @@ static void init_rdl_edge_stack(rdl_edge_stack_t *stack, uint32_t n) {
 
   stack->data = (rdl_edge_t *) safe_malloc(n * sizeof(rdl_edge_t));
   stack->lit = (literal_t *) safe_malloc(n * sizeof(literal_t));
+  stack->eq_var0 = (thvar_t *) safe_malloc(n * sizeof(thvar_t));
+  stack->eq_var1 = (thvar_t *) safe_malloc(n * sizeof(thvar_t));
+  stack->eq_id = (int32_t *) safe_malloc(n * sizeof(int32_t));
   stack->cost = (rdl_const_t *) safe_malloc(n * sizeof(rdl_const_t));
   for (i=0; i<n; i++) {
+    stack->eq_var0[i] = null_thvar;
+    stack->eq_var1[i] = null_thvar;
+    stack->eq_id[i] = -1;
     init_rdl_const(stack->cost + i);
   }
 
@@ -240,8 +250,9 @@ static void init_rdl_edge_stack(rdl_edge_stack_t *stack, uint32_t n) {
  * Make the stack 50% larger
  */
 static void extend_rdl_edge_stack(rdl_edge_stack_t *stack) {
-  uint32_t i, n;
+  uint32_t i, n, old_size;
 
+  old_size = stack->size;
   n = stack->size + 1;
   n += n>>1;
   if (n >= MAX_RDL_EDGE_STACK_SIZE) {
@@ -250,8 +261,14 @@ static void extend_rdl_edge_stack(rdl_edge_stack_t *stack) {
 
   stack->data = (rdl_edge_t *) safe_realloc(stack->data, n * sizeof(rdl_edge_t));
   stack->lit = (literal_t *) safe_realloc(stack->lit, n * sizeof(literal_t));
+  stack->eq_var0 = (thvar_t *) safe_realloc(stack->eq_var0, n * sizeof(thvar_t));
+  stack->eq_var1 = (thvar_t *) safe_realloc(stack->eq_var1, n * sizeof(thvar_t));
+  stack->eq_id = (int32_t *) safe_realloc(stack->eq_id, n * sizeof(int32_t));
   stack->cost = (rdl_const_t *) safe_realloc(stack->cost, n * sizeof(rdl_const_t));
-  for (i=stack->size; i<n; i++) {
+  for (i=old_size; i<n; i++) {
+    stack->eq_var0[i] = null_thvar;
+    stack->eq_var1[i] = null_thvar;
+    stack->eq_id[i] = -1;
     init_rdl_const(stack->cost + i);
   }
   stack->size = n;
@@ -273,6 +290,32 @@ static void push_edge(rdl_edge_stack_t *stack, int32_t x, int32_t y, rdl_const_t
   stack->data[i].source = x;
   stack->data[i].target = y;
   stack->lit[i] = l;
+  stack->eq_var0[i] = null_thvar;
+  stack->eq_var1[i] = null_thvar;
+  stack->eq_id[i] = -1;
+  rdl_const_set(stack->cost + i, c);
+  stack->top = i+1;
+}
+
+
+/*
+ * Add an E-graph equality edge to the stack.
+ */
+static void push_egraph_edge(rdl_edge_stack_t *stack, int32_t x, int32_t y, rdl_const_t *c,
+                             thvar_t v0, thvar_t v1, int32_t id) {
+  uint32_t i;
+
+  i = stack->top;
+  if (i == stack->size) {
+    extend_rdl_edge_stack(stack);
+  }
+  assert(i < stack->size);
+  stack->data[i].source = x;
+  stack->data[i].target = y;
+  stack->lit[i] = null_literal;
+  stack->eq_var0[i] = v0;
+  stack->eq_var1[i] = v1;
+  stack->eq_id[i] = id;
   rdl_const_set(stack->cost + i, c);
   stack->top = i+1;
 }
@@ -299,9 +342,15 @@ static void delete_rdl_edge_stack(rdl_edge_stack_t *stack) {
 
   safe_free(stack->data);
   safe_free(stack->lit);
+  safe_free(stack->eq_var0);
+  safe_free(stack->eq_var1);
+  safe_free(stack->eq_id);
   safe_free(stack->cost);
   stack->data = NULL;
   stack->lit = NULL;
+  stack->eq_var0 = NULL;
+  stack->eq_var1 = NULL;
+  stack->eq_id = NULL;
   stack->cost = NULL;
 }
 
@@ -682,7 +731,8 @@ static bool dist_reduced(rdl_cell_t *r, rdl_cell_t *s, rdl_const_t *c, rdl_const
  * Side effect:
  * - graph->c0 is modified
  */
-static void rdl_graph_add_edge(rdl_graph_t *graph, int32_t x, int32_t y, rdl_const_t *c, literal_t l, int32_t k) {
+static void rdl_graph_add_edge(rdl_graph_t *graph, int32_t x, int32_t y, rdl_const_t *c, literal_t l,
+                               thvar_t eq_var0, thvar_t eq_var1, int32_t eq_id, int32_t k) {
   int32_t id, z, w;
   rdl_const_t *d;
   rdl_cell_t *r, *s;
@@ -696,7 +746,11 @@ static void rdl_graph_add_edge(rdl_graph_t *graph, int32_t x, int32_t y, rdl_con
   assert(0 <= x && x < m->dim && 0 <= y && y < m->dim && x != y && c != d);
 
   id = graph->edges.top; // index of the new edge
-  push_edge(&graph->edges, x, y, c, l);
+  if (l == null_literal) {
+    push_egraph_edge(&graph->edges, x, y, c, eq_var0, eq_var1, eq_id);
+  } else {
+    push_edge(&graph->edges, x, y, c, l);
+  }
 
   /*
    * collect relevant vertices in vector v:
@@ -788,13 +842,32 @@ static void rdl_graph_remove_edges(rdl_graph_t *graph, int32_t e, uint32_t c) {
 
 
 /*
+ * Add the E-graph explanation for edge i to vector v.
+ */
+static void rdl_explain_egraph_edge(rdl_solver_t *solver, int32_t i, ivector_t *v) {
+  rdl_edge_stack_t *edges;
+  eterm_t t1, t2;
+
+  assert(solver->egraph != NULL);
+
+  edges = &solver->graph.edges;
+  t1 = dl_var_get_eterm(&solver->vtbl, edges->eq_var0[i]);
+  t2 = dl_var_get_eterm(&solver->vtbl, edges->eq_var1[i]);
+  assert(t1 != null_eterm && t2 != null_eterm);
+  egraph_explain_term_eq(solver->egraph, t1, t2, edges->eq_id[i], v);
+}
+
+
+/*
  * Build explanation: get all literals appearing along the shortest path from x to y
  * - the literals are stored in vector v
  */
-static void rdl_graph_explain_path(rdl_graph_t *graph, int32_t x, int32_t y, ivector_t *v) {
+static void rdl_explain_path(rdl_solver_t *solver, int32_t x, int32_t y, ivector_t *v) {
+  rdl_graph_t *graph;
   int32_t i;
   literal_t l;
 
+  graph = &solver->graph;
   if (x != y) {
     i = rdl_edge_id(&graph->matrix, x, y);
     assert(1 <= i && i < graph->edges.top);
@@ -802,12 +875,14 @@ static void rdl_graph_explain_path(rdl_graph_t *graph, int32_t x, int32_t y, ive
      * The shortest path from x to y is x ---> s -> t ---> y
      * where s = source of edge i and t = target of edge i.
      */
-    rdl_graph_explain_path(graph, x, graph->edges.data[i].source, v);
+    rdl_explain_path(solver, x, graph->edges.data[i].source, v);
     l = graph->edges.lit[i];
-    if (l != true_literal) {
+    if (l == null_literal) {
+      rdl_explain_egraph_edge(solver, i, v);
+    } else if (l != true_literal) {
       ivector_push(v, l);
     }
-    rdl_graph_explain_path(graph, graph->edges.data[i].target, y, v);
+    rdl_explain_path(solver, graph->edges.data[i].target, y, v);
   }
 }
 
@@ -1635,7 +1710,7 @@ static void rdl_axiom_edge(rdl_solver_t *solver, int32_t x, int32_t y, rdl_const
   k = rdl_undo_stack_top(&solver->stack)->edge_id;
 
   // add the edge
-  rdl_graph_add_edge(&solver->graph, x, y, d, true_literal, k);
+  rdl_graph_add_edge(&solver->graph, x, y, d, true_literal, null_thvar, null_thvar, -1, k);
 }
 
 
@@ -1696,7 +1771,7 @@ static bool rdl_add_edge(rdl_solver_t *solver, int32_t x, int32_t y, rdl_const_t
     if (rdl_const_is_neg(aux)) {
       v = &solver->expl_buffer;
       ivector_reset(v);
-      rdl_graph_explain_path(&solver->graph, y, x, v);
+      rdl_explain_path(solver, y, x, v);
       ivector_push(v, l);
       /*
        * the conflict is not (v[0] ... v[n-1])
@@ -1722,7 +1797,7 @@ static bool rdl_add_edge(rdl_solver_t *solver, int32_t x, int32_t y, rdl_const_t
      */
     assert(solver->stack.top == solver->decision_level + 1);
     k = rdl_undo_stack_top(&solver->stack)->edge_id;
-    rdl_graph_add_edge(&solver->graph, x, y, d, l, k);
+    rdl_graph_add_edge(&solver->graph, x, y, d, l, null_thvar, null_thvar, -1, k);
   }
   return true;
 }
@@ -1746,7 +1821,7 @@ static literal_t *gen_rdl_prop_antecedent(rdl_solver_t *solver, int32_t x, int32
 
   v = &solver->expl_buffer;
   ivector_reset(v);
-  rdl_graph_explain_path(&solver->graph, x, y, v);
+  rdl_explain_path(solver, x, y, v);
 
   // copy v + end marker into the arena
   n = v->size;
@@ -1909,6 +1984,7 @@ bool rdl_propagate(rdl_solver_t *solver) {
 
   resize_rdl_graph(&solver->graph, solver->nvertices);
   //  assert(valid_rdl_graph(&solver->graph));
+  if (! rdl_process_egraph_assertions(solver)) return false;
 
   d = &solver->c1;
   a = solver->astack.data;
@@ -2062,6 +2138,9 @@ void rdl_pop(rdl_solver_t *solver) {
 
   // remove variables
   dl_vartable_pop(&solver->vtbl);
+  if (solver->egraph != NULL) {
+    dl_vartable_remove_eterms(&solver->vtbl, egraph_num_terms(solver->egraph));
+  }
 
   // remove atoms from the hash table
   p = top->natoms;
@@ -2110,6 +2189,7 @@ void rdl_reset(rdl_solver_t *solver) {
   reset_rdl_trail_stack(&solver->trail_stack);
 
   reset_int_htbl(&solver->htbl);
+  reset_eassertion_queue(&solver->egraph_queue);
   arena_reset(&solver->arena);
   ivector_reset(&solver->expl_buffer);
   ivector_reset(&solver->aux_vector);
@@ -2761,6 +2841,245 @@ void rdl_assert_clause_vareq_axiom(rdl_solver_t *solver, uint32_t n, literal_t *
 
 
 
+/*********************************
+ *   INTERFACE WITH THE EGRAPH   *
+ ********************************/
+
+/*
+ * Attach E-graph term t to variable v.
+ */
+void rdl_attach_eterm(rdl_solver_t *solver, thvar_t v, eterm_t t) {
+  attach_eterm_to_dl_var(&solver->vtbl, v, t);
+}
+
+
+/*
+ * Get the E-graph term attached to v, or null_eterm.
+ */
+eterm_t rdl_eterm_of_var(rdl_solver_t *solver, thvar_t v) {
+  return dl_var_get_eterm(&solver->vtbl, v);
+}
+
+
+/*
+ * Save E-graph equality/disequality assertions in the queue.
+ */
+void rdl_assert_var_eq(rdl_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id) {
+  assert(dl_var_has_eterm(&solver->vtbl, x1) && dl_var_has_eterm(&solver->vtbl, x2));
+  eassertion_push_eq(&solver->egraph_queue, x1, x2, id);
+}
+
+void rdl_assert_var_diseq(rdl_solver_t *solver, thvar_t x1, thvar_t x2, composite_t *hint) {
+  assert(dl_var_has_eterm(&solver->vtbl, x1) && dl_var_has_eterm(&solver->vtbl, x2));
+  eassertion_push_diseq(&solver->egraph_queue, x1, x2, hint);
+}
+
+void rdl_assert_var_distinct(rdl_solver_t *solver, uint32_t n, thvar_t *a, composite_t *hint) {
+#ifndef NDEBUG
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    assert(dl_var_has_eterm(&solver->vtbl, a[i]));
+  }
+#endif
+  eassertion_push_distinct(&solver->egraph_queue, n, a, hint);
+}
+
+
+/*
+ * Convert explanation vector v from conjunction to conflict clause.
+ */
+static void rdl_expl_to_clause(ivector_t *v) {
+  uint32_t i, n;
+
+  ivector_remove_duplicates(v);
+  n = v->size;
+  for (i=0; i<n; i++) {
+    v->data[i] = not(v->data[i]);
+  }
+  ivector_push(v, null_literal);
+}
+
+
+/*
+ * Add E-graph explanation for x1 == x2 to vector v.
+ */
+static void rdl_explain_egraph_eq(rdl_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id, ivector_t *v) {
+  eterm_t t1, t2;
+
+  assert(solver->egraph != NULL);
+  t1 = dl_var_get_eterm(&solver->vtbl, x1);
+  t2 = dl_var_get_eterm(&solver->vtbl, x2);
+  assert(t1 != null_eterm && t2 != null_eterm);
+  egraph_explain_term_eq(solver->egraph, t1, t2, id, v);
+}
+
+
+/*
+ * Record a conflict caused by an E-graph equality.
+ */
+static void rdl_record_egraph_eq_conflict(rdl_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id) {
+  ivector_t *v;
+
+  v = &solver->expl_buffer;
+  ivector_reset(v);
+  rdl_explain_egraph_eq(solver, x1, x2, id, v);
+  rdl_expl_to_clause(v);
+  record_theory_conflict(solver->core, v->data);
+}
+
+
+/*
+ * Try to add an edge whose explanation is the E-graph equality x1 == x2.
+ */
+static bool rdl_add_egraph_edge(rdl_solver_t *solver, int32_t x, int32_t y, rdl_const_t *d,
+                                thvar_t x1, thvar_t x2, int32_t id) {
+  rdl_cell_t *cell;
+  int32_t k;
+  ivector_t *v;
+  rdl_const_t *aux;
+
+  assert(0 <= x && x < solver->nvertices && 0 <= y && y < solver->nvertices);
+  assert(d != &solver->graph.c0);
+
+  cell = rdl_cell(&solver->graph.matrix, y, x);
+  if (cell->id >= 0) {
+    aux = &solver->graph.c0;
+    rdl_const_set(aux, d);
+    rdl_const_add(aux, &cell->dist);
+    if (rdl_const_is_neg(aux)) {
+      v = &solver->expl_buffer;
+      ivector_reset(v);
+      rdl_explain_path(solver, y, x, v);
+      rdl_explain_egraph_eq(solver, x1, x2, id, v);
+      rdl_expl_to_clause(v);
+      record_theory_conflict(solver->core, v->data);
+      return false;
+    }
+  }
+
+  cell = rdl_cell(&solver->graph.matrix, x, y);
+  if (cell->id < 0 || rdl_const_lt(d, &cell->dist)) {
+    assert(solver->stack.top == solver->decision_level + 1);
+    k = rdl_undo_stack_top(&solver->stack)->edge_id;
+    rdl_graph_add_edge(&solver->graph, x, y, d, null_literal, x1, x2, id, k);
+  }
+
+  return true;
+}
+
+
+/*
+ * Process E-graph equality x1 == x2.
+ */
+static bool rdl_process_var_eq(rdl_solver_t *solver, thvar_t x1, thvar_t x2, int32_t id) {
+  dl_triple_t *triple;
+  int32_t x, y;
+  rdl_const_t *d;
+
+  if (x1 == x2) {
+    return true;
+  }
+
+  triple = &solver->triple;
+  if (! diff_dl_vars(&solver->vtbl, x1, x2, triple)) {
+    rdl_exception(solver, FORMULA_NOT_RDL);
+  }
+
+  x = triple->target;
+  y = triple->source;
+
+  if (x == y) {
+    if (q_is_zero(&triple->constant)) {
+      return true;
+    }
+    rdl_record_egraph_eq_conflict(solver, x1, x2, id);
+    return false;
+  }
+
+  if (x < 0) {
+    x = rdl_get_zero_vertex(solver);
+  } else if (y < 0) {
+    y = rdl_get_zero_vertex(solver);
+  }
+
+  resize_rdl_graph(&solver->graph, solver->nvertices);
+
+  /*
+   * x1 == x2 means (x - y + c) == 0.
+   */
+  d = &solver->c1;
+  rdl_const_set_rational(d, &triple->constant);
+  if (! rdl_add_egraph_edge(solver, y, x, d, x1, x2, id)) {
+    return false;
+  }
+  rdl_const_negate(d);
+  return rdl_add_egraph_edge(solver, x, y, d, x1, x2, id);
+}
+
+
+/*
+ * Disequalities are handled lazily by model reconciliation.
+ */
+static void rdl_process_var_diseq(rdl_solver_t *solver, thvar_t x1, thvar_t x2) {
+  assert(dl_var_has_eterm(&solver->vtbl, x1) && dl_var_has_eterm(&solver->vtbl, x2));
+}
+
+
+static void rdl_process_var_distinct(rdl_solver_t *solver, uint32_t n, thvar_t *a, composite_t *hint) {
+#ifndef NDEBUG
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    assert(dl_var_has_eterm(&solver->vtbl, a[i]));
+  }
+#endif
+}
+
+
+/*
+ * Process all assertions received from the E-graph.
+ */
+static bool rdl_process_egraph_assertions(rdl_solver_t *solver) {
+  eassertion_t *a, *end;
+
+  if (eassertion_queue_is_nonempty(&solver->egraph_queue)) {
+    a = eassertion_queue_start(&solver->egraph_queue);
+    end = eassertion_queue_end(&solver->egraph_queue);
+
+    while (a < end) {
+      switch (eassertion_get_kind(a)) {
+      case EGRAPH_VAR_EQ:
+        if (! rdl_process_var_eq(solver, a->var[0], a->var[1], a->id)) {
+          reset_eassertion_queue(&solver->egraph_queue);
+          return false;
+        }
+        break;
+
+      case EGRAPH_VAR_DISEQ:
+        rdl_process_var_diseq(solver, a->var[0], a->var[1]);
+        break;
+
+      case EGRAPH_VAR_DISTINCT:
+        rdl_process_var_distinct(solver, eassertion_get_arity(a), a->var, a->hint);
+        break;
+
+      default:
+        assert(false);
+        break;
+      }
+      a = eassertion_next(a);
+    }
+
+    reset_eassertion_queue(&solver->egraph_queue);
+  }
+
+  return true;
+}
+
+
+
+
 
 
 /************************
@@ -3247,6 +3566,218 @@ bool rdl_value_in_model(rdl_solver_t *solver, thvar_t x, rational_t *v) {
 
 
 /*
+ * Check whether two variables have the same value in the current model.
+ */
+static bool rdl_var_equal_in_model(rdl_solver_t *solver, thvar_t x1, thvar_t x2) {
+  rational_t v1, v2;
+  bool eq;
+
+  assert(solver->value != NULL);
+  q_init(&v1);
+  q_init(&v2);
+  rdl_value_in_model(solver, x1, &v1);
+  rdl_value_in_model(solver, x2, &v2);
+  eq = q_eq(&v1, &v2);
+  q_clear(&v1);
+  q_clear(&v2);
+
+  return eq;
+}
+
+
+/*
+ * Hash function compatible with rdl_var_equal_in_model.
+ */
+static uint32_t rdl_model_hash(rdl_solver_t *solver, thvar_t x) {
+  rational_t v;
+  uint32_t h1, h2, h;
+
+  assert(solver->value != NULL);
+  q_init(&v);
+  rdl_value_in_model(solver, x, &v);
+  q_hash_decompose(&v, &h1, &h2);
+  h = jenkins_hash_pair(h1, h2, 0x11a9bc75);
+  q_clear(&v);
+
+  return h;
+}
+
+
+/*
+ * Prepare/release model for E-graph reconciliation.
+ */
+static void rdl_prep_model(rdl_solver_t *solver) {
+  if (solver->value == NULL) {
+    rdl_build_model(solver);
+  }
+}
+
+static void rdl_release_model(rdl_solver_t *solver) {
+  if (solver->value != NULL) {
+    rdl_free_model(solver);
+  }
+}
+
+
+/*
+ * Build the partition of attached variables by model value.
+ */
+static ipart_t *rdl_build_model_partition(rdl_solver_t *solver) {
+  ipart_t *partition;
+  uint32_t i, n;
+
+  partition = (ipart_t *) safe_malloc(sizeof(ipart_t));
+  init_int_partition(partition, 0, solver, (ipart_hash_fun_t) rdl_model_hash,
+                     (ipart_match_fun_t) rdl_var_equal_in_model);
+
+  n = solver->vtbl.nvars;
+  for (i=0; i<n; i++) {
+    if (dl_var_has_eterm(&solver->vtbl, i)) {
+      int_partition_add(partition, i);
+    }
+  }
+
+  return partition;
+}
+
+
+static void rdl_release_model_partition(rdl_solver_t *solver, ipart_t *p) {
+  delete_int_partition(p);
+  safe_free(p);
+}
+
+
+/*
+ * Generate an interface lemma l => x1 != x2.
+ */
+static void rdl_gen_interface_lemma(rdl_solver_t *solver, literal_t l, thvar_t x1, thvar_t x2, bool equiv) {
+  literal_t eq;
+
+  assert(solver->egraph != NULL && x1 != x2);
+
+  eq = rdl_create_vareq_atom(solver, x1, x2);
+  add_binary_clause(solver->core, not(l), not(eq));
+  if (equiv) {
+    add_binary_clause(solver->core, l, eq);
+  }
+}
+
+
+/*
+ * Baseline model reconciliation.
+ */
+uint32_t rdl_reconcile_model(rdl_solver_t *solver, uint32_t max_eq) {
+  ipart_t *partition;
+  int32_t *v;
+  uint32_t i, j, k, n, m, neq;
+  eterm_t t1, t2;
+  literal_t eq;
+
+  assert(max_eq > 0 && solver->egraph != NULL);
+
+  rdl_prep_model(solver);
+  partition = rdl_build_model_partition(solver);
+
+  neq = 0;
+  n = int_partition_nclasses(partition);
+  for (i=0; i<n && neq < max_eq; i++) {
+    v = partition->classes[i];
+    m = iv_size(v);
+    for (j=0; j<m && neq < max_eq; j++) {
+      t1 = dl_var_get_eterm(&solver->vtbl, v[j]);
+      for (k=j+1; k<m && neq < max_eq; k++) {
+        t2 = dl_var_get_eterm(&solver->vtbl, v[k]);
+        if (! egraph_equal_terms(solver->egraph, t1, t2)) {
+          eq = egraph_make_simple_eq(solver->egraph, pos_occ(t1), pos_occ(t2));
+          rdl_gen_interface_lemma(solver, not(eq), v[j], v[k], true);
+          neq ++;
+        }
+      }
+    }
+  }
+
+  rdl_release_model_partition(solver, partition);
+  rdl_release_model(solver);
+
+  return neq;
+}
+
+
+/*
+ * Conservative base-level disequality check.
+ */
+static bool rdl_check_disequality(rdl_solver_t *solver, thvar_t x1, thvar_t x2) {
+  dl_triple_t *triple;
+  int32_t x, y;
+  rdl_cell_t *cell;
+  rdl_const_t *bound;
+
+  triple = &solver->triple;
+  if (! diff_dl_vars(&solver->vtbl, x1, x2, triple)) {
+    return false;
+  }
+
+  x = triple->target;
+  y = triple->source;
+  if (x == y) {
+    return q_is_nonzero(&triple->constant);
+  }
+
+  if (x < 0) {
+    x = solver->zero_vertex;
+  } else if (y < 0) {
+    y = solver->zero_vertex;
+  }
+  if (x < 0 || y < 0 || x >= solver->graph.matrix.dim || y >= solver->graph.matrix.dim) {
+    return false;
+  }
+
+  bound = &solver->c1;
+  rdl_const_set_rational(bound, &triple->constant);
+  rdl_const_negate(bound);
+  cell = rdl_cell(&solver->graph.matrix, x, y);
+  if (cell->id >= 0 && rdl_const_lt(&cell->dist, bound)) {
+    return true;
+  }
+
+  rdl_const_set_rational(bound, &triple->constant);
+  cell = rdl_cell(&solver->graph.matrix, y, x);
+  return cell->id >= 0 && rdl_const_lt(&cell->dist, bound);
+}
+
+
+/*
+ * Check whether x is a constant triple.
+ */
+static bool rdl_var_is_constant(rdl_solver_t *solver, thvar_t x) {
+  dl_triple_t *d;
+
+  // Conservative: bounds may force a non-constant triple to a singleton value.
+  d = dl_var_triple(&solver->vtbl, x);
+  return d->target == nil_vertex && d->source == nil_vertex;
+}
+
+
+/*
+ * Select polarity for an E-graph equality using the current RDL model.
+ */
+static literal_t rdl_select_eq_polarity(rdl_solver_t *solver, thvar_t x1, thvar_t x2, literal_t l) {
+  bool keep_model, eq;
+
+  keep_model = solver->value != NULL;
+  if (! keep_model) {
+    rdl_build_model(solver);
+  }
+  eq = rdl_var_equal_in_model(solver, x1, x2);
+  if (! keep_model) {
+    rdl_free_model(solver);
+  }
+
+  return eq ? l : not(l);
+}
+
+
+/*
  * Interface function: check whether x is an integer variable.
  */
 bool rdl_var_is_integer(rdl_solver_t *solver, thvar_t x) {
@@ -3314,14 +3845,43 @@ static arith_interface_t rdl_intern = {
   (assert_arith_cond_vareq_axiom_fun_t) rdl_assert_cond_vareq_axiom,
   (assert_arith_clause_vareq_axiom_fun_t) rdl_assert_clause_vareq_axiom,
 
-  NULL, // attach_eterm is not supported
-  NULL, // eterm of var is not supported
+  (attach_eterm_fun_t) rdl_attach_eterm,
+  (eterm_of_var_fun_t) rdl_eterm_of_var,
 
   (build_model_fun_t) rdl_build_model,
   (free_model_fun_t) rdl_free_model,
   (arith_val_in_model_fun_t) rdl_value_in_model,
 
   (arith_var_is_int_fun_t) rdl_var_is_integer,
+};
+
+
+/*
+ * E-graph satellite interfaces.
+ */
+static th_egraph_interface_t rdl_egraph = {
+  (assert_eq_fun_t) rdl_assert_var_eq,
+  (assert_diseq_fun_t) rdl_assert_var_diseq,
+  (assert_distinct_fun_t) rdl_assert_var_distinct,
+  (check_diseq_fun_t) rdl_check_disequality,
+  (is_constant_fun_t) rdl_var_is_constant,
+  NULL,
+  (reconcile_model_fun_t) rdl_reconcile_model,
+  (prepare_model_fun_t) rdl_prep_model,
+  (equal_in_model_fun_t) rdl_var_equal_in_model,
+  (gen_inter_lemma_fun_t) rdl_gen_interface_lemma,
+  (release_model_fun_t) rdl_release_model,
+  (build_partition_fun_t) rdl_build_model_partition,
+  (free_partition_fun_t) rdl_release_model_partition,
+  (attach_to_var_fun_t) rdl_attach_eterm,
+  (get_eterm_fun_t) rdl_eterm_of_var,
+  (select_eq_polarity_fun_t) rdl_select_eq_polarity,
+};
+
+
+static arith_egraph_interface_t rdl_arith_egraph = {
+  (make_arith_var_fun_t) rdl_create_var,
+  (arith_val_fun_t) rdl_value_in_model,
 };
 
 
@@ -3338,9 +3898,10 @@ static arith_interface_t rdl_intern = {
  * - core = attached smt_core solver
  * - gates = the attached gate manager
  */
-void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core, gate_manager_t *gates) {
+void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core, gate_manager_t *gates, egraph_t *egraph) {
   solver->core = core;
   solver->gate_manager = gates;
+  solver->egraph = egraph;
   solver->base_level = 0;
   solver->decision_level = 0;
   solver->unsat_before_search = false;
@@ -3355,6 +3916,7 @@ void init_rdl_solver(rdl_solver_t *solver, smt_core_t *core, gate_manager_t *gat
   init_rdl_astack(&solver->astack, DEFAULT_RDL_ASTACK_SIZE);
   init_rdl_undo_stack(&solver->stack, DEFAULT_RDL_UNDO_STACK_SIZE);
   init_rdl_trail_stack(&solver->trail_stack);
+  init_eassertion_queue(&solver->egraph_queue);
 
   init_int_htbl(&solver->htbl, 0);
   init_arena(&solver->arena);
@@ -3399,6 +3961,7 @@ void delete_rdl_solver(rdl_solver_t *solver) {
   delete_rdl_astack(&solver->astack);
   delete_rdl_undo_stack(&solver->stack);
   delete_rdl_trail_stack(&solver->trail_stack);
+  delete_eassertion_queue(&solver->egraph_queue);
 
   delete_int_htbl(&solver->htbl);
   delete_arena(&solver->arena);
@@ -3457,4 +4020,12 @@ th_smt_interface_t *rdl_smt_interface(rdl_solver_t *solver) {
  */
 arith_interface_t *rdl_arith_interface(rdl_solver_t *solver) {
   return &rdl_intern;
+}
+
+th_egraph_interface_t *rdl_egraph_interface(rdl_solver_t *solver) {
+  return &rdl_egraph;
+}
+
+arith_egraph_interface_t *rdl_arith_egraph_interface(rdl_solver_t *solver) {
+  return &rdl_arith_egraph;
 }

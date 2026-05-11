@@ -1355,8 +1355,13 @@ Two arithmetic solvers can be used in place of the Simplex-based
 solver for integer or real difference logic. These solvers implement a
 decision procedure based on the Floyd-Warshall algorithm. These
 solvers are more specialized and limited than the Simplex-based
-solver. They must be used standalone; they cannot be combined with the
-UF solver.
+solver. They can be used standalone, or as arithmetic satellites of
+the UF solver in one-shot contexts, optionally together with the
+bitvector solver. If the bitvector solver is selected together with a
+Floyd-Warshall solver, the UF solver is added implicitly. The
+Floyd-Warshall solvers cannot be combined with the array solver.
+Disequalities and distinct constraints between Floyd-Warshall-attached
+arithmetic terms are handled lazily during model reconciliation.
 
 \begin{figure}
 \begin{center}
@@ -1829,8 +1834,10 @@ options are supported.
   given, then  the arithmetic solver is  determined automatically; the
   default is \texttt{auto}.
 
-  This option has no effect  for logics other than \texttt{QF\_IDL} or
-  \texttt{QF\_RDL}.
+  This option can also be used with difference-logic formulas that use
+  the UF solver. In that case, the Floyd-Warshall solver is attached as
+  an arithmetic satellite of the egraph. It is still restricted to
+  one-shot mode and to difference-logic atoms.
 
 \item[--mode=<mode>] Select solver features.\\[1mm]
   \texttt{<mode>} can be \texttt{one-shot}, \texttt{multi-checks},
