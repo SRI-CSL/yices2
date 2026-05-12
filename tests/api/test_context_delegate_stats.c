@@ -24,6 +24,12 @@
 #include <stdbool.h>
 #include <string.h>
 
+/*
+ * This test reaches into internal headers to inspect
+ * sat_delegate_stats_t and context_get_sat_delegate_stats, which are
+ * not exposed through the public yices.h API.  The corresponding
+ * carve-out for -Wpedantic / -Wextra lives in tests/api/Makefile.
+ */
 #include "context/context.h"
 #include "yices.h"
 
