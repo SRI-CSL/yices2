@@ -128,10 +128,9 @@ static void ysat_var_def3(void *solver, bvar_t x, uint32_t b, literal_t l1, lite
 }
 #endif
 
-static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
+static void ysat_as_delegate_mode(delegate_t *d, uint32_t nvars, bool preprocessing) {
   d->solver = (sat_solver_t *) safe_malloc(sizeof(sat_solver_t));
-  init_nsat_solver(d->solver, nvars, true); // with preprocessing
-  // init_nsat_solver(d->solver, nvars, false); // without preprocessing
+  init_nsat_solver(d->solver, nvars, preprocessing);
   nsat_set_randomness(d->solver, 0.01);
   nsat_set_reduce_fraction(d->solver, 12);
   nsat_set_res_clause_limit(d->solver, 300);   // more agressive var elimination
@@ -169,6 +168,14 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   // more experimental functions
   d->preprocess = ysat_preprocess;
   d->export = ysat_export_to_dimacs;
+}
+
+static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
+  ysat_as_delegate_mode(d, nvars, true);
+}
+
+static void ysat_as_incremental_delegate(delegate_t *d, uint32_t nvars) {
+  ysat_as_delegate_mode(d, nvars, false);
 }
 
 
@@ -383,6 +390,9 @@ void delete_incremental_cadical(incremental_cadical_t *ic) {
 void incremental_cadical_melt_level(incremental_cadical_t *ic, uint32_t level) {
   if (level < ic->size && ic->act_var[level] != 0) {
     ccadical_melt(ic->cadical, ic->act_var[level]);
+    ccadical_add(ic->cadical, -ic->act_var[level]);
+    ccadical_add(ic->cadical, 0);
+    ic->act_var[level] = 0;
   }
 }
 
@@ -848,6 +858,14 @@ bool init_delegate(delegate_t *d, const char *solver_name, uint32_t nvars) {
   return false;
 }
 
+bool init_delegate_incremental(delegate_t *d, const char *solver_name, uint32_t nvars) {
+  if (strcmp("y2sat", solver_name) == 0) {
+    ysat_as_incremental_delegate(d, nvars);
+    return true;
+  }
+  return init_delegate(d, solver_name, nvars);
+}
+
 
 
 /*
@@ -896,7 +914,21 @@ bool supported_delegate(const char *solver_name, bool *unknown) {
   return false;
 }
 
-bool incremental_delegate(const char *solver_name) {
+bool delegate_supports_append_recheck_name(const char *solver_name) {
+  return strcmp("y2sat", solver_name) == 0 ||
+         strcmp("cadical", solver_name) == 0 ||
+         strcmp("cryptominisat", solver_name) == 0;
+}
+
+bool delegate_supports_assumptions_name(const char *solver_name) {
+  return strcmp("cadical", solver_name) == 0 || strcmp("cryptominisat", solver_name) == 0;
+}
+
+bool delegate_supports_failed_assumptions_name(const char *solver_name) {
+  return delegate_supports_assumptions_name(solver_name);
+}
+
+bool delegate_supports_selector_frames_name(const char *solver_name) {
   return strcmp("cadical", solver_name) == 0 || strcmp("cryptominisat", solver_name) == 0;
 }
 

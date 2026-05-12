@@ -244,27 +244,26 @@ at runtime with :c:func:`yices_has_delegate`. The capabilities of each
 delegate are summarized in the following table.
 
    +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
-   | Delegate          | Always available  | Incremental push/pop    | ``check_with_assumptions``| Unsat core from assumptions      |
+   | Delegate          | Always available  | Incremental modes       | ``check_with_assumptions``| Unsat core from assumptions      |
    +===================+===================+=========================+===========================+==================================+
-   | ``y2sat``         | yes               | rebuild on each check   | rebuild on each check     | no                               |
+   | ``y2sat``         | yes               | rebuild, append         | no                        | no                               |
    +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
-   | ``cadical``       | optional          | yes (selector frames)   | yes                       | yes                              |
+   | ``cadical``       | optional          | rebuild, append, frames | yes                       | yes                              |
    +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
-   | ``cryptominisat`` | optional          | yes (selector frames)   | yes                       | yes                              |
+   | ``cryptominisat`` | optional          | rebuild, append, frames | yes                       | yes                              |
    +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
-   | ``kissat``        | optional          | rebuild on each check   | rebuild on each check     | no                               |
+   | ``kissat``        | optional          | rebuild                 | no                        | no                               |
    +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
 
-For incremental QF_BV contexts (``push-pop`` or ``multi-checks``
-mode), CaDiCaL and CryptoMiniSat support a *selector-frames* strategy
-that keeps the delegate live across :c:func:`yices_check_context`
-calls and uses fresh selector literals to retract clauses on
-``yices_pop``. This strategy preserves the delegate's learned clauses
-between checks. It is opt-in via the
-``sat-delegate-selector-frames`` configuration parameter described
-below. When the option is ``"false"`` (the default) or the delegate
-is non-incremental, Yices rebuilds the delegate from the current
-bit-blasted problem at every mutation.
+For incremental QF_BV contexts (``push-pop`` or ``multi-checks`` mode),
+delegates can be configured with ``sat-delegate-incremental-mode``. The
+``rebuild`` mode builds a fresh delegate at every check, ``append`` keeps a
+live delegate and appends newly generated clauses, and ``selector-frames`` uses
+activation literals to keep CaDiCaL or CryptoMiniSat live across ``pop``. If no
+mode is set explicitly, Yices selects the default from the delegate and context
+mode: all delegates use ``rebuild`` in one-shot contexts; y2sat uses
+``append`` in reusable contexts; CaDiCaL and CryptoMiniSat use
+``selector-frames`` in reusable contexts; Kissat always uses ``rebuild``.
 
 The delegate can also be selected, or one-shot overridden, on a
 per-check basis through the ``delegate`` field of a search-parameter
@@ -352,11 +351,11 @@ They are ignored for any other logic. See
    |                                +---------------------+----------------------------------------------+
    |                                | ``"kissat"``        |  use Kissat as the SAT back-end              |
    +--------------------------------+---------------------+----------------------------------------------+
-   | sat-delegate-selector-frames   | ``"false"``         |  rebuild the delegate on each context        |
-   |                                |                     |  mutation (default)                          |
+   | sat-delegate-incremental-mode  | ``"rebuild"``       |  build a fresh delegate at every check       |
    |                                +---------------------+----------------------------------------------+
-   |                                | ``"true"``          |  keep an incremental delegate live across    |
-   |                                |                     |  checks using selector-guarded frames        |
+   |                                | ``"append"``        |  keep a live delegate and append clauses     |
+   |                                +---------------------+----------------------------------------------+
+   |                                | ``"selector-frames"``| keep a live delegate using activation frames |
    +--------------------------------+---------------------+----------------------------------------------+
 
 
@@ -1417,4 +1416,3 @@ record is no longer needed, it can be deleted by
    *param* must be a record returned by :c:func:`yices_new_param_record`.
 
    This function frees the memory allocated to this record.
-

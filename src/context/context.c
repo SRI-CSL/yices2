@@ -5666,7 +5666,8 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->arch = arch;
   ctx->logic = logic;
   ctx->sat_delegate = SAT_DELEGATE_NONE;
-  ctx->sat_delegate_selector_frames = false;
+  ctx->sat_delegate_incremental_mode = SAT_DELEGATE_MODE_REBUILD;
+  ctx->sat_delegate_incremental_mode_set = false;
   ctx->theories = arch2theories[arch];
   ctx->options = mode2options[mode];
   if (qflag) {
@@ -5999,6 +6000,7 @@ void context_pop(context_t *ctx) {
     }
   }
 #endif
+  context_delegate_state_pop(ctx, ctx->base_level);
 
   ctx->base_level --;
   ctx->mutation_count ++;

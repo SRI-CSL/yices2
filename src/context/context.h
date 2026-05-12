@@ -420,6 +420,16 @@ extern smt_status_t check_with_incremental_cadical(context_t *ctx, uint32_t verb
 extern smt_status_t check_with_incremental_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity,
                                                     uint32_t n, const literal_t *assumptions, ivector_t *failed);
 
+extern smt_status_t check_with_sat_delegate(context_t *ctx, const char *sat_solver,
+                                            sat_delegate_incremental_mode_t mode,
+                                            uint32_t verbosity, uint32_t n,
+                                            const literal_t *assumptions, ivector_t *failed);
+
+/*
+ * Pop notification for persistent SAT delegate state.
+ */
+extern void context_delegate_state_pop(context_t *ctx, uint32_t level);
+
 
 /*
  * Bit-blast then export to DIMACS

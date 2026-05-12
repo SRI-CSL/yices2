@@ -2644,6 +2644,9 @@ static void init_search_parameters(smt2_globals_t *g) {
   assert(g->ctx != NULL);
   yices_default_params_for_context(g->ctx, &g->parameters);
   if (g->delegate != NULL) {
+    if (parse_sat_delegate(g->delegate, &g->ctx->sat_delegate) < 0) {
+      g->ctx->sat_delegate = SAT_DELEGATE_NONE;
+    }
     code = params_set_field(&g->parameters, "delegate", g->delegate);
     assert(code == 0);
     if (code < 0) {
@@ -3144,16 +3147,11 @@ static void check_delayed_assertions(smt2_globals_t *g, bool report) {
          * Special case: QF_BV with delegate
          */
         if (g->dimacs_file == NULL) {
-#if HAVE_CADICAL
-          if (strcmp(g->delegate, "cadical") == 0 &&
-              (g->ctx->mode == CTX_MODE_PUSHPOP || g->ctx->mode == CTX_MODE_INTERACTIVE)) {
-            status = check_with_incremental_cadical(g->ctx, g->verbosity, 0, NULL, NULL);
-          } else {
-            status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
-          }
-#else
-          status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
-#endif
+          init_search_parameters(g);
+          status = check_with_sat_delegate(g->ctx, g->delegate,
+                                           sat_delegate_default_incremental_mode(g->ctx->sat_delegate,
+                                                                                g->ctx->mode == CTX_MODE_ONECHECK),
+                                           g->verbosity, 0, NULL, NULL);
         } else {
           code = process_then_export_to_dimacs(g->ctx, g->dimacs_file, &status);
           if (code < 0) {

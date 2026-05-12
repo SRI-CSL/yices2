@@ -1504,17 +1504,18 @@ last argument; they bit-blast the input formulas into a fresh CNF and
 hand it to the chosen delegate.
 
 For incremental QF\_BV contexts (\texttt{push-pop} or
-\texttt{multi-checks} mode), CaDiCaL and CryptoMiniSat support a
-\emph{selector-frames} strategy that keeps the delegate live across
-\texttt{check-sat} calls and uses fresh selector literals to retract
-clauses on \texttt{pop}. This strategy preserves learned clauses
-between checks and is selected by setting the
-\texttt{sat-delegate-selector-frames} configuration parameter to
-\texttt{"true"} on the context. The default is \texttt{"false"}, in
-which case the delegate is rebuilt from the current bit-blasted
-problem at every mutation. The non-incremental delegates
-\texttt{y2sat} and Kissat are always rebuilt on each check; the
-\texttt{sat-delegate-selector-frames} option has no effect for them.
+\texttt{multi-checks} mode), the
+\texttt{sat-delegate-incremental-mode} configuration parameter selects
+how the delegate is reused. Mode \texttt{"rebuild"} builds a fresh
+delegate at every check. Mode \texttt{"append"} keeps a live delegate
+and appends newly generated clauses, rebuilding only after \texttt{pop}.
+Mode \texttt{"selector-frames"} uses activation literals so CaDiCaL or
+CryptoMiniSat can remain live across \texttt{pop}. If no mode is set
+explicitly, Yices selects a default from the delegate and context mode:
+all delegates use \texttt{"rebuild"} in one-shot contexts; \texttt{y2sat}
+uses \texttt{"append"} in reusable contexts; CaDiCaL and CryptoMiniSat
+use \texttt{"selector-frames"} in reusable contexts; Kissat always uses
+\texttt{"rebuild"}.
 
 The full list of API names recognized by these mechanisms, together
 with their possible values and error codes, is documented in the

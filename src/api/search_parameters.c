@@ -346,6 +346,18 @@ static const int32_t sat_delegate_code[NUM_SAT_DELEGATES] = {
   SAT_DELEGATE_Y2SAT,
 };
 
+static const char * const sat_delegate_incremental_mode_names[NUM_SAT_DELEGATE_INCREMENTAL_MODES] = {
+  "append",
+  "rebuild",
+  "selector-frames",
+};
+
+static const int32_t sat_delegate_incremental_mode_code[NUM_SAT_DELEGATE_INCREMENTAL_MODES] = {
+  SAT_DELEGATE_MODE_APPEND,
+  SAT_DELEGATE_MODE_REBUILD,
+  SAT_DELEGATE_MODE_SELECTOR_FRAMES,
+};
+
 const char *sat_delegate_name(sat_delegate_t mode) {
   switch (mode) {
   case SAT_DELEGATE_Y2SAT:
@@ -375,6 +387,69 @@ int32_t parse_sat_delegate(const char *value, sat_delegate_t *v) {
   }
 
   return -2;
+}
+
+const char *sat_delegate_incremental_mode_name(sat_delegate_incremental_mode_t mode) {
+  switch (mode) {
+  case SAT_DELEGATE_MODE_REBUILD:
+    return "rebuild";
+  case SAT_DELEGATE_MODE_APPEND:
+    return "append";
+  case SAT_DELEGATE_MODE_SELECTOR_FRAMES:
+    return "selector-frames";
+  default:
+    return NULL;
+  }
+}
+
+int32_t parse_sat_delegate_incremental_mode(const char *value, sat_delegate_incremental_mode_t *v) {
+  int32_t k;
+
+  k = parse_as_keyword(value, sat_delegate_incremental_mode_names,
+                       sat_delegate_incremental_mode_code, NUM_SAT_DELEGATE_INCREMENTAL_MODES);
+  assert(k >= 0 || k == -1);
+
+  if (k >= 0) {
+    assert(SAT_DELEGATE_MODE_REBUILD <= k && k <= SAT_DELEGATE_MODE_SELECTOR_FRAMES);
+    *v = (sat_delegate_incremental_mode_t) k;
+    return 0;
+  }
+
+  return -2;
+}
+
+sat_delegate_incremental_mode_t sat_delegate_default_incremental_mode(sat_delegate_t delegate, bool one_check) {
+  if (one_check) {
+    return SAT_DELEGATE_MODE_REBUILD;
+  }
+
+  switch (delegate) {
+  case SAT_DELEGATE_Y2SAT:
+    return SAT_DELEGATE_MODE_APPEND;
+  case SAT_DELEGATE_CADICAL:
+  case SAT_DELEGATE_CRYPTOMINISAT:
+    return SAT_DELEGATE_MODE_SELECTOR_FRAMES;
+  case SAT_DELEGATE_KISSAT:
+  case SAT_DELEGATE_NONE:
+  default:
+    return SAT_DELEGATE_MODE_REBUILD;
+  }
+}
+
+bool sat_delegate_incremental_mode_supported(sat_delegate_t delegate, sat_delegate_incremental_mode_t mode) {
+  switch (mode) {
+  case SAT_DELEGATE_MODE_REBUILD:
+    return true;
+  case SAT_DELEGATE_MODE_APPEND:
+    return delegate == SAT_DELEGATE_Y2SAT ||
+           delegate == SAT_DELEGATE_CADICAL ||
+           delegate == SAT_DELEGATE_CRYPTOMINISAT;
+  case SAT_DELEGATE_MODE_SELECTOR_FRAMES:
+    return delegate == SAT_DELEGATE_CADICAL ||
+           delegate == SAT_DELEGATE_CRYPTOMINISAT;
+  default:
+    return false;
+  }
 }
 
 sat_delegate_t effective_sat_delegate_mode(sat_delegate_t config_delegate, const param_t *params, bool *one_shot) {

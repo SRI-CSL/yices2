@@ -2966,10 +2966,9 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *                         | "cryptominisat"| use CryptoMiniSat for QF_BV contexts
  *                         | "kissat"       | use Kissat for QF_BV contexts
  *   ----------------------------------------------------------------------------------------
- *    "sat-delegate-selector-frames"        | "false" | rebuild delegate clauses after each
- *                                          |         | context mutation (default)
- *                                          | "true"  | keep an incremental delegate live
- *                                          |         | using selector-guarded frames
+ *    "sat-delegate-incremental-mode"       | "rebuild"         | build a fresh delegate at every check
+ *                                          | "append"          | keep a live delegate and append new clauses
+ *                                          | "selector-frames" | guard pushed frames with activation literals
  *
  * The SAT delegate options have an effect only for QF_BV contexts. When a
  * delegate is selected, Yices bit-blasts the bit-vector assertions to CNF as
@@ -2977,19 +2976,21 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  * the internal Yices CDCL SAT solver.
  *
  * Delegate capability matrix:
- *   y2sat         : always available; rebuilt on each incremental check
- *   cadical       : optional (build flag); incremental, supports check-with-
- *                   assumptions and unsat-core extraction from assumptions
- *   cryptominisat : optional (build flag); incremental, supports check-with-
- *                   assumptions and unsat-core extraction from assumptions
- *   kissat        : optional (build flag); rebuilt on each incremental check
+ *   y2sat         : always available; supports rebuild and append modes; no
+ *                   check-with-assumptions support
+ *   cadical       : optional (build flag); supports rebuild, append, selector-
+ *                   frames, check-with-assumptions, and unsat-core extraction
+ *                   from assumptions
+ *   cryptominisat : optional (build flag); supports rebuild, append, selector-
+ *                   frames, check-with-assumptions, and unsat-core extraction
+ *                   from assumptions
+ *   kissat        : optional (build flag); supports rebuild mode only
  *
- * "sat-delegate-selector-frames" controls how push/pop is realised against an
- * incremental delegate: "false" rebuilds the delegate from the current bit-
- * blasted problem on every mutation (simpler, loses the delegate's learned
- * clauses), "true" keeps the delegate live across checks with selector-guarded
- * frames (preserves learned clauses). The option is ignored for non-incremental
- * delegates.
+ * If "sat-delegate-incremental-mode" is not set explicitly, Yices picks a
+ * default from the delegate and context mode: all delegates use "rebuild" in
+ * one-shot contexts; y2sat uses "append" in reusable contexts; CaDiCaL and
+ * CryptoMiniSat use "selector-frames" in reusable contexts; Kissat always uses
+ * "rebuild". Explicit unsupported combinations are rejected.
  *
  * yices_has_delegate() reports whether a particular delegate name is included
  * in the current Yices build.

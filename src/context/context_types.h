@@ -641,7 +641,8 @@ struct context_s {
   context_arch_t arch;
   smt_logic_t logic;
   sat_delegate_t sat_delegate;
-  bool sat_delegate_selector_frames;
+  sat_delegate_incremental_mode_t sat_delegate_incremental_mode;
+  bool sat_delegate_incremental_mode_set;
 
   // theories flag
   uint32_t theories;

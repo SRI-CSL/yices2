@@ -112,6 +112,14 @@ typedef struct delegate_s {
  */
 extern bool init_delegate(delegate_t *delegate, const char *solver_name, uint32_t nvars);
 
+/*
+ * Create a delegate for persistent append/recheck use.
+ * This is the same as init_delegate for most solvers. For y2sat, it disables
+ * preprocessing because variable elimination is destructive under later
+ * clause additions.
+ */
+extern bool init_delegate_incremental(delegate_t *delegate, const char *solver_name, uint32_t nvars);
+
 
 /*
  * Test whether a solver is known and supported.
@@ -126,10 +134,11 @@ extern bool supported_delegate(const char *solver_name, bool *unknown);
 
 /*
  * Classify solver capabilities.
- * - returns true iff solver_name is supported as an incremental delegate
- *   (currently: cadical, cryptominisat).
  */
-extern bool incremental_delegate(const char *solver_name);
+extern bool delegate_supports_append_recheck_name(const char *solver_name);
+extern bool delegate_supports_assumptions_name(const char *solver_name);
+extern bool delegate_supports_failed_assumptions_name(const char *solver_name);
+extern bool delegate_supports_selector_frames_name(const char *solver_name);
 
 
 /*
