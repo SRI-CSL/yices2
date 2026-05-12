@@ -68,6 +68,8 @@ extern void delete_context(context_t *ctx);
  * Release delegate runtime state (if any).
  */
 extern void context_delegate_state_cleanup(context_t *ctx);
+extern void context_reset_sat_delegate_stats(context_t *ctx);
+extern void context_get_sat_delegate_stats(const context_t *ctx, sat_delegate_stats_t *stats);
 
 
 /*

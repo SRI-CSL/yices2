@@ -363,6 +363,12 @@ void init_incremental_cadical(incremental_cadical_t *ic) {
   ic->pop_epoch         = 0;
   ic->last_pop_epoch    = 0;
   ic->min_popped_level  = UINT32_MAX;
+  ic->stats_checked_once = false;
+  ic->stats_selector_variables = 0;
+  ic->stats_selector_assumptions = 0;
+  ic->stats_selector_retirements = 0;
+  ic->stats_selector_chain_clauses = 0;
+  ic->stats_post_check_clause_forwards = 0;
   sz = INCR_CADICAL_DEFAULT_SIZE;
   ic->size      = sz;
   ic->act_var     = (int32_t *)  safe_malloc(sz * sizeof(int32_t));
@@ -392,6 +398,7 @@ void incremental_cadical_melt_level(incremental_cadical_t *ic, uint32_t level) {
     ccadical_melt(ic->cadical, ic->act_var[level]);
     ccadical_add(ic->cadical, -ic->act_var[level]);
     ccadical_add(ic->cadical, 0);
+    ic->stats_selector_retirements ++;
     ic->act_var[level] = 0;
   }
 }
@@ -498,6 +505,7 @@ smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_
     if (k >= refresh_from) {
       ic->act_var[k] = ccadical_declare_one_more_variable(ic->cadical);
       ccadical_freeze(ic->cadical, ic->act_var[k]);
+      ic->stats_selector_variables ++;
       ic->fwd_units[k]   = trail_data[k-1].nunits;
       ic->fwd_bins[k]    = trail_data[k-1].nbins;
       ic->fwd_clauses[k] = trail_data[k-1].nclauses;
@@ -511,11 +519,19 @@ smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_
 
   /* forward new clauses for each level */
   for (k = 0; k <= d; k++) {
+    bool forwarded;
+
     act = (k == 0) ? 0 : ic->act_var[k];
 
     end_units   = (k < d) ? trail_data[k].nunits   : core->nb_unit_clauses;
     end_bins    = (k < d) ? trail_data[k].nbins     : (uint32_t) core->binary_clauses.size;
     end_clauses = (k < d) ? trail_data[k].nclauses  : (uint32_t) get_cv_size(core->problem_clauses);
+    forwarded = ic->fwd_units[k] < end_units ||
+                ic->fwd_bins[k] < end_bins ||
+                ic->fwd_clauses[k] < end_clauses;
+    if (ic->stats_checked_once && forwarded) {
+      ic->stats_post_check_clause_forwards ++;
+    }
 
     for (i = ic->fwd_units[k]; i < end_units; i++) {
       ic_add_unit(ic, core->stack.lit[i], act);
@@ -538,6 +554,7 @@ smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_
   /* activate all current push levels */
   for (k = 1; k <= d; k++) {
     ccadical_assume(ic->cadical, ic->act_var[k]);
+    ic->stats_selector_assumptions ++;
   }
   /* assume caller-provided literals (check-sat-assuming) */
   for (i = 0; i < nassumptions; i++) {
@@ -545,6 +562,7 @@ smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_
   }
 
   r = ccadical_solve(ic->cadical);
+  ic->stats_checked_once = true;
 
   if (r == 10) {
     set_smt_status(core, YICES_STATUS_SAT);

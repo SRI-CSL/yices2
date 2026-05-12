@@ -7,6 +7,7 @@
 #include <string.h>
 
 #include <yices.h>
+#include "context/context.h"
 
 static void expect_status(context_t *ctx, const param_t *params, smt_status_t expected) {
   smt_status_t stat;
@@ -416,6 +417,243 @@ static bool is_incremental_delegate_name(const char *delegate) {
   return strcmp(delegate, "cadical") == 0 || strcmp(delegate, "cryptominisat") == 0;
 }
 
+static bool supports_append_mode(const char *delegate) {
+  return strcmp(delegate, "y2sat") == 0 || is_incremental_delegate_name(delegate);
+}
+
+static void get_delegate_stats(context_t *ctx, sat_delegate_stats_t *stats) {
+  context_get_sat_delegate_stats(ctx, stats);
+}
+
+static term_t new_branching_sat_formula(void) {
+  type_t bv8;
+  term_t x, y, f0, f1;
+
+  bv8 = yices_bv_type(8);
+  x = yices_new_uninterpreted_term(bv8);
+  y = yices_new_uninterpreted_term(bv8);
+  f0 = yices_bveq_atom(yices_bvand2(x, y), yices_bvconst_uint32(8, 0x0f));
+  f1 = yices_bveq_atom(yices_bvor2(x, y), yices_bvconst_uint32(8, 0xff));
+
+  return yices_and2(f0, f1);
+}
+
+static term_t new_bool_assumption(void) {
+  return yices_new_uninterpreted_term(yices_bool_type());
+}
+
+static void check_default_mode_stats_case(const char *delegate) {
+  term_t f;
+  context_t *ctx;
+  sat_delegate_stats_t stats;
+
+  f = new_branching_sat_formula();
+
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, NULL);
+  assert(yices_assert_formula(ctx, f) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+
+  get_delegate_stats(ctx, &stats);
+  if (strcmp(delegate, "y2sat") == 0) {
+    assert(stats.append_checks == 1);
+    assert(stats.rebuild_checks == 0);
+    assert(stats.selector_frame_checks == 0);
+  } else if (is_incremental_delegate_name(delegate)) {
+    assert(stats.selector_frame_checks == 1);
+    assert(stats.rebuild_checks == 0);
+    assert(stats.append_checks == 0);
+  } else {
+    assert(stats.rebuild_checks == 1);
+    assert(stats.append_checks == 0);
+    assert(stats.selector_frame_checks == 0);
+  }
+
+  yices_free_context(ctx);
+}
+
+static void check_rebuild_mode_stats_case(const char *delegate) {
+  term_t f0, f1;
+  context_t *ctx;
+  sat_delegate_stats_t stats;
+
+  f0 = new_branching_sat_formula();
+  f1 = new_branching_sat_formula();
+
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "rebuild");
+  assert(yices_assert_formula(ctx, f0) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+  assert(yices_assert_formula(ctx, f1) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+
+  get_delegate_stats(ctx, &stats);
+  assert(stats.rebuild_checks == 2);
+  assert(stats.append_checks == 0);
+  assert(stats.selector_frame_checks == 0);
+
+  yices_free_context(ctx);
+}
+
+static void check_append_mode_add_after_solve_case(const char *delegate) {
+  term_t f0, f1;
+  context_t *ctx;
+  sat_delegate_stats_t stats;
+  smt_status_t stat;
+  term_t a;
+
+  if (!supports_append_mode(delegate)) {
+    return;
+  }
+
+  f0 = new_branching_sat_formula();
+  f1 = new_branching_sat_formula();
+
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "append");
+  assert(yices_assert_formula(ctx, f0) == 0);
+  if (strcmp(delegate, "y2sat") == 0) {
+    expect_status(ctx, NULL, YICES_STATUS_SAT);
+  } else {
+    a = new_bool_assumption();
+    stat = yices_check_context_with_assumptions(ctx, NULL, 1, &a);
+    assert(stat == YICES_STATUS_SAT);
+  }
+  assert(yices_assert_formula(ctx, f1) == 0);
+  if (strcmp(delegate, "y2sat") == 0) {
+    expect_status(ctx, NULL, YICES_STATUS_SAT);
+  } else {
+    stat = yices_check_context_with_assumptions(ctx, NULL, 1, &a);
+    assert(stat == YICES_STATUS_SAT);
+  }
+
+  get_delegate_stats(ctx, &stats);
+  assert(stats.append_checks == 2);
+  assert(stats.rebuild_checks == 0);
+  assert(stats.selector_frame_checks == 0);
+  if (strcmp(delegate, "y2sat") != 0) {
+    assert(stats.delegate_initializations == 1);
+    assert(stats.post_check_clause_forwards > 0);
+  }
+
+  yices_free_context(ctx);
+}
+
+static void check_append_mode_rebuild_after_pop_case(const char *delegate) {
+  term_t f0, f1;
+  context_t *ctx;
+  sat_delegate_stats_t stats;
+  smt_status_t stat;
+  term_t a;
+
+  if (!supports_append_mode(delegate)) {
+    return;
+  }
+
+  f0 = new_branching_sat_formula();
+  f1 = new_branching_sat_formula();
+
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "append");
+  assert(yices_assert_formula(ctx, f0) == 0);
+  if (strcmp(delegate, "y2sat") == 0) {
+    expect_status(ctx, NULL, YICES_STATUS_SAT);
+  } else {
+    a = new_bool_assumption();
+    stat = yices_check_context_with_assumptions(ctx, NULL, 1, &a);
+    assert(stat == YICES_STATUS_SAT);
+  }
+  assert(yices_push(ctx) == 0);
+  assert(yices_assert_formula(ctx, f1) == 0);
+  if (strcmp(delegate, "y2sat") == 0) {
+    expect_status(ctx, NULL, YICES_STATUS_SAT);
+  } else {
+    stat = yices_check_context_with_assumptions(ctx, NULL, 1, &a);
+    assert(stat == YICES_STATUS_SAT);
+  }
+  assert(yices_pop(ctx) == 0);
+  if (strcmp(delegate, "y2sat") == 0) {
+    expect_status(ctx, NULL, YICES_STATUS_SAT);
+  } else {
+    stat = yices_check_context_with_assumptions(ctx, NULL, 1, &a);
+    assert(stat == YICES_STATUS_SAT);
+  }
+
+  get_delegate_stats(ctx, &stats);
+  assert(stats.append_checks == 3);
+  if (strcmp(delegate, "y2sat") != 0) {
+    assert(stats.delegate_initializations == 2);
+    assert(stats.delegate_reinitializations == 1);
+  }
+
+  yices_free_context(ctx);
+}
+
+static void check_selector_mode_add_after_solve_case(const char *delegate) {
+  term_t f0, f1;
+  context_t *ctx;
+  sat_delegate_stats_t stats;
+  smt_status_t stat;
+  term_t a;
+
+  if (!is_incremental_delegate_name(delegate)) {
+    return;
+  }
+
+  f0 = new_branching_sat_formula();
+  f1 = new_branching_sat_formula();
+
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "selector-frames");
+  assert(yices_push(ctx) == 0);
+  assert(yices_assert_formula(ctx, f0) == 0);
+  a = new_bool_assumption();
+  stat = yices_check_context_with_assumptions(ctx, NULL, 1, &a);
+  assert(stat == YICES_STATUS_SAT);
+  assert(yices_assert_formula(ctx, f1) == 0);
+  stat = yices_check_context_with_assumptions(ctx, NULL, 1, &a);
+  assert(stat == YICES_STATUS_SAT);
+
+  get_delegate_stats(ctx, &stats);
+  assert(stats.selector_frame_checks == 2);
+  assert(stats.rebuild_checks == 0);
+  assert(stats.append_checks == 0);
+  assert(stats.selector_variables == 1);
+  assert(stats.selector_assumptions == 2);
+  assert(stats.selector_chain_clauses == 0);
+  assert(stats.post_check_clause_forwards > 0);
+
+  yices_free_context(ctx);
+}
+
+static void check_selector_mode_long_pushpop_case(const char *delegate) {
+  context_t *ctx;
+  sat_delegate_stats_t stats;
+  uint32_t i;
+
+  if (!is_incremental_delegate_name(delegate)) {
+    return;
+  }
+
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "selector-frames");
+
+  for (i=0; i<24; i++) {
+    term_t f, a;
+    smt_status_t stat;
+
+    f = new_branching_sat_formula();
+    a = new_bool_assumption();
+    assert(yices_push(ctx) == 0);
+    assert(yices_assert_formula(ctx, f) == 0);
+    stat = yices_check_context_with_assumptions(ctx, NULL, 1, &a);
+    assert(stat == YICES_STATUS_SAT);
+    assert(yices_pop(ctx) == 0);
+  }
+
+  get_delegate_stats(ctx, &stats);
+  assert(stats.selector_variables == 24);
+  assert(stats.selector_retirements == 24);
+  assert(stats.selector_assumptions == 24);
+  assert(stats.selector_chain_clauses == 0);
+
+  yices_free_context(ctx);
+}
+
 static void check_config_delegate_case(const char *delegate) {
   type_t bv8;
   term_t x, f;
@@ -592,6 +830,12 @@ int main(void) {
       check_add_self_unsat_case(delegates[i]);
       check_nested_pushpop_case(delegates[i]);
       check_branching_pushpop_case(delegates[i]);
+      check_default_mode_stats_case(delegates[i]);
+      check_rebuild_mode_stats_case(delegates[i]);
+      check_append_mode_add_after_solve_case(delegates[i]);
+      check_append_mode_rebuild_after_pop_case(delegates[i]);
+      check_selector_mode_add_after_solve_case(delegates[i]);
+      check_selector_mode_long_pushpop_case(delegates[i]);
       check_config_delegate_case(delegates[i]);
       check_config_delegate_rebuild_case(delegates[i]);
       check_assumptions_delegate_case(delegates[i]);

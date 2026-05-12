@@ -5678,6 +5678,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
 
   ctx->base_level = 0;
   ctx->mutation_count = 1;
+  context_reset_sat_delegate_stats(ctx);
 
   /*
    * The core is always needed: allocate it here. It's not initialized yet.
@@ -5886,6 +5887,7 @@ void context_invalidate_unsat_core_cache(context_t *ctx) {
 void reset_context(context_t *ctx) {
   ctx->base_level = 0;
   ctx->mutation_count ++;
+  context_reset_sat_delegate_stats(ctx);
   context_invalidate_unsat_core_cache(ctx);
   context_delegate_state_cleanup(ctx);
 

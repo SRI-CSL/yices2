@@ -631,6 +631,19 @@ typedef struct dl_data_s {
 /* Forward declaration for incremental CaDiCaL state (defined in delegate.h) */
 struct incremental_cadical_s;
 
+typedef struct sat_delegate_stats_s {
+  uint32_t rebuild_checks;
+  uint32_t append_checks;
+  uint32_t selector_frame_checks;
+  uint32_t delegate_initializations;
+  uint32_t delegate_reinitializations;
+  uint32_t selector_variables;
+  uint32_t selector_assumptions;
+  uint32_t selector_retirements;
+  uint32_t selector_chain_clauses;
+  uint32_t post_check_clause_forwards;
+} sat_delegate_stats_t;
+
 /**************
  *  CONTEXT   *
  *************/
@@ -653,6 +666,7 @@ struct context_s {
   // base_level == number of calls to push
   uint32_t base_level;
   uint64_t mutation_count;
+  sat_delegate_stats_t sat_delegate_stats;
 
   // core and theory solvers
   smt_core_t *core;

@@ -236,6 +236,12 @@ typedef struct incremental_cadical_s {
   uint32_t  pop_epoch;       /* incremented by context_pop; signals a pop occurred */
   uint32_t  last_pop_epoch;  /* value of pop_epoch seen at the last solve */
   uint32_t  min_popped_level;/* shallowest level popped since last solve (UINT32_MAX if none) */
+  bool      stats_checked_once;
+  uint32_t  stats_selector_variables;
+  uint32_t  stats_selector_assumptions;
+  uint32_t  stats_selector_retirements;
+  uint32_t  stats_selector_chain_clauses;
+  uint32_t  stats_post_check_clause_forwards;
 } incremental_cadical_t;
 
 extern void         init_incremental_cadical(incremental_cadical_t *ic);
