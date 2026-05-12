@@ -3645,10 +3645,11 @@ __YICES_DLLSPEC__ extern void yices_default_params_for_context(const context_t *
  * "delegate" is "none" (the default), the context's configured delegate is
  * used.
  *
- * In incremental contexts, non-incremental delegates (y2sat and Kissat) are
- * rebuilt from the current bit-blasted problem on each check. CaDiCaL and
- * CryptoMiniSat support incremental delegate checks (see "sat-delegate-
- * selector-frames" in yices_set_config). The "delegate" parameter is ignored
+ * In reusable QF_BV contexts, the context's configured delegate may keep
+ * persistent state according to "sat-delegate-incremental-mode" in
+ * yices_set_config. If a per-check "delegate" override differs from the
+ * context's configured delegate, it is treated as a one-shot delegate check and
+ * does not alter that persistent state. The "delegate" parameter is ignored
  * for any logic other than QF_BV.
  *
  * Return -1 if there's an error, 0 otherwise.

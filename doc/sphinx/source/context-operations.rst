@@ -243,17 +243,34 @@ inclusion in a particular Yices build is optional and can be checked
 at runtime with :c:func:`yices_has_delegate`. The capabilities of each
 delegate are summarized in the following table.
 
-   +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
-   | Delegate          | Always available  | Incremental modes       | ``check_with_assumptions``| Unsat core from assumptions      |
-   +===================+===================+=========================+===========================+==================================+
-   | ``y2sat``         | yes               | rebuild, append         | no                        | no                               |
-   +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
-   | ``cadical``       | optional          | rebuild, append, frames | yes                       | yes                              |
-   +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
-   | ``cryptominisat`` | optional          | rebuild, append, frames | yes                       | yes                              |
-   +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
-   | ``kissat``        | optional          | rebuild                 | no                        | no                               |
-   +-------------------+-------------------+-------------------------+---------------------------+----------------------------------+
+.. list-table::
+   :header-rows: 1
+
+   * - Delegate
+     - Availability
+     - Incremental modes
+     - ``check_with_assumptions``
+     - Unsat core from assumptions
+   * - ``y2sat``
+     - always
+     - ``rebuild``, ``append``
+     - no
+     - no
+   * - ``cadical``
+     - optional
+     - ``rebuild``, ``append``, ``selector-frames``
+     - yes
+     - yes
+   * - ``cryptominisat``
+     - optional
+     - ``rebuild``, ``append``, ``selector-frames``
+     - yes
+     - yes
+   * - ``kissat``
+     - optional
+     - ``rebuild``
+     - no
+     - no
 
 For incremental QF_BV contexts (``push-pop`` or ``multi-checks`` mode),
 delegates can be configured with ``sat-delegate-incremental-mode``. The
@@ -336,27 +353,39 @@ arithmetic fragment and the operating mode:
 
 Two more parameters control the SAT back-end for QF_BV contexts.
 They are ignored for any other logic. See
-:ref:`sat_delegate_config` above for the meaning of each value.
+:ref:`SAT delegate configuration <sat_delegate_config>` above for the meaning
+of each value.
 
-   +--------------------------------+---------------------+----------------------------------------------+
-   | Name                           |  Value              |  Meaning                                     |
-   +================================+=====================+==============================================+
-   | sat-delegate                   | ``"none"``          |  use the internal Yices SAT solver (default) |
-   |                                +---------------------+----------------------------------------------+
-   |                                | ``"y2sat"``         |  use y2sat as the SAT back-end               |
-   |                                +---------------------+----------------------------------------------+
-   |                                | ``"cadical"``       |  use CaDiCaL as the SAT back-end             |
-   |                                +---------------------+----------------------------------------------+
-   |                                | ``"cryptominisat"`` |  use CryptoMiniSat as the SAT back-end       |
-   |                                +---------------------+----------------------------------------------+
-   |                                | ``"kissat"``        |  use Kissat as the SAT back-end              |
-   +--------------------------------+---------------------+----------------------------------------------+
-   | sat-delegate-incremental-mode  | ``"rebuild"``       |  build a fresh delegate at every check       |
-   |                                +---------------------+----------------------------------------------+
-   |                                | ``"append"``        |  keep a live delegate and append clauses     |
-   |                                +---------------------+----------------------------------------------+
-   |                                | ``"selector-frames"``| keep a live delegate using activation frames |
-   +--------------------------------+---------------------+----------------------------------------------+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Value
+     - Meaning
+   * - ``sat-delegate``
+     - ``"none"``
+     - use the internal Yices SAT solver (default)
+   * - ``sat-delegate``
+     - ``"y2sat"``
+     - use y2sat as the SAT back-end
+   * - ``sat-delegate``
+     - ``"cadical"``
+     - use CaDiCaL as the SAT back-end
+   * - ``sat-delegate``
+     - ``"cryptominisat"``
+     - use CryptoMiniSat as the SAT back-end
+   * - ``sat-delegate``
+     - ``"kissat"``
+     - use Kissat as the SAT back-end
+   * - ``sat-delegate-incremental-mode``
+     - ``"rebuild"``
+     - build a fresh delegate at every check
+   * - ``sat-delegate-incremental-mode``
+     - ``"append"``
+     - keep a live delegate and append clauses
+   * - ``sat-delegate-incremental-mode``
+     - ``"selector-frames"``
+     - keep a live delegate using activation frames
 
 
 

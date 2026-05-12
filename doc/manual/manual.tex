@@ -1472,15 +1472,15 @@ CryptoMiniSat, and Kissat are external solvers; support for each must
 be enabled at compilation time as explained in
 Chapter~\ref{compilation}. The capability matrix is summarized below.
 \begin{center}
-\begin{tabular}{|l|c|c|c|c|}
+\begin{tabular}{|l|c|p{1.75in}|c|c|}
 \hline
-Delegate            & Always available & Incremental push/pop &
-                      \texttt{check-sat-assuming} & Unsat core from assumptions \\
+Delegate            & Availability & Incremental modes &
+                      \texttt{check-sat-assuming} & Unsat core \\
 \hline
-\texttt{y2sat}        & yes & rebuild on each check & rebuild on each check & no \\
-\texttt{cadical}      & no  & yes (selector frames) & yes & yes \\
-\texttt{cryptominisat}& no  & yes (selector frames) & yes & yes \\
-\texttt{kissat}       & no  & rebuild on each check & rebuild on each check & no \\
+\texttt{y2sat}        & always  & \texttt{rebuild}, \texttt{append} & no & no \\
+\texttt{cadical}      & optional & \texttt{rebuild}, \texttt{append}, \texttt{selector-frames} & yes & yes \\
+\texttt{cryptominisat}& optional & \texttt{rebuild}, \texttt{append}, \texttt{selector-frames} & yes & yes \\
+\texttt{kissat}       & optional & \texttt{rebuild} & no & no \\
 \hline
 \end{tabular}
 \end{center}
@@ -3830,12 +3830,15 @@ problems by preprocessing and simplification, without producing a CNF
 formula. In such cases, the \texttt{delegate} option is irrelevant.
 
 \paragraph{Incremental use:} Delegates can be used with
-\texttt{--incremental} on QF\_BV problems. CaDiCaL and CryptoMiniSat
-support incremental delegate checks. Non-incremental delegates such as
-\texttt{y2sat} and Kissat are rebuilt from the current bit-blasted
-problem on each \texttt{check-sat}. The selector-frame configuration
-used by the API for incremental delegates has no effect for
-non-incremental delegates.
+\texttt{--incremental} on QF\_BV problems. In non-incremental
+\texttt{yices-smt2} runs, every delegate check is one-shot and uses a
+fresh delegate. With \texttt{--incremental}, the frontend uses the same
+default delegate modes as the API: \texttt{y2sat} uses
+\texttt{append}, CaDiCaL and CryptoMiniSat use
+\texttt{selector-frames}, and Kissat uses \texttt{rebuild}. Thus
+\texttt{--incremental --delegate=cadical} keeps a live CaDiCaL instance
+across \texttt{check-sat} calls and protects pushed frames with
+activation literals, provided this Yices build includes CaDiCaL.
 
 \subsubsection*{Exporting to Dimacs}
 
@@ -3929,8 +3932,10 @@ Here is the full list of command-line options supported by
 
    The \texttt{<solver>} can be either \texttt{cadical},
    \texttt{cryptominisat}, \texttt{kissat}, or \texttt{y2sat}. In
-   incremental mode, \texttt{y2sat} and Kissat are rebuilt from the
-   current bit-blasted problem on each \texttt{check-sat}.
+   incremental mode, \texttt{y2sat} defaults to \texttt{append},
+   CaDiCaL and CryptoMiniSat default to \texttt{selector-frames}, and
+   Kissat uses \texttt{rebuild}. Without \texttt{--incremental},
+   delegate checks are one-shot.
 
 \item[--dimacs=<filename>] Bitblast then export the CNF to a file (in DIMACS format).
 
