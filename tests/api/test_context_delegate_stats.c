@@ -260,7 +260,6 @@ static void check_selector_mode_add_after_solve_case(const char *delegate) {
   assert(stats.append_checks == 0);
   assert(stats.selector_variables == 1);
   assert(stats.selector_assumptions == 2);
-  assert(stats.selector_chain_clauses == 0);
   assert(stats.post_check_clause_forwards > 0);
 
   yices_free_context(ctx);
@@ -294,7 +293,6 @@ static void check_selector_mode_long_pushpop_case(const char *delegate) {
   assert(stats.selector_variables == 24);
   assert(stats.selector_retirements == 24);
   assert(stats.selector_assumptions == 24);
-  assert(stats.selector_chain_clauses == 0);
 
   yices_free_context(ctx);
 }

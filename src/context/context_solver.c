@@ -628,7 +628,6 @@ typedef struct sat_delegate_state_s {
   bool stale;
   bool true_forwarded;
   bool checked_once;
-  uint64_t synced_mutation;
   uint32_t delegate_nvars;
   uint32_t size;
   bvar_t *act_var;
@@ -648,7 +647,6 @@ void context_reset_sat_delegate_stats(context_t *ctx) {
   ctx->sat_delegate_stats.selector_variables = 0;
   ctx->sat_delegate_stats.selector_assumptions = 0;
   ctx->sat_delegate_stats.selector_retirements = 0;
-  ctx->sat_delegate_stats.selector_chain_clauses = 0;
   ctx->sat_delegate_stats.post_check_clause_forwards = 0;
 }
 
@@ -690,7 +688,6 @@ static sat_delegate_state_t *context_get_sat_delegate_state(context_t *ctx) {
     st->stale = false;
     st->true_forwarded = false;
     st->checked_once = false;
-    st->synced_mutation = 0;
     st->delegate_nvars = 0;
     st->size = 0;
     st->act_var = NULL;
@@ -854,7 +851,6 @@ static void sat_delegate_state_close(sat_delegate_state_t *st) {
   st->exec_mode = SAT_DELEGATE_MODE_REBUILD;
   st->stale = false;
   st->checked_once = false;
-  st->synced_mutation = 0;
   st->delegate_nvars = 0;
   sat_delegate_state_reset_cursors(st);
 }
@@ -902,7 +898,6 @@ static bool context_prepare_append_delegate(context_t *ctx, sat_delegate_state_t
                                 (uint32_t) core->binary_clauses.size,
                                 (uint32_t) get_cv_size(core->problem_clauses),
                                 true_literal);
-  st->synced_mutation = ctx->mutation_count;
 
   return true;
 }
@@ -972,7 +967,6 @@ static bool context_prepare_selector_delegate(context_t *ctx, sat_delegate_state
     end_clauses = (k < d) ? trail_data[k].nclauses : (uint32_t) get_cv_size(core->problem_clauses);
     delegate_forward_clause_range(st, core, &ctx->sat_delegate_stats, k, end_units, end_bins, end_clauses, guard);
   }
-  st->synced_mutation = ctx->mutation_count;
 
   return true;
 }

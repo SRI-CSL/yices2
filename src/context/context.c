@@ -5677,7 +5677,6 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   }
 
   ctx->base_level = 0;
-  ctx->mutation_count = 1;
   context_reset_sat_delegate_stats(ctx);
 
   /*
@@ -5877,7 +5876,6 @@ void context_invalidate_unsat_core_cache(context_t *ctx) {
  */
 void reset_context(context_t *ctx) {
   ctx->base_level = 0;
-  ctx->mutation_count ++;
   context_reset_sat_delegate_stats(ctx);
   context_invalidate_unsat_core_cache(ctx);
   context_sat_delegate_state_cleanup(ctx);
@@ -5960,7 +5958,6 @@ void context_push(context_t *ctx) {
   context_divmod_table_push(ctx);
 
   ctx->base_level ++;
-  ctx->mutation_count ++;
 }
 
 void context_pop(context_t *ctx) {
@@ -5978,7 +5975,6 @@ void context_pop(context_t *ctx) {
   context_sat_delegate_state_pop(ctx, ctx->base_level);
 
   ctx->base_level --;
-  ctx->mutation_count ++;
 }
 
 
@@ -6300,10 +6296,6 @@ int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
       add_empty_clause(ctx->core);
       ctx->core->status = YICES_STATUS_UNSAT;
     }
-  }
-
-  if (code == CTX_NO_ERROR || code == TRIVIALLY_UNSAT) {
-    ctx->mutation_count ++;
   }
 
   return code;
@@ -6712,8 +6704,6 @@ int32_t assert_blocking_clause(context_t *ctx) {
     code = TRIVIALLY_UNSAT;
     ctx->core->status = YICES_STATUS_UNSAT;
   }
-
-  ctx->mutation_count ++;
 
   assert(n == 0 || smt_status(ctx->core) == YICES_STATUS_IDLE);
 
