@@ -67,7 +67,7 @@ extern void delete_context(context_t *ctx);
 /*
  * Release delegate runtime state (if any).
  */
-extern void context_delegate_state_cleanup(context_t *ctx);
+extern void context_sat_delegate_state_cleanup(context_t *ctx);
 extern void context_reset_sat_delegate_stats(context_t *ctx);
 extern void context_get_sat_delegate_stats(const context_t *ctx, sat_delegate_stats_t *stats);
 
@@ -402,26 +402,6 @@ extern smt_status_t precheck_context(context_t *ctx);
  */
 extern smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity);
 
-/*
- * Incremental CaDiCaL version: reuses a persistent CaDiCaL instance
- * across push/pop boundaries using activation literals.
- * ctx->incr_cadical is allocated on first call and reused thereafter.
- */
-#if HAVE_CADICAL
-extern smt_status_t check_with_incremental_cadical(context_t *ctx, uint32_t verbosity,
-                                                   uint32_t n, const literal_t *assumptions,
-                                                   ivector_t *failed);
-#endif
-
-/*
- * Incremental selector-frame delegate solve for QF_BV contexts.
- * - sat_solver must be an incremental delegate (cadical/cryptominisat).
- * - assumptions can be NULL if n == 0.
- * - if failed != NULL and result is UNSAT under assumptions, failed literals are appended to *failed.
- */
-extern smt_status_t check_with_incremental_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity,
-                                                    uint32_t n, const literal_t *assumptions, ivector_t *failed);
-
 extern smt_status_t check_with_sat_delegate(context_t *ctx, const char *sat_solver,
                                             sat_delegate_incremental_mode_t mode,
                                             uint32_t verbosity, uint32_t n,
@@ -430,7 +410,7 @@ extern smt_status_t check_with_sat_delegate(context_t *ctx, const char *sat_solv
 /*
  * Pop notification for persistent SAT delegate state.
  */
-extern void context_delegate_state_pop(context_t *ctx, uint32_t level);
+extern void context_sat_delegate_state_pop(context_t *ctx, uint32_t level);
 
 
 /*

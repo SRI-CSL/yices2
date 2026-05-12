@@ -9467,11 +9467,6 @@ static bool check_delegate(const char *delegate);
 
 static bool effective_delegate_incremental_mode(context_t *ctx, sat_delegate_t delegate_mode, bool one_shot_delegate,
                                                 sat_delegate_incremental_mode_t *mode) {
-  const char *delegate;
-
-  delegate = sat_delegate_name(delegate_mode);
-  assert(delegate != NULL);
-
   if (one_shot_delegate) {
     *mode = SAT_DELEGATE_MODE_REBUILD;
     return true;

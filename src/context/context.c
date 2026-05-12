@@ -5742,7 +5742,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->divmod_table = NULL;
   ctx->explorer = NULL;
   ctx->unsat_core_cache = NULL;
-  ctx->delegate_state = NULL;
+  ctx->sat_delegate_state = NULL;
 
   ctx->dl_profile = NULL;
   ctx->arith_buffer = NULL;
@@ -5767,7 +5767,6 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
    */
   init_solvers(ctx);
 
-  ctx->incr_cadical = NULL;
   ctx->en_quant = false;
 }
 
@@ -5778,7 +5777,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
  * Delete ctx
  */
 void delete_context(context_t *ctx) {
-  context_delegate_state_cleanup(ctx);
+  context_sat_delegate_state_cleanup(ctx);
 
   if (ctx->core != NULL) {
     delete_smt_core(ctx->core);
@@ -5819,14 +5818,6 @@ void delete_context(context_t *ctx) {
     safe_free(ctx->bv_solver);
     ctx->bv_solver = NULL;
   }
-
-#if HAVE_CADICAL
-  if (ctx->incr_cadical != NULL) {
-    delete_incremental_cadical(ctx->incr_cadical);
-    safe_free(ctx->incr_cadical);
-    ctx->incr_cadical = NULL;
-  }
-#endif
 
   delete_gate_manager(&ctx->gate_manager);
   /* delete_mcsat_options(&ctx->mcsat_options); // if used then the same memory is freed twice */
@@ -5889,15 +5880,7 @@ void reset_context(context_t *ctx) {
   ctx->mutation_count ++;
   context_reset_sat_delegate_stats(ctx);
   context_invalidate_unsat_core_cache(ctx);
-  context_delegate_state_cleanup(ctx);
-
-#if HAVE_CADICAL
-  if (ctx->incr_cadical != NULL) {
-    delete_incremental_cadical(ctx->incr_cadical);
-    safe_free(ctx->incr_cadical);
-    ctx->incr_cadical = NULL;
-  }
-#endif
+  context_sat_delegate_state_cleanup(ctx);
 
   reset_smt_core(ctx->core); // this propagates reset to all solvers
 
@@ -5992,17 +5975,7 @@ void context_pop(context_t *ctx) {
   context_eq_cache_pop(ctx);
   context_divmod_table_pop(ctx);
 
-#if HAVE_CADICAL
-  if (ctx->incr_cadical != NULL) {
-    incremental_cadical_t *ic = ctx->incr_cadical;
-    incremental_cadical_melt_level(ic, ctx->base_level);
-    ic->pop_epoch++;
-    if (ctx->base_level < ic->min_popped_level) {
-      ic->min_popped_level = ctx->base_level;
-    }
-  }
-#endif
-  context_delegate_state_pop(ctx, ctx->base_level);
+  context_sat_delegate_state_pop(ctx, ctx->base_level);
 
   ctx->base_level --;
   ctx->mutation_count ++;

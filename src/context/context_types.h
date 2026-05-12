@@ -624,13 +624,6 @@ typedef struct dl_data_s {
   uint32_t num_eqs;
 } dl_data_t;
 
-
-
-
-
-/* Forward declaration for incremental CaDiCaL state (defined in delegate.h) */
-struct incremental_cadical_s;
-
 typedef struct sat_delegate_stats_s {
   uint32_t rebuild_checks;
   uint32_t append_checks;
@@ -716,8 +709,8 @@ struct context_s {
   assumption_stack_t assumptions;
   // cached unsat core (NULL if cache is invalid)
   ivector_t *unsat_core_cache;
-  // delegate runtime state (allocated lazily)
-  void *delegate_state;
+  // persistent SAT delegate runtime state (allocated lazily)
+  void *sat_delegate_state;
 
   // optional components: allocated if needed
   pseudo_subst_t *subst;
@@ -757,9 +750,6 @@ struct context_s {
   ivector_t mcsat_var_order;
   // initial ordering for forcing mcsat assignment order
   ivector_t mcsat_initial_var_order;
-
-  // incremental CaDiCaL state (NULL if not in use)
-  struct incremental_cadical_s *incr_cadical;
 
   // flag for enabling adding quant instances
   bool en_quant;

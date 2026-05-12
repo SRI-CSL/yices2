@@ -151,6 +151,8 @@ static void ysat_as_delegate_mode(delegate_t *d, uint32_t nvars, bool preprocess
   d->set_verbosity = ysat_set_verbosity;
   d->delete = ysat_delete;
   d->add_vars = ysat_add_vars;
+  d->freeze_literal = NULL;
+  d->melt_literal = NULL;
 
   // experimental
   //  d->keep_var = ysat_keep_var;
@@ -179,7 +181,7 @@ static void ysat_as_incremental_delegate(delegate_t *d, uint32_t nvars) {
 }
 
 
-#if HAVE_CADICAL || HAVE_KISSAT
+#if HAVE_KISSAT
 /*
  * Conversion from literal_t to dimacs:
  * - in Yices, variables are indexed from 0 to nvars-1.
@@ -200,39 +202,87 @@ static inline int lit2dimacs(literal_t l) {
  */
 
 #if HAVE_CADICAL
+typedef struct cadical_delegate_s {
+  void *cadical;
+  uint32_t declared_vars;
+  int32_t *bvar_to_dimacs;
+  uint32_t bvar_map_size;
+} cadical_delegate_t;
+
+static void cadical_ensure_vars(cadical_delegate_t *s, uint32_t nvars) {
+  uint32_t new_size, vi;
+
+  if (nvars <= s->declared_vars) {
+    return;
+  }
+
+  if (nvars > s->bvar_map_size) {
+    new_size = s->bvar_map_size == 0 ? 64 : s->bvar_map_size;
+    while (new_size < nvars) {
+      new_size <<= 1;
+    }
+    s->bvar_to_dimacs = (int32_t *) safe_realloc(s->bvar_to_dimacs, new_size * sizeof(int32_t));
+    s->bvar_map_size = new_size;
+  }
+
+  for (vi=s->declared_vars; vi<nvars; vi++) {
+    s->bvar_to_dimacs[vi] = ccadical_declare_one_more_variable(s->cadical);
+  }
+  s->declared_vars = nvars;
+}
+
+static inline int cadical_lit2dimacs(const cadical_delegate_t *s, literal_t l) {
+  int d;
+
+  assert(var_of(l) < s->declared_vars);
+  d = s->bvar_to_dimacs[var_of(l)];
+  return is_pos(l) ? d : -d;
+}
+
 static void cadical_add_empty_clause(void *solver) {
-  ccadical_add(solver, 0);
+  cadical_delegate_t *s = solver;
+
+  ccadical_add(s->cadical, 0);
 }
 
 static void cadical_add_unit_clause(void *solver, literal_t l) {
-  ccadical_add(solver, lit2dimacs(l));
-  ccadical_add(solver, 0);
+  cadical_delegate_t *s = solver;
+
+  ccadical_add(s->cadical, cadical_lit2dimacs(s, l));
+  ccadical_add(s->cadical, 0);
 }
 
 static void cadical_add_binary_clause(void *solver, literal_t l1, literal_t l2) {
-  ccadical_add(solver, lit2dimacs(l1));
-  ccadical_add(solver, lit2dimacs(l2));
-  ccadical_add(solver, 0);
+  cadical_delegate_t *s = solver;
+
+  ccadical_add(s->cadical, cadical_lit2dimacs(s, l1));
+  ccadical_add(s->cadical, cadical_lit2dimacs(s, l2));
+  ccadical_add(s->cadical, 0);
 }
 
 static void cadical_add_ternary_clause(void *solver, literal_t l1, literal_t l2, literal_t l3) {
-  ccadical_add(solver, lit2dimacs(l1));
-  ccadical_add(solver, lit2dimacs(l2));
-  ccadical_add(solver, lit2dimacs(l3));
-  ccadical_add(solver, 0);
+  cadical_delegate_t *s = solver;
+
+  ccadical_add(s->cadical, cadical_lit2dimacs(s, l1));
+  ccadical_add(s->cadical, cadical_lit2dimacs(s, l2));
+  ccadical_add(s->cadical, cadical_lit2dimacs(s, l3));
+  ccadical_add(s->cadical, 0);
 }
 
 static void cadical_add_clause(void *solver, uint32_t n, literal_t *a) {
+  cadical_delegate_t *s = solver;
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    ccadical_add(solver, lit2dimacs(a[i]));
+    ccadical_add(s->cadical, cadical_lit2dimacs(s, a[i]));
   }
-  ccadical_add(solver, 0);
+  ccadical_add(s->cadical, 0);
 }
 
 static smt_status_t cadical_check(void *solver) {
-  switch (ccadical_sat(solver)) {
+  cadical_delegate_t *s = solver;
+
+  switch (ccadical_sat(s->cadical)) {
   case 10: return YICES_STATUS_SAT;
   case 20: return YICES_STATUS_UNSAT;
   default: return YICES_STATUS_UNKNOWN;
@@ -240,19 +290,21 @@ static smt_status_t cadical_check(void *solver) {
 }
 
 static smt_status_t cadical_check_assuming(void *solver, uint32_t n, const literal_t *a) {
+  cadical_delegate_t *s = solver;
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    ccadical_assume(solver, lit2dimacs(a[i]));
+    ccadical_assume(s->cadical, cadical_lit2dimacs(s, a[i]));
   }
   return cadical_check(solver);
 }
 
 static void cadical_collect_failed_assumptions(void *solver, uint32_t n, const literal_t *a, ivector_t *out) {
+  cadical_delegate_t *s = solver;
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    if (ccadical_failed(solver, lit2dimacs(a[i])) != 0) {
+    if (ccadical_failed(s->cadical, cadical_lit2dimacs(s, a[i])) != 0) {
       ivector_push(out, a[i]);
     }
   }
@@ -268,15 +320,19 @@ static void cadical_collect_failed_assumptions(void *solver, uint32_t n, const l
  * We convert  unknown to VAL_FALSE here.
  */
 static bval_t cadical_get_value(void *solver, bvar_t x) {
+  cadical_delegate_t *s = solver;
   int v;
 
-  v = ccadical_deref(solver, x + 1); // x+1 = variable in cadical = positive literal
+  assert(x < s->declared_vars);
+  v = ccadical_val(s->cadical, s->bvar_to_dimacs[x]);
   // v = value assigned in cadical: -1 means false, +1 means true, 0 means unknown
 
   return (v <= 0) ? VAL_FALSE : VAL_TRUE;
 }
 
 static void cadical_set_verbosity(void *solver, uint32_t level) {
+  cadical_delegate_t *s = solver;
+
   // verbosity 0 --> nothing (quiet = true)
   // verbosity 1 --> normal cadical output (quiet = false)
   // verbosity 2 --> cadical verbosity 1
@@ -287,43 +343,69 @@ static void cadical_set_verbosity(void *solver, uint32_t level) {
   //   nothing is printed at verbosity level < 2
   // 
   if (level == 0) {
-    ccadical_set_option(solver, "quiet", 1);
+    ccadical_set_option(s->cadical, "quiet", 1);
   } else {
-    ccadical_set_option(solver, "quiet", 0);
-    ccadical_set_option(solver, "report", 1);
+    ccadical_set_option(s->cadical, "quiet", 0);
+    ccadical_set_option(s->cadical, "report", 1);
     if (level == 2) {
-      ccadical_set_option(solver, "verbose", 1);
+      ccadical_set_option(s->cadical, "verbose", 1);
     } else if (level >= 3) {
-      ccadical_set_option(solver, "verbose", 2);
+      ccadical_set_option(s->cadical, "verbose", 2);
     }
   }
 }
 
 static void cadical_delete(void *solver) {
-  ccadical_reset(solver);
+  cadical_delegate_t *s = solver;
+
+  ccadical_reset(s->cadical);
+  safe_free(s->bvar_to_dimacs);
+  safe_free(s);
 }
 
 static void cadical_add_vars(void *solver, uint32_t n) {
+  cadical_delegate_t *s = solver;
+
   if (n > 0) {
-    ccadical_declare_more_variables(solver, (int32_t) n);
+    cadical_ensure_vars(s, s->declared_vars + n);
   }
 }
 
+static void cadical_freeze_literal(void *solver, literal_t l) {
+  cadical_delegate_t *s = solver;
+
+  ccadical_freeze(s->cadical, abs(cadical_lit2dimacs(s, l)));
+}
+
+static void cadical_melt_literal(void *solver, literal_t l) {
+  cadical_delegate_t *s = solver;
+
+  ccadical_melt(s->cadical, abs(cadical_lit2dimacs(s, l)));
+}
+
 static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
-  d->solver = ccadical_init();
-  ccadical_set_option(d->solver, "quiet", 1); // no output from cadical by default
+  cadical_delegate_t *s;
+
+  s = (cadical_delegate_t *) safe_malloc(sizeof(cadical_delegate_t));
+  s->cadical = ccadical_init();
+  s->declared_vars = 0;
+  s->bvar_to_dimacs = NULL;
+  s->bvar_map_size = 0;
+
+  ccadical_set_option(s->cadical, "quiet", 1); // no output from cadical by default
   init_ivector(&d->buffer, 0); // not used
 
   // fine tuning
-  ccadical_set_option(d->solver, "walk", 0);
-  ccadical_set_option(d->solver, "lucky", 0);
-  ccadical_set_option(d->solver, "chrono", 0);
-  ccadical_set_option(d->solver, "elimands", 0);
-  ccadical_set_option(d->solver, "elimites", 0);
-  ccadical_set_option(d->solver, "elimxors", 0);
-  ccadical_set_option(d->solver, "factor", 0);   /* CaDiCaL 3.0: factor requires explicit reserve() */
+  ccadical_set_option(s->cadical, "walk", 0);
+  ccadical_set_option(s->cadical, "lucky", 0);
+  ccadical_set_option(s->cadical, "chrono", 0);
+  ccadical_set_option(s->cadical, "elimands", 0);
+  ccadical_set_option(s->cadical, "elimites", 0);
+  ccadical_set_option(s->cadical, "elimxors", 0);
+  ccadical_set_option(s->cadical, "factor", 0);   /* CaDiCaL 3.0: keep variable mapping explicit */
   // end of fine tuning
 
+  d->solver = s;
   cadical_add_vars(d->solver, nvars);
   d->add_empty_clause = cadical_add_empty_clause;
   d->add_unit_clause = cadical_add_unit_clause;
@@ -337,253 +419,13 @@ static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   d->set_verbosity = cadical_set_verbosity;
   d->delete = cadical_delete;
   d->add_vars = cadical_add_vars;
+  d->freeze_literal = cadical_freeze_literal;
+  d->melt_literal = cadical_melt_literal;
   d->keep_var = NULL;
   d->var_def2 = NULL;
   d->var_def3 = NULL;
   d->preprocess = NULL;
   d->export = NULL;
-}
-
-void init_incremental_cadical(incremental_cadical_t *ic) {
-  uint32_t i, sz;
-
-  ic->cadical = ccadical_init();
-  ccadical_set_option(ic->cadical, "quiet",    1);
-  ccadical_set_option(ic->cadical, "walk",     0);
-  ccadical_set_option(ic->cadical, "lucky",    0);
-  ccadical_set_option(ic->cadical, "chrono",   0);
-  ccadical_set_option(ic->cadical, "elimands", 0);
-  ccadical_set_option(ic->cadical, "elimites", 0);
-  ccadical_set_option(ic->cadical, "elimxors", 0);
-  /* variable declarations and true_literal unit clause deferred to first solve */
-  ic->depth             = 0;
-  ic->declared_vars     = 0;
-  ic->bvar_to_dimacs    = NULL;
-  ic->bvar_map_size     = 0;
-  ic->pop_epoch         = 0;
-  ic->last_pop_epoch    = 0;
-  ic->min_popped_level  = UINT32_MAX;
-  ic->stats_checked_once = false;
-  ic->stats_selector_variables = 0;
-  ic->stats_selector_assumptions = 0;
-  ic->stats_selector_retirements = 0;
-  ic->stats_selector_chain_clauses = 0;
-  ic->stats_post_check_clause_forwards = 0;
-  sz = INCR_CADICAL_DEFAULT_SIZE;
-  ic->size      = sz;
-  ic->act_var     = (int32_t *)  safe_malloc(sz * sizeof(int32_t));
-  ic->fwd_units   = (uint32_t *) safe_malloc(sz * sizeof(uint32_t));
-  ic->fwd_bins    = (uint32_t *) safe_malloc(sz * sizeof(uint32_t));
-  ic->fwd_clauses = (uint32_t *) safe_malloc(sz * sizeof(uint32_t));
-  for (i = 0; i < sz; i++) {
-    ic->act_var[i]     = 0;
-    ic->fwd_units[i]   = 0;
-    ic->fwd_bins[i]    = 0;
-    ic->fwd_clauses[i] = 0;
-  }
-  /* level-0 cursors already 0 from the loop above */
-}
-
-void delete_incremental_cadical(incremental_cadical_t *ic) {
-  ccadical_reset(ic->cadical);
-  safe_free(ic->bvar_to_dimacs);
-  safe_free(ic->act_var);
-  safe_free(ic->fwd_units);
-  safe_free(ic->fwd_bins);
-  safe_free(ic->fwd_clauses);
-}
-
-void incremental_cadical_melt_level(incremental_cadical_t *ic, uint32_t level) {
-  if (level < ic->size && ic->act_var[level] != 0) {
-    ccadical_melt(ic->cadical, ic->act_var[level]);
-    ccadical_add(ic->cadical, -ic->act_var[level]);
-    ccadical_add(ic->cadical, 0);
-    ic->stats_selector_retirements ++;
-    ic->act_var[level] = 0;
-  }
-}
-
-static void grow_incremental_cadical(incremental_cadical_t *ic) {
-  uint32_t new_size, i;
-
-  new_size = ic->size * 2;
-  ic->act_var     = (int32_t *)  safe_realloc(ic->act_var,     new_size * sizeof(int32_t));
-  ic->fwd_units   = (uint32_t *) safe_realloc(ic->fwd_units,   new_size * sizeof(uint32_t));
-  ic->fwd_bins    = (uint32_t *) safe_realloc(ic->fwd_bins,    new_size * sizeof(uint32_t));
-  ic->fwd_clauses = (uint32_t *) safe_realloc(ic->fwd_clauses, new_size * sizeof(uint32_t));
-  for (i = ic->size; i < new_size; i++) {
-    ic->act_var[i]     = 0;
-    ic->fwd_units[i]   = 0;
-    ic->fwd_bins[i]    = 0;
-    ic->fwd_clauses[i] = 0;
-  }
-  ic->size = new_size;
-}
-
-static inline int ic_lit2dimacs(const incremental_cadical_t *ic, literal_t l) {
-  int d = ic->bvar_to_dimacs[var_of(l)];
-  return is_pos(l) ? d : -d;
-}
-
-static void ic_add_unit(incremental_cadical_t *ic, literal_t l, int32_t act_dimacs) {
-  ccadical_add(ic->cadical, ic_lit2dimacs(ic, l));
-  if (act_dimacs != 0) ccadical_add(ic->cadical, -act_dimacs);
-  ccadical_add(ic->cadical, 0);
-}
-
-static void ic_add_binary(incremental_cadical_t *ic, literal_t l1, literal_t l2, int32_t act_dimacs) {
-  ccadical_add(ic->cadical, ic_lit2dimacs(ic, l1));
-  ccadical_add(ic->cadical, ic_lit2dimacs(ic, l2));
-  if (act_dimacs != 0) ccadical_add(ic->cadical, -act_dimacs);
-  ccadical_add(ic->cadical, 0);
-}
-
-static void ic_forward_long_clause(incremental_cadical_t *ic, clause_t *c, int32_t act_dimacs) {
-  uint32_t i;
-  literal_t l;
-
-  i = 0;
-  l = c->cl[0];
-  while (l >= 0) {
-    ccadical_add(ic->cadical, ic_lit2dimacs(ic, l));
-    i++;
-    l = c->cl[i];
-  }
-  if (act_dimacs != 0) ccadical_add(ic->cadical, -act_dimacs);
-  ccadical_add(ic->cadical, 0);
-}
-
-smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_t *core, uint32_t verbosity,
-                                            uint32_t nassumptions, const literal_t *assumptions,
-                                            ivector_t *failed) {
-  uint32_t d, k, i;
-  uint32_t end_units, end_bins, end_clauses;
-  trail_t *trail_data;
-  int32_t act;
-  bvar_t x;
-  int r;
-
-  cadical_set_verbosity(ic->cadical, verbosity);
-
-  d = smt_base_level(core);
-  trail_data = core->trail_stack.data;
-
-  /* Declare any new Yices bvars in CaDiCaL. Each bvar gets its own fresh
-   * DIMACS variable via declare_one_more_variable(), which protects it from
-   * BVA (factor) reuse even when CaDiCaL adds extension variables between
-   * solves.  The mapping bvar_to_dimacs[] is the authoritative mapping used
-   * for all clause forwarding and model readback. */
-  uint32_t n = (uint32_t) num_vars(core);
-  if (n > ic->declared_vars) {
-    if (n > ic->bvar_map_size) {
-      uint32_t new_sz = (n < 64) ? 64 : n * 2;
-      ic->bvar_to_dimacs = (int32_t *) safe_realloc(ic->bvar_to_dimacs,
-                                                    new_sz * sizeof(int32_t));
-      ic->bvar_map_size = new_sz;
-    }
-    bool first_decl = (ic->declared_vars == 0);
-    for (uint32_t vi = ic->declared_vars; vi < n; vi++) {
-      ic->bvar_to_dimacs[vi] = ccadical_declare_one_more_variable(ic->cadical);
-    }
-    if (first_decl) {
-      /* Anchor true_literal (Yices bvar 0) as a permanent unit clause */
-      ccadical_add(ic->cadical, ic->bvar_to_dimacs[0]);
-      ccadical_add(ic->cadical, 0);
-    }
-    ic->declared_vars = n;
-  }
-
-  /* Assign fresh activation variables only for levels that were popped since
-   * the last solve (tracked via pop_epoch + min_popped_level).  Levels above
-   * the deepest repush always get a new activation variable.  Levels that
-   * haven't been touched keep their existing act_var and just forward new
-   * clauses incrementally — avoiding O(n²) re-forwarding on deep stacks. */
-  bool pop_occurred = (ic->pop_epoch != ic->last_pop_epoch);
-  uint32_t refresh_from = pop_occurred ? ic->min_popped_level : (ic->depth + 1);
-  for (k = 1; k <= d; k++) {
-    if (k >= ic->size) grow_incremental_cadical(ic);
-    if (k >= refresh_from) {
-      ic->act_var[k] = ccadical_declare_one_more_variable(ic->cadical);
-      ccadical_freeze(ic->cadical, ic->act_var[k]);
-      ic->stats_selector_variables ++;
-      ic->fwd_units[k]   = trail_data[k-1].nunits;
-      ic->fwd_bins[k]    = trail_data[k-1].nbins;
-      ic->fwd_clauses[k] = trail_data[k-1].nclauses;
-    }
-  }
-  if (pop_occurred) {
-    ic->last_pop_epoch   = ic->pop_epoch;
-    ic->min_popped_level = UINT32_MAX;
-  }
-  ic->depth = d;
-
-  /* forward new clauses for each level */
-  for (k = 0; k <= d; k++) {
-    bool forwarded;
-
-    act = (k == 0) ? 0 : ic->act_var[k];
-
-    end_units   = (k < d) ? trail_data[k].nunits   : core->nb_unit_clauses;
-    end_bins    = (k < d) ? trail_data[k].nbins     : (uint32_t) core->binary_clauses.size;
-    end_clauses = (k < d) ? trail_data[k].nclauses  : (uint32_t) get_cv_size(core->problem_clauses);
-    forwarded = ic->fwd_units[k] < end_units ||
-                ic->fwd_bins[k] < end_bins ||
-                ic->fwd_clauses[k] < end_clauses;
-    if (ic->stats_checked_once && forwarded) {
-      ic->stats_post_check_clause_forwards ++;
-    }
-
-    for (i = ic->fwd_units[k]; i < end_units; i++) {
-      ic_add_unit(ic, core->stack.lit[i], act);
-    }
-    ic->fwd_units[k] = end_units;
-
-    for (i = ic->fwd_bins[k]; i < end_bins; i += 2) {
-      ic_add_binary(ic, core->binary_clauses.data[i], core->binary_clauses.data[i + 1], act);
-    }
-    ic->fwd_bins[k] = end_bins;
-
-    /* Level-0 simplification may compact problem_clauses; clamp cursor to avoid overshoot */
-    if (k == 0 && ic->fwd_clauses[k] > end_clauses) ic->fwd_clauses[k] = end_clauses;
-    for (i = ic->fwd_clauses[k]; i < end_clauses; i++) {
-      ic_forward_long_clause(ic, core->problem_clauses[i], act);
-    }
-    ic->fwd_clauses[k] = end_clauses;
-  }
-
-  /* activate all current push levels */
-  for (k = 1; k <= d; k++) {
-    ccadical_assume(ic->cadical, ic->act_var[k]);
-    ic->stats_selector_assumptions ++;
-  }
-  /* assume caller-provided literals (check-sat-assuming) */
-  for (i = 0; i < nassumptions; i++) {
-    ccadical_assume(ic->cadical, ic_lit2dimacs(ic, assumptions[i]));
-  }
-
-  r = ccadical_solve(ic->cadical);
-  ic->stats_checked_once = true;
-
-  if (r == 10) {
-    set_smt_status(core, YICES_STATUS_SAT);
-    for (x = 0; x < num_vars(core); x++) {
-      int v = ccadical_val(ic->cadical, ic->bvar_to_dimacs[x]);
-      set_bvar_value(core, x, (v <= 0) ? VAL_FALSE : VAL_TRUE);
-    }
-    return YICES_STATUS_SAT;
-  } else if (r == 20) {
-    if (nassumptions > 0 && failed != NULL) {
-      for (i = 0; i < nassumptions; i++) {
-        if (ccadical_failed(ic->cadical, ic_lit2dimacs(ic, assumptions[i])) != 0) {
-          ivector_push(failed, assumptions[i]);
-        }
-      }
-    }
-    set_smt_status(core, YICES_STATUS_UNSAT);
-    return YICES_STATUS_UNSAT;
-  } else {
-    return YICES_STATUS_UNKNOWN;
-  }
 }
 
 #endif
@@ -727,6 +569,8 @@ static void cryptominisat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->set_verbosity = cryptominisat_set_verbosity;
   d->delete = cryptominisat_delete;
   d->add_vars = cryptominisat_add_vars;
+  d->freeze_literal = NULL;
+  d->melt_literal = NULL;
   d->keep_var = NULL;
   d->var_def2 = NULL;
   d->var_def3 = NULL;
@@ -835,6 +679,8 @@ static void kissat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->set_verbosity = kissat_set_verbosity;
   d->delete = kissat_delete;
   d->add_vars = NULL;
+  d->freeze_literal = NULL;
+  d->melt_literal = NULL;
   d->keep_var = NULL;
   d->var_def2 = NULL;
   d->var_def3 = NULL;
@@ -1257,6 +1103,18 @@ void delegate_set_verbosity(delegate_t *d, uint32_t level) {
 void delegate_add_vars(delegate_t *d, uint32_t n) {
   if (d->add_vars != NULL && n > 0) {
     d->add_vars(d->solver, n);
+  }
+}
+
+void delegate_freeze_literal(delegate_t *d, literal_t l) {
+  if (d->freeze_literal != NULL) {
+    d->freeze_literal(d->solver, l);
+  }
+}
+
+void delegate_melt_literal(delegate_t *d, literal_t l) {
+  if (d->melt_literal != NULL) {
+    d->melt_literal(d->solver, l);
   }
 }
 

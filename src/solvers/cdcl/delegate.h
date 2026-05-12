@@ -70,6 +70,8 @@ typedef bval_t (*get_value_fun_t)(void *solver, bvar_t x);
 typedef void (*set_verbosity_fun_t)(void *solver, uint32_t level);
 typedef void (*delete_fun_t)(void *solver);
 typedef void (*add_vars_fun_t)(void *solver, uint32_t n);
+typedef void (*freeze_literal_fun_t)(void *solver, literal_t l);
+typedef void (*melt_literal_fun_t)(void *solver, literal_t l);
 typedef void (*collect_failed_assumptions_fun_t)(void *solver, uint32_t n, const literal_t *a, ivector_t *out);
 
 typedef void (*keep_var_fun_t)(void *solver, bvar_t x);
@@ -94,6 +96,8 @@ typedef struct delegate_s {
   set_verbosity_fun_t set_verbosity;
   delete_fun_t delete;
   add_vars_fun_t add_vars;
+  freeze_literal_fun_t freeze_literal;
+  melt_literal_fun_t melt_literal;
   keep_var_fun_t keep_var;
   var_def2_fun_t var_def2;
   var_def3_fun_t var_def3;
@@ -201,6 +205,16 @@ extern void delegate_set_verbosity(delegate_t *delegate, uint32_t level);
 extern void delegate_add_vars(delegate_t *delegate, uint32_t n);
 
 /*
+ * Preserve an assumption literal if the delegate supports it.
+ */
+extern void delegate_freeze_literal(delegate_t *delegate, literal_t l);
+
+/*
+ * Retire an assumption literal if the delegate supports it.
+ */
+extern void delegate_melt_literal(delegate_t *delegate, literal_t l);
+
+/*
  * Check whether delegate supports assumptions.
  */
 extern bool delegate_supports_assumptions(const delegate_t *delegate);
@@ -214,43 +228,5 @@ extern smt_status_t delegate_check_with_assumptions(delegate_t *delegate, uint32
 
 
 
-
-/*
- * Incremental CaDiCaL: persistent instance across push/pop with activation literals.
- */
-#if HAVE_CADICAL
-
-#define INCR_CADICAL_DEFAULT_SIZE DEFAULT_DPLL_TRAIL_SIZE
-
-typedef struct incremental_cadical_s {
-  void     *cadical;         /* persistent ccadical instance */
-  uint32_t  depth;           /* push depth at last solve */
-  uint32_t  declared_vars;   /* number of Yices bvars declared in CaDiCaL (0 until first solve) */
-  int32_t  *bvar_to_dimacs;  /* maps Yices bvar x to CaDiCaL DIMACS var; NULL until first solve */
-  uint32_t  bvar_map_size;   /* capacity of bvar_to_dimacs */
-  uint32_t  size;            /* allocated capacity for per-level arrays */
-  int32_t  *act_var;         /* act_var[k]: DIMACS var for push level k (1-indexed DIMACS) */
-  uint32_t *fwd_units;       /* fwd_units[k]: cursor into core->stack.lit */
-  uint32_t *fwd_bins;        /* fwd_bins[k]: cursor into core->binary_clauses.data (element index) */
-  uint32_t *fwd_clauses;     /* fwd_clauses[k]: cursor into core->problem_clauses */
-  uint32_t  pop_epoch;       /* incremented by context_pop; signals a pop occurred */
-  uint32_t  last_pop_epoch;  /* value of pop_epoch seen at the last solve */
-  uint32_t  min_popped_level;/* shallowest level popped since last solve (UINT32_MAX if none) */
-  bool      stats_checked_once;
-  uint32_t  stats_selector_variables;
-  uint32_t  stats_selector_assumptions;
-  uint32_t  stats_selector_retirements;
-  uint32_t  stats_selector_chain_clauses;
-  uint32_t  stats_post_check_clause_forwards;
-} incremental_cadical_t;
-
-extern void         init_incremental_cadical(incremental_cadical_t *ic);
-extern void         delete_incremental_cadical(incremental_cadical_t *ic);
-extern void         incremental_cadical_melt_level(incremental_cadical_t *ic, uint32_t level);
-extern smt_status_t solve_with_incremental_cadical(incremental_cadical_t *ic, smt_core_t *core, uint32_t verbosity,
-                                                   uint32_t nassumptions, const literal_t *assumptions,
-                                                   ivector_t *failed);
-
-#endif /* HAVE_CADICAL */
 
 #endif /* __DELEGATE_H */
