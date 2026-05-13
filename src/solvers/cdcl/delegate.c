@@ -402,7 +402,13 @@ static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
   ccadical_set_option(s->cadical, "elimands", 0);
   ccadical_set_option(s->cadical, "elimites", 0);
   ccadical_set_option(s->cadical, "elimxors", 0);
-  ccadical_set_option(s->cadical, "factor", 0);   /* CaDiCaL 3.0: keep variable mapping explicit */
+  /*
+   * TODO: Revisit this performance tradeoff. With the explicit
+   * bvar_to_dimacs map, CaDiCaL's internal extension variables should not
+   * conflict with Yices variables, so factor does not have to be disabled
+   * for variable-mapping correctness.
+   */
+  ccadical_set_option(s->cadical, "factor", 0);
   // end of fine tuning
 
   d->solver = s;
