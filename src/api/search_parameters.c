@@ -452,6 +452,27 @@ bool sat_delegate_incremental_mode_supported(sat_delegate_t delegate, sat_delega
   }
 }
 
+bool effective_sat_delegate_incremental_mode(sat_delegate_t delegate,
+                                             sat_delegate_incremental_mode_t config_mode,
+                                             bool config_mode_set,
+                                             bool one_check_context,
+                                             bool one_shot_delegate,
+                                             sat_delegate_incremental_mode_t *mode) {
+  if (one_shot_delegate) {
+    *mode = SAT_DELEGATE_MODE_REBUILD;
+    return true;
+  }
+
+  if (config_mode_set) {
+    *mode = config_mode;
+    return !(one_check_context && *mode != SAT_DELEGATE_MODE_REBUILD) &&
+           sat_delegate_incremental_mode_supported(delegate, *mode);
+  }
+
+  *mode = sat_delegate_default_incremental_mode(delegate, one_check_context);
+  return true;
+}
+
 sat_delegate_t effective_sat_delegate_mode(sat_delegate_t config_delegate, const param_t *params, bool *one_shot) {
   sat_delegate_t req;
 

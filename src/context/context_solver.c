@@ -1095,24 +1095,6 @@ static smt_status_t check_with_persistent_delegate(context_t *ctx, const char *s
 static smt_status_t check_with_delegate_assumptions(context_t *ctx, const char *sat_solver, uint32_t verbosity,
                                                     uint32_t n, const literal_t *assumptions, ivector_t *failed);
 
-static bool context_effective_delegate_incremental_mode(context_t *ctx, sat_delegate_t delegate_mode,
-                                                        bool one_shot_delegate,
-                                                        sat_delegate_incremental_mode_t *mode) {
-  if (one_shot_delegate) {
-    *mode = SAT_DELEGATE_MODE_REBUILD;
-    return true;
-  }
-
-  if (ctx->sat_delegate_incremental_mode_set) {
-    *mode = ctx->sat_delegate_incremental_mode;
-    return !(ctx->mode == CTX_MODE_ONECHECK && *mode != SAT_DELEGATE_MODE_REBUILD) &&
-           sat_delegate_incremental_mode_supported(delegate_mode, *mode);
-  }
-
-  *mode = sat_delegate_default_incremental_mode(delegate_mode, ctx->mode == CTX_MODE_ONECHECK);
-  return true;
-}
-
 smt_status_t check_with_sat_delegate(context_t *ctx, const char *sat_solver,
                                      sat_delegate_incremental_mode_t mode,
                                      uint32_t verbosity, uint32_t n,
@@ -1429,7 +1411,10 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
     }
 
     init_ivector(&failed, 0);
-    if (!context_effective_delegate_incremental_mode(ctx, mode, one_shot, &exec_mode)) {
+    if (!effective_sat_delegate_incremental_mode(mode, ctx->sat_delegate_incremental_mode,
+                                                ctx->sat_delegate_incremental_mode_set,
+                                                ctx->mode == CTX_MODE_ONECHECK,
+                                                one_shot, &exec_mode)) {
       if (error != NULL) {
         *error = CTX_OPERATION_NOT_SUPPORTED;
       }

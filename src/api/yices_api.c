@@ -9465,30 +9465,6 @@ EXPORTED void yices_default_params_for_context(const context_t *ctx, param_t *pa
  */
 static bool check_delegate(const char *delegate);
 
-static bool effective_delegate_incremental_mode(context_t *ctx, sat_delegate_t delegate_mode, bool one_shot_delegate,
-                                                sat_delegate_incremental_mode_t *mode) {
-  if (one_shot_delegate) {
-    *mode = SAT_DELEGATE_MODE_REBUILD;
-    return true;
-  }
-
-  if (ctx->sat_delegate_incremental_mode_set) {
-    *mode = ctx->sat_delegate_incremental_mode;
-    if (ctx->mode == CTX_MODE_ONECHECK && *mode != SAT_DELEGATE_MODE_REBUILD) {
-      set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-      return false;
-    }
-    if (!sat_delegate_incremental_mode_supported(delegate_mode, *mode)) {
-      set_error_code(CTX_OPERATION_NOT_SUPPORTED);
-      return false;
-    }
-    return true;
-  }
-
-  *mode = sat_delegate_default_incremental_mode(delegate_mode, ctx->mode == CTX_MODE_ONECHECK);
-  return true;
-}
-
 /*
  * Check satisfiability: check whether the assertions stored in ctx
  * are satisfiable.
@@ -9560,7 +9536,11 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
         set_error_code(CTX_OPERATION_NOT_SUPPORTED);
         return YICES_STATUS_ERROR;
       }
-      if (!effective_delegate_incremental_mode(ctx, delegate_mode, one_shot_delegate, &exec_mode)) {
+      if (!effective_sat_delegate_incremental_mode(delegate_mode, ctx->sat_delegate_incremental_mode,
+                                                  ctx->sat_delegate_incremental_mode_set,
+                                                  ctx->mode == CTX_MODE_ONECHECK,
+                                                  one_shot_delegate, &exec_mode)) {
+        set_error_code(CTX_OPERATION_NOT_SUPPORTED);
         return YICES_STATUS_ERROR;
       }
       stat = check_with_sat_delegate(ctx, delegate, exec_mode, 0, 0, NULL, NULL);

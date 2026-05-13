@@ -79,6 +79,12 @@ extern const char *sat_delegate_incremental_mode_name(sat_delegate_incremental_m
 extern int32_t parse_sat_delegate_incremental_mode(const char *value, sat_delegate_incremental_mode_t *v);
 extern sat_delegate_incremental_mode_t sat_delegate_default_incremental_mode(sat_delegate_t delegate, bool one_check);
 extern bool sat_delegate_incremental_mode_supported(sat_delegate_t delegate, sat_delegate_incremental_mode_t mode);
+extern bool effective_sat_delegate_incremental_mode(sat_delegate_t delegate,
+                                                    sat_delegate_incremental_mode_t config_mode,
+                                                    bool config_mode_set,
+                                                    bool one_check_context,
+                                                    bool one_shot_delegate,
+                                                    sat_delegate_incremental_mode_t *mode);
 
 
 struct param_s {

@@ -3092,6 +3092,7 @@ static void add_delayed_assertion(smt2_globals_t *g, term_t t) {
 static void check_delayed_assertions(smt2_globals_t *g, bool report) {
   int32_t code;
   smt_status_t status;
+  sat_delegate_incremental_mode_t delegate_mode;
   model_t *model;
 
   // set frozen to true to disallow more assertions
@@ -3148,10 +3149,19 @@ static void check_delayed_assertions(smt2_globals_t *g, bool report) {
          */
         if (g->dimacs_file == NULL) {
           init_search_parameters(g);
+          if (!effective_sat_delegate_incremental_mode(g->ctx->sat_delegate,
+                                                       g->ctx->sat_delegate_incremental_mode,
+                                                       g->ctx->sat_delegate_incremental_mode_set,
+                                                       g->ctx->mode == CTX_MODE_ONECHECK,
+                                                       false, &delegate_mode)) {
+            print_error("unsupported SAT delegate incremental mode %s for delegate %s",
+                        sat_delegate_incremental_mode_name(g->ctx->sat_delegate_incremental_mode),
+                        g->delegate);
+            done = true;
+            return;
+          }
           status = check_with_sat_delegate(g->ctx, g->delegate,
-                                           sat_delegate_default_incremental_mode(g->ctx->sat_delegate,
-                                                                                g->ctx->mode == CTX_MODE_ONECHECK),
-                                           g->verbosity, 0, NULL, NULL);
+                                           delegate_mode, g->verbosity, 0, NULL, NULL);
         } else {
           code = process_then_export_to_dimacs(g->ctx, g->dimacs_file, &status);
           if (code < 0) {
