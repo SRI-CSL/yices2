@@ -86,10 +86,10 @@ third-party Boolean satisfiability solvers for bit-vector problems.
    If *delegate* is NULL, the default SAT solver internal to Yices is used (which can be much slower
    than state-of-the-art solvers such as CaDiCaL).
 
-   The same delegates can also be used through the regular context API
-   --- including with push/pop and ``check-sat-assuming`` --- by setting
-   the ``sat-delegate`` configuration parameter on a QF_BV context. See
-   :ref:`sat_delegate_config`.
+   The same delegate names can also be used through the regular context API by
+   setting the ``sat-delegate`` configuration parameter on a QF_BV context. See
+   :ref:`SAT delegate configuration <sat_delegate_config>` for the push/pop
+   modes and assumption-support matrix.
 
 
   **Examples**

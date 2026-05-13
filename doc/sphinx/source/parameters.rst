@@ -498,7 +498,8 @@ parameter.
   +------------+-----------------+---------------------------------------------+
 
 If a delegate is set in the parameter record and it differs from the
-delegate configured on the context (see :ref:`sat_delegate_config`),
+delegate configured on the context (see
+:ref:`SAT delegate configuration <sat_delegate_config>`),
 the parameter takes effect for that single call only and the persistent
 delegate state of the context is left untouched. If the parameter is
 ``"none"``, the context's configured delegate is used.
@@ -506,4 +507,3 @@ delegate state of the context is left untouched. If the parameter is
 A delegate name in this parameter has no effect for any logic other
 than QF_BV. Whether a particular delegate is available in the current
 Yices build can be checked with :c:func:`yices_has_delegate`.
-

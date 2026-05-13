@@ -31,6 +31,7 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <errno.h>
+#include <string.h>
 #include <unistd.h>
 #include <inttypes.h>
 

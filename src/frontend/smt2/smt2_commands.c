@@ -2644,6 +2644,9 @@ static void init_search_parameters(smt2_globals_t *g) {
   assert(g->ctx != NULL);
   yices_default_params_for_context(g->ctx, &g->parameters);
   if (g->delegate != NULL) {
+    if (parse_sat_delegate(g->delegate, &g->ctx->sat_delegate) < 0) {
+      g->ctx->sat_delegate = SAT_DELEGATE_NONE;
+    }
     code = params_set_field(&g->parameters, "delegate", g->delegate);
     assert(code == 0);
     if (code < 0) {
@@ -3089,6 +3092,7 @@ static void add_delayed_assertion(smt2_globals_t *g, term_t t) {
 static void check_delayed_assertions(smt2_globals_t *g, bool report) {
   int32_t code;
   smt_status_t status;
+  sat_delegate_incremental_mode_t delegate_mode;
   model_t *model;
 
   // set frozen to true to disallow more assertions
@@ -3144,7 +3148,20 @@ static void check_delayed_assertions(smt2_globals_t *g, bool report) {
          * Special case: QF_BV with delegate
          */
         if (g->dimacs_file == NULL) {
-          status = check_with_delegate(g->ctx, g->delegate, g->verbosity);
+          init_search_parameters(g);
+          if (!effective_sat_delegate_incremental_mode(g->ctx->sat_delegate,
+                                                       g->ctx->sat_delegate_incremental_mode,
+                                                       g->ctx->sat_delegate_incremental_mode_set,
+                                                       g->ctx->mode == CTX_MODE_ONECHECK,
+                                                       false, &delegate_mode)) {
+            print_error("unsupported SAT delegate incremental mode %s for delegate %s",
+                        sat_delegate_incremental_mode_name(g->ctx->sat_delegate_incremental_mode),
+                        g->delegate);
+            done = true;
+            return;
+          }
+          status = check_with_sat_delegate(g->ctx, g->delegate,
+                                           delegate_mode, g->verbosity, 0, NULL, NULL);
         } else {
           code = process_then_export_to_dimacs(g->ctx, g->dimacs_file, &status);
           if (code < 0) {

@@ -73,6 +73,8 @@
 
 #include "exists_forall/ef_client.h"
 
+#include "solvers/cdcl/delegate.h"
+
 #include "frontend/yices/yices_parser.h"
 
 #include "io/model_printer.h"
@@ -8885,6 +8887,16 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
       set_error_code(CTX_INVALID_CONFIG);
       return NULL;
     }
+    if (config->sat_delegate_incremental_mode_set &&
+        config->sat_delegate != SAT_DELEGATE_NONE) {
+      if ((mode == CTX_MODE_ONECHECK &&
+           config->sat_delegate_incremental_mode != SAT_DELEGATE_MODE_REBUILD) ||
+          !sat_delegate_incremental_mode_supported(config->sat_delegate,
+                                                   config->sat_delegate_incremental_mode)) {
+        set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+        return NULL;
+      }
+    }
   }
 
   context_t* ctx = _o_yices_create_context(logic, arch, mode, iflag, qflag);
@@ -8892,7 +8904,8 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
   // Additional setup for MCSAT options in the config
   if (config != NULL) {
     ctx->sat_delegate = config->sat_delegate;
-    ctx->sat_delegate_selector_frames = config->sat_delegate_selector_frames;
+    ctx->sat_delegate_incremental_mode = config->sat_delegate_incremental_mode;
+    ctx->sat_delegate_incremental_mode_set = config->sat_delegate_incremental_mode_set;
 
     // If trace tags are passed in, set them
     if (config->trace_tags != NULL) {
@@ -9485,6 +9498,7 @@ static bool check_delegate(const char *delegate);
 EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params) {
   param_t default_params;
   sat_delegate_t delegate_mode;
+  sat_delegate_incremental_mode_t exec_mode;
   bool one_shot_delegate;
   const char *delegate;
   smt_status_t stat;
@@ -9522,11 +9536,14 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
         set_error_code(CTX_OPERATION_NOT_SUPPORTED);
         return YICES_STATUS_ERROR;
       }
-      if (!one_shot_delegate && ctx->sat_delegate_selector_frames && incremental_delegate(delegate)) {
-        stat = check_with_incremental_delegate(ctx, delegate, 0, 0, NULL, NULL);
-      } else {
-        stat = check_with_delegate(ctx, delegate, 0);
+      if (!effective_sat_delegate_incremental_mode(delegate_mode, ctx->sat_delegate_incremental_mode,
+                                                  ctx->sat_delegate_incremental_mode_set,
+                                                  ctx->mode == CTX_MODE_ONECHECK,
+                                                  one_shot_delegate, &exec_mode)) {
+        set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+        return YICES_STATUS_ERROR;
       }
+      stat = check_with_sat_delegate(ctx, delegate, exec_mode, 0, 0, NULL, NULL);
     }
     if (stat == YICES_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
       context_cleanup(ctx);
