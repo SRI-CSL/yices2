@@ -417,6 +417,7 @@ no_mcsat_src_c := \
 # + old stuff not needed anymore (except for tests)
 #
 extra_src_c := \
+	mcsat/cdclt/cdclt_sat_cache.c \
 	context/context_parameters.c \
 	context/context_printer.c \
 	context/dump_context.c \
