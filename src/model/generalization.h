@@ -33,6 +33,20 @@
  * NOTE: we could use model-based projection in both cases, but
  * experiments with the exists/forall solver seem to show that
  * substitution works better for Boolean and bitvector variables.
+ *
+ * Two projection variants are exposed:
+ *
+ * - "wide" (the default for the public API): walks the Boolean
+ *   structure of F(x, y) and unions per-disjunct projections, so
+ *   that G(x) is truth-invariant for the formula rather than
+ *   sign-invariant for one chosen implicant. Wider output, slightly
+ *   more expensive per call. Recommended for CEGAR-style outer
+ *   loops over quantifier prefixes (exists/forall, QSMA, etc.).
+ *
+ * - "local": the legacy pipeline. Computes a single implicant of F
+ *   at the model (one literal per disjunct), then projects that flat
+ *   conjunction. Cheaper per call but commits to one disjunct, so the
+ *   resulting cell is narrower whenever F has Boolean structure.
  */
 
 #ifndef __GENERALIZATION_H
@@ -96,19 +110,33 @@ enum {
  *   the result formulas are added to v)
  * - extra_error: to help diagnose errors if something breaks.
  *
- * There are two main variants for generalization by substitution or by projection
- * - the generic form: generalize_model applies generalization by projection
- *   if some variables to eliminate are arithmetic variables. It uses
- *   generalization by substitution otherwise.
+ * There are several variants:
+ * - gen_model_by_substitution:
+ *   replace every elim[i] by its value in the model.
+ * - gen_model_by_projection:
+ *   "wide" projection (the new default for the public API): walks the
+ *   Boolean structure of f[], collects every literal cube reachable from
+ *   the model, projects each via Loos-Weispfenning / Cooper / arith_proj,
+ *   and unions the results at the term level.
+ * - gen_model_by_projection_local:
+ *   legacy projection. Builds a single literal implicant of f[] at the
+ *   model and projects that flat conjunction. This is the algorithm Yices
+ *   has used historically.
+ * - generalize_model:
+ *   the generic form. Applies projection (wide) for arithmetic variables
+ *   and substitution for the rest.
  *
- * If gen_model_by_projection or generalize_model fail and return GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM,
- * then *extra_error stores the term_kind of the bad terms that caused projection to fail (see projection.h).
+ * If a projection-based call fails and returns GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM,
+ * *extra_error stores the term_kind of the bad terms (see projection.h).
  */
 extern int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 					 uint32_t nelims, const term_t elim[], ivector_t *v);
 
 extern int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 				       uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error);
+
+extern int32_t gen_model_by_projection_local(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
+					     uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error);
 
 extern int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 				uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error);

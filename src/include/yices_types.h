@@ -275,15 +275,19 @@ typedef struct yval_vector_s {
  *      yices_generalize_model
  * and  yices_generalize_model_array
  *
- * There are currently two algorithms: generalization by
- * substitution and generalization by projection.
+ * There are three algorithms: generalization by substitution,
+ * generalization by projection (the new default, which builds a
+ * truth-invariant cell by walking the Boolean structure of the
+ * formula), and the legacy projection algorithm (implicant-then-
+ * project, producing a sign-invariant cell).
  * The default is to select the algorithm based on variables
  * to eliminate.
  */
 typedef enum yices_gen_mode {
   YICES_GEN_DEFAULT,
   YICES_GEN_BY_SUBST,
-  YICES_GEN_BY_PROJ
+  YICES_GEN_BY_PROJ,        // formula-aware projection (truth-invariant cell, default)
+  YICES_GEN_BY_PROJ_LOCAL,  // legacy: implicant-then-project (sign-invariant cell)
 } yices_gen_mode_t;
 
 

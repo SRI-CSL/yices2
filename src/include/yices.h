@@ -4760,12 +4760,26 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
  * In the functions below, the generalization method can be selected
  * by setting parameter mode to one of the following values:
  *
- *   mode = YICES_GEN_BY_SUBST  ---> generalize by substitution
- *   mode = YICES_GEN_BY_PROJ   ---> projection
- *   mode = YICES_GEN_DEFAULT   ---> automatically choose the mode
- *                                   depending on the variables to eliminate
+ *   mode = YICES_GEN_BY_SUBST       ---> generalize by substitution
+ *   mode = YICES_GEN_BY_PROJ        ---> wide projection (the default,
+ *                                        truth-invariant cell): walks the
+ *                                        Boolean structure of t and unions
+ *                                        per-disjunct projections. Recommended
+ *                                        for CEGAR-style outer loops over
+ *                                        quantifier prefixes.
+ *   mode = YICES_GEN_BY_PROJ_LOCAL  ---> legacy projection (sign-invariant
+ *                                        cell): builds one literal implicant
+ *                                        of t at the model and projects it.
+ *                                        Cheaper per call, narrower output.
+ *   mode = YICES_GEN_DEFAULT        ---> automatically choose the mode
+ *                                        depending on the variables to
+ *                                        eliminate (uses the wide projection
+ *                                        for arithmetic variables).
  *
- * Any value other than these is interpreted the same as YICES_GEN_DEFAULT
+ * Any value other than these is interpreted the same as YICES_GEN_DEFAULT.
+ *
+ * Both projection modes preserve the contract: G(X) is true at the model
+ * and implies (EXISTS to_eliminate. t).
  */
 
 /*
@@ -4782,7 +4796,19 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
  *    v->size = number of formulas returned
  *    v->data[0] ....  v->data[v->size-1] = the formulas themselves.
  *
- * If mode = YICES_GEN_BY_PROJ, then every element of v is guaranteed to be a literal
+ * Shape of the returned formulas:
+ * - If mode = YICES_GEN_BY_PROJ_LOCAL, every element of v is a literal
+ *   (the conjunction of literals is the generalization).
+ * - If mode = YICES_GEN_BY_PROJ (the default), the shape depends on
+ *   whether the input formula has Boolean structure that the wide walk
+ *   can decompose into multiple cubes:
+ *     * If the walk produces a single cube (which is always the case
+ *       for purely conjunctive input), v is filled with the projected
+ *       literals exactly as in YICES_GEN_BY_PROJ_LOCAL.
+ *     * If the walk produces multiple cubes, v contains a single
+ *       element which is a disjunction of literal-conjunctions.
+ *   In all cases, the conjunction of v[0...v->size-1] is the
+ *   generalization G(X).
  *
  * Important: t must be true in mdl, otherwise, the returned data may be garbage.
  *
