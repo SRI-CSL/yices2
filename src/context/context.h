@@ -64,6 +64,13 @@ extern void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
  */
 extern void delete_context(context_t *ctx);
 
+/*
+ * Release delegate runtime state (if any).
+ */
+extern void context_sat_delegate_state_cleanup(context_t *ctx);
+extern void context_reset_sat_delegate_stats(context_t *ctx);
+extern void context_get_sat_delegate_stats(const context_t *ctx, sat_delegate_stats_t *stats);
+
 
 /*
  * Reset: remove all assertions
@@ -143,7 +150,6 @@ extern bool context_has_simplex_solver(context_t *ctx);
  */
 extern int32_t assert_formula(context_t *ctx, term_t f);
 
-
 /*
  * Assert all formulas f[0] ... f[n-1]
  * same return code as above.
@@ -205,7 +211,7 @@ extern int32_t assert_blocking_clause(context_t *ctx);
  * - parameters = search and heuristic parameters to use
  * - if parameters is NULL, the default values are used
  *
- * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
+ * return status: either YICES_STATUS_UNSAT, YICES_STATUS_SAT, YICES_STATUS_UNKNOWN,
  * YICES_STATUS_INTERRUPTED (these codes are defined in smt_core.h)
  */
 extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
@@ -218,12 +224,19 @@ extern smt_status_t check_context(context_t *ctx, const param_t *parameters);
  * - a = array of n literals = n assumptions
  * - each a[i] must be defined in ctx->core
  *
- * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
+ * return status: either YICES_STATUS_UNSAT, YICES_STATUS_SAT, YICES_STATUS_UNKNOWN,
  * YICES_STATUS_INTERRUPTED
  *
- * If status is STATUS_UNSAT then the assumptions are inconsistent
+ * If status is YICES_STATUS_UNSAT then the assumptions are inconsistent
  */
 extern smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *parameters, uint32_t n, const literal_t *a);
+
+/*
+ * Check under assumptions given as Boolean terms.
+ * - each a[i] must be a Boolean term
+ * - this supports both CDCL(T) and MCSAT contexts
+ */
+extern smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *parameters, uint32_t n, const term_t *a, int32_t *error);
 
 /*
  * Check satisfiability under model: check whether the assertions stored in ctx
@@ -234,10 +247,10 @@ extern smt_status_t check_context_with_assumptions(context_t *ctx, const param_t
  * - model = model to assume
  * - t = variables to use from the model (size = n)
  *
- * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
+ * return status: either YICES_STATUS_UNSAT, YICES_STATUS_SAT, YICES_STATUS_UNKNOWN,
  * YICES_STATUS_INTERRUPTED
  *
- * If status is STATUS_UNSAT then the context and model are inconsistent
+ * If status is YICES_STATUS_UNSAT then the context and model are inconsistent
  */
 extern smt_status_t check_context_with_model(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[]);
 
@@ -252,16 +265,16 @@ extern smt_status_t check_context_with_model(context_t *ctx, const param_t *para
  * - t = variables to use from the model (size = n)
  * - m = number of terms in t to be used as assumption
  *
- * return status: either STATUS_UNSAT, STATUS_SAT, STATUS_UNKNOWN,
+ * return status: either YICES_STATUS_UNSAT, YICES_STATUS_SAT, YICES_STATUS_UNKNOWN,
  * YICES_STATUS_INTERRUPTED
  *
- * If status is STATUS_UNSAT then the context and model are inconsistent
+ * If status is YICES_STATUS_UNSAT then the context and model are inconsistent
  */
 extern smt_status_t check_context_with_model_and_hint(context_t *ctx, const param_t *params, model_t* mdl, uint32_t n, const term_t t[], uint32_t m);
 
 
 /*
- * Build a model: the context's status must be STATUS_SAT or STATUS_UNKNOWN
+ * Build a model: the context's status must be YICES_STATUS_SAT or YICES_STATUS_UNKNOWN
  * - model must be initialized (and empty)
  * - the model maps a value to every uninterpreted terms present in ctx's
  *   internalization tables
@@ -286,7 +299,7 @@ extern void clean_solver_models(context_t *ctx);
 
 
 /*
- * Build an unsat core: the context's status must be STATUS_UNSAT
+ * Build an unsat core: the context's status must be YICES_STATUS_UNSAT
  * - the unsat core is returned in vector *v
  * - if there are no assumption, the core is empty
  * - otherwise, the core is constructed from the bad_assumption
@@ -340,13 +353,18 @@ extern void context_clear(context_t *ctx);
  *   is restored to what it was at the start of search
  * - otherwise, this does nothing.
  *
- * On exit, the context's status can be either STATUS_IDLE
- * (if assumptions were removed) or STATUS_UNSAT otherwise.
+ * On exit, the context's status can be either YICES_STATUS_IDLE
+ * (if assumptions were removed) or YICES_STATUS_UNSAT otherwise.
  *
  * NOTE: Call this before context_pop(ctx) if the context status
  * is unsat.
  */
 extern void context_clear_unsat(context_t *ctx);
+
+/*
+ * Invalidate cached UNSAT artifacts.
+ */
+extern void context_invalidate_unsat_core_cache(context_t *ctx);
 
 
 /*
@@ -383,6 +401,16 @@ extern smt_status_t precheck_context(context_t *ctx);
  * else.
  */
 extern smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity);
+
+extern smt_status_t check_with_sat_delegate(context_t *ctx, const char *sat_solver,
+                                            sat_delegate_incremental_mode_t mode,
+                                            uint32_t verbosity, uint32_t n,
+                                            const literal_t *assumptions, ivector_t *failed);
+
+/*
+ * Pop notification for persistent SAT delegate state.
+ */
+extern void context_sat_delegate_state_pop(context_t *ctx, uint32_t level);
 
 
 /*
@@ -447,11 +475,11 @@ extern int32_t context_process_formulas(context_t *ctx, uint32_t n, term_t *f);
 
 /*
  * Read the status: returns one of
- *  STATUS_IDLE        (before check_context)
- *  STATUS_SEARCHING   (during check_context)
- *  STATUS_UNKNOWN
- *  STATUS_SAT
- *  STATUS_UNSAT
+ *  YICES_STATUS_IDLE        (before check_context)
+ *  YICES_STATUS_SEARCHING   (during check_context)
+ *  YICES_STATUS_UNKNOWN
+ *  YICES_STATUS_SAT
+ *  YICES_STATUS_UNSAT
  *  YICES_STATUS_INTERRUPTED
  */
 static inline smt_status_t context_status(context_t *ctx) {

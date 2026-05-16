@@ -507,7 +507,7 @@ static void base_term_stack_error(FILE *f, const char *name, tstack_t *tstack, t
  * - severity 2: means bug in term_stack or Yices parser
  */
 static const uint8_t severity[NUM_YICES_ERRORS] = {
-  2, // NO_ERROR (should never be raised)
+  2, // YICES_NO_ERROR (should never be raised)
   2, // INVALID_TYPE
   2, // INVALID_TERM
   2, // INVALID_CONSTANT_INDEX (bug in scalar-type construction)

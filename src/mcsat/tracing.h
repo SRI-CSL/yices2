@@ -80,6 +80,9 @@ void mcsat_trace_printf(tracer_t* tracer, const char* format, ...) __attribute__
 /** Print to the trace */
 void ctx_trace_printf(const plugin_context_t* ctx, const char* format, ...) __attribute__ ((format (printf, 2, 3)));
 
+/** Print to the trace (with explicit va_list vs. variadic) */
+void ctx_trace_vprintf(const plugin_context_t* ctx, const char* format, va_list p);
+
 /** String representation of the kind */
 const char* kind_to_string(term_kind_t kind);
 

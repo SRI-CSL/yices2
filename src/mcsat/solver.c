@@ -44,20 +44,23 @@
 #include "mcsat/bool/bool_plugin.h"
 #include "mcsat/cdclt/cdclt_plugin.h"
 #include "mcsat/ite/ite_plugin.h"
-#include "mcsat/nra/nra_plugin.h"
 #include "mcsat/uf/uf_plugin.h"
 #include "mcsat/bv/bv_plugin.h"
 #include "mcsat/ff/ff_plugin.h"
+#include "mcsat/na/na_plugin.h"
 
 #include "mcsat/preprocessor.h"
 
 #include "mcsat/utils/statistics.h"
+
+#include "terms/term_substitution.h"
 
 #include "utils/dprng.h"
 #include "model/model_queries.h"
 #include "io/model_printer.h"
 
 #include "yices.h"
+#include "api/yices_api_lock_free.h"
 #include <inttypes.h>
 #include <math.h>
 
@@ -254,6 +257,9 @@ struct mcsat_solver_s {
   /** Assumption variables */
   ivector_t assumption_vars;
 
+  /** Model values for assumption variables, parallel to assumption_vars */
+  ivector_t assumption_values;
+
   /** Index of the assumption to process next */
   uint32_t assumption_i;
 
@@ -263,7 +269,17 @@ struct mcsat_solver_s {
   /** Model used for assumptions solving */
   model_t* assumptions_model;
 
-  /** Interpolant */
+  /**
+   * Current sticky interpolant. Always stored in the public/postprocessed
+   * world: i.e. any tuple-blasted leaf variables have already been replaced
+   * by accessors over the original tuple/function atoms (see
+   * preprocessor_unblast_term). Writers MUST go through
+   * mcsat_set_interpolant_from_internal (applies unblast) for values
+   * produced by conflict analysis, or assign directly when the value is
+   * already in the public world (constants such as false_term, or values
+   * already retrieved via mcsat_get_unsat_model_interpolant). The getter
+   * is a plain field read.
+   */
   term_t interpolant;
 
   /** Statistics */
@@ -278,6 +294,8 @@ struct mcsat_solver_s {
     statistic_int_t* decisions;
     // Restarts performed
     statistic_int_t* restarts;
+    // Partial restarts performed
+    statistic_int_t* partial_restarts;
     // Conflicts handled
     statistic_int_t* conflicts;
     // Average conflict size
@@ -308,7 +326,7 @@ struct mcsat_solver_s {
   uint32_t bool_plugin_id;
   uint32_t uf_plugin_id;
   uint32_t ite_plugin_id;
-  uint32_t nra_plugin_id;
+  uint32_t na_plugin_id;
   uint32_t bv_plugin_id;
   uint32_t ff_plugin_id;
   uint32_t cdclt_plugin_id;
@@ -323,6 +341,16 @@ static
 void mcsat_add_lemma(mcsat_solver_t* mcsat, ivector_t* lemma, term_t decision_bound);
 
 static
+void mcsat_set_interpolant_from_internal(mcsat_solver_t* mcsat, term_t interpolant);
+
+static
+bool mcsat_flatten_model_value(mcsat_solver_t* mcsat, value_table_t* vtbl, type_t tau, value_t value, ivector_t* out);
+
+static
+void mcsat_value_construct_from_typed_model_value(mcsat_value_t* mcsat_value, value_table_t* vtbl,
+                                                  type_table_t* types, type_t tau, value_t value);
+
+static
 void propagation_check(const ivector_t* reasons, term_t x, term_t subst);
 
 static
@@ -334,16 +362,18 @@ void mcsat_stats_init(mcsat_solver_t* mcsat) {
   mcsat->solver_stats.gc_calls = statistics_new_int(&mcsat->stats, "mcsat::gc_calls");
   mcsat->solver_stats.lemmas = statistics_new_int(&mcsat->stats, "mcsat::lemmas");
   mcsat->solver_stats.restarts = statistics_new_int(&mcsat->stats, "mcsat::restarts");
+  mcsat->solver_stats.partial_restarts = statistics_new_int(&mcsat->stats, "mcsat::partial_restarts");
   mcsat->solver_stats.recaches = statistics_new_int(&mcsat->stats, "mcsat::recaches");
 }
 
 static
-void mcsat_heuristics_init(mcsat_solver_t* mcsat) {
+void mcsat_heuristics_init(mcsat_solver_t* mcsat, const param_t *params) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
   mcsat->heuristic_params.recache_interval = 300;
-  mcsat->heuristic_params.random_decision_freq = mcsat->ctx->mcsat_options.rand_dec_freq;
-  mcsat->heuristic_params.random_decision_seed = mcsat->ctx->mcsat_options.rand_dec_seed;
+  // Use params for random decision parameters
+  mcsat->heuristic_params.random_decision_freq = params->randomness;
+  mcsat->heuristic_params.random_decision_seed = params->random_seed;
 }
 
 static
@@ -832,7 +862,7 @@ void mcsat_add_plugins(mcsat_solver_t* mcsat) {
   mcsat->bool_plugin_id = mcsat_add_plugin(mcsat, bool_plugin_allocator, "bool_plugin");
   mcsat->uf_plugin_id = mcsat_add_plugin(mcsat, uf_plugin_allocator, "uf_plugin");
   mcsat->ite_plugin_id = mcsat_add_plugin(mcsat, ite_plugin_allocator, "ite_plugin");
-  mcsat->nra_plugin_id = mcsat_add_plugin(mcsat, nra_plugin_allocator, "nra_plugin");
+  mcsat->na_plugin_id = mcsat_add_plugin(mcsat, na_plugin_allocator, "na_plugin");
   mcsat->bv_plugin_id = mcsat_add_plugin(mcsat, bv_plugin_allocator, "bv_plugin");
   mcsat->ff_plugin_id = mcsat_add_plugin(mcsat, ff_plugin_allocator, "ff_plugin");
   mcsat->cdclt_plugin_id = mcsat_add_plugin(mcsat, cdclt_plugin_allocator, "cdclt_plugin");
@@ -853,7 +883,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   mcsat->types = ctx->types;
   mcsat->terms = ctx->terms;
   mcsat->terms_size_on_solver_entry = 0;
-  mcsat->status = STATUS_IDLE;
+  mcsat->status = YICES_STATUS_IDLE;
   mcsat->inconsistent_push_calls = 0;
 
   // New term manager
@@ -928,6 +958,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
 
   // Assumptions vector
   init_ivector(&mcsat->assumption_vars, 0);
+  init_ivector(&mcsat->assumption_values, 0);
 
   // Lemmas vector
   init_ivector(&mcsat->plugin_lemmas, 0);
@@ -982,6 +1013,7 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   statistics_destruct(&mcsat->stats);
   scope_holder_destruct(&mcsat->scope);
   delete_ivector(&mcsat->assumption_vars);
+  delete_ivector(&mcsat->assumption_values);
   delete_int_hset(&mcsat->internal_kinds);
 }
 
@@ -1063,7 +1095,7 @@ void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal);
 
 void mcsat_push(mcsat_solver_t* mcsat) {
 
-  assert(mcsat->status == STATUS_IDLE); // We must have clear before
+  assert(mcsat->status == YICES_STATUS_IDLE); // We must have clear before
 
   if (trace_enabled(mcsat->ctx->trace, "mcsat::push")) {
     mcsat_trace_printf(mcsat->ctx->trace, "mcsat::push start\n");
@@ -1111,7 +1143,7 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
 
   if (mcsat->inconsistent_push_calls > 0) {
     mcsat->inconsistent_push_calls --;
-    mcsat->status = STATUS_IDLE;
+    mcsat->status = YICES_STATUS_IDLE;
     return;
   }
 
@@ -1162,7 +1194,7 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   }
 
   // Set the status back to idle
-  mcsat->status = STATUS_IDLE;
+  mcsat->status = YICES_STATUS_IDLE;
   mcsat->interpolant = NULL_TERM;
 
   if (trace_enabled(mcsat->ctx->trace, "mcsat::pop")) {
@@ -1175,10 +1207,12 @@ void mcsat_clear(mcsat_solver_t* mcsat) {
   // Clear to be ready for more assertions:
   // - Pop internal to base level
   mcsat->assumption_i = 0;
+  ivector_reset(&mcsat->assumption_vars);
+  ivector_reset(&mcsat->assumption_values);
   mcsat->assumptions_decided_level = -1;
   mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, true);
-  mcsat->status = STATUS_IDLE;
-  mcsat->interpolant = NULL_TERM; // BD
+  mcsat->status = YICES_STATUS_IDLE;
+  mcsat->interpolant = NULL_TERM;
 }
 
 /**
@@ -1439,6 +1473,51 @@ void mcsat_backtrack_to(mcsat_solver_t* mcsat, uint32_t level, bool update_cache
   if (update_cache) trail_update_extra_cache(mcsat->trail);
 }
 
+static 
+uint32_t mcsat_partial_restart_level(mcsat_solver_t *mcsat) {
+  // If heap is empty, we go to base level
+  if (var_queue_is_empty(&mcsat->var_queue)) {
+    return mcsat->trail->decision_level_base;
+  }
+
+  uint32_t base = mcsat->trail->decision_level_base;
+  uint32_t n = mcsat->trail->decision_level;
+  uint32_t target_level = UINT32_MAX;
+  variable_t x = mcsat->var_queue.heap[1];
+  double ax = var_queue_get_activity(&mcsat->var_queue, x);
+  // Most active unassigned variable in the heap
+  while (!var_queue_is_empty(&mcsat->var_queue)) {
+    x = var_queue_pop(&mcsat->var_queue);
+    if (!trail_has_value(mcsat->trail, x)) {
+      ax = var_queue_get_activity(&mcsat->var_queue, x);
+      var_queue_insert(&mcsat->var_queue, x);
+      break;
+    }
+  }
+
+  // Scan the trail for decision variables
+  for (uint32_t i = 0; i < mcsat->trail->elements.size; ++i) {
+    variable_t v = mcsat->trail->elements.data[i];
+    if (trail_get_assignment_type(mcsat->trail, v) == DECISION) {
+      uint32_t level = trail_get_level(mcsat->trail, v);
+      if (level > base && level <= n) {
+        double v_activity = var_queue_get_activity(&mcsat->var_queue, v);
+        //printf("  Level %u: decision var %d (activity %g)\n", level, v, v_activity);
+        if (v_activity < ax) {
+          //printf("  Backtracking to level %u\n", level - 1);
+          target_level = level - 1;
+          break;
+        }
+      }
+    }
+  }
+  if (target_level != UINT32_MAX) {
+    return target_level;
+  }
+
+  return base;
+}
+
 static
 void mcsat_process_requests(mcsat_solver_t* mcsat) {
 
@@ -1452,12 +1531,27 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         mcsat_trace_printf(mcsat->ctx->trace, "restarting\n");
       }
-      mcsat->assumptions_decided_level = -1;
-      mcsat->assumption_i = 0;
-      mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
+
+      // Determine the backtrack level for restart:
+      // If partial_restart is enabled, use mcsat_partial_restart_level to compute the level.
+      // Otherwise, perform a full restart by backtracking to the base level.
+      uint32_t backtrack_level = mcsat->trail->decision_level_base;
+      if (mcsat->ctx->mcsat_options.partial_restart) {
+        backtrack_level = mcsat_partial_restart_level(mcsat);
+      }
+      if (backtrack_level == mcsat->trail->decision_level_base) {
+        mcsat->assumptions_decided_level = -1;
+        mcsat->assumption_i = 0;
+      }
+      mcsat_backtrack_to(mcsat, backtrack_level, false);
       mcsat->pending_requests_all.restart = false;
-      (*mcsat->solver_stats.restarts) ++;
-      mcsat_notify_plugins(mcsat, MCSAT_SOLVER_RESTART);
+      // notify if backtracked to base level
+      if (backtrack_level == mcsat->trail->decision_level_base) {
+        (*mcsat->solver_stats.restarts) ++;
+        mcsat_notify_plugins(mcsat, MCSAT_SOLVER_RESTART);
+      } else {
+        (*mcsat->solver_stats.partial_restarts) ++;
+      }
     }
 
     // GC
@@ -1813,31 +1907,38 @@ uint32_t mcsat_get_lemma_weight(mcsat_solver_t* mcsat, const ivector_t* lemma, l
 /** Check propagation with Yices: reasons => x = subst */
 static
 void propagation_check(const ivector_t* reasons, term_t x, term_t subst) {
-  ctx_config_t* config = yices_new_config();
-   context_t* ctx = yices_new_context(config);
+#ifdef THREAD_SAFE
+   (void) reasons;
+   (void) x;
+   (void) subst;
+   return;
+#else
+   context_t* ctx = _o_yices_new_context(NULL);
    uint32_t i;
    for (i = 0; i < reasons->size; ++i) {
      term_t literal = reasons->data[i];
-     int32_t ret = yices_assert_formula(ctx, literal);
+     int32_t ret = _o_yices_assert_formula(ctx, literal);
      if (ret != 0) {
        // unsupported by regular yices
        fprintf(stderr, "skipping propagation (ret 1)\n");
        yices_print_error(stderr);
+       _o_yices_free_context(ctx);
        return;
      }
    }
-   term_t eq = yices_eq(x, subst);
-   int32_t ret = yices_assert_formula(ctx, opposite_term(eq));
+   term_t eq = _o_yices_eq(x, subst);
+   int32_t ret = _o_yices_assert_formula(ctx, opposite_term(eq));
    if (ret != 0) {
      fprintf(stderr, "skipping propagation (ret 2)\n");
      yices_print_error(stderr);
+     _o_yices_free_context(ctx);
      return;
    }
-   smt_status_t result = yices_check_context(ctx, NULL);
+   smt_status_t result = check_context(ctx, NULL);
    (void) result;
-   assert(result == STATUS_UNSAT);
-   yices_free_context(ctx);
-   yices_free_config(config);
+   assert(result == YICES_STATUS_UNSAT);
+   _o_yices_free_context(ctx);
+#endif
 }
 
 static
@@ -2022,6 +2123,61 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* input_conflict) {
 }
 
 static
+void mcsat_set_interpolant_from_internal(mcsat_solver_t* mcsat, term_t interpolant) {
+  mcsat->interpolant = preprocessor_unblast_term(&mcsat->preprocessor, interpolant);
+}
+
+static
+bool mcsat_flatten_model_value(mcsat_solver_t* mcsat, value_table_t* vtbl, type_t tau, value_t value, ivector_t* out) {
+  type_table_t* types = mcsat->types;
+  type_kind_t kind = type_kind(types, tau);
+
+  if (value < 0) {
+    return false;
+  }
+
+  if (kind == TUPLE_TYPE) {
+    tuple_type_t* tuple = tuple_type_desc(types, tau);
+    uint32_t i;
+
+    if (!object_is_tuple(vtbl, value)) {
+      return false;
+    }
+    value_tuple_t* tuple_value = vtbl_tuple(vtbl, value);
+    if (tuple_value->nelems != tuple->nelem) {
+      return false;
+    }
+    for (i = 0; i < tuple->nelem; ++i) {
+      if (!mcsat_flatten_model_value(mcsat, vtbl, tuple->elem[i], tuple_value->elem[i], out)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  ivector_push(out, value);
+  return true;
+}
+
+static
+void mcsat_value_construct_from_typed_model_value(mcsat_value_t* mcsat_value, value_table_t* vtbl,
+                                                  type_table_t* types, type_t tau, value_t value) {
+  if (type_kind(types, tau) == SCALAR_TYPE) {
+    value_unint_t* c = vtbl_unint(vtbl, value);
+    rational_t q;
+
+    /* Scalar values are decided by the rational plugin; the scalar
+     * constant index is the corresponding integer value. */
+    q_init(&q);
+    q_set32(&q, c->index);
+    mcsat_value_construct_rational(mcsat_value, &q);
+    q_clear(&q);
+  } else {
+    mcsat_value_construct_from_value(mcsat_value, vtbl, value);
+  }
+}
+
+static
 bool mcsat_conflict_with_assumptions(mcsat_solver_t* mcsat, uint32_t conflict_level) {
   // If we decided some assumptions, then backtracked under that level
   if ((int32_t) conflict_level <= mcsat->assumptions_decided_level) {
@@ -2085,19 +2241,27 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
         // but x_eq_t evaluates to true with trail
         ivector_push(&reason, opposite_term(x_eq_t));
         conflict_construct(&conflict, &reason, false, (mcsat_evaluator_interface_t*) &mcsat->evaluator, mcsat->var_db, mcsat->trail, &mcsat->tm, mcsat->ctx->trace);
-        mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
+        mcsat_set_interpolant_from_internal(mcsat, mcsat_analyze_final(mcsat, &conflict));
         conflict_destruct(&conflict);
       } else {
         // an assertion, interpolant is !assertion
-        mcsat->interpolant = variable_db_get_term(mcsat->var_db, mcsat->variable_in_conflict);
+        term_t interpolant = variable_db_get_term(mcsat->var_db, mcsat->variable_in_conflict);
         bool value = trail_get_boolean_value(mcsat->trail, mcsat->variable_in_conflict);
         if (!value) {
-          mcsat->interpolant = opposite_term(mcsat->interpolant);
+          interpolant = opposite_term(interpolant);
         }
+        mcsat_set_interpolant_from_internal(mcsat, interpolant);
       }
     }
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = YICES_STATUS_UNSAT;
     mcsat->variable_in_conflict = variable_null;
+    // Assumption conflict can trigger this fast-path before the generic
+    // assumption-conflict cleanup below. Restore the trail to base level so
+    // context_pop remains valid after check-with-assumptions.
+    if (mcsat->assumptions_decided_level >= 0) {
+      mcsat->assumptions_decided_level = -1;
+      mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
+    }
     delete_ivector(&reason);
     return;
   } else {
@@ -2250,14 +2414,14 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
   }
 
   if (mcsat_conflict_with_assumptions(mcsat, conflict_level)) {
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = YICES_STATUS_UNSAT;
     if (mcsat->ctx->mcsat_options.model_interpolation) {
-      mcsat->interpolant = mcsat_analyze_final(mcsat, &conflict);
+      mcsat_set_interpolant_from_internal(mcsat, mcsat_analyze_final(mcsat, &conflict));
     }
     mcsat->assumptions_decided_level = -1;
     mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
   } else if (conflict_level <= mcsat->trail->decision_level_base) {
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = YICES_STATUS_UNSAT;
   } else {
     assert(conflict_get_top_level_vars_count(&conflict) == 1);
     // We should still be in conflict, so back out
@@ -2297,11 +2461,13 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
 }
 
 static
-bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_assumptions, const term_t assumptions[]) {
+bool mcsat_decide_assumption(mcsat_solver_t* mcsat, value_table_t* vtbl) {
   assert(!mcsat->trail->inconsistent);
+  assert(mcsat->assumption_vars.size == mcsat->assumption_values.size);
 
   variable_t var;
   term_t var_term;
+  value_t value;
   mcsat_value_t var_mdl_value;
 
   uint32_t plugin_i;
@@ -2310,7 +2476,7 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
   plugin_trail_token_t decision_token;
 
   bool assumption_decided = false;
-  for (; !assumption_decided && mcsat->assumption_i < n_assumptions; mcsat->assumption_i ++) {
+  for (; !assumption_decided && mcsat->assumption_i < mcsat->assumption_vars.size; mcsat->assumption_i ++) {
 
     // Break if any conflicts
     if (mcsat->trail->inconsistent) {
@@ -2320,16 +2486,16 @@ bool mcsat_decide_assumption(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_ass
       break;
     }
 
-    // The variable (should exist already)
-    var_term = assumptions[mcsat->assumption_i];
-    var = variable_db_get_variable_if_exists(mcsat->var_db, var_term);
+    var = mcsat->assumption_vars.data[mcsat->assumption_i];
+    var_term = variable_db_get_term(mcsat->var_db, var);
+    value = mcsat->assumption_values.data[mcsat->assumption_i];
     assert(var != variable_null);
     // Get the owner that will 'decide' the value of the variable
     plugin_i = mcsat->decision_makers[variable_db_get_type_kind(mcsat->var_db, var)];
     assert(plugin_i != MCSAT_MAX_PLUGINS);
-    // The given value the variable in the provided model
-    value_t value = model_get_term_value(mdl, var_term);
-    mcsat_value_construct_from_value(&var_mdl_value, &mdl->vtbl, value);
+    // The given value for the flattened assumption leaf
+    mcsat_value_construct_from_typed_model_value(&var_mdl_value, vtbl, mcsat->types,
+                                                 term_type(mcsat->terms, var_term), value);
 
     if (trace_enabled(mcsat->ctx->trace, "mcsat::decide")) {
       mcsat_trace_printf(mcsat->ctx->trace, "mcsat_decide_assumption(): with %s\n", mcsat->plugins[plugin_i].plugin_name);
@@ -2640,16 +2806,103 @@ void mcsat_check_model(mcsat_solver_t* mcsat, bool assert) {
 static
 void mcsat_assert_formulas_internal(mcsat_solver_t* mcsat, uint32_t n, const term_t *f, bool preprocess);
 
+static
+void mcsat_add_assumption_leaf(mcsat_solver_t* mcsat, term_t x, value_t value) {
+  variable_t x_var = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
+  ivector_push(&mcsat->assumption_vars, x_var);
+  ivector_push(&mcsat->assumption_values, value);
+  mcsat_process_registration_queue(mcsat);
+}
+
+static
+bool mcsat_collect_tuple_leaves_and_values(mcsat_solver_t* mcsat, model_t* mdl, term_t x,
+                                           ivector_t* leaves, ivector_t* values) {
+  value_table_t* vtbl = model_get_vtbl(mdl);
+
+  preprocessor_tuple_blast(&mcsat->preprocessor, x, leaves);
+  return mcsat_flatten_model_value(mcsat, vtbl, term_type(mcsat->terms, x),
+                                   model_get_term_value(mdl, x), values) &&
+         leaves->size == values->size;
+}
+
+static
+void mcsat_add_tuple_assumption_leaves(mcsat_solver_t* mcsat, model_t* mdl, term_t x) {
+  ivector_t leaves, values;
+  uint32_t i;
+
+  init_ivector(&leaves, 0);
+  init_ivector(&values, 0);
+
+  if (!mcsat_collect_tuple_leaves_and_values(mcsat, mdl, x, &leaves, &values)) {
+    /* Defensive path for malformed user models: API validation has already
+     * rejected unsupported tuple leaf types before solver entry. */
+    delete_ivector(&values);
+    delete_ivector(&leaves);
+    longjmp(*mcsat->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+  }
+
+  for (i = 0; i < leaves.size; ++i) {
+    term_t leaf = leaves.data[i];
+    term_t leaf_pre = preprocessor_apply(&mcsat->preprocessor, leaf, NULL, true);
+    if (leaf != leaf_pre) {
+      /* As with scalar assumptions, keep the original public assumption leaf
+       * decidable while preserving substitutions learned during preprocessing. */
+      term_t eq = mk_eq(&mcsat->tm, leaf, leaf_pre);
+      mcsat_assert_formulas_internal(mcsat, 1, &eq, false);
+    }
+    mcsat_add_assumption_leaf(mcsat, leaf, values.data[i]);
+  }
+
+  delete_ivector(&values);
+  delete_ivector(&leaves);
+}
+
+static
+void mcsat_set_hint_leaf(mcsat_solver_t* mcsat, value_table_t* vtbl, term_t x, value_t x_value) {
+  variable_t x_var = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
+  mcsat_value_t value;
+
+  mcsat_value_construct_from_typed_model_value(&value, vtbl, mcsat->types, term_type(mcsat->terms, x), x_value);
+  trail_set_cached_value(mcsat->trail, x_var, &value);
+  mcsat_value_destruct(&value);
+}
+
+static
+void mcsat_set_tuple_hint_leaves(mcsat_solver_t* mcsat, model_t* mdl, term_t x) {
+  value_table_t* vtbl = model_get_vtbl(mdl);
+  ivector_t leaves, values;
+  uint32_t i;
+
+  init_ivector(&leaves, 0);
+  init_ivector(&values, 0);
+
+  if (!mcsat_collect_tuple_leaves_and_values(mcsat, mdl, x, &leaves, &values)) {
+    /* Defensive path for malformed user models: API validation has already
+     * rejected unsupported tuple leaf types before solver entry. */
+    delete_ivector(&values);
+    delete_ivector(&leaves);
+    longjmp(*mcsat->exception, MCSAT_EXCEPTION_UNSUPPORTED_THEORY);
+  }
+
+  /* Hints are advisory cache entries, not assumption decisions. No
+   * preprocessor_apply/equality assertion is needed here: if a leaf was
+   * substituted, search can ignore or overwrite the stale cached hint. */
+  for (i = 0; i < leaves.size; ++i) {
+    mcsat_set_hint_leaf(mcsat, vtbl, leaves.data[i], values.data[i]);
+  }
+
+  delete_ivector(&values);
+  delete_ivector(&leaves);
+}
+
 void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_filter,
-			  const term_t mdl_filter[]) {
+                          const term_t mdl_filter[]) {
   if (n_mdl_filter == 0) {
     return;
   }
 
   assert(mdl != NULL);
   assert(mdl_filter != NULL);
-
-  value_table_t* vtbl = model_get_vtbl(mdl);
 
   trail_clear_cache(mcsat->trail);
   trail_update_extra_cache(mcsat->trail);
@@ -2659,14 +2912,11 @@ void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_fi
     assert(term_kind(mcsat->terms, x) == UNINTERPRETED_TERM || term_kind(mcsat->terms, x) == VARIABLE);
     assert(is_pos_term(x));
 
-    variable_t x_var = variable_db_get_variable(mcsat->var_db, unsigned_term(x));    
-    value_t x_value = model_get_term_value(mdl, x);
-    mcsat_value_t value;
-
-    mcsat_value_construct_from_value(&value, vtbl, x_value);
-    assert(x_value >= 0);
-
-    trail_set_cached_value(mcsat->trail, x_var, &value);
+    if (term_type_kind(mcsat->terms, x) == TUPLE_TYPE) {
+      mcsat_set_tuple_hint_leaves(mcsat, mdl, x);
+    } else {
+      mcsat_set_hint_leaf(mcsat, model_get_vtbl(mdl), x, model_get_term_value(mdl, x));
+    }
   }
 
   mcsat_process_registration_queue(mcsat);
@@ -2703,6 +2953,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       mcsat_trace_printf(mcsat->ctx->trace, "solving with assumptions\n");
     }
     assert(mcsat->assumption_vars.size == 0);
+    assert(mcsat->assumption_values.size == 0);
     uint32_t i;
     for (i = 0; i < n_assumptions; ++ i) {
       // Apply the pre-processor. If the variable is substituted, we
@@ -2710,16 +2961,18 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       term_t x = assumptions[i];
       assert(term_kind(mcsat->terms, x) == UNINTERPRETED_TERM || term_kind(mcsat->terms, x) == VARIABLE);
       assert(is_pos_term(x));
-      term_t x_pre = preprocessor_apply(&mcsat->preprocessor, x, NULL, true);
-      if (x != x_pre) {
-        // Assert x = t although we solved it already :(
-        term_t eq = mk_eq(&mcsat->tm, x, x_pre);
-        mcsat_assert_formulas_internal(mcsat, 1, &eq, false);
+      if (term_type_kind(mcsat->terms, x) == TUPLE_TYPE) {
+        mcsat_add_tuple_assumption_leaves(mcsat, mdl, x);
+      } else {
+        term_t x_pre = preprocessor_apply(&mcsat->preprocessor, x, NULL, true);
+        if (x != x_pre) {
+          // Assert x = t although we solved it already :(
+          term_t eq = mk_eq(&mcsat->tm, x, x_pre);
+          mcsat_assert_formulas_internal(mcsat, 1, &eq, false);
+        }
+        // Make sure the variable is registered (maybe it doesn't appear in assertions)
+        mcsat_add_assumption_leaf(mcsat, x, model_get_term_value(mdl, x));
       }
-      // Make sure the variable is registered (maybe it doesn't appear in assertions)
-      variable_t x_var = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
-      ivector_push(&mcsat->assumption_vars, x_var);
-      mcsat_process_registration_queue(mcsat);
     }
   }
 
@@ -2731,12 +2984,13 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   mcsat->assumptions_model = mdl;
 
   // Start the search
-  mcsat->status = STATUS_SEARCHING;
+  mcsat->status = YICES_STATUS_SEARCHING;
 
   // If we're already unsat, just return
   if (!mcsat_is_consistent(mcsat)) {
+    /* false_term is already in the public world */
     mcsat->interpolant = false_term;
-    mcsat->status = STATUS_UNSAT;
+    mcsat->status = YICES_STATUS_UNSAT;
     assert(int_queue_is_empty(&mcsat->registration_queue));
     goto solve_done;
   }
@@ -2750,7 +3004,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   mcsat->terms_size_on_solver_entry = nterms(mcsat->terms);
 
   // Initialize for search
-  mcsat_heuristics_init(mcsat);
+  mcsat_heuristics_init(mcsat, params);
   mcsat_notify_plugins(mcsat, MCSAT_SOLVER_START);
 
   // set initial variable order
@@ -2802,7 +3056,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     }
 
     // Should we decide on an assumption
-    bool assumption_decided = mcsat_decide_assumption(mcsat, mdl, n_assumptions, assumptions);
+    bool assumption_decided = mcsat_decide_assumption(mcsat, model_get_vtbl(mdl));
     if (assumption_decided) {
       continue;
     }
@@ -2826,7 +3080,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     }
 
     // Nothing to decide, we're satisfiable
-    mcsat->status = STATUS_SAT;
+    mcsat->status = YICES_STATUS_SAT;
     if (trace_enabled(mcsat->ctx->trace, "mcsat::model::check")) {
       mcsat_check_model(mcsat, true);
     }
@@ -2840,8 +3094,9 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
     // If at level 0 we're unsat
     if (n_assumptions == 0 && trail_is_at_base_level(mcsat->trail)) {
+      /* false_term is already in the public world */
       mcsat->interpolant = false_term;
-      mcsat->status = STATUS_UNSAT;
+      mcsat->status = YICES_STATUS_UNSAT;
       break;
     }
 
@@ -2849,8 +3104,9 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     mcsat_analyze_conflicts(mcsat, &restart_resource);
 
     // Analysis might have discovered base level conflict
-    if (mcsat->status == STATUS_UNSAT) {
+    if (mcsat->status == YICES_STATUS_UNSAT) {
       if (n_assumptions == 0) {
+        /* false_term is already in the public world */
         mcsat->interpolant = false_term;
       }
       break;
@@ -2861,7 +3117,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   }
 
   if (mcsat->stop_search) {
-    if (mcsat->status == STATUS_SEARCHING) {
+    if (mcsat->status == YICES_STATUS_SEARCHING) {
       mcsat->status = YICES_STATUS_INTERRUPTED;
     }
     mcsat->stop_search = false;
@@ -2871,8 +3127,15 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
   mcsat_process_registration_queue(mcsat);
 
 solve_done:
-
   ivector_reset(&mcsat->assumption_vars);
+  ivector_reset(&mcsat->assumption_values);
+}
+
+void mcsat_cleanup_assumptions(mcsat_solver_t* mcsat) {
+  mcsat->assumptions_decided_level = -1;
+  if (!trail_is_at_base_level(mcsat->trail)) {
+    mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
+  }
 }
 
 void mcsat_set_tracer(mcsat_solver_t* mcsat, tracer_t* tracer) {
@@ -3042,4 +3305,32 @@ void mcsat_stop_search(mcsat_solver_t* mcsat) {
 
 term_t mcsat_get_unsat_model_interpolant(mcsat_solver_t* mcsat) {
   return mcsat->interpolant;
+}
+
+void mcsat_set_unsat_result_from_labeled_interpolant(mcsat_solver_t* mcsat, term_t interpolant,
+                                                     uint32_t n, const term_t* labels,
+                                                     const term_t* assumptions) {
+  term_subst_t subst;
+
+  mcsat->status = YICES_STATUS_UNSAT;
+  /*
+   * Called from check_context_with_assumptions *after* the temporary
+   * context frame has been popped. That is safe because:
+   *   - the temporary Boolean labels were created via
+   *     new_uninterpreted_term in the global term table and remain
+   *     valid: mcsat_pop sweeps mcsat-internal state (var_db,
+   *     plugin/preprocessor caches) but does not invoke term_table_gc,
+   *     so the labels' term ids are still good_term;
+   *   - the input interpolant has already been unblasted by the
+   *     mcsat_set_interpolant_from_internal writer, so it lives in the
+   *     public/postprocessed world (see the contract on
+   *     mcsat->interpolant in solver.h).
+   * This routine just rewrites the public interpolant to replace each
+   * temporary label b_i with the caller's original assumption a_i.
+   */
+  init_term_subst(&subst, &mcsat->tm, n, labels, assumptions);
+  interpolant = apply_term_subst(&subst, interpolant);
+  delete_term_subst(&subst);
+  /* Substituted interpolant remains in the public world */
+  mcsat->interpolant = interpolant;
 }

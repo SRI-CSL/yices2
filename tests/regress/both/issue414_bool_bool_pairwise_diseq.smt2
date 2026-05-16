@@ -1,0 +1,20 @@
+(set-logic ALL)
+
+(declare-fun f0 (Bool) Bool)
+(declare-fun f1 (Bool) Bool)
+(declare-fun f2 (Bool) Bool)
+(declare-fun f3 (Bool) Bool)
+(declare-fun f4 (Bool) Bool)
+
+(assert (not (= f0 f1)))
+(assert (not (= f0 f2)))
+(assert (not (= f0 f3)))
+(assert (not (= f0 f4)))
+(assert (not (= f1 f2)))
+(assert (not (= f1 f3)))
+(assert (not (= f1 f4)))
+(assert (not (= f2 f3)))
+(assert (not (= f2 f4)))
+(assert (not (= f3 f4)))
+
+(check-sat)

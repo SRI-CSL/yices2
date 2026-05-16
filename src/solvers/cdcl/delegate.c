@@ -19,6 +19,7 @@
 #include <assert.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #ifdef HAVE_CADICAL
 #include "ccadical.h"
@@ -73,18 +74,18 @@ static void ysat_add_clause(void *solver, uint32_t n, literal_t *a) {
 static smt_status_t ysat_check(void *solver) {
   // use new sat solver
   switch (nsat_solve(solver)) {
-  case STAT_SAT: return STATUS_SAT;
-  case STAT_UNSAT: return STATUS_UNSAT;
-  default: return STATUS_UNKNOWN;
+  case STAT_SAT: return YICES_STATUS_SAT;
+  case STAT_UNSAT: return YICES_STATUS_UNSAT;
+  default: return YICES_STATUS_UNKNOWN;
   }
 }
 
 static smt_status_t ysat_preprocess(void *solver) {
   // use new sat solver
   switch (nsat_apply_preprocessing(solver)) {
-  case STAT_SAT: return STATUS_SAT;
-  case STAT_UNSAT: return STATUS_UNSAT;
-  default: return STATUS_UNKNOWN;
+  case STAT_SAT: return YICES_STATUS_SAT;
+  case STAT_UNSAT: return YICES_STATUS_UNSAT;
+  default: return YICES_STATUS_UNKNOWN;
   }
 }
 
@@ -98,6 +99,10 @@ static bval_t ysat_get_value(void *solver, bvar_t x) {
 
 static void ysat_set_verbosity(void *solver, uint32_t level) {
   nsat_set_verbosity(solver, level);
+}
+
+static void ysat_add_vars(void *solver, uint32_t n) {
+  nsat_solver_add_vars(solver, n);
 }
 
 static void ysat_delete(void *solver) {
@@ -123,10 +128,9 @@ static void ysat_var_def3(void *solver, bvar_t x, uint32_t b, literal_t l1, lite
 }
 #endif
 
-static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
+static void ysat_as_delegate_mode(delegate_t *d, uint32_t nvars, bool preprocessing) {
   d->solver = (sat_solver_t *) safe_malloc(sizeof(sat_solver_t));
-  init_nsat_solver(d->solver, nvars, true); // with preprocessing
-  // init_nsat_solver(d->solver, nvars, false); // without preprocessing
+  init_nsat_solver(d->solver, nvars, preprocessing);
   nsat_set_randomness(d->solver, 0.01);
   nsat_set_reduce_fraction(d->solver, 12);
   nsat_set_res_clause_limit(d->solver, 300);   // more agressive var elimination
@@ -141,9 +145,14 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->add_ternary_clause = ysat_add_ternary_clause;
   d->add_clause = ysat_add_clause;
   d->check = ysat_check;
+  d->check_assuming = NULL;
+  d->collect_failed_assumptions = NULL;
   d->get_value = ysat_get_value;
   d->set_verbosity = ysat_set_verbosity;
   d->delete = ysat_delete;
+  d->add_vars = ysat_add_vars;
+  d->freeze_literal = NULL;
+  d->melt_literal = NULL;
 
   // experimental
   //  d->keep_var = ysat_keep_var;
@@ -163,8 +172,16 @@ static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->export = ysat_export_to_dimacs;
 }
 
+static void ysat_as_delegate(delegate_t *d, uint32_t nvars) {
+  ysat_as_delegate_mode(d, nvars, true);
+}
 
-#if HAVE_CADICAL || HAVE_KISSAT
+static void ysat_as_incremental_delegate(delegate_t *d, uint32_t nvars) {
+  ysat_as_delegate_mode(d, nvars, false);
+}
+
+
+#if HAVE_KISSAT
 /*
  * Conversion from literal_t to dimacs:
  * - in Yices, variables are indexed from 0 to nvars-1.
@@ -185,42 +202,111 @@ static inline int lit2dimacs(literal_t l) {
  */
 
 #if HAVE_CADICAL
+typedef struct cadical_delegate_s {
+  void *cadical;
+  uint32_t declared_vars;
+  int32_t *bvar_to_dimacs;
+  uint32_t bvar_map_size;
+} cadical_delegate_t;
+
+static void cadical_ensure_vars(cadical_delegate_t *s, uint32_t nvars) {
+  uint32_t new_size, vi;
+
+  if (nvars <= s->declared_vars) {
+    return;
+  }
+
+  if (nvars > s->bvar_map_size) {
+    new_size = s->bvar_map_size == 0 ? 64 : s->bvar_map_size;
+    while (new_size < nvars) {
+      new_size <<= 1;
+    }
+    s->bvar_to_dimacs = (int32_t *) safe_realloc(s->bvar_to_dimacs, new_size * sizeof(int32_t));
+    s->bvar_map_size = new_size;
+  }
+
+  for (vi=s->declared_vars; vi<nvars; vi++) {
+    s->bvar_to_dimacs[vi] = ccadical_declare_one_more_variable(s->cadical);
+  }
+  s->declared_vars = nvars;
+}
+
+static inline int cadical_lit2dimacs(const cadical_delegate_t *s, literal_t l) {
+  int d;
+
+  assert(var_of(l) < s->declared_vars);
+  d = s->bvar_to_dimacs[var_of(l)];
+  return is_pos(l) ? d : -d;
+}
+
 static void cadical_add_empty_clause(void *solver) {
-  ccadical_add(solver, 0);
+  cadical_delegate_t *s = solver;
+
+  ccadical_add(s->cadical, 0);
 }
 
 static void cadical_add_unit_clause(void *solver, literal_t l) {
-  ccadical_add(solver, lit2dimacs(l));
-  ccadical_add(solver, 0);
+  cadical_delegate_t *s = solver;
+
+  ccadical_add(s->cadical, cadical_lit2dimacs(s, l));
+  ccadical_add(s->cadical, 0);
 }
 
 static void cadical_add_binary_clause(void *solver, literal_t l1, literal_t l2) {
-  ccadical_add(solver, lit2dimacs(l1));
-  ccadical_add(solver, lit2dimacs(l2));
-  ccadical_add(solver, 0);
+  cadical_delegate_t *s = solver;
+
+  ccadical_add(s->cadical, cadical_lit2dimacs(s, l1));
+  ccadical_add(s->cadical, cadical_lit2dimacs(s, l2));
+  ccadical_add(s->cadical, 0);
 }
 
 static void cadical_add_ternary_clause(void *solver, literal_t l1, literal_t l2, literal_t l3) {
-  ccadical_add(solver, lit2dimacs(l1));
-  ccadical_add(solver, lit2dimacs(l2));
-  ccadical_add(solver, lit2dimacs(l3));
-  ccadical_add(solver, 0);
+  cadical_delegate_t *s = solver;
+
+  ccadical_add(s->cadical, cadical_lit2dimacs(s, l1));
+  ccadical_add(s->cadical, cadical_lit2dimacs(s, l2));
+  ccadical_add(s->cadical, cadical_lit2dimacs(s, l3));
+  ccadical_add(s->cadical, 0);
 }
 
 static void cadical_add_clause(void *solver, uint32_t n, literal_t *a) {
+  cadical_delegate_t *s = solver;
   uint32_t i;
 
   for (i=0; i<n; i++) {
-    ccadical_add(solver, lit2dimacs(a[i]));
+    ccadical_add(s->cadical, cadical_lit2dimacs(s, a[i]));
   }
-  ccadical_add(solver, 0);
+  ccadical_add(s->cadical, 0);
 }
 
 static smt_status_t cadical_check(void *solver) {
-  switch (ccadical_sat(solver)) {
-  case 10: return STATUS_SAT;
-  case 20: return STATUS_UNSAT;
-  default: return STATUS_UNKNOWN;
+  cadical_delegate_t *s = solver;
+
+  switch (ccadical_sat(s->cadical)) {
+  case 10: return YICES_STATUS_SAT;
+  case 20: return YICES_STATUS_UNSAT;
+  default: return YICES_STATUS_UNKNOWN;
+  }
+}
+
+static smt_status_t cadical_check_assuming(void *solver, uint32_t n, const literal_t *a) {
+  cadical_delegate_t *s = solver;
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    ccadical_assume(s->cadical, cadical_lit2dimacs(s, a[i]));
+  }
+  return cadical_check(solver);
+}
+
+static void cadical_collect_failed_assumptions(void *solver, uint32_t n, const literal_t *a, ivector_t *out) {
+  cadical_delegate_t *s = solver;
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (ccadical_failed(s->cadical, cadical_lit2dimacs(s, a[i])) != 0) {
+      ivector_push(out, a[i]);
+    }
   }
 }
 
@@ -234,15 +320,19 @@ static smt_status_t cadical_check(void *solver) {
  * We convert  unknown to VAL_FALSE here.
  */
 static bval_t cadical_get_value(void *solver, bvar_t x) {
+  cadical_delegate_t *s = solver;
   int v;
 
-  v = ccadical_deref(solver, x + 1); // x+1 = variable in cadical = positive literal
+  assert(x < s->declared_vars);
+  v = ccadical_val(s->cadical, s->bvar_to_dimacs[x]);
   // v = value assigned in cadical: -1 means false, +1 means true, 0 means unknown
 
   return (v <= 0) ? VAL_FALSE : VAL_TRUE;
 }
 
 static void cadical_set_verbosity(void *solver, uint32_t level) {
+  cadical_delegate_t *s = solver;
+
   // verbosity 0 --> nothing (quiet = true)
   // verbosity 1 --> normal cadical output (quiet = false)
   // verbosity 2 --> cadical verbosity 1
@@ -253,44 +343,90 @@ static void cadical_set_verbosity(void *solver, uint32_t level) {
   //   nothing is printed at verbosity level < 2
   // 
   if (level == 0) {
-    ccadical_set_option(solver, "quiet", 1);
+    ccadical_set_option(s->cadical, "quiet", 1);
   } else {
-    ccadical_set_option(solver, "quiet", 0);
-    ccadical_set_option(solver, "report", 1);
+    ccadical_set_option(s->cadical, "quiet", 0);
+    ccadical_set_option(s->cadical, "report", 1);
     if (level == 2) {
-      ccadical_set_option(solver, "verbose", 1);
+      ccadical_set_option(s->cadical, "verbose", 1);
     } else if (level >= 3) {
-      ccadical_set_option(solver, "verbose", 2);
+      ccadical_set_option(s->cadical, "verbose", 2);
     }
   }
 }
 
 static void cadical_delete(void *solver) {
-  ccadical_reset(solver);
+  cadical_delegate_t *s = solver;
+
+  ccadical_reset(s->cadical);
+  safe_free(s->bvar_to_dimacs);
+  safe_free(s);
+}
+
+static void cadical_add_vars(void *solver, uint32_t n) {
+  cadical_delegate_t *s = solver;
+
+  if (n > 0) {
+    cadical_ensure_vars(s, s->declared_vars + n);
+  }
+}
+
+static void cadical_freeze_literal(void *solver, literal_t l) {
+  cadical_delegate_t *s = solver;
+
+  ccadical_freeze(s->cadical, abs(cadical_lit2dimacs(s, l)));
+}
+
+static void cadical_melt_literal(void *solver, literal_t l) {
+  cadical_delegate_t *s = solver;
+
+  ccadical_melt(s->cadical, abs(cadical_lit2dimacs(s, l)));
 }
 
 static void cadical_as_delegate(delegate_t *d, uint32_t nvars) {
-  d->solver = ccadical_init();
-  ccadical_set_option(d->solver, "quiet", 1); // no output from cadical by default
+  cadical_delegate_t *s;
+
+  s = (cadical_delegate_t *) safe_malloc(sizeof(cadical_delegate_t));
+  s->cadical = ccadical_init();
+  s->declared_vars = 0;
+  s->bvar_to_dimacs = NULL;
+  s->bvar_map_size = 0;
+
+  ccadical_set_option(s->cadical, "quiet", 1); // no output from cadical by default
   init_ivector(&d->buffer, 0); // not used
+
   // fine tuning
-  ccadical_set_option(d->solver, "walk", 0);
-  ccadical_set_option(d->solver, "lucky", 0);
-  ccadical_set_option(d->solver, "chrono", 0);
-  ccadical_set_option(d->solver, "elimands", 0);
-  //  ccadical_set_option(d->solver, "elimequivs", 0);
-  ccadical_set_option(d->solver, "elimites", 0);
-  ccadical_set_option(d->solver, "elimxors", 0);
+  ccadical_set_option(s->cadical, "walk", 0);
+  ccadical_set_option(s->cadical, "lucky", 0);
+  ccadical_set_option(s->cadical, "chrono", 0);
+  ccadical_set_option(s->cadical, "elimands", 0);
+  ccadical_set_option(s->cadical, "elimites", 0);
+  ccadical_set_option(s->cadical, "elimxors", 0);
+  /*
+   * TODO: Revisit this performance tradeoff. With the explicit
+   * bvar_to_dimacs map, CaDiCaL's internal extension variables should not
+   * conflict with Yices variables, so factor does not have to be disabled
+   * for variable-mapping correctness.
+   */
+  ccadical_set_option(s->cadical, "factor", 0);
   // end of fine tuning
+
+  d->solver = s;
+  cadical_add_vars(d->solver, nvars);
   d->add_empty_clause = cadical_add_empty_clause;
   d->add_unit_clause = cadical_add_unit_clause;
   d->add_binary_clause = cadical_add_binary_clause;
   d->add_ternary_clause = cadical_add_ternary_clause;
   d->add_clause = cadical_add_clause;
   d->check = cadical_check;
+  d->check_assuming = cadical_check_assuming;
+  d->collect_failed_assumptions = cadical_collect_failed_assumptions;
   d->get_value = cadical_get_value;
   d->set_verbosity = cadical_set_verbosity;
   d->delete = cadical_delete;
+  d->add_vars = cadical_add_vars;
+  d->freeze_literal = cadical_freeze_literal;
+  d->melt_literal = cadical_melt_literal;
   d->keep_var = NULL;
   d->var_def2 = NULL;
   d->var_def3 = NULL;
@@ -344,9 +480,51 @@ static void cryptominisat_add_clause(void *solver, uint32_t n, literal_t *a) {
 
 static smt_status_t cryptominisat_check(void *solver) {
   switch (cmsat_solve(solver)) {
-  case CMSAT_SAT: return STATUS_SAT;
-  case CMSAT_UNSAT: return STATUS_UNSAT;
-  default: return STATUS_UNKNOWN;
+  case CMSAT_SAT: return YICES_STATUS_SAT;
+  case CMSAT_UNSAT: return YICES_STATUS_UNSAT;
+  default: return YICES_STATUS_UNKNOWN;
+  }
+}
+
+static smt_status_t cryptominisat_check_assuming(void *solver, uint32_t n, const literal_t *a) {
+  switch (cmsat_solve_with_assumptions(solver, (uint32_t *) a, n)) {
+  case CMSAT_SAT: return YICES_STATUS_SAT;
+  case CMSAT_UNSAT: return YICES_STATUS_UNSAT;
+  default: return YICES_STATUS_UNKNOWN;
+  }
+}
+
+static void cryptominisat_collect_failed_assumptions(void *solver, uint32_t n, const literal_t *a, ivector_t *out) {
+  cmsat_lit_vector_t conflict;
+  uint32_t i, j;
+  literal_t lit, neg_lit, c;
+
+  conflict.lit = NULL;
+  conflict.nlits = 0;
+  cmsat_get_conflict(solver, &conflict);
+
+  /*
+   * CryptoMiniSat may return assumptions in negated form.
+   * Normalize to Yices assumption literals so callers can map back cleanly.
+   */
+  for (i=0; i<n; i++) {
+    lit = a[i];
+    neg_lit = lit ^ 1;
+    for (j=0; j<conflict.nlits; j++) {
+      c = (literal_t) conflict.lit[j];
+      if (c == lit || c == neg_lit) {
+        ivector_push(out, lit);
+        break;
+      }
+    }
+  }
+
+  if (conflict.lit != NULL) {
+    /*
+     * The supported CryptoMiniSat C API allocates this vector with malloc
+     * and does not provide a vector-specific deallocator.
+     */
+    free(conflict.lit);
   }
 }
 
@@ -375,9 +553,15 @@ static void cryptominisat_delete(void *solver) {
   cmsat_free_solver(solver);
 }
 
+static void cryptominisat_add_vars(void *solver, uint32_t n) {
+  if (n > 0) {
+    cmsat_new_vars(solver, n);
+  }
+}
+
 static void cryptominisat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->solver = cmsat_new_solver();
-  cmsat_new_vars(d->solver, nvars);
+  cryptominisat_add_vars(d->solver, nvars);
   init_ivector(&d->buffer, 0); // not used
   d->add_empty_clause = cryptominisat_add_empty_clause;
   d->add_unit_clause = cryptominisat_add_unit_clause;
@@ -385,9 +569,14 @@ static void cryptominisat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->add_ternary_clause = cryptominisat_add_ternary_clause;
   d->add_clause = cryptominisat_add_clause;
   d->check = cryptominisat_check;
+  d->check_assuming = cryptominisat_check_assuming;
+  d->collect_failed_assumptions = cryptominisat_collect_failed_assumptions;
   d->get_value = cryptominisat_get_value;
   d->set_verbosity = cryptominisat_set_verbosity;
   d->delete = cryptominisat_delete;
+  d->add_vars = cryptominisat_add_vars;
+  d->freeze_literal = NULL;
+  d->melt_literal = NULL;
   d->keep_var = NULL;
   d->var_def2 = NULL;
   d->var_def3 = NULL;
@@ -435,9 +624,9 @@ static void kissat_add_clause(void *solver, uint32_t n, literal_t *a) {
 
 static smt_status_t kissat_check(void *solver) {
   switch (kissat_solve(solver)) {
-  case 10: return STATUS_SAT;
-  case 20: return STATUS_UNSAT;
-  default: return STATUS_UNKNOWN;
+  case 10: return YICES_STATUS_SAT;
+  case 20: return YICES_STATUS_UNSAT;
+  default: return YICES_STATUS_UNKNOWN;
   }
 }
 
@@ -490,9 +679,14 @@ static void kissat_as_delegate(delegate_t *d, uint32_t nvars) {
   d->add_ternary_clause = kissat_add_ternary_clause;
   d->add_clause = kissat_add_clause;
   d->check = kissat_check;
+  d->check_assuming = NULL;
+  d->collect_failed_assumptions = NULL;
   d->get_value = kissat_get_value;
   d->set_verbosity = kissat_set_verbosity;
   d->delete = kissat_delete;
+  d->add_vars = NULL;
+  d->freeze_literal = NULL;
+  d->melt_literal = NULL;
   d->keep_var = NULL;
   d->var_def2 = NULL;
   d->var_def3 = NULL;
@@ -532,6 +726,14 @@ bool init_delegate(delegate_t *d, const char *solver_name, uint32_t nvars) {
 #endif
   }
   return false;
+}
+
+bool init_delegate_incremental(delegate_t *d, const char *solver_name, uint32_t nvars) {
+  if (strcmp("y2sat", solver_name) == 0) {
+    ysat_as_incremental_delegate(d, nvars);
+    return true;
+  }
+  return init_delegate(d, solver_name, nvars);
 }
 
 
@@ -582,6 +784,24 @@ bool supported_delegate(const char *solver_name, bool *unknown) {
   return false;
 }
 
+bool delegate_supports_append_recheck_name(const char *solver_name) {
+  return strcmp("y2sat", solver_name) == 0 ||
+         strcmp("cadical", solver_name) == 0 ||
+         strcmp("cryptominisat", solver_name) == 0;
+}
+
+bool delegate_supports_assumptions_name(const char *solver_name) {
+  return strcmp("cadical", solver_name) == 0 || strcmp("cryptominisat", solver_name) == 0;
+}
+
+bool delegate_supports_failed_assumptions_name(const char *solver_name) {
+  return delegate_supports_assumptions_name(solver_name);
+}
+
+bool delegate_supports_selector_frames_name(const char *solver_name) {
+  return strcmp("cadical", solver_name) == 0 || strcmp("cryptominisat", solver_name) == 0;
+}
+
 
 /*
  * Delete the solver and free memory
@@ -608,23 +828,29 @@ void delete_delegate(delegate_t *d) {
 /*
  * Transfer unit clauses from core to delegate
  */
-static void copy_unit_clauses(delegate_t *d, smt_core_t *core) {
+static void copy_unit_clauses(delegate_t *d, smt_core_t *core, literal_t g) {
   prop_stack_t *stack;
   uint32_t i, n;
 
-  d->add_unit_clause(d->solver, true_literal); // CHECK THIS
+  if (g == true_literal) {
+    d->add_unit_clause(d->solver, true_literal); // CHECK THIS
+  }
 
   n = core->nb_unit_clauses;
   stack = &core->stack;
   for (i=0; i<n; i++) {
-    d->add_unit_clause(d->solver, stack->lit[i]);
+    if (g == true_literal) {
+      d->add_unit_clause(d->solver, stack->lit[i]);
+    } else {
+      d->add_binary_clause(d->solver, g, stack->lit[i]);
+    }
   }
 }
 
 /*
  * Transfer binary clauses
  */
-static void copy_binary_clauses(delegate_t *d, smt_core_t *core) {
+static void copy_binary_clauses(delegate_t *d, smt_core_t *core, literal_t g) {
   int32_t n;
   literal_t l1, l2;
   literal_t *bin;
@@ -637,7 +863,11 @@ static void copy_binary_clauses(delegate_t *d, smt_core_t *core) {
         l2 = *bin ++;
         if (l2 < 0) break;
         if (l1 <= l2) {
-          d->add_binary_clause(d->solver, l1, l2);
+          if (g == true_literal) {
+            d->add_binary_clause(d->solver, l1, l2);
+          } else {
+            d->add_ternary_clause(d->solver, g, l1, l2);
+          }
         }
       }
     }
@@ -649,11 +879,14 @@ static void copy_binary_clauses(delegate_t *d, smt_core_t *core) {
  * - we make an intermediate copy in d->vector in case the 
  *   SAT solver modifies the input array
  */
-static void copy_clause(delegate_t *d, const clause_t *c) {
+static void copy_clause(delegate_t *d, const clause_t *c, literal_t g) {
   uint32_t i;
   literal_t l;
   
   ivector_reset(&d->buffer);
+  if (g != true_literal) {
+    ivector_push(&d->buffer, g);
+  }
   i = 0;
   l = c->cl[0];
   while (l >= 0) {
@@ -667,13 +900,13 @@ static void copy_clause(delegate_t *d, const clause_t *c) {
 /*
  * Copy the clauses from a vector
  */
-static void copy_clause_vector(delegate_t *d, clause_t **vector) {
+static void copy_clause_vector(delegate_t *d, clause_t **vector, literal_t g) {
   uint32_t i, n;
 
   if (vector != NULL) {
     n = get_cv_size(vector);
     for (i=0; i<n; i++) {
-      copy_clause(d, vector[i]);
+      copy_clause(d, vector[i], g);
     }
   }
 }
@@ -681,13 +914,17 @@ static void copy_clause_vector(delegate_t *d, clause_t **vector) {
 /*
  * Copy all the problem clauses from core to d
  */
-static void copy_problem_clauses(delegate_t *d, smt_core_t *core) {
+void add_problem_clauses_to_delegate(delegate_t *d, smt_core_t *core, literal_t g) {
   if (core->inconsistent) {
-    d->add_empty_clause(d->solver);
+    if (g == true_literal) {
+      d->add_empty_clause(d->solver);
+    } else {
+      d->add_unit_clause(d->solver, g);
+    }
   }
-  copy_unit_clauses(d, core);
-  copy_binary_clauses(d, core);
-  copy_clause_vector(d, core->problem_clauses);
+  copy_unit_clauses(d, core, g);
+  copy_binary_clauses(d, core, g);
+  copy_clause_vector(d, core->problem_clauses, g);
 }
 
 
@@ -817,7 +1054,7 @@ static void export_gate_definitions(delegate_t *d, smt_core_t *core) {
  * Copy all clauses of core to a delegate d then call the delegate's solver
  */
 smt_status_t solve_with_delegate(delegate_t *d, smt_core_t *core) {
-  copy_problem_clauses(d, core);
+  add_problem_clauses_to_delegate(d, core, true_literal);
   if (d->keep_var != NULL) {
     mark_atom_variables(d, core);
   }
@@ -832,9 +1069,9 @@ smt_status_t solve_with_delegate(delegate_t *d, smt_core_t *core) {
  * Copy all the clauses of core to delegate d then call the delegate's preprocessor
  */
 smt_status_t preprocess_with_delegate(delegate_t *d, smt_core_t *core) {
-  if (d->preprocess == NULL) return STATUS_UNKNOWN; // not supported
+  if (d->preprocess == NULL) return YICES_STATUS_UNKNOWN; // not supported
 
-  copy_problem_clauses(d, core);
+  add_problem_clauses_to_delegate(d, core, true_literal);
   if (d->keep_var != NULL) {
     mark_atom_variables(d, core);
   }
@@ -867,4 +1104,54 @@ bval_t delegate_get_value(delegate_t *d, bvar_t x) {
  */
 void delegate_set_verbosity(delegate_t *d, uint32_t level) {
   d->set_verbosity(d->solver, level);
+}
+
+void delegate_add_vars(delegate_t *d, uint32_t n) {
+  if (d->add_vars != NULL && n > 0) {
+    d->add_vars(d->solver, n);
+  }
+}
+
+void delegate_freeze_literal(delegate_t *d, literal_t l) {
+  if (d->freeze_literal != NULL) {
+    d->freeze_literal(d->solver, l);
+  }
+}
+
+void delegate_melt_literal(delegate_t *d, literal_t l) {
+  if (d->melt_literal != NULL) {
+    d->melt_literal(d->solver, l);
+  }
+}
+
+bool delegate_supports_assumptions(const delegate_t *d) {
+  return d->check_assuming != NULL;
+}
+
+smt_status_t delegate_check_with_assumptions(delegate_t *d, uint32_t n, const literal_t *a, ivector_t *failed) {
+  smt_status_t stat;
+
+  if (d->check_assuming == NULL) {
+    return YICES_STATUS_UNKNOWN;
+  }
+
+  stat = d->check_assuming(d->solver, n, a);
+  if (stat == YICES_STATUS_UNSAT && failed != NULL && d->collect_failed_assumptions != NULL) {
+    ivector_reset(failed);
+    d->collect_failed_assumptions(d->solver, n, a, failed);
+  }
+
+  return stat;
+}
+
+smt_status_t solve_with_delegate_assumptions(delegate_t *d, smt_core_t *core, uint32_t n, const literal_t *a,
+                                             ivector_t *failed) {
+  add_problem_clauses_to_delegate(d, core, true_literal);
+  if (d->keep_var != NULL) {
+    mark_atom_variables(d, core);
+  }
+  if (d->var_def2 != NULL && d->var_def3 != NULL) {
+    export_gate_definitions(d, core);
+  }
+  return delegate_check_with_assumptions(d, n, a, failed);
 }

@@ -40,26 +40,25 @@
  * Return -1 otherwise.
  */
 int32_t binary_search_string(const char *s, const char * const *a, int32_t n) {
-  uint32_t l, h, k;
+  int32_t l, h, k;
   int cmp;
-
   assert(n > 0);
-
+  
   l = 0;
-  h = (uint32_t) n;
-  for (;;) {
+  h = n - 1;
+  while (l <= h) {
     k = (l + h)/2;
-    assert(l <= k && k < h);
+    assert(l <= k && k <= h);
     cmp = strcmp(s, a[k]);
     if (cmp == 0) return k;
-    if (k == l) return -1;
     if (cmp < 0) {
-      h = k;
+      h = k - 1;
     } else {
       assert(cmp > 0);
-      l = k+1;
+      l = k + 1;
     }
   }
+  return -1;
 }
 
 

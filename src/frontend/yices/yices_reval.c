@@ -181,6 +181,10 @@ static char *logic_name;
 static char *arith_name;
 static char *mode_name;
 static bool mcsat_requested;
+static mcsat_options_t mcsat_parameters;
+static ivector_t mcsat_var_order;
+static double mcsat_rand_dec_freq;
+static int32_t mcsat_rand_dec_seed;
 
 static smt_logic_t logic_code;
 static arith_code_t arith_code;
@@ -271,6 +275,16 @@ enum {
   arith_option,
   mode_option,
   mcsat_flag,
+  mcsat_help_flag,
+  mcsat_rand_dec_freq_option,
+  mcsat_rand_dec_seed_option,
+  mcsat_na_mgcd_flag,
+  mcsat_na_nlsat_flag,
+  mcsat_na_bound_flag,
+  mcsat_na_bound_min_option,
+  mcsat_na_bound_max_option,
+  mcsat_bv_var_size_option,
+  mcsat_partial_restart_flag,
   version_flag,
   help_flag,
   print_success_flag,
@@ -285,6 +299,16 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "arith-solver", '\0', MANDATORY_STRING, arith_option },
   { "mode", '\0', MANDATORY_STRING, mode_option },
   { "mcsat", '\0', FLAG_OPTION, mcsat_flag },
+  { "mcsat-help", '\0', FLAG_OPTION, mcsat_help_flag },
+  { "mcsat-rand-dec-freq", '\0', MANDATORY_FLOAT, mcsat_rand_dec_freq_option },
+  { "mcsat-rand-dec-seed", '\0', MANDATORY_INT, mcsat_rand_dec_seed_option },
+  { "mcsat-na-mgcd", '\0', FLAG_OPTION, mcsat_na_mgcd_flag },
+  { "mcsat-na-nlsat", '\0', FLAG_OPTION, mcsat_na_nlsat_flag },
+  { "mcsat-na-bound", '\0', FLAG_OPTION, mcsat_na_bound_flag },
+  { "mcsat-na-bound-min", '\0', MANDATORY_INT, mcsat_na_bound_min_option },
+  { "mcsat-na-bound-max", '\0', MANDATORY_INT, mcsat_na_bound_max_option },
+  { "mcsat-bv-var-size", '\0', MANDATORY_INT, mcsat_bv_var_size_option },
+  { "mcsat-partial-restart", '\0', FLAG_OPTION, mcsat_partial_restart_flag },
   { "version", 'V', FLAG_OPTION, version_flag },
   { "help", 'h', FLAG_OPTION, help_flag },
   { "print-success", '\0', FLAG_OPTION, print_success_flag },
@@ -318,6 +342,7 @@ static void print_help(char *progname) {
   printf("Options:\n"
          "  --version, -V             Display version and exit\n"
          "  --help, -h                Display this information\n"
+         "  --mcsat-help              Display MC-SAT-specific options\n"
 	 "  --verbosity=<level>       Set verbosity level (default = 0)\n"
 	 "           -v <level>\n"
          "  --print-success           Print 'ok' after commands that would otherwise execute silently\n"
@@ -351,6 +376,21 @@ static void print_help(char *progname) {
 	 "    This is like one-shot in that only one call to (ef-solve) is allowed\n"
          "\n"
          "For reporting bugs and other information, please see http://yices.csl.sri.com/\n");
+  fflush(stdout);
+}
+
+static void print_mcsat_help(char *progname) {
+  printf("Usage: %s [options] filename\n\n", progname);
+  printf("MC-SAT options:\n"
+         "  --mcsat-rand-dec-freq=<B> Set the random decision frequency in [0, 1]\n"
+         "  --mcsat-rand-dec-seed=<N> Set the random decision seed (non-negative integer)\n"
+         "  --mcsat-na-mgcd          Use model-based GCD instead of PSC for projection\n"
+         "  --mcsat-na-nlsat         Use NLSAT projection instead of Brown single-cell\n"
+         "  --mcsat-na-bound         Search by increasing the bound on variable magnitude\n"
+         "  --mcsat-na-bound-min=<N> Set the initial search bound\n"
+         "  --mcsat-na-bound-max=<N> Set the maximal search bound\n"
+         "  --mcsat-bv-var-size=<N>  Set bit-vector variable size in MC-SAT search\n"
+         "  --mcsat-partial-restart  Enable partial restart heuristic in MC-SAT\n");
   fflush(stdout);
 }
 
@@ -417,6 +457,9 @@ static void process_command_line(int argc, char *argv[]) {
   arith_name = NULL;
   mode_name = NULL;
   mcsat_requested = false;
+  init_mcsat_options(&mcsat_parameters);
+  mcsat_rand_dec_freq = -1;
+  mcsat_rand_dec_seed = -1;
   verbosity = 0;
   print_success = false;
   abort_on_int = false;
@@ -490,6 +533,70 @@ static void process_command_line(int argc, char *argv[]) {
       case mcsat_flag:
 	mcsat_requested = true;
 	break;
+
+      case mcsat_help_flag:
+        print_mcsat_help(parser.command_name);
+        goto quick_exit;
+
+      case mcsat_rand_dec_freq_option:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        if (! validate_double_option(&parser, &elem, 0.0, false, 1.0, false)) {
+          goto bad_usage;
+        }
+        mcsat_rand_dec_freq = elem.d_value;
+        break;
+
+      case mcsat_rand_dec_seed_option:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) {
+          goto bad_usage;
+        }
+        mcsat_rand_dec_seed = elem.i_value;
+        break;
+
+      case mcsat_na_mgcd_flag:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        mcsat_parameters.na_mgcd = true;
+        break;
+
+      case mcsat_na_nlsat_flag:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        mcsat_parameters.na_nlsat = true;
+        break;
+
+      case mcsat_na_bound_flag:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        mcsat_parameters.na_bound = true;
+        break;
+
+      case mcsat_na_bound_min_option:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) {
+          goto bad_usage;
+        }
+        mcsat_parameters.na_bound_min = elem.i_value;
+        break;
+
+      case mcsat_na_bound_max_option:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) {
+          goto bad_usage;
+        }
+        mcsat_parameters.na_bound_max = elem.i_value;
+        break;
+
+      case mcsat_bv_var_size_option:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        if (! validate_integer_option(&parser, &elem, 0, INT32_MAX)) {
+          goto bad_usage;
+        }
+        mcsat_parameters.bv_var_size = elem.i_value;
+        break;
+
+      case mcsat_partial_restart_flag:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        mcsat_parameters.partial_restart = true;
+        break;
 
       case version_flag:
         print_version(stdout);
@@ -709,8 +816,13 @@ static void process_command_line(int argc, char *argv[]) {
   exit(YICES_EXIT_SUCCESS);
 
  bad_usage:
-  print_usage(parser.command_name);
+ print_usage(parser.command_name);
   exit(YICES_EXIT_USAGE);
+
+ no_mcsat:
+  fprintf(stderr, "%s: mcsat options are not supported; %s was not compiled with mcsat support\n",
+          parser.command_name, parser.command_name);
+  exit(YICES_EXIT_ERROR);
 }
 
 
@@ -775,7 +887,7 @@ static void sigint_handler(int signum) {
   if (verbosity > 0) {
     write_signum(signum);
   }
-  if (context_status(context) == STATUS_SEARCHING) {
+  if (context_status(context) == YICES_STATUS_SEARCHING) {
     context_stop_search(context);
   }
 
@@ -932,7 +1044,7 @@ static void print_status(smt_status_t stat) {
 static void print_internalization_code(int32_t code) {
   assert(-NUM_INTERNALIZATION_ERRORS < code && code <= TRIVIALLY_UNSAT);
   if (code == TRIVIALLY_UNSAT) {
-    print_status(STATUS_UNSAT);
+    print_status(YICES_STATUS_UNSAT);
   } else if (code == CTX_NO_ERROR) {
     print_ok();
   } else if (code < 0) {
@@ -1116,6 +1228,14 @@ static void init_ctx(smt_logic_t logic, context_arch_t arch, context_mode_t mode
   context = yices_create_context(logic, arch, mode, iflag, qflag);
   yices_default_params_for_context(context, &parameters);
   save_ctx_params(&ctx_parameters, context);
+  if (mcsat_rand_dec_freq >= 0) {
+    parameters.randomness = mcsat_rand_dec_freq;
+  }
+  if (mcsat_rand_dec_seed >= 0) {
+    parameters.random_seed = (uint32_t) mcsat_rand_dec_seed;
+  }
+  context->mcsat_options = mcsat_parameters;
+  ivector_copy(&context->mcsat_var_order, mcsat_var_order.data, mcsat_var_order.size);
   if (tracer != NULL) {
     context_set_trace(context, tracer);
   }
@@ -1150,24 +1270,24 @@ static void cleanup_context(void) {
 
   cleanup_globals();
   switch(context_status(context)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case YICES_STATUS_UNKNOWN:
+  case YICES_STATUS_SAT:
     context_clear(context);
-    assert(context_status(context) == STATUS_IDLE);
+    assert(context_status(context) == YICES_STATUS_IDLE);
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     // remove assumptions if any
     context_clear_unsat(context);
-    assert(context_status(context) == STATUS_IDLE ||
-	   context_status(context) == STATUS_UNSAT);
+    assert(context_status(context) == YICES_STATUS_IDLE ||
+	   context_status(context) == YICES_STATUS_UNSAT);
     break;
 
-  case STATUS_IDLE:
+  case YICES_STATUS_IDLE:
     // nothing to do
     break;
 
-  case STATUS_SEARCHING:
+  case YICES_STATUS_SEARCHING:
   case YICES_STATUS_INTERRUPTED:
   default:
     // should not happen
@@ -1214,6 +1334,11 @@ static void show_pos32_param(const char *name, uint32_t value, uint32_t n) {
   printf(" %"PRIu32"\n", value);
 }
 
+static void show_int32_param(const char *name, int32_t value, uint32_t n) {
+  show_param_name(name, n);
+  printf(" %"PRId32"\n", value);
+}
+
 static void show_float_param(const char *name, double value, uint32_t n) {
   show_param_name(name, n);
   if (value < 1.0) {
@@ -1228,6 +1353,24 @@ static void show_string_param(const char *name, const char *value, uint32_t n) {
   fputc(' ', stdout);
   fputs(value, stdout);
   fputc('\n', stdout);
+}
+
+static void show_terms_param(const char *name, const ivector_t *terms, uint32_t n) {
+  uint32_t i;
+
+  show_param_name(name, n);
+  fputs(" (", stdout);
+  for (i=0; i<terms->size; i++) {
+    if (i > 0) {
+      fputc(' ', stdout);
+    }
+    if (yices_get_term_name(terms->data[i]) != NULL) {
+      fputs(yices_get_term_name(terms->data[i]), stdout);
+    } else {
+      printf("#%"PRId32, terms->data[i]);
+    }
+  }
+  fputs(")\n", stdout);
 }
 
 // main function to display a parameter value
@@ -1484,6 +1627,46 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_string_param(param2string[p], ematchmode2string[ef_client_globals.ef_parameters.ematch_term_mode], n);
     break;
 
+  case PARAM_MCSAT_RAND_DEC_FREQ:
+    show_float_param(param2string[p], parameters.randomness, n);
+    break;
+
+  case PARAM_MCSAT_RAND_DEC_SEED:
+    show_pos32_param(param2string[p], parameters.random_seed, n);
+    break;
+
+  case PARAM_MCSAT_NA_MGCD:
+    show_bool_param(param2string[p], mcsat_parameters.na_mgcd, n);
+    break;
+
+  case PARAM_MCSAT_NA_NLSAT:
+    show_bool_param(param2string[p], mcsat_parameters.na_nlsat, n);
+    break;
+
+  case PARAM_MCSAT_NA_BOUND:
+    show_bool_param(param2string[p], mcsat_parameters.na_bound, n);
+    break;
+
+  case PARAM_MCSAT_NA_BOUND_MIN:
+    show_int32_param(param2string[p], mcsat_parameters.na_bound_min, n);
+    break;
+
+  case PARAM_MCSAT_NA_BOUND_MAX:
+    show_int32_param(param2string[p], mcsat_parameters.na_bound_max, n);
+    break;
+
+  case PARAM_MCSAT_BV_VAR_SIZE:
+    show_int32_param(param2string[p], mcsat_parameters.bv_var_size, n);
+    break;
+
+  case PARAM_MCSAT_VAR_ORDER:
+    show_terms_param(param2string[p], &mcsat_var_order, n);
+    break;
+
+  case PARAM_MCSAT_PARTIAL_RESTART:
+    show_bool_param(param2string[p], mcsat_parameters.partial_restart, n);
+    break;
+
   case PARAM_UNKNOWN:
   default:
     freport_bug(stderr,"invalid parameter id in 'show_param'");
@@ -1546,6 +1729,7 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   double x;
   branch_t b;
   ef_gen_option_t g;
+  ivector_t *terms;
   char* reason;
 
   reason = NULL;
@@ -2041,6 +2225,100 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
     }
     break;
 
+  case PARAM_MCSAT_RAND_DEC_FREQ:
+    if (param_val_to_ratio(param, val, &x, &reason)) {
+      parameters.randomness = x;
+      print_ok();
+    }
+    break;
+
+  case PARAM_MCSAT_RAND_DEC_SEED:
+    if (param_val_to_nonneg32(param, val, &n, &reason)) {
+      parameters.random_seed = (uint32_t) n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_MCSAT_NA_MGCD:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      mcsat_parameters.na_mgcd = tt;
+      if (context != NULL) {
+        context->mcsat_options.na_mgcd = tt;
+      }
+      print_ok();
+    }
+    break;
+
+  case PARAM_MCSAT_NA_NLSAT:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      mcsat_parameters.na_nlsat = tt;
+      if (context != NULL) {
+        context->mcsat_options.na_nlsat = tt;
+      }
+      print_ok();
+    }
+    break;
+
+  case PARAM_MCSAT_NA_BOUND:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      mcsat_parameters.na_bound = tt;
+      if (context != NULL) {
+        context->mcsat_options.na_bound = tt;
+      }
+      print_ok();
+    }
+    break;
+
+  case PARAM_MCSAT_NA_BOUND_MIN:
+    if (param_val_to_nonneg32(param, val, &n, &reason)) {
+      mcsat_parameters.na_bound_min = n;
+      if (context != NULL) {
+        context->mcsat_options.na_bound_min = n;
+      }
+      print_ok();
+    }
+    break;
+
+  case PARAM_MCSAT_NA_BOUND_MAX:
+    if (param_val_to_nonneg32(param, val, &n, &reason)) {
+      mcsat_parameters.na_bound_max = n;
+      if (context != NULL) {
+        context->mcsat_options.na_bound_max = n;
+      }
+      print_ok();
+    }
+    break;
+
+  case PARAM_MCSAT_BV_VAR_SIZE:
+    if (param_val_to_nonneg32(param, val, &n, &reason)) {
+      mcsat_parameters.bv_var_size = n;
+      if (context != NULL) {
+        context->mcsat_options.bv_var_size = n;
+      }
+      print_ok();
+    }
+    break;
+
+  case PARAM_MCSAT_VAR_ORDER:
+    if (param_val_to_terms(param, val, &terms, &reason)) {
+      ivector_copy(&mcsat_var_order, terms->data, terms->size);
+      if (context != NULL) {
+        ivector_copy(&context->mcsat_var_order, terms->data, terms->size);
+      }
+      print_ok();
+    }
+    break;
+
+  case PARAM_MCSAT_PARTIAL_RESTART:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      mcsat_parameters.partial_restart = tt;
+      if (context != NULL) {
+        context->mcsat_options.partial_restart = tt;
+      }
+      print_ok();
+    }
+    break;
+
   case PARAM_UNKNOWN:
   default:
     report_invalid_param(param);
@@ -2345,13 +2623,13 @@ static void yices_push_cmd(void) {
     simple_istack_push(&assertions);
     cleanup_context();
     switch (context_status(context)) {
-    case STATUS_IDLE:
+    case YICES_STATUS_IDLE:
       context_push(context);
       labeled_assertions_push(&labeled_assertions);
       print_ok();
       break;
 
-    case STATUS_UNSAT:
+    case YICES_STATUS_UNSAT:
       // cannot take (push)
       fputs("The context is unsat; (push) is not allowed\n", stderr);
       fflush(stderr);
@@ -2381,11 +2659,11 @@ static void yices_pop_cmd(void) {
     simple_istack_pop(&assertions);
     cleanup_context();
     switch (context_status(context)) {
-    case STATUS_UNSAT:
+    case YICES_STATUS_UNSAT:
       context_clear_unsat(context);
       // fall through intended
 
-    case STATUS_IDLE:
+    case YICES_STATUS_IDLE:
       context_pop(context);
       assert(!labeled_assertions_empty_trail(&labeled_assertions));
       labeled_assertions_pop(&labeled_assertions);
@@ -2423,7 +2701,7 @@ static void yices_assert_cmd(term_t f) {
     /*
      * Non-incremental
      */
-    if (context_status(context) != STATUS_IDLE) {
+    if (context_status(context) != YICES_STATUS_IDLE) {
       report_error("more assertions are not allowed");
     } else if (yices_term_is_bool(f)) {
       simple_istack_add(&assertions, f);
@@ -2438,7 +2716,7 @@ static void yices_assert_cmd(term_t f) {
      */
     cleanup_context();
     switch (context_status(context)) {
-    case STATUS_IDLE:
+    case YICES_STATUS_IDLE:
       if (yices_term_is_bool(f)) {
 	code = assert_formula(context, f);
 	if (code == CTX_NO_ERROR) {
@@ -2450,7 +2728,7 @@ static void yices_assert_cmd(term_t f) {
       }
       break;
 
-    case STATUS_UNSAT:
+    case YICES_STATUS_UNSAT:
       // cannot take more assertions
       if (context_base_level(context) == 0) {
 	fputs("The context is unsat. Try (reset).\n", stderr);
@@ -2489,14 +2767,14 @@ static void yices_named_assert_cmd(term_t t, char *label) {
 
     cleanup_context();
     switch (context_status(context)) {
-    case STATUS_IDLE:
+    case YICES_STATUS_IDLE:
       clone = clone_string(label);
       add_labeled_assertion(&labeled_assertions, t, clone);
       simple_istack_add(&assertions, t);
       print_ok();
       break;
 
-    case STATUS_UNSAT:
+    case YICES_STATUS_UNSAT:
       // We could add the labeled assertion even though
       // the context is unsat, but that wouldn't be consistent
       // with the regular assert.
@@ -2523,7 +2801,7 @@ static void yices_named_assert_cmd(term_t t, char *label) {
  */
 static void timeout_handler(void *data) {
   assert(data == context && context != NULL);
-  if (context_status(data) == STATUS_SEARCHING) {
+  if (context_status(data) == YICES_STATUS_SEARCHING) {
     context_stop_search(data);
     if (verbosity > 0) {
       // Fix this: not safe in a handler
@@ -2606,9 +2884,9 @@ static smt_status_t do_check_with_assumptions(assumptions_and_core_t *a) {
   ivector_reset(&a->core);
 
   // if the context is already unsat, there's nothing to do and the core is empty.
-  if (context_status(context) == STATUS_UNSAT) {
-    a->status = STATUS_UNSAT;
-    return STATUS_UNSAT;
+  if (context_status(context) == YICES_STATUS_UNSAT) {
+    a->status = YICES_STATUS_UNSAT;
+    return YICES_STATUS_UNSAT;
   }
 
   // add the assumptions to the core
@@ -2619,7 +2897,7 @@ static smt_status_t do_check_with_assumptions(assumptions_and_core_t *a) {
     if (l < 0) {
       // failed to convert data[i]
       print_internalization_code(l);
-      status = STATUS_ERROR;
+      status = YICES_STATUS_ERROR;
       goto done;
     }
     ivector_push(&aux, l);
@@ -2638,7 +2916,7 @@ static smt_status_t do_check_with_assumptions(assumptions_and_core_t *a) {
   reset_timeout();
 
   // compute the unsat core and store it in a
-  if (status == STATUS_UNSAT) {
+  if (status == YICES_STATUS_UNSAT) {
     context_build_unsat_core(context, &a->core);
   }
 
@@ -2666,7 +2944,7 @@ static smt_status_t check_unsat_core(void) {
   collect_assumptions_from_stack(a, &labeled_assertions.assertions);
 
   status = do_check_with_assumptions(a);
-  if (status == STATUS_ERROR) {
+  if (status == YICES_STATUS_ERROR) {
     // cleanup
     free_assumptions(a);
   } else {
@@ -2699,11 +2977,11 @@ static smt_status_t check_assuming(uint32_t n, const signed_symbol_t *s) {
       report_not_boolean_term(s[index].name);
     }
     free_assumptions(a);
-    return STATUS_ERROR;
+    return YICES_STATUS_ERROR;
   }
 
   status = do_check_with_assumptions(a);
-  if (status == STATUS_ERROR) {
+  if (status == YICES_STATUS_ERROR) {
     free_assumptions(a);
   } else {
     unsat_assumptions = a;
@@ -2731,7 +3009,7 @@ static void yices_check_cmd(void) {
     assert(assertions.nlevels == 0);
     code = assert_formulas(context, assertions.top, assertions.data);
     if (code == CTX_NO_ERROR) {
-      assert(context_status(context) == STATUS_IDLE);
+      assert(context_status(context) == YICES_STATUS_IDLE);
       stat = do_check();
       print_status(stat);
       // force exit if the check was interrupted
@@ -2760,15 +3038,15 @@ static void yices_check_cmd(void) {
 
     stat = context_status(context);
     switch (stat) {
-    case STATUS_UNKNOWN:
-    case STATUS_UNSAT:
-    case STATUS_SAT:
+    case YICES_STATUS_UNKNOWN:
+    case YICES_STATUS_UNSAT:
+    case YICES_STATUS_SAT:
       // already solved: print the status
       print_status(stat);
       timeout = 0;  // clear timeout to be consistent
       break;
 
-    case STATUS_IDLE:
+    case YICES_STATUS_IDLE:
       if (labeled_assertion_stack_is_empty(&labeled_assertions)) {
 	/*
 	 * Regular check: no labeled assertions
@@ -2780,7 +3058,7 @@ static void yices_check_cmd(void) {
 	if (stat == YICES_STATUS_INTERRUPTED) {
 	  if (mode == CTX_MODE_INTERACTIVE) {
 	    context_cleanup(context);
-	    assert(context_status(context) == STATUS_IDLE);
+	    assert(context_status(context) == YICES_STATUS_IDLE);
 	  } else {
 	    // force quit
 	    done = true;
@@ -2792,14 +3070,14 @@ static void yices_check_cmd(void) {
 	 * as assumptions.
 	 */
 	stat = check_unsat_core();
-	if (stat != STATUS_ERROR) {
+	if (stat != YICES_STATUS_ERROR) {
 	  print_status(stat);
 	}
 	if (stat == YICES_STATUS_INTERRUPTED) {
 	  // try to cleanup if we're in interactive mode
 	  if (mode == CTX_MODE_INTERACTIVE) {
 	    context_cleanup(context);
-	    assert(context_status(context) == STATUS_IDLE);
+	    assert(context_status(context) == YICES_STATUS_IDLE);
 	    if (unsat_core != NULL) {
 	      free_assumptions(unsat_core);
 	      unsat_core = NULL;
@@ -2812,7 +3090,7 @@ static void yices_check_cmd(void) {
       }
       break;
 
-    case STATUS_SEARCHING:
+    case YICES_STATUS_SEARCHING:
     case YICES_STATUS_INTERRUPTED:
     default:
       // this should not happen
@@ -2844,14 +3122,14 @@ static void yices_check_assuming_cmd(uint32_t n, const signed_symbol_t *a) {
     cleanup_context();
 
     status = check_assuming(n, a);
-    if (status != STATUS_ERROR) {
+    if (status != YICES_STATUS_ERROR) {
       print_status(status);
     }
     if (status == YICES_STATUS_INTERRUPTED) {
       if (mode == CTX_MODE_INTERACTIVE) {
 	// recover
 	context_cleanup(context);
-	assert(context_status(context) == STATUS_IDLE);
+	assert(context_status(context) == YICES_STATUS_IDLE);
 	if (unsat_assumptions != NULL) {
 	  free_assumptions(unsat_assumptions);
 	  unsat_assumptions = NULL;
@@ -2909,17 +3187,17 @@ static void yices_show_unsat_core_cmd(void) {
       report_error("can't build an unsat core: call (check) first");
     } else {
       switch (unsat_core->status) {
-      case STATUS_UNKNOWN:
-      case STATUS_SAT:
+      case YICES_STATUS_UNKNOWN:
+      case YICES_STATUS_SAT:
 	report_error("no unsat core: the context is satisfiable");
 	break;
 
-      case STATUS_UNSAT:
+      case YICES_STATUS_UNSAT:
 	show_core(unsat_core);
 	break;
 
-      case STATUS_IDLE:
-      case STATUS_SEARCHING:
+      case YICES_STATUS_IDLE:
+      case YICES_STATUS_SEARCHING:
       case YICES_STATUS_INTERRUPTED:
       default:
 	freport_bug(stderr, "unexpected context status in 'show-unsat-core'");
@@ -2945,17 +3223,17 @@ static void yices_show_unsat_assumptions_cmd(void) {
       report_error("no unsat assumptions: call (check-assuming) first");
     } else {
       switch (unsat_assumptions->status) {
-      case STATUS_UNKNOWN:
-      case STATUS_SAT:
+      case YICES_STATUS_UNKNOWN:
+      case YICES_STATUS_SAT:
 	report_error("no unsat assumptions: the context is satisfiable");
 	break;
 
-      case STATUS_UNSAT:
+      case YICES_STATUS_UNSAT:
 	show_core(unsat_assumptions);
 	break;
 
-      case STATUS_IDLE:
-      case STATUS_SEARCHING:
+      case YICES_STATUS_IDLE:
+      case YICES_STATUS_SEARCHING:
       case YICES_STATUS_INTERRUPTED:
       default:
 	freport_bug(stderr, "unexpected context status in 'show-unsat-assumptions'");
@@ -2981,8 +3259,8 @@ static bool context_has_model(const char *cmd_name) {
 
   has_model = false;
   switch (context_status(context)) {
-  case STATUS_UNKNOWN:
-  case STATUS_SAT:
+  case YICES_STATUS_UNKNOWN:
+  case YICES_STATUS_SAT:
     if (model == NULL) {
       model = new_model();
       context_build_model(model, context);
@@ -2990,17 +3268,17 @@ static bool context_has_model(const char *cmd_name) {
     has_model = true;
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     fputs("The context is unsat. No model.\n", stderr);
     fflush(stderr);
     break;
 
-  case STATUS_IDLE:
+  case YICES_STATUS_IDLE:
     fputs("Can't build a model. Call (check) first.\n", stderr);
     fflush(stderr);
     break;
 
-  case STATUS_SEARCHING:
+  case YICES_STATUS_SEARCHING:
   case YICES_STATUS_INTERRUPTED:
   default:
     // this should not happen
@@ -3285,10 +3563,10 @@ static void do_export(context_t *ctx, const char *s) {
 static void bitblast_then_export(context_t *ctx, const char *s) {
   smt_status_t stat;
 
-  assert(context_status(ctx) == STATUS_IDLE);
+  assert(context_status(ctx) == YICES_STATUS_IDLE);
   stat = precheck_context(ctx);
   switch (stat) {
-  case STATUS_UNKNOWN:
+  case YICES_STATUS_UNKNOWN:
     do_export(ctx, s);
     if (context_supports_multichecks(ctx)) {
       assert(ctx == context);
@@ -3296,14 +3574,14 @@ static void bitblast_then_export(context_t *ctx, const char *s) {
     }
     break;
 
-  case STATUS_UNSAT:
+  case YICES_STATUS_UNSAT:
     do_export(ctx, s);
     break;
 
   case YICES_STATUS_INTERRUPTED:
     if (context_supports_cleaninterrupt(ctx)) {
       context_cleanup(ctx);
-      assert(context_status(ctx) == STATUS_IDLE);
+      assert(context_status(ctx) == YICES_STATUS_IDLE);
     }
     report_error("export-to-dimacs interrupted\n");
     break;
@@ -3386,7 +3664,7 @@ static void yices_export_cmd(const char *s) {
       export_assertions(s);
     } else {
       assert(context != NULL && (context->logic == NONE || context->logic == QF_BV));
-      if (context_status(context) == STATUS_IDLE) {
+      if (context_status(context) == YICES_STATUS_IDLE) {
 	bitblast_then_export(context, s);
       } else {
 	do_export(context, s);
@@ -4029,6 +4307,7 @@ int yices_main(int argc, char *argv[]) {
   init_simple_istack(&assertions);
   init_yices_tstack(&stack);
   init_ef_client(&ef_client_globals);
+  init_ivector(&mcsat_var_order, 0);
   init_labeled_assertion_stack(&labeled_assertions);
   unsat_core = NULL;
   unsat_assumptions = NULL;
@@ -4041,6 +4320,12 @@ int yices_main(int argc, char *argv[]) {
   if (efmode) {
     default_ctx_params(&ctx_parameters, logic_code, arch, CTX_MODE_MULTICHECKS);
     yices_set_default_params(&parameters, logic_code, arch, CTX_MODE_ONECHECK);
+    if (mcsat_rand_dec_freq >= 0) {
+      parameters.randomness = mcsat_rand_dec_freq;
+    }
+    if (mcsat_rand_dec_seed >= 0) {
+      parameters.random_seed = (uint32_t) mcsat_rand_dec_seed;
+    }
   } else {
     init_ctx(logic_code, arch, mode, iflag, qflag);
   }
@@ -4100,6 +4385,7 @@ int yices_main(int argc, char *argv[]) {
   delete_labeled_assertion_stack(&labeled_assertions);
   delete_tstack(&stack);
   delete_simple_istack(&assertions);
+  delete_ivector(&mcsat_var_order);
   if (tracer != NULL) {
     delete_trace(tracer);
     safe_free(tracer);
@@ -4114,4 +4400,3 @@ int yices_main(int argc, char *argv[]) {
 
   return exit_code;
 }
-

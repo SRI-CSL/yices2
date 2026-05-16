@@ -103,8 +103,8 @@ static const yval_tag_t val_kind2tag[NUM_VALUE_KIND] = {
   YVAL_UNKNOWN,    // UNKNOWN_VALUE
   YVAL_BOOL,       // BOOLEAN_VALUE
   YVAL_RATIONAL,   // RATIONAL_VALUE
-  YVAL_FINITEFIELD,// FINITEFIELD_VALUE
   YVAL_ALGEBRAIC,  // ALGEBRAIC_VALUE
+  YVAL_FINITEFIELD,// FINITEFIELD_VALUE
   YVAL_BV,         // BITVECTOR_VALUE
   YVAL_TUPLE,      // TUPPLE_VALUE
   YVAL_SCALAR,     // UNINTERPRETED_VALUE
@@ -214,4 +214,3 @@ void yval_expand_update(value_table_t *tbl, value_t f, yval_vector_t *v, yval_t 
     yval_vector_push(v, x, YVAL_MAPPING);
   }
 }
-

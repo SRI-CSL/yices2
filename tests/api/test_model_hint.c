@@ -123,7 +123,7 @@ static void check_with_sat_model(bool use_hint) {
     status = check_with_model_and_hint(ctx, model, assertion, 1, vars, 1);
   }
 
-  if (status != STATUS_SAT) {
+  if (status != YICES_STATUS_SAT) {
     assert(false);
   }
   
@@ -152,12 +152,12 @@ static void check_with_unsat_model(bool use_hint) {
   smt_status_t status;
   if (use_hint) {
     status = check_with_model_and_hint(ctx, model, assertion, 1, vars, 0);
-    if (status != STATUS_SAT) {
+    if (status != YICES_STATUS_SAT) {
       assert(false);
     }
   } else {
     status = check_with_model_and_hint(ctx, model, assertion, 1, vars, 1);
-    if (status != STATUS_UNSAT) {
+    if (status != YICES_STATUS_UNSAT) {
       assert(false);
     }
   }
@@ -178,7 +178,7 @@ static void check_sat_with_empty_model(void) {
 
   smt_status_t status;
   status = check_with_model_and_hint(ctx, model, assertion, 0, vars, 0);
-  if (status != STATUS_SAT) {
+  if (status != YICES_STATUS_SAT) {
     assert(false);
   }
 
@@ -199,7 +199,7 @@ static void check_unsat_with_empty_model(void) {
 
   smt_status_t status;
   status = check_with_model_and_hint(ctx, model, assertion, 0, vars, 0);
-  if (status != STATUS_UNSAT) {
+  if (status != YICES_STATUS_UNSAT) {
     assert(false);
   }
 
@@ -231,7 +231,7 @@ static void check_unsat_with_model(bool use_hint) {
     status = check_with_model_and_hint(ctx, model, assertion, 1, vars, 1);
   }
 
-  if (status != STATUS_UNSAT) {
+  if (status != YICES_STATUS_UNSAT) {
     assert(false);
   }
 
@@ -258,7 +258,7 @@ void check_simple(void) {
 
   smt_status_t status;
   status = check_with_model_and_hint(ctx, model, assertion, 1, vars, 0);
-  if (status != STATUS_SAT) {
+  if (status != YICES_STATUS_SAT) {
     assert(false);
   }
 

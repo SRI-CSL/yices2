@@ -1,1 +1,1 @@
---mcsat --incremental --mcsat-nra-bound
+--mcsat --incremental --mcsat-na-bound

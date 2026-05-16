@@ -99,13 +99,13 @@ static void quick_solve(smt_core_t *core) {
    * this flag.
    */
   if (core->inconsistent) {
-    core->status = STATUS_UNSAT;
+    core->status = YICES_STATUS_UNSAT;
     return;
   }
 
   start_search(core, 0, NULL);
   smt_process(core);
-  while (smt_status(core) == STATUS_SEARCHING) {
+  while (smt_status(core) == YICES_STATUS_SEARCHING) {
     l = select_unassigned_literal(core);
     if (l == null_literal) {
       end_search_sat(core);
@@ -134,7 +134,7 @@ static void print_assignment(smt_core_t *core) {
   bvar_t x;
   uint32_t n, k;
 
-  assert(smt_status(core) == STATUS_SAT);
+  assert(smt_status(core) == YICES_STATUS_SAT);
   n = num_vars(core);
   k = 0;
   for (x = const_bvar + 1; x<n; x++) {
@@ -157,7 +157,7 @@ static void print_decision_literals(smt_core_t *core) {
   ivector_t v;
   uint32_t i, k, n;
 
-  assert(smt_status(core) == STATUS_SAT);
+  assert(smt_status(core) == YICES_STATUS_SAT);
   init_ivector(&v, 10);
   collect_decision_literals(core, &v);
 
@@ -194,7 +194,7 @@ static void all_sat(smt_core_t *core) {
     //    print_clauses(stdout, core);
 
     quick_solve(core);
-    if (smt_status(core) != STATUS_SAT) break;
+    if (smt_status(core) != YICES_STATUS_SAT) break;
 
     s ++;
     print_assignment(core);

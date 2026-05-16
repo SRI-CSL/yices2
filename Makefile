@@ -55,8 +55,8 @@ YICES_TOP_DIR=$(shell pwd)
 # doc/yices*.1 man files
 #
 MAJOR = 2
-MINOR = 6
-PATCH_LEVEL = 5
+MINOR = 7
+PATCH_LEVEL = 0
 
 YICES_VERSION = $(MAJOR).$(MINOR).$(PATCH_LEVEL)
 

@@ -75,7 +75,7 @@ int main(void) {
     // Check that `r_1 == 0` holds
     yices_assert_formula(ctx, check_zero_r_1);
     smt_status_t stat_1 = yices_check_context(ctx, NULL);
-    assert(stat_1 == STATUS_SAT);
+    assert(stat_1 == YICES_STATUS_SAT);
     // Check that the model for `r_1 == 0` validates `r_0 == 0`
     mdl = yices_get_model(ctx, 1);
     assert(yices_get_bool_value(mdl, check_zero_r_0, &model_val) == 0);
@@ -87,7 +87,7 @@ int main(void) {
     yices_push(ctx);
     yices_assert_formula(ctx, check_zero_r_0);
     smt_status_t stat_2 = yices_check_context(ctx, NULL);
-    assert(stat_2 == STATUS_SAT);
+    assert(stat_2 == YICES_STATUS_SAT);
     // Model check
     mdl = yices_get_model(ctx, 1);
     assert(yices_get_bool_value(mdl, check_zero_r_1, &model_val) == 0);

@@ -226,7 +226,7 @@ static void init_buffer1(void) {
   for (i=0; i<BUFFER_SIZE; i++) {
     buffer1[i] = val[j];
     j ++;
-    if (j > NVALS) j = 0;
+    if (j >= NVALS) j = 0;
   }
 }
 

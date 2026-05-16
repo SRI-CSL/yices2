@@ -28,6 +28,7 @@
 #include "io/type_printer.h"
 #include "terms/bv64_constants.h"
 #include "terms/bv_slices.h"
+#include "frontend/smt2/smt2_lexer.h" // for symbol_needs_quotes
 
 
 /*
@@ -1795,7 +1796,11 @@ void pp_term_name(yices_pp_t *printer, term_table_t *tbl, term_t t) {
   }
 
   if (name != NULL) {
-    pp_string(printer, name);
+    if (symbol_needs_quotes(name)) {
+      pp_qstring(printer, '|', '|', name);
+    } else {
+      pp_string(printer, name);
+    }
   } else if (is_neg_term(t)) {
     pp_open_block(printer, PP_OPEN_NOT);
     pp_id(printer, "t!", index_of(t));
@@ -2491,7 +2496,11 @@ static void pp_term_idx_name(yices_pp_t *printer, term_table_t *tbl, int32_t i, 
     pp_open_block(printer, PP_OPEN_NOT);
   }
   if (name != NULL) {
-    pp_string(printer, name);
+    if (symbol_needs_quotes(name)) {
+      pp_qstring(printer, '|', '|', name);
+    } else {
+      pp_string(printer, name);
+    }
   } else {
     pp_id(printer, "t!", i);
   }

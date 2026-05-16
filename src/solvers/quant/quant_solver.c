@@ -803,11 +803,11 @@ static void ematch_process_cnstr(quant_solver_t *solver, uint32_t cidx) {
 
       for (i=0; i<n; i++) {
         status = smt_status(solver->core);
-        if (status != STATUS_SEARCHING) {
+        if (status != YICES_STATUS_SEARCHING) {
 #if TRACE
           printf("\nSMT status: %d\n", status);
 #endif
-          assert(status == STATUS_UNSAT);
+          assert(status == YICES_STATUS_UNSAT);
           goto done;
         } else if (ematch_reached_instance_limit(solver)) {
 #if TRACE
@@ -1006,11 +1006,11 @@ static void ematch_process_all_cnstr(quant_solver_t *solver) {
   assert(n == solver->round_instances.size);
   for(i=0; i<n; i++) {
     status = smt_status(solver->core);
-    if (status != STATUS_SEARCHING) {
+    if (status != YICES_STATUS_SEARCHING) {
 #if TRACE
       printf("\nSMT status: %d\n", status);
 #endif
-      assert(status == STATUS_UNSAT);
+      assert(status == YICES_STATUS_UNSAT);
       break;
     }
     ematch_add_quant_cnstr(solver, solver->round_cnstrs.data[i], solver->round_instances.data[i]);

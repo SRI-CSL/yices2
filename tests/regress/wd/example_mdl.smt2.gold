@@ -1,6 +1,5 @@
 sat
-(model
-  (define-fun arr1 ((x!0 Int)) Bool false)
+((define-fun arr1 ((x!0 Int)) Bool false)
   (define-fun arr2 ((x!0 Int)) Bool (ite (= x!0 10) true false)))
 ((arr1 ((as const (Array Int Bool)) false))
  (arr2 (store ((as const (Array Int Bool)) false) 10 true)))

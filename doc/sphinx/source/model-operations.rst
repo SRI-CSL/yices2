@@ -37,7 +37,7 @@ Model Construction
    - *keep_subst*: flag to indicates whether the model should include
      eliminated variables
 
-   The context's status must be either :c:enum:`STATUS_SAT` or :c:enum:`STATUS_UNKNOWN`.
+   The context's status must be either :c:enum:`YICES_STATUS_SAT` or :c:enum:`YICES_STATUS_UNKNOWN`.
 
    When assertions are added to a context, the simplification
    procedures may eliminate variables by substitution (see
@@ -54,7 +54,7 @@ Model Construction
 
    **Error report**
 
-   - if *ctx*'s status is not :c:enum:`STATUS_SAT` or :c:enum:`STATUS_UNKNOWN`
+   - if *ctx*'s status is not :c:enum:`YICES_STATUS_SAT` or :c:enum:`YICES_STATUS_UNKNOWN`
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
@@ -147,7 +147,7 @@ Model Construction
    Here is an example use of this function::
 
       yices_assert_formula(ctx, f);
-      if (yices_check(ctx, ...) == STATUS_SAT) {
+      if (yices_check(ctx, ...) == YICES_STATUS_SAT) {
          term_vector_t v;
          model_t *m = yices_get_model(ctx, true);
 	 yices_init_term_vector(&v);
@@ -213,6 +213,804 @@ report one of the following errors:
      -- error code :c:enum:`EVAL_FAILED`
 
 Other error codes are possible, depending on the function.
+
+
+
+Model Assignment
+----------------
+
+The following functions allow assigning values to uninterpreted terms in a model.
+These functions are useful for creating custom models or modifying existing ones.
+
+.. c:function:: int32_t yices_model_set_scalar(model_t *model, term_t var, int32_t val)
+
+   Assign a scalar value to a scalar or uninterpreted term.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term to assign a value to
+   - *val*: the scalar constant index to assign to var
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of scalar or uninterpreted type
+   - *var* must not already have a value in model
+   - *val* must be a valid constant index for the type of var:
+     - if var has scalar type of cardinality n, then val must be between 0 and n-1
+     - if var has uninterpreted type, then val can be any non-negative integer
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+
+.. c:function:: int32_t yices_model_set_bool(model_t *model, term_t var, int32_t val)
+
+   Assign a Boolean value to a Boolean uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of Boolean type to assign a value to
+   - *val*: the Boolean value to assign to var (0 for false, 1 for true)
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of Boolean type
+   - *var* must not already have a value in model
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid Boolean uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+
+.. c:function:: int32_t yices_model_set_int32(model_t *model, term_t var, int32_t val)
+
+   Assign an integer value to an integer uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of integer type to assign a value to
+   - *val*: the integer value to assign to var
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of integer type
+   - *var* must not already have a value in model
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid integer uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+
+.. c:function:: int32_t yices_model_set_int64(model_t *model, term_t var, int64_t val)
+
+   Assign a 64-bit integer value to an integer uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of integer type to assign a value to
+   - *val*: the 64-bit integer value to assign to var
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of integer type
+   - *var* must not already have a value in model
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid integer uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+.. c:function:: int32_t yices_model_set_rational32(model_t *model, term_t var, int32_t num, uint32_t den)
+
+   Assign a rational value to a real uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of real type to assign a value to
+   - *num*: the numerator of the rational value
+   - *den*: the denominator of the rational value
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of real type
+   - *var* must not already have a value in model
+   - *den* must not be zero
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid real uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+
+.. c:function:: int32_t yices_model_set_rational64(model_t *model, term_t var, int64_t num, uint64_t den)
+
+   Assign a 64-bit rational value to a real uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of real type to assign a value to
+   - *num*: the 64-bit numerator of the rational value
+   - *den*: the 64-bit denominator of the rational value
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of real type
+   - *var* must not already have a value in model
+   - *den* must not be zero
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid real uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+
+.. c:function:: int32_t yices_model_set_mpz(model_t *model, term_t var, mpz_t val)
+
+   Assign a GMP integer value to an integer uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of integer type to assign a value to
+   - *val*: the GMP integer value to assign to var
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of integer type
+   - *var* must not already have a value in model
+   - *val* must be initialized (see the GMP documentation)
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid integer uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+   **Note**
+
+   This function is not declared unless you include :file:`gmp.h`
+   before :file:`yices.h` in your code.
+
+
+.. c:function:: int32_t yices_model_set_mpq(model_t *model, term_t var, mpq_t val)
+
+   Assign a GMP rational value to a real uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of real type to assign a value to
+   - *val*: the GMP rational value to assign to var
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of real type
+   - *var* must not already have a value in model
+   - *val* must be initialized (see the GMP documentation)
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid real uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+   **Note**
+
+   This function is not declared unless you include :file:`gmp.h`
+   before :file:`yices.h` in your code.
+
+.. c:function:: int32_t yices_model_set_ff_mpz(model_t *model, term_t var, mpz_t val)
+
+   Assign a GMP integer value to a finite-field uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of finite-field type to assign a value to
+   - *val*: the GMP integer value to assign to var
+
+   **Requirements**
+
+   - *var* must be an uninterpreted finite-field term
+   - *var* must not already have a value in model
+   - *val* must be initialized (see the GMP documentation)
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid uninterpreted finite-field term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+   **Note**
+
+   This function is not declared unless you include :file:`gmp.h`
+   before :file:`yices.h` in your code.
+
+
+.. c:function:: int32_t yices_model_set_algebraic_number(model_t *model, term_t var, const lp_algebraic_number_t *val)
+
+   Assign an algebraic number value to a real uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of real type to assign a value to
+   - *val*: the algebraic number value to assign to var
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of real type
+   - *var* must not already have a value in model
+   - *val* must be initialized (see the libpoly documentation)
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid real uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+   **Note**
+
+   This function is not declared unless you include the libpoly header
+   :file:`algebraic_number.h` before :file:`yices.h` in your code.
+
+
+.. c:function:: int32_t yices_model_set_bv_int32(model_t *model, term_t var, int32_t val)
+
+   Assign a bitvector value to a bitvector uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of bitvector type to assign a value to
+   - *val*: the integer value to assign to var (sign extension is used)
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of bitvector type
+   - *var* must not already have a value in model
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid bitvector uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+
+.. c:function:: int32_t yices_model_set_bv_int64(model_t *model, term_t var, int64_t val)
+
+   Assign a bitvector value to a bitvector uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of bitvector type to assign a value to
+   - *val*: the 64-bit integer value to assign to var (sign extension is used)
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of bitvector type
+   - *var* must not already have a value in model
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid bitvector uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+.. c:function:: int32_t yices_model_set_bv_uint32(model_t *model, term_t var, uint32_t val)
+
+   Assign a bitvector value to a bitvector uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of bitvector type to assign a value to
+   - *val*: the unsigned integer value to assign to var (zero extension is used)
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of bitvector type
+   - *var* must not already have a value in model
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid bitvector uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+
+.. c:function:: int32_t yices_model_set_bv_uint64(model_t *model, term_t var, uint64_t val)
+
+   Assign a bitvector value to a bitvector uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of bitvector type to assign a value to
+   - *val*: the 64-bit unsigned integer value to assign to var (zero extension is used)
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of bitvector type
+   - *var* must not already have a value in model
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid bitvector uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+
+.. c:function:: int32_t yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val)
+
+   Assign a GMP integer bitvector value to a bitvector uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of bitvector type to assign a value to
+   - *val*: the GMP integer value to assign to var (sign extension is used)
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of bitvector type
+   - *var* must not already have a value in model
+   - *val* must be initialized (see the GMP documentation)
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid bitvector uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+   **Note**
+
+   This function is not declared unless you include :file:`gmp.h`
+   before :file:`yices.h` in your code.
+
+
+.. c:function:: int32_t yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n, const int32_t a[])
+
+   Assign a bitvector value to a bitvector uninterpreted term in the model from an array.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of bitvector type to assign a value to
+   - *n*: number of bits in the bitvector
+   - *a*: array of n integers representing the bitvector value (little-endian)
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of bitvector type
+   - *var* must not already have a value in model
+   - *n* must match the bitvector size of var
+   - array *a* must contain n integers (0 or 1)
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid bitvector uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+
+.. c:function:: int32_t yices_model_set_double(model_t *model, term_t var, double val)
+
+   Assign a double value to a real uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of real type to assign a value to
+   - *val*: the double value to assign to var
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of real type
+   - *var* must not already have a value in model
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid real uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+
+.. c:function:: int32_t yices_model_set_float(model_t *model, term_t var, float val)
+
+   Assign a float value to a real uninterpreted term in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted term of real type to assign a value to
+   - *val*: the float value to assign to var
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term of real type
+   - *var* must not already have a value in model
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid real uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+
+.. c:function:: int32_t yices_model_set_term(model_t *model, term_t var, term_t value)
+
+   Assign a value term to an uninterpreted symbol in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted symbol to assign a value to
+   - *value*: the constant term to assign to var
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term
+   - *var* must not already have a value in model
+   - *value* must be a constant term (primitive or tuple type)
+   - *value*'s type must be a subtype of var's type
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+
+.. c:function:: int32_t yices_model_set_yval(model_t *model, term_t var, const yval_t *yval)
+
+   Assign a yval_t value to an uninterpreted symbol in the model.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted symbol to assign a value to
+   - *yval*: the value descriptor from the same model
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term
+   - *var* must not already have a value in model
+   - *yval* must be compatible with var's type
+   - *yval* **HAS** to come from the same model instance
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is not a valid uninterpreted term or is already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+.. c:function:: int32_t yices_model_make_tuple(model_t *model, uint32_t n, const yval_t elem[], yval_t *tuple)
+
+   Build a tuple value in *model* from an array of value descriptors.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the tuple is built
+   - *n*: number of tuple elements
+   - *elem*: array of *n* value descriptors
+   - *tuple*: output descriptor for the resulting tuple value
+
+   **Requirements**
+
+   - every descriptor in *elem* must refer to a value in *model*
+   - every descriptor in *elem* must have a tag consistent with the referenced value
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If one of the descriptors in *elem* is invalid for *model*:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+.. c:function:: int32_t yices_model_set_tuple(model_t *model, term_t var, uint32_t n, const yval_t elem[])
+
+   Assign a tuple value built from *elem* to an uninterpreted symbol in *model*.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted symbol to assign a value to
+   - *n*: number of tuple elements
+   - *elem*: array of *n* value descriptors
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term
+   - *var* must not already have a value in model
+   - every descriptor in *elem* must refer to a value in *model*
+   - the tuple built from *elem* must be type-compatible with *var*
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is invalid/already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+   - If one element in *elem* is invalid for *model* or tuple type is incompatible:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+.. c:function:: int32_t yices_model_make_mapping(model_t *model, uint32_t arity, const yval_t args[], const yval_t *value, yval_t *mapping)
+
+   Build a mapping value [*args[0]* ... *args[arity-1]* -> *value*] in *model*.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the mapping is built
+   - *arity*: number of mapping arguments
+   - *args*: array of *arity* argument descriptors
+   - *value*: descriptor for the mapping result
+   - *mapping*: output descriptor for the resulting mapping value
+
+   **Requirements**
+
+   - every descriptor in *args* must refer to a value in *model*
+   - *value* must refer to a value in *model*
+   - every descriptor tag must be consistent with the referenced value
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If one input descriptor is invalid for *model*:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+.. c:function:: int32_t yices_model_make_function(model_t *model, type_t fun_type, uint32_t n, const yval_t mappings[], const yval_t *def, yval_t *fun)
+
+   Build a function value in *model* from mapping descriptors and a default value.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the function is built
+   - *fun_type*: function type of the result
+   - *n*: number of mapping descriptors
+   - *mappings*: array of *n* mapping descriptors
+   - *def*: default value descriptor
+   - *fun*: output descriptor for the resulting function value
+
+   **Requirements**
+
+   - *fun_type* must be a function type
+   - every descriptor in *mappings* must refer to a mapping value in *model*
+   - every descriptor in *mappings* must have a tag consistent with the referenced value
+   - each mapping must have the same arity as *fun_type*'s domain
+   - each mapping argument/result must be type-compatible with *fun_type*
+   - *def* must refer to a value in *model* and be type-compatible with *fun_type*'s range
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *fun_type* is not a function type:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+   - If one mapping/default descriptor is invalid for *model* or not type-compatible:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+.. c:function:: int32_t yices_model_set_function(model_t *model, term_t var, uint32_t n, const yval_t mappings[], const yval_t *def)
+
+   Assign a function value built from *mappings* and *def* to an uninterpreted symbol in *model*.
+
+   **Parameters**
+
+   - *model*: pointer to the model in which the assignment is made
+   - *var*: the uninterpreted symbol to assign a value to
+   - *n*: number of mapping descriptors
+   - *mappings*: array of *n* mapping descriptors
+   - *def*: default value descriptor
+
+   **Requirements**
+
+   - *var* must be an uninterpreted term
+   - *var* must have function type
+   - *var* must not already have a value in model
+   - *mappings*/*def* must satisfy the same requirements as in :c:func:`yices_model_make_function`
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *var* is invalid or already assigned:
+
+     -- error code: :c:enum:`INVALID_TERM`
+   - If *var* does not have function type or *mappings*/*def* are invalid:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+Example (compile/run checked)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The following example demonstrates tuple and function value construction
+with ``yval_t`` objects.
+
+.. code-block:: c
+
+   model_t *model = yices_new_model();
+   type_t int_type = yices_int_type();
+   type_t bool_type = yices_bool_type();
+   type_t tuple_type = yices_tuple_type3(int_type, int_type, bool_type);
+   type_t fun_type = yices_function_type2(int_type, int_type, bool_type);
+
+   term_t x = yices_new_uninterpreted_term(int_type);
+   term_t y = yices_new_uninterpreted_term(int_type);
+   term_t b = yices_new_uninterpreted_term(bool_type);
+   term_t t = yices_new_uninterpreted_term(tuple_type);
+   term_t f = yices_new_uninterpreted_term(fun_type);
+
+   yices_model_set_int32(model, x, 3);
+   yices_model_set_int32(model, y, 5);
+   yices_model_set_bool(model, b, 1);
+
+   yval_t xv, yv, bv;
+   yices_get_value(model, x, &xv);
+   yices_get_value(model, y, &yv);
+   yices_get_value(model, b, &bv);
+
+   // Tuple: (x, y, b)
+   yval_t tuple_elems[3] = { xv, yv, bv };
+   yval_t tuple_v;
+   yices_model_make_tuple(model, 3, tuple_elems, &tuple_v);
+   yices_model_set_tuple(model, t, 3, tuple_elems);
+
+   // Mapping: [x, y -> b]
+   yval_t map_args[2] = { xv, yv };
+   yval_t map_v;
+   yices_model_make_mapping(model, 2, map_args, &bv, &map_v);
+
+   // Function with one mapping and default false
+   yval_t false_v;
+   yices_get_value(model, yices_false(), &false_v);
+   yval_t maps[1] = { map_v };
+   yval_t fun_v;
+   yices_model_make_function(model, fun_type, 1, maps, &false_v, &fun_v);
+   yices_model_set_function(model, f, 1, maps, &false_v);
+
+   // Query result for f(x, y)
+   term_t fxy = yices_application2(f, x, y);
+   int32_t bval;
+   yices_get_bool_value(model, fxy, &bval);
 
 
 
@@ -373,6 +1171,26 @@ Atomic Values
 
    Like :c:func:`yices_get_mpz_value`, this function is declared if
    header file :file:`gmp.h` is included before :file:`yices.h`.
+
+.. c:function:: int32_t yices_get_ff_value(model_t *mdl, term_t t, mpz_t val, mpz_t mod)
+
+   Value of a finite-field term.
+
+   This function evaluates *t* in *mdl* and stores the finite-field
+   value in *val* and the corresponding field modulus in *mod*.
+
+   **Error report**
+
+   - If *t* is not a finite-field term:
+
+     -- error code: :c:enum:`ARITHTERM_REQUIRED`
+
+     -- term1 := *t*
+
+   **Note**
+
+   This function is not declared unless you include :file:`gmp.h`
+   before :file:`yices.h` in your code.
 
 
 .. c:function:: int32_t yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a)
@@ -538,6 +1356,8 @@ Leaf nodes represent atomic values. They can have the following tags:
    - :c:enum:`YVAL_BOOL`: Boolean value
 
    - :c:enum:`YVAL_RATIONAL`: Rational or integer constant
+
+   - :c:enum:`YVAL_FINITEFIELD`: Finite-field constant
 
    - :c:enum:`YVAL_ALGEBRAIC`: Algebraic number
 
@@ -855,6 +1675,26 @@ the children of non-leaf nodes.
    **Error report**
 
    - If the node does not have tag :c:enum:`YVAL_RATIONAL`
+
+     -- error code: :c:enum:`YVAL_INVALID_OP`
+
+   **Note**
+
+   This function is not declared unless you include :file:`gmp.h`
+   before :file:`yices.h` in your code.
+
+.. c:function:: int32_t yices_val_get_ff(model_t *mdl, const yval_t *v, mpz_t val, mpz_t mod)
+
+   Node value as a finite-field constant.
+
+   This function checks whether node *v* has tag :c:enum:`YVAL_FINITEFIELD`.
+   If so, it copies the node value in *val* and the finite-field
+   modulus in *mod* and returns 0. Otherwise, it leaves outputs
+   unchanged and returns -1.
+
+   **Error report**
+
+   - If the node does not have tag :c:enum:`YVAL_FINITEFIELD`
 
      -- error code: :c:enum:`YVAL_INVALID_OP`
 
@@ -1275,4 +2115,3 @@ This parameter takes a value of type :c:type:`yices_gen_mode_t`:
 
    This function is equivalent to calling :c:func:`yices_generalize_model` with
    argument (*a[0]* |and| |...| |and| *a[n-1]*).
-

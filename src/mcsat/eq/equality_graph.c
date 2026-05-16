@@ -555,6 +555,16 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_type_t type, eq_node_id_t
   pmap2_t* cache = type == EQ_NODE_PAIR ? &eq->pair_to_id : &eq->eq_pair_to_id;
   pmap2_rec_t* find = pmap2_get(cache, p1, p2);
   if (find->val >= 0) {
+    eq_node_id_t id = find->val;
+
+    // A cached pair may be created first as an intermediate node (without
+    // children metadata). If it later appears as a root pair, attach the
+    // missing children metadata to this existing node.
+    if (children_size > 0 && int_hmap_find(&eq->node_to_children, id) == NULL) {
+      int_hmap_add(&eq->node_to_children, id, children_start);
+      return id;
+    }
+
     if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
       ctx_trace_printf(eq->ctx, "already there: %"PRIi32"\n", find->val);
     }
@@ -563,7 +573,7 @@ eq_node_id_t eq_graph_add_pair(eq_graph_t* eq, eq_node_type_t type, eq_node_id_t
       assert(eq->children_list.size == children_start + children_size + 1); // + 1 for null
       ivector_shrink(&eq->children_list, children_start);
     }
-    return find->val;
+    return id;
   }
 
   // Index where we put the value
