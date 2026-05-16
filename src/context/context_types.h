@@ -28,6 +28,7 @@
 #include <setjmp.h>
 
 #include "api/smt_logic_codes.h"
+#include "api/search_parameters.h"
 #include "context/assumption_stack.h"
 #include "context/common_conjuncts.h"
 #include "context/divmod_table.h"
@@ -623,9 +624,17 @@ typedef struct dl_data_s {
   uint32_t num_eqs;
 } dl_data_t;
 
-
-
-
+typedef struct sat_delegate_stats_s {
+  uint32_t rebuild_checks;
+  uint32_t append_checks;
+  uint32_t selector_frame_checks;
+  uint32_t delegate_initializations;
+  uint32_t delegate_reinitializations;
+  uint32_t selector_variables;
+  uint32_t selector_assumptions;
+  uint32_t selector_retirements;
+  uint32_t post_check_clause_forwards;
+} sat_delegate_stats_t;
 
 /**************
  *  CONTEXT   *
@@ -636,6 +645,9 @@ struct context_s {
   context_mode_t mode;
   context_arch_t arch;
   smt_logic_t logic;
+  sat_delegate_t sat_delegate;
+  sat_delegate_incremental_mode_t sat_delegate_incremental_mode;
+  bool sat_delegate_incremental_mode_set;
 
   // theories flag
   uint32_t theories;
@@ -645,6 +657,7 @@ struct context_s {
 
   // base_level == number of calls to push
   uint32_t base_level;
+  sat_delegate_stats_t sat_delegate_stats;
 
   // core and theory solvers
   smt_core_t *core;
@@ -694,6 +707,8 @@ struct context_s {
   assumption_stack_t assumptions;
   // cached unsat core (NULL if cache is invalid)
   ivector_t *unsat_core_cache;
+  // persistent SAT delegate runtime state (allocated lazily)
+  void *sat_delegate_state;
 
   // optional components: allocated if needed
   pseudo_subst_t *subst;

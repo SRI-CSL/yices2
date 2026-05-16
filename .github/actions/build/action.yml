@@ -66,6 +66,26 @@ runs:
         make
         sudo make install
         popd
+    - name: Build and install CaDiCaL (gcov coverage build only)
+      if: inputs.mode == 'gcov' && runner.os == 'Linux'
+      shell: bash
+      run: |
+        # The yices code targets CaDiCaL 3.0 (uses ccadical_declare_one_more_variable
+        # and the "factor" option toggle). Ubuntu's libcadical-dev is 1.7.4, which
+        # predates that API, so we build the upstream rel-3.0.0 tag from source.
+        pushd .
+        git clone --depth 1 --branch rel-3.0.0 https://github.com/arminbiere/cadical.git
+        cd cadical
+        # Both CFLAGS and CXXFLAGS need -fPIC: kitten.c (used by CaDiCaL's
+        # internal SAT helper) is compiled by $(CC), so CXXFLAGS alone leaves
+        # kitten.o without -fPIC and the resulting libcadical.a cannot be
+        # linked into yices's libyices.so.
+        CFLAGS=-fPIC CXXFLAGS=-fPIC ./configure
+        make -j"$(nproc)"
+        sudo install -d /usr/local/include /usr/local/lib
+        sudo install -m 644 build/libcadical.a /usr/local/lib/
+        sudo install -m 644 src/ccadical.h /usr/local/include/
+        popd
     - name: Build and test Yices
       shell: bash
       run: |
@@ -85,5 +105,13 @@ runs:
         fi
         autoconf
         make clean || true
+        # Enable the CaDiCaL delegate in the gcov build so the new
+        # selector-frames code paths are exercised by both the API tests
+        # and the regression suite (tests/regress/bv/incr-cadical-*).
+        # CaDiCaL 3.0 was installed from source in the previous step.
+        if [ "${{ inputs.mode }}" = "gcov" ] && [ "$(uname)" = "Linux" ]; then
+          export CPPFLAGS="${CPPFLAGS:-} -DHAVE_CADICAL"
+          export LIBS="${LIBS:-} -lcadical -lstdc++ -lm"
+        fi
         CFLAGS='-Werror' ${{ inputs.env }} ./configure ${{ inputs.config-opt }}
         make MODE=${{ inputs.mode }}

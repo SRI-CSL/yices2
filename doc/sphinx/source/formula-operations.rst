@@ -69,20 +69,27 @@ third-party Boolean satisfiability solvers for bit-vector problems.
 
   A delegate is a SAT solver to use as backend when checking satisfiability of a bit-vector
   formula. The *delegate* parameter is ignored and has no effect unless the *logic* is "QF_BV".
-  In the latter case, three different delegates can be used:
+  In the latter case, four different delegates can be used:
 
    - "cadical": the CaDiCaL solver (https://github.com/arminbiere/cadical)
 
-   - "cryptominisat: the CryptoMiniSat solver (https://github.com/msoos/cryptominisat)
+   - "cryptominisat": the CryptoMiniSat solver (https://github.com/msoos/cryptominisat)
+
+   - "kissat": the Kissat solver (https://github.com/arminbiere/kissat)
 
    - "y2sat": an experimental SAT solver included in Yices
 
-   These three delegates are known to Yices but support for CaDiCaL and CryptoMiniSat is optional.
+   These four delegates are known to Yices but support for CaDiCaL, CryptoMiniSat, and Kissat is optional.
    They may or may not be available depending on how the Yices library was configured and compiled.
    The "y2sat" delegate is always available.
 
    If *delegate* is NULL, the default SAT solver internal to Yices is used (which can be much slower
    than state-of-the-art solvers such as CaDiCaL).
+
+   The same delegate names can also be used through the regular context API by
+   setting the ``sat-delegate`` configuration parameter on a QF_BV context. See
+   :ref:`SAT delegate configuration <sat_delegate_config>` for the push/pop
+   modes and assumption-support matrix.
 
 
   **Examples**

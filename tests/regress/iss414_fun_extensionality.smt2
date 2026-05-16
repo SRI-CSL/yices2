@@ -1,0 +1,7 @@
+(set-logic ALL)
+(declare-fun f (Bool) Bool)
+(declare-fun g (Bool) Bool)
+(assert (= (f true) (g true)))
+(assert (= (f false) (g false)))
+(assert (distinct f g))
+(check-sat)

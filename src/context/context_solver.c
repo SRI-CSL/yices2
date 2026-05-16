@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "context/context.h"
 #include "context/internalization_codes.h"
@@ -42,6 +43,7 @@
 #include "terms/term_substitution.h"
 #include "utils/int_hash_map.h"
 #include "utils/int_hash_sets.h"
+#include "utils/memalloc.h"
 
 #include "api/yices_globals.h"
 #include "api/yices_api_lock_free.h"
@@ -618,6 +620,509 @@ smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *param
   return stat;
 }
 
+typedef struct sat_delegate_state_s {
+  delegate_t delegate;
+  sat_delegate_t mode;
+  sat_delegate_incremental_mode_t exec_mode;
+  bool live;
+  bool stale;
+  bool true_forwarded;
+  bool checked_once;
+  uint32_t delegate_nvars;
+  uint32_t size;
+  bvar_t *act_var;
+  uint32_t *fwd_units;
+  uint32_t *fwd_bins;
+  uint32_t *fwd_clauses;
+  ivector_t assumptions;
+  ivector_t failed;
+} sat_delegate_state_t;
+
+void context_reset_sat_delegate_stats(context_t *ctx) {
+  ctx->sat_delegate_stats.rebuild_checks = 0;
+  ctx->sat_delegate_stats.append_checks = 0;
+  ctx->sat_delegate_stats.selector_frame_checks = 0;
+  ctx->sat_delegate_stats.delegate_initializations = 0;
+  ctx->sat_delegate_stats.delegate_reinitializations = 0;
+  ctx->sat_delegate_stats.selector_variables = 0;
+  ctx->sat_delegate_stats.selector_assumptions = 0;
+  ctx->sat_delegate_stats.selector_retirements = 0;
+  ctx->sat_delegate_stats.post_check_clause_forwards = 0;
+}
+
+void context_get_sat_delegate_stats(const context_t *ctx, sat_delegate_stats_t *stats) {
+  *stats = ctx->sat_delegate_stats;
+}
+
+void context_sat_delegate_state_cleanup(context_t *ctx) {
+  sat_delegate_state_t *st;
+
+  st = (sat_delegate_state_t *) ctx->sat_delegate_state;
+  if (st == NULL) {
+    return;
+  }
+
+  if (st->live) {
+    delete_delegate(&st->delegate);
+    st->live = false;
+  }
+  safe_free(st->act_var);
+  safe_free(st->fwd_units);
+  safe_free(st->fwd_bins);
+  safe_free(st->fwd_clauses);
+  delete_ivector(&st->assumptions);
+  delete_ivector(&st->failed);
+  safe_free(st);
+  ctx->sat_delegate_state = NULL;
+}
+
+static sat_delegate_state_t *context_get_sat_delegate_state(context_t *ctx) {
+  sat_delegate_state_t *st;
+
+  st = (sat_delegate_state_t *) ctx->sat_delegate_state;
+  if (st == NULL) {
+    st = (sat_delegate_state_t *) safe_malloc(sizeof(sat_delegate_state_t));
+    st->mode = SAT_DELEGATE_NONE;
+    st->exec_mode = SAT_DELEGATE_MODE_REBUILD;
+    st->live = false;
+    st->stale = false;
+    st->true_forwarded = false;
+    st->checked_once = false;
+    st->delegate_nvars = 0;
+    st->size = 0;
+    st->act_var = NULL;
+    st->fwd_units = NULL;
+    st->fwd_bins = NULL;
+    st->fwd_clauses = NULL;
+    init_ivector(&st->assumptions, 0);
+    init_ivector(&st->failed, 0);
+    ctx->sat_delegate_state = st;
+  }
+  return st;
+}
+
+static void sat_delegate_state_reset_cursors(sat_delegate_state_t *st) {
+  uint32_t i;
+
+  st->true_forwarded = false;
+  for (i=0; i<st->size; i++) {
+    st->act_var[i] = 0;
+    st->fwd_units[i] = 0;
+    st->fwd_bins[i] = 0;
+    st->fwd_clauses[i] = 0;
+  }
+}
+
+static void sat_delegate_state_grow(sat_delegate_state_t *st, uint32_t min_size) {
+  uint32_t old_size, new_size, i;
+
+  if (st->size > min_size) {
+    return;
+  }
+
+  old_size = st->size;
+  new_size = old_size == 0 ? 8 : old_size;
+  while (new_size <= min_size) {
+    new_size <<= 1;
+  }
+
+  st->act_var = (bvar_t *) safe_realloc(st->act_var, new_size * sizeof(bvar_t));
+  st->fwd_units = (uint32_t *) safe_realloc(st->fwd_units, new_size * sizeof(uint32_t));
+  st->fwd_bins = (uint32_t *) safe_realloc(st->fwd_bins, new_size * sizeof(uint32_t));
+  st->fwd_clauses = (uint32_t *) safe_realloc(st->fwd_clauses, new_size * sizeof(uint32_t));
+  for (i=old_size; i<new_size; i++) {
+    st->act_var[i] = 0;
+    st->fwd_units[i] = 0;
+    st->fwd_bins[i] = 0;
+    st->fwd_clauses[i] = 0;
+  }
+  st->size = new_size;
+}
+
+static void context_import_delegate_model(smt_core_t *core, delegate_t *d) {
+  bvar_t x;
+
+  for (x=0; x<num_vars(core); x++) {
+    set_bvar_value(core, x, delegate_get_value(d, x));
+  }
+}
+
+static void set_delegate_assumption_state(smt_core_t *core, uint32_t n, const literal_t *assumptions,
+                                          smt_status_t stat, const ivector_t *failed) {
+  if (n == 0) {
+    core->has_assumptions = false;
+    core->num_assumptions = 0;
+    core->assumption_index = 0;
+    core->assumptions = NULL;
+    core->bad_assumption = null_literal;
+    return;
+  }
+
+  core->has_assumptions = true;
+  core->num_assumptions = n;
+  core->assumption_index = n;
+  core->assumptions = NULL;
+  core->bad_assumption = null_literal;
+
+  if (stat == YICES_STATUS_UNSAT && failed != NULL && failed->size > 0) {
+    core->bad_assumption = failed->data[0];
+  }
+}
+
+static void delegate_add_clause_with_guard(delegate_t *delegate, const clause_t *c, literal_t guard) {
+  uint32_t i;
+  literal_t l;
+
+  ivector_reset(&delegate->buffer);
+  if (guard != true_literal) {
+    ivector_push(&delegate->buffer, guard);
+  }
+  i = 0;
+  l = c->cl[0];
+  while (l >= 0) {
+    ivector_push(&delegate->buffer, l);
+    i ++;
+    l = c->cl[i];
+  }
+  delegate->add_clause(delegate->solver, delegate->buffer.size, delegate->buffer.data);
+}
+
+static void delegate_forward_clause_range(sat_delegate_state_t *st, smt_core_t *core, sat_delegate_stats_t *stats,
+                                          uint32_t level,
+                                          uint32_t end_units, uint32_t end_bins, uint32_t end_clauses,
+                                          literal_t guard) {
+  uint32_t i;
+  bool forwarded;
+
+  if (!st->true_forwarded) {
+    st->delegate.add_unit_clause(st->delegate.solver, true_literal);
+    st->true_forwarded = true;
+  }
+
+  forwarded = (core->inconsistent && st->fwd_units[level] == 0 && st->fwd_bins[level] == 0 && st->fwd_clauses[level] == 0) ||
+              st->fwd_units[level] < end_units ||
+              st->fwd_bins[level] < end_bins ||
+              st->fwd_clauses[level] < end_clauses;
+  if (st->checked_once && forwarded) {
+    stats->post_check_clause_forwards ++;
+  }
+
+  if (core->inconsistent && st->fwd_units[level] == 0 && st->fwd_bins[level] == 0 && st->fwd_clauses[level] == 0) {
+    if (guard == true_literal) {
+      st->delegate.add_empty_clause(st->delegate.solver);
+    } else {
+      st->delegate.add_unit_clause(st->delegate.solver, guard);
+    }
+  }
+
+  for (i=st->fwd_units[level]; i<end_units; i++) {
+    if (guard == true_literal) {
+      st->delegate.add_unit_clause(st->delegate.solver, core->stack.lit[i]);
+    } else {
+      st->delegate.add_binary_clause(st->delegate.solver, guard, core->stack.lit[i]);
+    }
+  }
+  st->fwd_units[level] = end_units;
+
+  for (i=st->fwd_bins[level]; i<end_bins; i += 2) {
+    if (guard == true_literal) {
+      st->delegate.add_binary_clause(st->delegate.solver, core->binary_clauses.data[i], core->binary_clauses.data[i+1]);
+    } else {
+      st->delegate.add_ternary_clause(st->delegate.solver, guard, core->binary_clauses.data[i], core->binary_clauses.data[i+1]);
+    }
+  }
+  st->fwd_bins[level] = end_bins;
+
+  if (level == 0 && st->fwd_clauses[level] > end_clauses) {
+    st->fwd_clauses[level] = end_clauses;
+  }
+  for (i=st->fwd_clauses[level]; i<end_clauses; i++) {
+    delegate_add_clause_with_guard(&st->delegate, core->problem_clauses[i], guard);
+  }
+  st->fwd_clauses[level] = end_clauses;
+}
+
+static void sat_delegate_state_close(sat_delegate_state_t *st) {
+  if (st->live) {
+    delete_delegate(&st->delegate);
+    st->live = false;
+  }
+  st->mode = SAT_DELEGATE_NONE;
+  st->exec_mode = SAT_DELEGATE_MODE_REBUILD;
+  st->stale = false;
+  st->checked_once = false;
+  st->delegate_nvars = 0;
+  sat_delegate_state_reset_cursors(st);
+}
+
+static bool context_prepare_append_delegate(context_t *ctx, sat_delegate_state_t *st, const char *sat_solver,
+                                            uint32_t verbosity) {
+  smt_core_t *core;
+  uint32_t nvars;
+  uint32_t nnew;
+
+  core = ctx->core;
+  nvars = num_vars(core);
+
+  if (st->live && (st->mode != ctx->sat_delegate || st->exec_mode != SAT_DELEGATE_MODE_APPEND)) {
+    sat_delegate_state_close(st);
+  }
+
+  if (!st->live || st->stale) {
+    if (st->live) {
+      ctx->sat_delegate_stats.delegate_reinitializations ++;
+      sat_delegate_state_close(st);
+    }
+    sat_delegate_state_grow(st, 0);
+    if (!init_delegate_incremental(&st->delegate, sat_solver, nvars)) {
+      return false;
+    }
+    ctx->sat_delegate_stats.delegate_initializations ++;
+    delegate_set_verbosity(&st->delegate, verbosity);
+    st->mode = ctx->sat_delegate;
+    st->exec_mode = SAT_DELEGATE_MODE_APPEND;
+    st->stale = false;
+    st->delegate_nvars = nvars;
+    st->live = true;
+    sat_delegate_state_reset_cursors(st);
+  }
+
+  if (st->delegate_nvars < nvars) {
+    nnew = nvars - st->delegate_nvars;
+    delegate_add_vars(&st->delegate, nnew);
+    st->delegate_nvars = nvars;
+  }
+
+  sat_delegate_state_grow(st, 0);
+  delegate_forward_clause_range(st, core, &ctx->sat_delegate_stats, 0, core->nb_unit_clauses,
+                                (uint32_t) core->binary_clauses.size,
+                                (uint32_t) get_cv_size(core->problem_clauses),
+                                true_literal);
+
+  return true;
+}
+
+static bool context_prepare_selector_delegate(context_t *ctx, sat_delegate_state_t *st, const char *sat_solver,
+                                              uint32_t verbosity) {
+  smt_core_t *core;
+  uint32_t d, k, nvars, nnew;
+  uint32_t end_units, end_bins, end_clauses;
+  trail_t *trail_data;
+  literal_t guard;
+
+  core = ctx->core;
+  nvars = num_vars(core);
+  d = smt_base_level(core);
+  trail_data = core->trail_stack.data;
+
+  if (st->live && (st->mode != ctx->sat_delegate || st->exec_mode != SAT_DELEGATE_MODE_SELECTOR_FRAMES)) {
+    sat_delegate_state_close(st);
+  }
+
+  if (!st->live) {
+    sat_delegate_state_grow(st, d);
+    if (!init_delegate_incremental(&st->delegate, sat_solver, nvars)) {
+      return false;
+    }
+    ctx->sat_delegate_stats.delegate_initializations ++;
+    delegate_set_verbosity(&st->delegate, verbosity);
+    st->mode = ctx->sat_delegate;
+    st->exec_mode = SAT_DELEGATE_MODE_SELECTOR_FRAMES;
+    st->stale = false;
+    st->delegate_nvars = nvars;
+    st->live = true;
+    sat_delegate_state_reset_cursors(st);
+  }
+
+  if (st->delegate_nvars < nvars) {
+    nnew = nvars - st->delegate_nvars;
+    delegate_add_vars(&st->delegate, nnew);
+    st->delegate_nvars = nvars;
+  }
+
+  sat_delegate_state_grow(st, d);
+  for (k=1; k<=d; k++) {
+    if (st->act_var[k] == 0) {
+      /*
+       * Selectors must live in the SMT core's variable namespace too:
+       * otherwise a later bit-blasted assertion could reuse the same bvar.
+       */
+      do {
+        st->act_var[k] = create_boolean_variable(core);
+      } while (st->act_var[k] < st->delegate_nvars);
+      delegate_add_vars(&st->delegate, st->act_var[k] + 1 - st->delegate_nvars);
+      delegate_freeze_literal(&st->delegate, pos_lit(st->act_var[k]));
+      ctx->sat_delegate_stats.selector_variables ++;
+      st->delegate_nvars = st->act_var[k] + 1;
+      st->fwd_units[k] = trail_data[k-1].nunits;
+      st->fwd_bins[k] = trail_data[k-1].nbins;
+      st->fwd_clauses[k] = trail_data[k-1].nclauses;
+    }
+  }
+
+  for (k=0; k<=d; k++) {
+    guard = (k == 0) ? true_literal : neg_lit(st->act_var[k]);
+    end_units = (k < d) ? trail_data[k].nunits : core->nb_unit_clauses;
+    end_bins = (k < d) ? trail_data[k].nbins : (uint32_t) core->binary_clauses.size;
+    end_clauses = (k < d) ? trail_data[k].nclauses : (uint32_t) get_cv_size(core->problem_clauses);
+    delegate_forward_clause_range(st, core, &ctx->sat_delegate_stats, k, end_units, end_bins, end_clauses, guard);
+  }
+
+  return true;
+}
+
+void context_sat_delegate_state_pop(context_t *ctx, uint32_t level) {
+  sat_delegate_state_t *st;
+
+  st = (sat_delegate_state_t *) ctx->sat_delegate_state;
+  if (st == NULL || !st->live) {
+    return;
+  }
+
+  if (st->exec_mode == SAT_DELEGATE_MODE_APPEND) {
+    st->stale = true;
+  } else if (st->exec_mode == SAT_DELEGATE_MODE_SELECTOR_FRAMES) {
+    if (level < st->size && st->act_var[level] != 0) {
+      delegate_melt_literal(&st->delegate, pos_lit(st->act_var[level]));
+      st->delegate.add_unit_clause(st->delegate.solver, neg_lit(st->act_var[level]));
+      ctx->sat_delegate_stats.selector_retirements ++;
+      st->act_var[level] = 0;
+    }
+  }
+}
+
+static smt_status_t check_with_persistent_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity,
+                                                   sat_delegate_incremental_mode_t exec_mode,
+                                                   uint32_t n, const literal_t *assumptions, ivector_t *failed) {
+  smt_status_t stat;
+  smt_core_t *core;
+  sat_delegate_state_t *st;
+  ivector_t visible_failed;
+  uint32_t i;
+
+  core = ctx->core;
+  stat = smt_status(core);
+  if (stat != YICES_STATUS_IDLE) {
+    return stat;
+  }
+
+  start_search(core, 0, NULL);
+  smt_process(core);
+  stat = smt_status(core);
+
+  assert(stat == YICES_STATUS_UNSAT || stat == YICES_STATUS_SEARCHING ||
+         stat == YICES_STATUS_INTERRUPTED);
+
+  if (stat != YICES_STATUS_SEARCHING) {
+    return stat;
+  }
+
+  if (n == 0 && smt_easy_sat(core)) {
+    stat = YICES_STATUS_SAT;
+    set_smt_status(core, stat);
+    return stat;
+  }
+
+  st = context_get_sat_delegate_state(ctx);
+  if (exec_mode == SAT_DELEGATE_MODE_APPEND) {
+    if (!context_prepare_append_delegate(ctx, st, sat_solver, verbosity)) {
+      return YICES_STATUS_UNKNOWN;
+    }
+  } else {
+    assert(exec_mode == SAT_DELEGATE_MODE_SELECTOR_FRAMES);
+    if (!context_prepare_selector_delegate(ctx, st, sat_solver, verbosity)) {
+      return YICES_STATUS_UNKNOWN;
+    }
+  }
+
+  if (n > 0 && !delegate_supports_assumptions(&st->delegate)) {
+    return YICES_STATUS_UNKNOWN;
+  }
+
+  init_ivector(&visible_failed, 0);
+  ivector_reset(&st->assumptions);
+  ivector_reset(&st->failed);
+  if (exec_mode == SAT_DELEGATE_MODE_SELECTOR_FRAMES) {
+    uint32_t k, d;
+    d = smt_base_level(core);
+    for (k=1; k<=d; k++) {
+      if (k < st->size && st->act_var[k] != 0) {
+        ivector_push(&st->assumptions, pos_lit(st->act_var[k]));
+        ctx->sat_delegate_stats.selector_assumptions ++;
+      }
+    }
+  }
+  for (i=0; i<n; i++) {
+    ivector_push(&st->assumptions, assumptions[i]);
+  }
+
+  if (st->assumptions.size == 0) {
+    stat = st->delegate.check(st->delegate.solver);
+  } else if (delegate_supports_assumptions(&st->delegate)) {
+    stat = delegate_check_with_assumptions(&st->delegate, st->assumptions.size,
+                                           (literal_t *) st->assumptions.data, &st->failed);
+    if (stat == YICES_STATUS_UNSAT) {
+      for (i=0; i<st->failed.size; i++) {
+        literal_t l = st->failed.data[i];
+        uint32_t j;
+        for (j=0; j<n; j++) {
+          if (l == assumptions[j]) {
+            ivector_push(&visible_failed, l);
+            break;
+          }
+        }
+      }
+      if (failed != NULL) {
+        ivector_reset(failed);
+        ivector_add(failed, visible_failed.data, visible_failed.size);
+      }
+    }
+  } else {
+    stat = YICES_STATUS_UNKNOWN;
+  }
+
+  set_smt_status(core, stat);
+  set_delegate_assumption_state(core, n, assumptions, stat, &visible_failed);
+  if (stat == YICES_STATUS_SAT) {
+    context_import_delegate_model(core, &st->delegate);
+  }
+  st->checked_once = true;
+
+  delete_ivector(&visible_failed);
+  return stat;
+}
+
+static smt_status_t check_with_delegate_assumptions(context_t *ctx, const char *sat_solver, uint32_t verbosity,
+                                                    uint32_t n, const literal_t *assumptions, ivector_t *failed);
+
+smt_status_t check_with_sat_delegate(context_t *ctx, const char *sat_solver,
+                                     sat_delegate_incremental_mode_t mode,
+                                     uint32_t verbosity, uint32_t n,
+                                     const literal_t *assumptions, ivector_t *failed) {
+  switch (mode) {
+  case SAT_DELEGATE_MODE_REBUILD:
+    ctx->sat_delegate_stats.rebuild_checks ++;
+    if (n == 0) {
+      return check_with_delegate(ctx, sat_solver, verbosity);
+    } else {
+      return check_with_delegate_assumptions(ctx, sat_solver, verbosity, n, assumptions, failed);
+    }
+
+  case SAT_DELEGATE_MODE_APPEND:
+    ctx->sat_delegate_stats.append_checks ++;
+    return check_with_persistent_delegate(ctx, sat_solver, verbosity, SAT_DELEGATE_MODE_APPEND,
+                                          n, assumptions, failed);
+
+  case SAT_DELEGATE_MODE_SELECTOR_FRAMES:
+    ctx->sat_delegate_stats.selector_frame_checks ++;
+    return check_with_persistent_delegate(ctx, sat_solver, verbosity, SAT_DELEGATE_MODE_SELECTOR_FRAMES,
+                                          n, assumptions, failed);
+
+  default:
+    return YICES_STATUS_UNKNOWN;
+  }
+}
+
 /*
  * Explore term t and collect all Boolean atoms into atoms.
  */
@@ -716,6 +1221,28 @@ static void cache_unsat_core(context_t *ctx, const ivector_t *core) {
   ivector_copy(ctx->unsat_core_cache, core->data, core->size);
 }
 
+static void cache_failed_assumptions_core(context_t *ctx, uint32_t n, const term_t *a,
+                                          const ivector_t *assumption_literals,
+                                          const ivector_t *failed_literals) {
+  ivector_t core_terms;
+  int_hset_t failed;
+  uint32_t i;
+
+  init_ivector(&core_terms, 0);
+  init_int_hset(&failed, 0);
+  for (i=0; i<failed_literals->size; i++) {
+    int_hset_add(&failed, failed_literals->data[i]);
+  }
+  for (i=0; i<n; i++) {
+    if (int_hset_member(&failed, assumption_literals->data[i])) {
+      ivector_push(&core_terms, a[i]);
+    }
+  }
+  cache_unsat_core(ctx, &core_terms);
+  delete_int_hset(&failed);
+  delete_ivector(&core_terms);
+}
+
 /*
  * MCSAT variant of check_context_with_term_assumptions.
  * Caller must hold __yices_globals.lock.
@@ -778,15 +1305,9 @@ static smt_status_t _o_check_context_with_term_assumptions_mcsat(context_t *ctx,
     if (stat != YICES_STATUS_ERROR) {
       stat = check_context_with_model(ctx, params, &mdl, n, assumptions.data);
       if (stat == YICES_STATUS_UNSAT) {
-        term_subst_t subst;
-
         interpolant = context_get_unsat_model_interpolant(ctx);
         assert(interpolant != NULL_TERM);
         core_from_labeled_interpolant(ctx, interpolant, &assumptions, &label_map, &mapped_core);
-
-        init_term_subst(&subst, &tm, n, assumptions.data, a);
-        interpolant = apply_term_subst(&subst, interpolant);
-        delete_term_subst(&subst);
       }
     }
 
@@ -795,7 +1316,7 @@ static smt_status_t _o_check_context_with_term_assumptions_mcsat(context_t *ctx,
       context_pop(ctx);
     }
     if (stat == YICES_STATUS_UNSAT) {
-      mcsat_set_unsat_result(ctx->mcsat, interpolant);
+      mcsat_set_unsat_result_from_labeled_interpolant(ctx->mcsat, interpolant, n, assumptions.data, a);
       cache_unsat_core(ctx, &mapped_core);
     }
 
@@ -826,11 +1347,21 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
     *error = CTX_NO_ERROR;
   }
 
+  /*
+   * Clear any prior term-assumption core before all paths below. Delegate
+   * checks cache a new core only on UNSAT.
+   */
   context_invalidate_unsat_core_cache(ctx);
 
   if (ctx->mcsat == NULL) {
     smt_status_t stat;
+    sat_delegate_t mode;
+    sat_delegate_incremental_mode_t exec_mode;
+    bool one_shot;
+    const char *delegate;
+    bool unknown;
     ivector_t assumptions;
+    ivector_t failed;
     uint32_t i;
     literal_t l;
 
@@ -847,7 +1378,55 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
       ivector_push(&assumptions, l);
     }
 
-    stat = check_context_with_assumptions(ctx, params, n, assumptions.data);
+    mode = effective_sat_delegate_mode(ctx->sat_delegate, params, &one_shot);
+    delegate = sat_delegate_name(mode);
+    if (delegate == NULL) {
+      stat = check_context_with_assumptions(ctx, params, n, assumptions.data);
+      delete_ivector(&assumptions);
+      return stat;
+    }
+
+    if (ctx->logic != QF_BV) {
+      if (error != NULL) {
+        *error = CTX_OPERATION_NOT_SUPPORTED;
+      }
+      delete_ivector(&assumptions);
+      return YICES_STATUS_ERROR;
+    }
+
+    if (!supported_delegate(delegate, &unknown)) {
+      if (error != NULL) {
+        *error = unknown ? CTX_UNKNOWN_DELEGATE : CTX_DELEGATE_NOT_AVAILABLE;
+      }
+      delete_ivector(&assumptions);
+      return YICES_STATUS_ERROR;
+    }
+
+    if (!delegate_supports_assumptions_name(delegate)) {
+      if (error != NULL) {
+        *error = CTX_OPERATION_NOT_SUPPORTED;
+      }
+      delete_ivector(&assumptions);
+      return YICES_STATUS_ERROR;
+    }
+
+    init_ivector(&failed, 0);
+    if (!effective_sat_delegate_incremental_mode(mode, ctx->sat_delegate_incremental_mode,
+                                                ctx->sat_delegate_incremental_mode_set,
+                                                ctx->mode == CTX_MODE_ONECHECK,
+                                                one_shot, &exec_mode)) {
+      if (error != NULL) {
+        *error = CTX_OPERATION_NOT_SUPPORTED;
+      }
+      delete_ivector(&failed);
+      delete_ivector(&assumptions);
+      return YICES_STATUS_ERROR;
+    }
+    stat = check_with_sat_delegate(ctx, delegate, exec_mode, 0, n, assumptions.data, &failed);
+    if (stat == YICES_STATUS_UNSAT) {
+      cache_failed_assumptions_core(ctx, n, a, &assumptions, &failed);
+    }
+    delete_ivector(&failed);
     delete_ivector(&assumptions);
     return stat;
   }
@@ -969,6 +1548,7 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
       } else {
 	// call the delegate
 	init_delegate(&delegate, sat_solver, num_vars(core));
+	ctx->sat_delegate_stats.delegate_initializations ++;
 	delegate_set_verbosity(&delegate, verbosity);
 
 	stat = solve_with_delegate(&delegate, core);
@@ -984,6 +1564,52 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
     }
   }
 
+  return stat;
+}
+
+/*
+ * One-shot check with delegate and assumptions.
+ * - assumptions are literals in core encoding.
+ * - if failed != NULL and result is UNSAT, failed assumptions are appended to *failed.
+ */
+static smt_status_t check_with_delegate_assumptions(context_t *ctx, const char *sat_solver, uint32_t verbosity,
+                                                    uint32_t n, const literal_t *assumptions, ivector_t *failed) {
+  smt_status_t stat;
+  smt_core_t *core;
+  delegate_t delegate;
+
+  core = ctx->core;
+
+  stat = smt_status(core);
+  if (stat != YICES_STATUS_IDLE) {
+    return stat;
+  }
+
+  start_search(core, 0, NULL);
+  smt_process(core);
+  stat = smt_status(core);
+
+  assert(stat == YICES_STATUS_UNSAT || stat == YICES_STATUS_SEARCHING ||
+         stat == YICES_STATUS_INTERRUPTED);
+
+  if (stat != YICES_STATUS_SEARCHING) {
+    return stat;
+  }
+
+  if (!init_delegate(&delegate, sat_solver, num_vars(core))) {
+    return YICES_STATUS_UNKNOWN;
+  }
+  ctx->sat_delegate_stats.delegate_initializations ++;
+  delegate_set_verbosity(&delegate, verbosity);
+
+  stat = solve_with_delegate_assumptions(&delegate, core, n, assumptions, failed);
+  set_smt_status(core, stat);
+  set_delegate_assumption_state(core, n, assumptions, stat, failed);
+  if (stat == YICES_STATUS_SAT) {
+    context_import_delegate_model(core, &delegate);
+  }
+
+  delete_delegate(&delegate);
   return stat;
 }
 

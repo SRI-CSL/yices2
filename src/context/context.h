@@ -64,6 +64,13 @@ extern void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
  */
 extern void delete_context(context_t *ctx);
 
+/*
+ * Release delegate runtime state (if any).
+ */
+extern void context_sat_delegate_state_cleanup(context_t *ctx);
+extern void context_reset_sat_delegate_stats(context_t *ctx);
+extern void context_get_sat_delegate_stats(const context_t *ctx, sat_delegate_stats_t *stats);
+
 
 /*
  * Reset: remove all assertions
@@ -394,6 +401,16 @@ extern smt_status_t precheck_context(context_t *ctx);
  * else.
  */
 extern smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity);
+
+extern smt_status_t check_with_sat_delegate(context_t *ctx, const char *sat_solver,
+                                            sat_delegate_incremental_mode_t mode,
+                                            uint32_t verbosity, uint32_t n,
+                                            const literal_t *assumptions, ivector_t *failed);
+
+/*
+ * Pop notification for persistent SAT delegate state.
+ */
+extern void context_sat_delegate_state_pop(context_t *ctx, uint32_t level);
 
 
 /*

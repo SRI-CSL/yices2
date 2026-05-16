@@ -65,9 +65,14 @@ typedef void (*add_binary_clause_fun_t)(void *solver, literal_t l1, literal_t l2
 typedef void (*add_ternary_clause_fun_t)(void *solver, literal_t l1, literal_t l2, literal_t l3);
 typedef void (*add_clause_fun_t)(void *solver, uint32_t n, literal_t *a);
 typedef smt_status_t (*check_sat_fun_t)(void *solver);
+typedef smt_status_t (*check_sat_assuming_fun_t)(void *solver, uint32_t n, const literal_t *a);
 typedef bval_t (*get_value_fun_t)(void *solver, bvar_t x);
 typedef void (*set_verbosity_fun_t)(void *solver, uint32_t level);
 typedef void (*delete_fun_t)(void *solver);
+typedef void (*add_vars_fun_t)(void *solver, uint32_t n);
+typedef void (*freeze_literal_fun_t)(void *solver, literal_t l);
+typedef void (*melt_literal_fun_t)(void *solver, literal_t l);
+typedef void (*collect_failed_assumptions_fun_t)(void *solver, uint32_t n, const literal_t *a, ivector_t *out);
 
 typedef void (*keep_var_fun_t)(void *solver, bvar_t x);
 typedef void (*var_def2_fun_t)(void *solver, bvar_t x, uint32_t b, literal_t l1, literal_t l2);
@@ -85,9 +90,14 @@ typedef struct delegate_s {
   add_ternary_clause_fun_t add_ternary_clause;
   add_clause_fun_t add_clause;
   check_sat_fun_t check;
+  check_sat_assuming_fun_t check_assuming;
+  collect_failed_assumptions_fun_t collect_failed_assumptions;
   get_value_fun_t get_value;
   set_verbosity_fun_t set_verbosity;
   delete_fun_t delete;
+  add_vars_fun_t add_vars;
+  freeze_literal_fun_t freeze_literal;
+  melt_literal_fun_t melt_literal;
   keep_var_fun_t keep_var;
   var_def2_fun_t var_def2;
   var_def3_fun_t var_def3;
@@ -106,6 +116,14 @@ typedef struct delegate_s {
  */
 extern bool init_delegate(delegate_t *delegate, const char *solver_name, uint32_t nvars);
 
+/*
+ * Create a delegate for persistent append/recheck use.
+ * This is the same as init_delegate for most solvers. For y2sat, it disables
+ * preprocessing because variable elimination is destructive under later
+ * clause additions.
+ */
+extern bool init_delegate_incremental(delegate_t *delegate, const char *solver_name, uint32_t nvars);
+
 
 /*
  * Test whether a solver is known and supported.
@@ -117,6 +135,14 @@ extern bool init_delegate(delegate_t *delegate, const char *solver_name, uint32_
  *   if we have optional support (but not compiled), *unknown is set to fasle.
  */
 extern bool supported_delegate(const char *solver_name, bool *unknown);
+
+/*
+ * Classify solver capabilities.
+ */
+extern bool delegate_supports_append_recheck_name(const char *solver_name);
+extern bool delegate_supports_assumptions_name(const char *solver_name);
+extern bool delegate_supports_failed_assumptions_name(const char *solver_name);
+extern bool delegate_supports_selector_frames_name(const char *solver_name);
 
 
 /*
@@ -131,6 +157,21 @@ extern void delete_delegate(delegate_t *delegate);
  * - return YICES_STATUS_UNKNOWN if the delegate fails
  */
 extern smt_status_t solve_with_delegate(delegate_t *delegate, smt_core_t *core);
+
+/*
+ * Same as solve_with_delegate, but solve under assumptions a[0 ... n-1].
+ * - if assumptions are not supported by delegate, return YICES_STATUS_UNKNOWN.
+ * - if failed != NULL and the result is UNSAT, failed assumptions are appended to *failed.
+ */
+extern smt_status_t solve_with_delegate_assumptions(delegate_t *delegate, smt_core_t *core,
+                                                    uint32_t n, const literal_t *a, ivector_t *failed);
+
+/*
+ * Add all problem clauses in core to delegate, optionally guarded by literal g.
+ * - if g == true_literal, clauses are copied as-is.
+ * - otherwise each copied clause C is replaced by (g \/ C).
+ */
+extern void add_problem_clauses_to_delegate(delegate_t *delegate, smt_core_t *core, literal_t g);
 
 /*
  * Export the clauses from the core to the delegate
@@ -157,6 +198,33 @@ extern bval_t delegate_get_value(delegate_t *delegate, bvar_t x);
  * Set verbosity level for the delegate
  */
 extern void delegate_set_verbosity(delegate_t *delegate, uint32_t level);
+
+/*
+ * Add n fresh variables to delegate (if supported).
+ */
+extern void delegate_add_vars(delegate_t *delegate, uint32_t n);
+
+/*
+ * Preserve an assumption literal if the delegate supports it.
+ */
+extern void delegate_freeze_literal(delegate_t *delegate, literal_t l);
+
+/*
+ * Retire an assumption literal if the delegate supports it.
+ */
+extern void delegate_melt_literal(delegate_t *delegate, literal_t l);
+
+/*
+ * Check whether delegate supports assumptions.
+ */
+extern bool delegate_supports_assumptions(const delegate_t *delegate);
+
+/*
+ * Solve with assumptions using an already-populated delegate.
+ * - if failed != NULL and the result is UNSAT, failed assumptions are appended to *failed.
+ */
+extern smt_status_t delegate_check_with_assumptions(delegate_t *delegate, uint32_t n, const literal_t *a,
+                                                    ivector_t *failed);
 
 
 

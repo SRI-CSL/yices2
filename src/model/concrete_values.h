@@ -1023,6 +1023,24 @@ extern bool is_bvzero(value_table_t *table, value_t v);
  */
 extern void vtbl_expand_update(value_table_t *table, value_t i, value_t *def, type_t *tau);
 
+
+/*
+ * Expand update c and return a private copy of the resulting mapping list.
+ *
+ * vtbl_expand_update uses table->hset1 as scratch space, which is shared
+ * across the table and not reentrant: if a caller iterates over the
+ * expansion while recursively printing or expanding a different update, the
+ * second expansion clobbers hset1 mid-iteration. This helper copies the map
+ * ids into a private array that the caller owns, removing the hazard.
+ *
+ * Outputs:
+ * - *def, *tau are written by the underlying vtbl_expand_update.
+ * - *n is set to the number of mappings.
+ * - returns NULL when *n == 0; otherwise returns a fresh array of length *n
+ *   that the caller must free with safe_free.
+ */
+extern value_t *vtbl_copy_update_maps(value_table_t *table, value_t c, value_t *def, type_t *tau, uint32_t *n);
+
 /*
  * Get the type of a function or update object i
  */

@@ -226,6 +226,69 @@ specialized for difference logic and support only mode one-shot.
 The default mode is push-pop.
 
 
+.. _sat_delegate_config:
+
+**SAT Delegate (QF_BV only)**
+
+For QF_BV contexts, Yices can be configured to use a third-party
+Boolean SAT solver --- called a *delegate* --- as the back-end CNF
+engine. When a delegate is selected, Yices bit-blasts the assertions
+to CNF as usual and hands the resulting clause set to the chosen
+delegate instead of the internal Yices CDCL SAT solver.
+
+Yices recognizes four delegate names. ``y2sat`` is an internal SAT
+solver always available in any Yices build. ``cadical``,
+``cryptominisat``, and ``kissat`` are external solvers; their
+inclusion in a particular Yices build is optional and can be checked
+at runtime with :c:func:`yices_has_delegate`. The capabilities of each
+delegate are summarized in the following table.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Delegate
+     - Availability
+     - Incremental modes
+     - ``check_with_assumptions``
+     - Unsat core from assumptions
+   * - ``y2sat``
+     - always
+     - ``rebuild``, ``append``
+     - no
+     - no
+   * - ``cadical``
+     - optional
+     - ``rebuild``, ``append``, ``selector-frames``
+     - yes
+     - yes
+   * - ``cryptominisat``
+     - optional
+     - ``rebuild``, ``append``, ``selector-frames``
+     - yes
+     - yes
+   * - ``kissat``
+     - optional
+     - ``rebuild``
+     - no
+     - no
+
+For incremental QF_BV contexts (``push-pop`` or ``multi-checks`` mode),
+delegates can be configured with ``sat-delegate-incremental-mode``. The
+``rebuild`` mode builds a fresh delegate at every check, ``append`` keeps a
+live delegate and appends newly generated clauses, and ``selector-frames`` uses
+activation literals to keep CaDiCaL or CryptoMiniSat live across ``pop``. If no
+mode is set explicitly, Yices selects the default from the delegate and context
+mode: all delegates use ``rebuild`` in one-shot contexts; y2sat uses
+``append`` in reusable contexts; CaDiCaL and CryptoMiniSat use
+``selector-frames`` in reusable contexts; Kissat always uses ``rebuild``.
+
+The delegate can also be selected, or one-shot overridden, on a
+per-check basis through the ``delegate`` field of a search-parameter
+record (see :ref:`heuristic_parameters`).
+
+The SAT delegate options are ignored for any logic other than QF_BV.
+
+
 
 Configuration Descriptor
 ........................
@@ -286,6 +349,43 @@ arithmetic fragment and the operating mode:
    +--------------------+-----------------------------------------------------+
    | mode               |  one-shot, multi-checks, push-pop, or interactive   |
    +--------------------+-----------------------------------------------------+
+
+
+Two more parameters control the SAT back-end for QF_BV contexts.
+They are ignored for any other logic. See
+:ref:`SAT delegate configuration <sat_delegate_config>` above for the meaning
+of each value.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Value
+     - Meaning
+   * - ``sat-delegate``
+     - ``"none"``
+     - use the internal Yices SAT solver (default)
+   * - ``sat-delegate``
+     - ``"y2sat"``
+     - use y2sat as the SAT back-end
+   * - ``sat-delegate``
+     - ``"cadical"``
+     - use CaDiCaL as the SAT back-end
+   * - ``sat-delegate``
+     - ``"cryptominisat"``
+     - use CryptoMiniSat as the SAT back-end
+   * - ``sat-delegate``
+     - ``"kissat"``
+     - use Kissat as the SAT back-end
+   * - ``sat-delegate-incremental-mode``
+     - ``"rebuild"``
+     - build a fresh delegate at every check
+   * - ``sat-delegate-incremental-mode``
+     - ``"append"``
+     - keep a live delegate and append clauses
+   * - ``sat-delegate-incremental-mode``
+     - ``"selector-frames"``
+     - keep a live delegate using activation frames
 
 
 
@@ -1345,4 +1445,3 @@ record is no longer needed, it can be deleted by
    *param* must be a record returned by :c:func:`yices_new_param_record`.
 
    This function frees the memory allocated to this record.
-
