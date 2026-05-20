@@ -73,6 +73,8 @@
 
 #include "exists_forall/ef_client.h"
 
+#include "solvers/cdcl/delegate.h"
+
 #include "frontend/yices/yices_parser.h"
 
 #include "io/model_printer.h"
@@ -8885,6 +8887,16 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
       set_error_code(CTX_INVALID_CONFIG);
       return NULL;
     }
+    if (config->sat_delegate_incremental_mode_set &&
+        config->sat_delegate != SAT_DELEGATE_NONE) {
+      if ((mode == CTX_MODE_ONECHECK &&
+           config->sat_delegate_incremental_mode != SAT_DELEGATE_MODE_REBUILD) ||
+          !sat_delegate_incremental_mode_supported(config->sat_delegate,
+                                                   config->sat_delegate_incremental_mode)) {
+        set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+        return NULL;
+      }
+    }
   }
 
   context_t* ctx = _o_yices_create_context(logic, arch, mode, iflag, qflag);
@@ -8892,7 +8904,8 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
   // Additional setup for MCSAT options in the config
   if (config != NULL) {
     ctx->sat_delegate = config->sat_delegate;
-    ctx->sat_delegate_selector_frames = config->sat_delegate_selector_frames;
+    ctx->sat_delegate_incremental_mode = config->sat_delegate_incremental_mode;
+    ctx->sat_delegate_incremental_mode_set = config->sat_delegate_incremental_mode_set;
 
     // If trace tags are passed in, set them
     if (config->trace_tags != NULL) {
@@ -8962,7 +8975,7 @@ EXPORTED void yices_reset_context(context_t *ctx) {
  * - if the context status is UNSAT or SEARCHING or INTERRUPTED
  *   code = CTX_INVALID_OPERATION
  */
-EXPORTED int32_t yices_push(context_t *ctx) {
+static int32_t _o_yices_push(context_t *ctx) {
   if (! context_supports_pushpop(ctx)) {
     set_error_code(CTX_OPERATION_NOT_SUPPORTED);
     return -1;
@@ -9002,6 +9015,36 @@ EXPORTED int32_t yices_push(context_t *ctx) {
   return 0;
 }
 
+/*
+ * yices_push and yices_pop both mutate per-context MCSAT state
+ * (mcsat->trail, plugin internal state, scope holder, preprocessor)
+ * via context_clear / context_clear_unsat / context_push / context_pop.
+ *
+ * yices_garbage_collect holds __yices_globals.lock and walks every live
+ * context via context_list_gc_mark -> context_gc_mark, which mutates the
+ * same per-context state: it resets the ctx->top_* / subst_eqs / aux_eqs
+ * vectors, calls intern_tbl_gc_mark / egraph_gc_mark / fun_solver_gc_mark,
+ * and on MCSAT contexts runs the full mcsat_gc(true) (mark + sweep on the
+ * trail and every plugin).
+ *
+ * For MCSAT contexts, mcsat_pop additionally reads __yices_globals.terms
+ * via variable_db_get_term / term_type, racing against term_table_gc.
+ *
+ * Take __yices_globals.lock for the MCSAT branch only; CDCL(T) push/pop
+ * paths are left unlocked, matching the existing pattern in
+ * context_solver.c (call_mcsat_solver and check_context_with_term_assumptions_mcsat
+ * are MT_PROTECT'd; the CDCL(T) solve() body is not).
+ *
+ * Reading ctx->mcsat without the lock is safe: it is set once at context
+ * construction and never mutated afterwards.
+ */
+EXPORTED int32_t yices_push(context_t *ctx) {
+  if (ctx->mcsat != NULL) {
+    MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_push(ctx));
+  }
+  return _o_yices_push(ctx);
+}
+
 
 
 /*
@@ -9016,7 +9059,7 @@ EXPORTED int32_t yices_push(context_t *ctx) {
  *   or if the context's status is SEARCHING or INTERRUPTED
  *   code = CTX_INVALID_OPERATION
  */
-EXPORTED int32_t yices_pop(context_t *ctx) {
+static int32_t _o_yices_pop(context_t *ctx) {
   if (! context_supports_pushpop(ctx)) {
     set_error_code(CTX_OPERATION_NOT_SUPPORTED);
     return -1;
@@ -9056,6 +9099,14 @@ EXPORTED int32_t yices_pop(context_t *ctx) {
   context_pop(ctx);
 
   return 0;
+}
+
+/* See the comment above yices_push for the locking rationale. */
+EXPORTED int32_t yices_pop(context_t *ctx) {
+  if (ctx->mcsat != NULL) {
+    MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_pop(ctx));
+  }
+  return _o_yices_pop(ctx);
 }
 
 
@@ -9486,6 +9537,7 @@ static bool check_delegate(const char *delegate);
 EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params) {
   param_t default_params;
   sat_delegate_t delegate_mode;
+  sat_delegate_incremental_mode_t exec_mode;
   bool one_shot_delegate;
   const char *delegate;
   smt_status_t stat;
@@ -9523,11 +9575,14 @@ EXPORTED smt_status_t yices_check_context(context_t *ctx, const param_t *params)
         set_error_code(CTX_OPERATION_NOT_SUPPORTED);
         return YICES_STATUS_ERROR;
       }
-      if (!one_shot_delegate && ctx->sat_delegate_selector_frames && incremental_delegate(delegate)) {
-        stat = check_with_incremental_delegate(ctx, delegate, 0, 0, NULL, NULL);
-      } else {
-        stat = check_with_delegate(ctx, delegate, 0);
+      if (!effective_sat_delegate_incremental_mode(delegate_mode, ctx->sat_delegate_incremental_mode,
+                                                  ctx->sat_delegate_incremental_mode_set,
+                                                  ctx->mode == CTX_MODE_ONECHECK,
+                                                  one_shot_delegate, &exec_mode)) {
+        set_error_code(CTX_OPERATION_NOT_SUPPORTED);
+        return YICES_STATUS_ERROR;
       }
+      stat = check_with_sat_delegate(ctx, delegate, exec_mode, 0, 0, NULL, NULL);
     }
     if (stat == YICES_STATUS_INTERRUPTED && context_supports_cleaninterrupt(ctx)) {
       context_cleanup(ctx);

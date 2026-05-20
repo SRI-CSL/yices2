@@ -2891,11 +2891,8 @@ static void direct_binary_clause(smt_core_t *s, literal_t l1, literal_t l2) {
   add_literal_to_vector(s->bin + l2, l1);
   s->nb_bin_clauses ++;
 
-  if (s->base_level > 0) {
-    // make a copy for push/pop
-    ivector_push(&s->binary_clauses, l1);
-    ivector_push(&s->binary_clauses, l2);
-  }
+  ivector_push(&s->binary_clauses, l1);
+  ivector_push(&s->binary_clauses, l2);
 }
 
 
@@ -5548,6 +5545,22 @@ void smt_cleanup(smt_core_t *s) {
 /*
  * Clear the current boolean assignment and reset status to IDLE
  */
+/*
+ * Reset any variable values set externally (e.g., by a delegate solver via
+ * set_bvar_value) that are not legitimate DPLL base-level assignments.
+ * Variables with a non-UNDEF value but no mark bit were set outside the
+ * normal DPLL trail; leaving them assigned causes false conflicts when new
+ * unit clauses are added in a subsequent push/assert sequence.
+ */
+static void reset_external_model_values(smt_core_t *s) {
+  bvar_t x;
+  for (x = 0; x < s->nvars; x++) {
+    if (!bval_is_undef(s->value[x]) && !tst_bit(s->mark, x)) {
+      s->value[x] &= 1; /* keep polarity hint, clear assigned bits */
+    }
+  }
+}
+
 void smt_clear(smt_core_t *s) {
   assert(s->status == YICES_STATUS_SAT || s->status == YICES_STATUS_UNKNOWN);
 
@@ -5564,6 +5577,7 @@ void smt_clear(smt_core_t *s) {
   } else {
     // no state to restore. Just backtrack and clear the assignment
     backtrack_to_base_level(s);
+    reset_external_model_values(s);
     if (s->assumptions) {
       // remove the assumptions
       s->has_assumptions = false;
@@ -5591,6 +5605,7 @@ void smt_clear_unsat(smt_core_t *s) {
    */
   if (s->has_assumptions) {
     backtrack_to_base_level(s);
+    reset_external_model_values(s);
 
     // if assumptions didn't contribute the unsat result, don't clear the status
     if (s->bad_assumption != null_literal) {

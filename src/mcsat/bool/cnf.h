@@ -45,6 +45,19 @@ typedef struct {
   /** Current variable being converted */
   variable_t variable;
 
+  /**
+   * Per-instance progress index for cnf_gc_mark across iterations of one
+   * mcsat_gc cycle. Reset to 0 when the cycle starts (gc_vars->level == 0)
+   * and otherwise advances across the for-each-plugin marking rounds.
+   *
+   * Was previously a function-local `static uint32_t` in cnf_gc_mark, which
+   * meant the index was shared across all live cnf_t instances. With one
+   * cnf_t per bool_plugin per context, that made the marking indices race
+   * across contexts under thread-safe builds and could in principle skip
+   * variables when two contexts' GC cycles interleaved (issue #616).
+   */
+  uint32_t gc_mark_index;
+
 } cnf_t;
 
 

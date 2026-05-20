@@ -70,6 +70,8 @@ typedef bval_t (*get_value_fun_t)(void *solver, bvar_t x);
 typedef void (*set_verbosity_fun_t)(void *solver, uint32_t level);
 typedef void (*delete_fun_t)(void *solver);
 typedef void (*add_vars_fun_t)(void *solver, uint32_t n);
+typedef void (*freeze_literal_fun_t)(void *solver, literal_t l);
+typedef void (*melt_literal_fun_t)(void *solver, literal_t l);
 typedef void (*collect_failed_assumptions_fun_t)(void *solver, uint32_t n, const literal_t *a, ivector_t *out);
 
 typedef void (*keep_var_fun_t)(void *solver, bvar_t x);
@@ -94,6 +96,8 @@ typedef struct delegate_s {
   set_verbosity_fun_t set_verbosity;
   delete_fun_t delete;
   add_vars_fun_t add_vars;
+  freeze_literal_fun_t freeze_literal;
+  melt_literal_fun_t melt_literal;
   keep_var_fun_t keep_var;
   var_def2_fun_t var_def2;
   var_def3_fun_t var_def3;
@@ -112,6 +116,14 @@ typedef struct delegate_s {
  */
 extern bool init_delegate(delegate_t *delegate, const char *solver_name, uint32_t nvars);
 
+/*
+ * Create a delegate for persistent append/recheck use.
+ * This is the same as init_delegate for most solvers. For y2sat, it disables
+ * preprocessing because variable elimination is destructive under later
+ * clause additions.
+ */
+extern bool init_delegate_incremental(delegate_t *delegate, const char *solver_name, uint32_t nvars);
+
 
 /*
  * Test whether a solver is known and supported.
@@ -126,10 +138,11 @@ extern bool supported_delegate(const char *solver_name, bool *unknown);
 
 /*
  * Classify solver capabilities.
- * - returns true iff solver_name is supported as an incremental delegate
- *   (currently: cadical, cryptominisat).
  */
-extern bool incremental_delegate(const char *solver_name);
+extern bool delegate_supports_append_recheck_name(const char *solver_name);
+extern bool delegate_supports_assumptions_name(const char *solver_name);
+extern bool delegate_supports_failed_assumptions_name(const char *solver_name);
+extern bool delegate_supports_selector_frames_name(const char *solver_name);
 
 
 /*
@@ -190,6 +203,16 @@ extern void delegate_set_verbosity(delegate_t *delegate, uint32_t level);
  * Add n fresh variables to delegate (if supported).
  */
 extern void delegate_add_vars(delegate_t *delegate, uint32_t n);
+
+/*
+ * Preserve an assumption literal if the delegate supports it.
+ */
+extern void delegate_freeze_literal(delegate_t *delegate, literal_t l);
+
+/*
+ * Retire an assumption literal if the delegate supports it.
+ */
+extern void delegate_melt_literal(delegate_t *delegate, literal_t l);
 
 /*
  * Check whether delegate supports assumptions.

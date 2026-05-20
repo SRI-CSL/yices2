@@ -22,6 +22,13 @@ jobs:
     - name: Install Cygwin Dependencies
       uses: cygwin/cygwin-install-action@v4
       with:
+        # The default mirror (mirrors.kernel.org) stopped serving the cygwin
+        # tree around Feb 2026 (cygwin/cygwin-install-action#52); pin to a
+        # working mirror with a fallback to avoid systematic 404s on
+        # x86_64/setup.zst.sig.
+        site: |
+          https://mirrors.sonic.net/cygwin/
+          https://mirror.wisegs.com/cygwin/
         # Packages to install
         packages: |
           autoconf,

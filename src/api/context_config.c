@@ -92,10 +92,10 @@ typedef enum ctx_config_key {
   CTX_CONFIG_KEY_ARITH_SOLVER,
   CTX_CONFIG_KEY_MODEL_INTERPOLATION,
   CTX_CONFIG_KEY_SAT_DELEGATE,
-  CTX_CONFIG_KEY_SAT_DELEGATE_SELECTOR_FRAMES,
+  CTX_CONFIG_KEY_SAT_DELEGATE_INCREMENTAL_MODE,
 } ctx_config_key_t;
 
-#define NUM_CONFIG_KEYS (CTX_CONFIG_KEY_SAT_DELEGATE_SELECTOR_FRAMES+1)
+#define NUM_CONFIG_KEYS (CTX_CONFIG_KEY_SAT_DELEGATE_INCREMENTAL_MODE+1)
 
 
 static const char *const config_key_names[NUM_CONFIG_KEYS] = {
@@ -106,7 +106,7 @@ static const char *const config_key_names[NUM_CONFIG_KEYS] = {
   "mode",
   "model-interpolation",
   "sat-delegate",
-  "sat-delegate-selector-frames",
+  "sat-delegate-incremental-mode",
   "solver-type",
   "trace",
   "uf-solver",
@@ -120,7 +120,7 @@ static const int32_t config_key[NUM_CONFIG_KEYS] = {
   CTX_CONFIG_KEY_MODE,
   CTX_CONFIG_KEY_MODEL_INTERPOLATION,
   CTX_CONFIG_KEY_SAT_DELEGATE,
-  CTX_CONFIG_KEY_SAT_DELEGATE_SELECTOR_FRAMES,
+  CTX_CONFIG_KEY_SAT_DELEGATE_INCREMENTAL_MODE,
   CTX_CONFIG_KEY_SOLVER_TYPE,
   CTX_CONFIG_KEY_TRACE_TAGS,
   CTX_CONFIG_KEY_UF_SOLVER,
@@ -266,7 +266,8 @@ static const ctx_config_t default_config = {
   ARITH_LIRA,             // fragment
   false,                  // model interpolation
   SAT_DELEGATE_NONE,      // sat delegate
-  false,                  // sat delegate selector frames
+  SAT_DELEGATE_MODE_REBUILD, // sat delegate incremental mode (unused unless explicitly set)
+  false,                  // sat delegate incremental mode set by user
   NULL,                   // trace tags
 };
 
@@ -432,10 +433,11 @@ int32_t config_set_field(ctx_config_t *config, const char *key, const char *valu
       r = -2;
     }
     break;
-  case CTX_CONFIG_KEY_SAT_DELEGATE_SELECTOR_FRAMES:
-    v = parse_as_boolean(value, &config->sat_delegate_selector_frames);
-    if (v < 0) {
+  case CTX_CONFIG_KEY_SAT_DELEGATE_INCREMENTAL_MODE:
+    if (parse_sat_delegate_incremental_mode(value, &config->sat_delegate_incremental_mode) < 0) {
       r = -2;
+    } else {
+      config->sat_delegate_incremental_mode_set = true;
     }
     break;
   default:

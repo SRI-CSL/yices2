@@ -128,6 +128,65 @@ supports_delegate() {
     ./"$bin_dir"/yices_smt2 --delegate="$delegate" < /dev/null > /dev/null 2>&1
 }
 
+test_option_delegate() {
+    local file="$1"
+    local opt_file="$file.options"
+    local tok
+    local next_is_delegate=
+
+    if [ ! -e "$opt_file" ]; then
+        return 1
+    fi
+
+    for tok in $(cat "$opt_file"); do
+        if [ -n "$next_is_delegate" ]; then
+            echo "$tok"
+            return 0
+        fi
+
+        case "$tok" in
+            --delegate=*)
+                echo "${tok#--delegate=}"
+                return 0
+                ;;
+            --delegate)
+                next_is_delegate=yes
+                ;;
+        esac
+    done
+
+    return 1
+}
+
+optional_delegate() {
+    case "$1" in
+        cadical|cryptominisat|kissat)
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+filter_supported_option_delegate_tests() {
+    local tests="$1"
+    local filtered=
+    local file
+    local delegate
+
+    for file in $tests; do
+        delegate=$(test_option_delegate "$file")
+        if [ -n "$delegate" ] && optional_delegate "$delegate" && ! supports_delegate "$delegate"; then
+            echo "Skipping $file: delegate '$delegate' is not supported by this build" >&2
+        else
+            filtered="$filtered $file"
+        fi
+    done
+
+    echo "$filtered"
+}
+
 smt2_options=
 j_option=
 
@@ -236,6 +295,8 @@ if [ -z "$all_tests" ] ; then
       sort
     )
 fi
+
+all_tests=$(filter_supported_option_delegate_tests "$all_tests")
 
 if [ -t 1 ] ; then
   color_flag="-c"
