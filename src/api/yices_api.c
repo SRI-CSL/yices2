@@ -13178,6 +13178,10 @@ int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const
     code = gen_model_by_projection(mdl, __yices_globals.manager, 1, &t, nelims, elim, (ivector_t *) v, &extra_error);
     break;
 
+  case YICES_GEN_BY_PROJ_LOCAL:
+    code = gen_model_by_projection_local(mdl, __yices_globals.manager, 1, &t, nelims, elim, (ivector_t *) v, &extra_error);
+    break;
+
   default:
     code = generalize_model(mdl, __yices_globals.manager, 1, &t, nelims, elim, (ivector_t *) v, &extra_error);
     break;
@@ -13220,6 +13224,10 @@ term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[
 
   case YICES_GEN_BY_PROJ:
     code = gen_model_by_projection(mdl, __yices_globals.manager, n, a, nelims, elim, (ivector_t *) v, &extra_error);
+    break;
+
+  case YICES_GEN_BY_PROJ_LOCAL:
+    code = gen_model_by_projection_local(mdl, __yices_globals.manager, n, a, nelims, elim, (ivector_t *) v, &extra_error);
     break;
 
   default:
