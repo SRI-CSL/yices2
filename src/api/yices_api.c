@@ -8975,7 +8975,7 @@ EXPORTED void yices_reset_context(context_t *ctx) {
  * - if the context status is UNSAT or SEARCHING or INTERRUPTED
  *   code = CTX_INVALID_OPERATION
  */
-EXPORTED int32_t yices_push(context_t *ctx) {
+static int32_t _o_yices_push(context_t *ctx) {
   if (! context_supports_pushpop(ctx)) {
     set_error_code(CTX_OPERATION_NOT_SUPPORTED);
     return -1;
@@ -9015,6 +9015,36 @@ EXPORTED int32_t yices_push(context_t *ctx) {
   return 0;
 }
 
+/*
+ * yices_push and yices_pop both mutate per-context MCSAT state
+ * (mcsat->trail, plugin internal state, scope holder, preprocessor)
+ * via context_clear / context_clear_unsat / context_push / context_pop.
+ *
+ * yices_garbage_collect holds __yices_globals.lock and walks every live
+ * context via context_list_gc_mark -> context_gc_mark, which mutates the
+ * same per-context state: it resets the ctx->top_* / subst_eqs / aux_eqs
+ * vectors, calls intern_tbl_gc_mark / egraph_gc_mark / fun_solver_gc_mark,
+ * and on MCSAT contexts runs the full mcsat_gc(true) (mark + sweep on the
+ * trail and every plugin).
+ *
+ * For MCSAT contexts, mcsat_pop additionally reads __yices_globals.terms
+ * via variable_db_get_term / term_type, racing against term_table_gc.
+ *
+ * Take __yices_globals.lock for the MCSAT branch only; CDCL(T) push/pop
+ * paths are left unlocked, matching the existing pattern in
+ * context_solver.c (call_mcsat_solver and check_context_with_term_assumptions_mcsat
+ * are MT_PROTECT'd; the CDCL(T) solve() body is not).
+ *
+ * Reading ctx->mcsat without the lock is safe: it is set once at context
+ * construction and never mutated afterwards.
+ */
+EXPORTED int32_t yices_push(context_t *ctx) {
+  if (ctx->mcsat != NULL) {
+    MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_push(ctx));
+  }
+  return _o_yices_push(ctx);
+}
+
 
 
 /*
@@ -9029,7 +9059,7 @@ EXPORTED int32_t yices_push(context_t *ctx) {
  *   or if the context's status is SEARCHING or INTERRUPTED
  *   code = CTX_INVALID_OPERATION
  */
-EXPORTED int32_t yices_pop(context_t *ctx) {
+static int32_t _o_yices_pop(context_t *ctx) {
   if (! context_supports_pushpop(ctx)) {
     set_error_code(CTX_OPERATION_NOT_SUPPORTED);
     return -1;
@@ -9069,6 +9099,14 @@ EXPORTED int32_t yices_pop(context_t *ctx) {
   context_pop(ctx);
 
   return 0;
+}
+
+/* See the comment above yices_push for the locking rationale. */
+EXPORTED int32_t yices_pop(context_t *ctx) {
+  if (ctx->mcsat != NULL) {
+    MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_pop(ctx));
+  }
+  return _o_yices_pop(ctx);
 }
 
 
