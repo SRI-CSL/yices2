@@ -17,6 +17,7 @@
  */
 
 #include "mcsat/cdclt/cdclt_plugin.h"
+#include "mcsat/cdclt/cdclt_sat_cache.h"
 
 #include "mcsat/trail.h"
 #include "mcsat/tracing.h"
@@ -58,6 +59,9 @@ typedef struct {
 
   /** assumption vector */
   ivector_t assump;
+
+  /** Bitset assumption cache */
+  cdclt_sat_cache_t cache;
 
   /** do the CDCLT check or not */
   uint32_t check_limit;
@@ -106,6 +110,7 @@ void cdclt_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   init_ivector(&cdclt->conflict, 0);
   init_ivector(&cdclt->assump, 0);
+  cdclt_sat_cache_init(&cdclt->cache);
 
   cdclt->check_limit = 0;
   cdclt->trail_i = 0;
@@ -144,6 +149,7 @@ void cdclt_plugin_destruct(plugin_t* plugin) {
 
   delete_ivector(&cdclt->conflict);
   delete_ivector(&cdclt->assump);
+  cdclt_sat_cache_destroy(&cdclt->cache);
 }
 
 /**
@@ -181,6 +187,8 @@ void cdclt_plugin_new_term_notify(plugin_t* plugin, term_t t, trail_token_t* pro
       int_hmap_add(&cdclt->assump2term_map, a, t);
       int_hmap_add(&cdclt->term2assump_map, _o_yices_not(t), b);
       int_hmap_add(&cdclt->assump2term_map, b, _o_yices_not(t));
+      cdclt_sat_cache_register_atom(&cdclt->cache, a);
+      cdclt_sat_cache_register_atom(&cdclt->cache, b);
       // assert a -> t in the cdclt solver
       _o_yices_assert_formula(cdclt->cdclt_ctx, _o_yices_implies(a, t));
       _o_yices_assert_formula(cdclt->cdclt_ctx, _o_yices_implies(b, _o_yices_not(t)));
@@ -237,25 +245,56 @@ void cdclt_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   if (new_assump && cdclt->assump.size > cdclt->check_limit) {
     if (ctx_trace_enabled(cdclt->ctx, "cdclt")) {
       ctx_trace_printf(cdclt->ctx, "cdclt_propagate::checking\n");
-    } 
-    
-    smt_status_t result = _o_yices_check_context_with_assumptions(cdclt->cdclt_ctx, NULL, cdclt->assump.size, cdclt->assump.data);
-    (*cdclt->stats.checks) ++;
+    }
+
+    bool cache_built = cdclt_sat_cache_build(&cdclt->cache, &cdclt->assump);
+
+    if (cache_built) {
+      if (cdclt_sat_cache_lookup_sat(&cdclt->cache, cdclt->cache.scratch)) {
+        return;
+      }
+      ivector_reset(&cdclt->conflict);
+      if (cdclt_sat_cache_lookup_unsat(&cdclt->cache, cdclt->cache.scratch,
+                                       &cdclt->conflict)) {
+        /* Translate proxy variables back to original terms */
+        for (uint32_t i = 0; i < cdclt->conflict.size; i++) {
+          int_hmap_pair_t* t =
+            int_hmap_get(&cdclt->assump2term_map, cdclt->conflict.data[i]);
+          cdclt->conflict.data[i] = t->val;
+        }
+        prop->conflict(prop);
+        (*cdclt->stats.conflicts)++;
+        return;
+      }
+    }
+
+    smt_status_t result = _o_yices_check_context_with_assumptions(
+      cdclt->cdclt_ctx, NULL, cdclt->assump.size, cdclt->assump.data);
+    (*cdclt->stats.checks)++;
 
     if (result == YICES_STATUS_UNSAT) {
       context_build_unsat_core(cdclt->cdclt_ctx, &cdclt->conflict);
 
-      for (uint32_t i = 0; i < cdclt->conflict.size; ++i) {
+      /* Record UNSAT before translating (proxies are the cache keys) */
+      if (cache_built &&
+          cdclt_sat_cache_build_into(&cdclt->cache, &cdclt->conflict,
+                                     cdclt->cache.scratch)) {
+        cdclt_sat_cache_record_unsat(&cdclt->cache, cdclt->cache.scratch);
+      }
+
+      for (uint32_t i = 0; i < cdclt->conflict.size; i++) {
         term_t a = cdclt->conflict.data[i];
-        int_hmap_pair_t *t = int_hmap_get(&cdclt->assump2term_map, a);
+        int_hmap_pair_t* t = int_hmap_get(&cdclt->assump2term_map, a);
         cdclt->conflict.data[i] = t->val;
       }
 
-      // Report conflict
       prop->conflict(prop);
-      (*cdclt->stats.conflicts) ++;
-    
+      (*cdclt->stats.conflicts)++;
+
     } else {
+      if (cache_built) {
+        cdclt_sat_cache_record_sat(&cdclt->cache, cdclt->cache.scratch);
+      }
       cdclt->check_limit++;
     }
   }
