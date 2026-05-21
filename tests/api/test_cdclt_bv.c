@@ -106,7 +106,7 @@ static void test_bv_cache_hit(void) {
 int main(void) {
   yices_init();
 #ifdef HAVE_MCSAT
-  test_bv_cache_hit();          /* runs without MCSAT runtime support */
+  test_bv_cache_hit();          /* no live solver needed; requires MCSAT compiled in */
 #endif
   if (!yices_has_mcsat()) {
     yices_exit();
