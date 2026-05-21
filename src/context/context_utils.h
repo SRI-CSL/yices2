@@ -660,8 +660,8 @@ static inline bool context_has_mcsat(context_t *ctx) {
   return ctx->arch == CTX_ARCH_MCSAT;
 }
 
-static inline bool context_mcsat_supplement_active(context_t *ctx) {
-  return ctx->mcsat_supplement_active;
+static inline bool context_mcsat_supplement(context_t *ctx) {
+  return ctx->mcsat_supplement;
 }
 
 

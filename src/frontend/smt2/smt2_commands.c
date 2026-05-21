@@ -2273,6 +2273,10 @@ static inline context_arch_t smt2_arch_for_logic(const smt2_globals_t *g, smt_lo
   return arch;
 }
 
+static inline bool smt2_logic_uses_mcsat_supplement(const smt2_globals_t *g, smt_logic_t logic) {
+  return g->force_dpllt && arch_for_logic(logic) == CTX_ARCH_MCSAT;
+}
+
 
 /*
  * Options: produce-unsat-cores and produce-unsat-assumptions.
@@ -2592,6 +2596,7 @@ static void init_smt2_context(smt2_globals_t *g) {
   smt_logic_t logic;
   context_arch_t arch;
   context_mode_t mode;
+  int32_t code;
   bool iflag;
   bool qflag;
 
@@ -2635,13 +2640,23 @@ static void init_smt2_context(smt2_globals_t *g) {
 
   g->ctx = yices_create_context(logic, arch, mode, iflag, qflag);
   assert(g->ctx != NULL);
-  if (g->verbosity > 0 || g->tracer != NULL) {
-    context_set_trace(g->ctx, get_tracer(g));
-  }
 
   // Set the mcsat options
   g->ctx->mcsat_options = g->mcsat_options;
   ivector_copy(&g->ctx->mcsat_var_order, g->var_order.data, g->var_order.size);
+
+  if (!g->mcsat && smt2_logic_uses_mcsat_supplement(g, logic)) {
+    code = context_attach_mcsat_supplement(g->ctx);
+    assert(code == CTX_NO_ERROR);
+    if (code < 0) {
+      print_error("failed to attach the mcsat supplement");
+      done = true;
+      return;
+    }
+  }
+  if (g->verbosity > 0 || g->tracer != NULL) {
+    context_set_trace(g->ctx, get_tracer(g));
+  }
 
   /*
    * TODO: override the default context options based on

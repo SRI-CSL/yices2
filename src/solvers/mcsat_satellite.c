@@ -45,7 +45,13 @@ typedef struct mcsat_atom_entry_s {
 
 typedef struct mcsat_eq_entry_s {
   term_t label;
+  term_t t1;
+  term_t t2;
+  eterm_t e1;
+  eterm_t e2;
   literal_t source_lit;
+  int32_t edge_id;
+  bool is_eq;
 } mcsat_eq_entry_t;
 
 struct mcsat_satellite_s {
@@ -213,7 +219,8 @@ static void collect_boolean_atoms(mcsat_satellite_t *sat, term_t t, int_hset_t *
   int_hset_add(visited, t);
 
   terms = sat->mctx.terms;
-  if (term_type(terms, t) == bool_type(terms->types)) {
+  if (term_type(terms, t) == bool_type(terms->types) &&
+      term_kind(terms, t) == UNINTERPRETED_TERM) {
     int_hset_add(atoms, t);
   }
 
@@ -261,54 +268,138 @@ static void collect_boolean_atoms(mcsat_satellite_t *sat, term_t t, int_hset_t *
   }
 }
 
+static void mcsat_satellite_push_negated_literal(mcsat_satellite_t *sat, int_hset_t *seen_lits, literal_t l) {
+  if (l != null_literal && !int_hset_member(seen_lits, l)) {
+    int_hset_add(seen_lits, l);
+    ivector_push(&sat->conflict, not(l));
+  }
+}
+
+static mcsat_eq_entry_t *mcsat_satellite_find_eq_label(mcsat_satellite_t *sat, term_t label) {
+  uint32_t i;
+
+  for (i=0; i<sat->num_eq; i++) {
+    if (sat->eq[i].label == label) {
+      return sat->eq + i;
+    }
+  }
+
+  return NULL;
+}
+
+static bool mcsat_satellite_expand_label(mcsat_satellite_t *sat, term_t label, int_hset_t *seen_lits);
+
+static bool mcsat_satellite_expand_eq_label(mcsat_satellite_t *sat, mcsat_eq_entry_t *eq, int_hset_t *seen_lits) {
+  ivector_t v;
+  uint32_t i;
+
+  if (eq->source_lit != null_literal) {
+    mcsat_satellite_push_negated_literal(sat, seen_lits, eq->source_lit);
+    return true;
+  }
+
+  if (eq->is_eq && sat->egraph != NULL && eq->e1 != null_eterm && eq->e2 != null_eterm && eq->edge_id >= 0) {
+    init_ivector(&v, 0);
+    egraph_explain_equality(sat->egraph, pos_occ(eq->e1), pos_occ(eq->e2), eq->edge_id, &v);
+    for (i=0; i<v.size; i++) {
+      mcsat_satellite_push_negated_literal(sat, seen_lits, v.data[i]);
+    }
+    delete_ivector(&v);
+    return true;
+  }
+
+  return false;
+}
+
+static bool mcsat_satellite_expand_label(mcsat_satellite_t *sat, term_t label, int_hset_t *seen_lits) {
+  int_hmap_pair_t *p;
+  mcsat_eq_entry_t *eq;
+
+  p = int_hmap_find(&sat->label_to_lit, label);
+  if (p != NULL) {
+    mcsat_satellite_push_negated_literal(sat, seen_lits, p->val);
+    return true;
+  }
+
+  eq = mcsat_satellite_find_eq_label(sat, label);
+  return eq != NULL && mcsat_satellite_expand_eq_label(sat, eq, seen_lits);
+}
+
+static bool mcsat_satellite_expand_all_assumptions(mcsat_satellite_t *sat, int_hset_t *seen_lits) {
+  uint32_t i;
+
+  for (i=0; i<sat->assumptions.size; i++) {
+    if (!mcsat_satellite_expand_label(sat, sat->assumptions.data[i], seen_lits)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 /*
  * Build a conflict clause from mcsat interpolant labels.
- * Fallback: use all current tracked assumptions.
  */
-static void mcsat_satellite_record_conflict(mcsat_satellite_t *sat) {
+static bool mcsat_satellite_record_conflict(mcsat_satellite_t *sat) {
   term_t interpolant;
   int_hset_t labels;
   int_hset_t visited;
   int_hset_t seen_lits;
-  int_hmap_pair_t *p;
-  literal_t l;
+  term_t label;
+  bool ok;
   uint32_t i;
 
   ivector_reset(&sat->conflict);
   init_int_hset(&labels, 0);
   init_int_hset(&visited, 0);
   init_int_hset(&seen_lits, 0);
+  ok = true;
 
   interpolant = mcsat_get_unsat_model_interpolant(sat->mctx.mcsat);
   if (interpolant != NULL_TERM) {
     collect_boolean_atoms(sat, interpolant, &labels, &visited);
-    p = int_hmap_first_record(&sat->label_to_lit);
-    while (p != NULL) {
-      if (int_hset_member(&labels, p->key) && p->val != null_literal &&
-          !int_hset_member(&seen_lits, p->val)) {
-        int_hset_add(&seen_lits, p->val);
-        ivector_push(&sat->conflict, not(p->val));
-      }
-      p = int_hmap_next_record(&sat->label_to_lit, p);
+    if (labels.z_flag) {
+      ok = mcsat_satellite_expand_label(sat, 0, &seen_lits);
     }
-  }
-
-  if (sat->conflict.size == 0) {
-    for (i = 0; i < sat->assumption_lits.size; i++) {
-      l = sat->assumption_lits.data[i];
-      if (l != null_literal && !int_hset_member(&seen_lits, l)) {
-        int_hset_add(&seen_lits, l);
-        ivector_push(&sat->conflict, not(l));
+    for (i=0; ok && i<labels.size; i++) {
+      label = labels.data[i];
+      if (label != 0 && !mcsat_satellite_expand_label(sat, label, &seen_lits)) {
+        ok = false;
       }
     }
+    if (!ok) {
+      /*
+       * Some MCSAT interpolants can contain internal Boolean structure rather
+       * than just our public labels.  The coarse active-cube clause is still
+       * sound, provided every active label has a CDCL/E-graph explanation.
+       */
+      ivector_reset(&sat->conflict);
+      int_hset_reset(&seen_lits);
+      ok = mcsat_satellite_expand_all_assumptions(sat, &seen_lits);
+    }
+  } else {
+    /*
+     * MCSAT does not produce a label interpolant for every assumption conflict.
+     * In that case, learn the clause over the whole active cube, but only if
+     * every active label can be expanded to a CDCL/E-graph explanation.
+     */
+    ok = mcsat_satellite_expand_all_assumptions(sat, &seen_lits);
   }
 
-  ivector_push(&sat->conflict, null_literal);
-  record_theory_conflict(sat->core, sat->conflict.data);
+  if (!ok) {
+    assert(false && "MCSAT conflict label has no expandable CDCL explanation");
+  }
+
+  if (ok) {
+    ivector_push(&sat->conflict, null_literal);
+    record_theory_conflict(sat->core, sat->conflict.data);
+  }
 
   delete_int_hset(&seen_lits);
   delete_int_hset(&visited);
   delete_int_hset(&labels);
+
+  return ok;
 }
 
 /*
@@ -355,7 +446,9 @@ static smt_status_t mcsat_satellite_check(mcsat_satellite_t *sat, bool force, bo
     sat->cache_valid = true;
     sat->cache_signature = sig;
   } else if (status == YICES_STATUS_UNSAT && emit_conflict) {
-    mcsat_satellite_record_conflict(sat);
+    if (!mcsat_satellite_record_conflict(sat)) {
+      status = YICES_STATUS_UNKNOWN;
+    }
   }
 
   return status;
@@ -389,13 +482,15 @@ static void mcsat_satellite_backtrack_to(mcsat_satellite_t *sat, uint32_t target
 
 /*
  * Align the internal MCSAT scope stack with the outer context base level.
- * This is needed when the satellite is attached after one or more pushes.
+ * This keeps the MCSAT engine scoped like the outer context even if an
+ * internal caller attaches the satellite after one or more pushes.
  */
 static void mcsat_satellite_sync_base_level(mcsat_satellite_t *sat, uint32_t base_level) {
   uint32_t i;
 
   for (i = 0; i < base_level; i++) {
-    context_push(&sat->mctx);
+    mcsat_satellite_prepare_assertion_state(sat);
+    mcsat_push(sat->mctx.mcsat);
     ivector_push(&sat->atom_push_mark, sat->num_atoms);
     sat->push_depth ++;
     mcsat_satellite_open_level(sat);
@@ -427,7 +522,20 @@ static literal_t source_lit_from_hint(mcsat_satellite_t *sat, composite_t *hint)
 /*
  * Add one eq/diseq notification as a labeled internal assumption.
  */
-static void mcsat_satellite_add_eq_notification(mcsat_satellite_t *sat, term_t t1, term_t t2, bool eq, literal_t src) {
+static eterm_t mcsat_satellite_arith_eterm(mcsat_satellite_t *sat, thvar_t x) {
+  context_t *ctx;
+
+  ctx = sat->ctx;
+  if (ctx->arith_solver != NULL && ctx->arith.eterm_of_var != NULL) {
+    return ctx->arith.eterm_of_var(ctx->arith_solver, x);
+  }
+
+  return null_eterm;
+}
+
+static void mcsat_satellite_add_eq_notification(mcsat_satellite_t *sat, term_t t1, term_t t2,
+                                                eterm_t e1, eterm_t e2, bool eq,
+                                                literal_t src, int32_t edge_id) {
   int32_t k0, k1;
   pmap2_rec_t *r;
   term_t atom;
@@ -436,8 +544,11 @@ static void mcsat_satellite_add_eq_notification(mcsat_satellite_t *sat, term_t t
 
   if (t1 > t2) {
     term_t aux = t1;
+    eterm_t eaux = e1;
     t1 = t2;
     t2 = aux;
+    e1 = e2;
+    e2 = eaux;
   }
 
   k0 = eq ? (int32_t) t1 : -((int32_t) t1) - 1;
@@ -460,7 +571,13 @@ static void mcsat_satellite_add_eq_notification(mcsat_satellite_t *sat, term_t t
   }
 
   sat->eq[sat->num_eq].label = label;
+  sat->eq[sat->num_eq].t1 = t1;
+  sat->eq[sat->num_eq].t2 = t2;
+  sat->eq[sat->num_eq].e1 = e1;
+  sat->eq[sat->num_eq].e2 = e2;
   sat->eq[sat->num_eq].source_lit = src;
+  sat->eq[sat->num_eq].edge_id = edge_id;
+  sat->eq[sat->num_eq].is_eq = eq;
   sat->num_eq ++;
 
   r->val = 1;
@@ -520,7 +637,14 @@ static void mcsat_satellite_backtrack(void *solver, uint32_t back_level) {
 
 static void mcsat_satellite_push(void *solver) {
   mcsat_satellite_t *sat = solver;
-  context_push(&sat->mctx);
+
+  /*
+   * sat->mctx is a thin host for the MCSAT engine.  The satellite asserts
+   * only label-guarded facts into that engine, so bypass the wrapping
+   * context_t push/pop machinery and scope the MCSAT engine directly.
+   */
+  mcsat_satellite_prepare_assertion_state(sat);
+  mcsat_push(sat->mctx.mcsat);
   ivector_push(&sat->atom_push_mark, sat->num_atoms);
   sat->push_depth ++;
   mcsat_satellite_open_level(sat);
@@ -534,7 +658,7 @@ static void mcsat_satellite_pop(void *solver) {
   assert(sat->push_depth > 0);
   assert(sat->atom_push_mark.size > 0);
 
-  context_pop(&sat->mctx);
+  mcsat_pop(sat->mctx.mcsat);
   assert(sat->dlevel > 0);
 
   mark = ivector_pop2(&sat->atom_push_mark);
@@ -606,18 +730,28 @@ static literal_t mcsat_satellite_select_polarity(void *solver, void *atom, liter
   return l;
 }
 
+static int32_t mcsat_satellite_observe_atom(void *solver, term_t atom, literal_t l) {
+  return mcsat_satellite_register_atom((mcsat_satellite_t *) solver, atom, l, NULL);
+}
+
+static void mcsat_satellite_observe_arith_term(void *solver, thvar_t x, term_t t) {
+  mcsat_satellite_register_arith_term((mcsat_satellite_t *) solver, x, t);
+}
+
 /*
  * Egraph interface callbacks.
  */
 static void mcsat_satellite_assert_equality(void *solver, thvar_t x1, thvar_t x2, int32_t id) {
   mcsat_satellite_t *sat = solver;
   int_hmap_pair_t *p1, *p2;
-  (void) id;
 
   p1 = int_hmap_find(&sat->arith_var_to_term, x1);
   p2 = int_hmap_find(&sat->arith_var_to_term, x2);
   if (p1 != NULL && p2 != NULL) {
-    mcsat_satellite_add_eq_notification(sat, p1->val, p2->val, true, null_literal);
+    mcsat_satellite_add_eq_notification(sat, p1->val, p2->val,
+                                        mcsat_satellite_arith_eterm(sat, x1),
+                                        mcsat_satellite_arith_eterm(sat, x2),
+                                        true, null_literal, id);
   }
 }
 
@@ -630,7 +764,10 @@ static void mcsat_satellite_assert_disequality(void *solver, thvar_t x1, thvar_t
   p2 = int_hmap_find(&sat->arith_var_to_term, x2);
   if (p1 != NULL && p2 != NULL) {
     src = source_lit_from_hint(sat, hint);
-    mcsat_satellite_add_eq_notification(sat, p1->val, p2->val, false, src);
+    mcsat_satellite_add_eq_notification(sat, p1->val, p2->val,
+                                        mcsat_satellite_arith_eterm(sat, x1),
+                                        mcsat_satellite_arith_eterm(sat, x2),
+                                        false, src, -1);
   }
 }
 
@@ -647,90 +784,14 @@ static bool mcsat_satellite_assert_distinct(void *solver, uint32_t n, thvar_t *a
     for (j=i+1; j<n; j++) {
       p2 = int_hmap_find(&sat->arith_var_to_term, a[j]);
       if (p2 != NULL) {
-        mcsat_satellite_add_eq_notification(sat, p1->val, p2->val, false, src);
+        mcsat_satellite_add_eq_notification(sat, p1->val, p2->val,
+                                            mcsat_satellite_arith_eterm(sat, a[i]),
+                                            mcsat_satellite_arith_eterm(sat, a[j]),
+                                            false, src, -1);
       }
     }
   }
   return true;
-}
-
-static bool mcsat_satellite_check_diseq(void *solver, thvar_t x1, thvar_t x2) {
-  (void) solver;
-  (void) x1;
-  (void) x2;
-  return false;
-}
-
-static bool mcsat_satellite_is_constant(void *solver, thvar_t x) {
-  (void) solver;
-  (void) x;
-  return false;
-}
-
-static void mcsat_satellite_expand_th_expl(void *solver, thvar_t x1, thvar_t x2, void *expl, th_explanation_t *result) {
-  (void) solver;
-  (void) x1;
-  (void) x2;
-  (void) expl;
-  (void) result;
-}
-
-static uint32_t mcsat_satellite_reconcile_model(void *solver, uint32_t max_eq) {
-  (void) solver;
-  (void) max_eq;
-  return 0;
-}
-
-static void mcsat_satellite_prepare_model(void *solver) {
-  (void) solver;
-}
-
-static bool mcsat_satellite_equal_in_model(void *solver, thvar_t x1, thvar_t x2) {
-  (void) solver;
-  (void) x1;
-  (void) x2;
-  return false;
-}
-
-static void mcsat_satellite_gen_interface_lemma(void *solver, literal_t l, thvar_t x1, thvar_t x2, bool equiv) {
-  (void) solver;
-  (void) l;
-  (void) x1;
-  (void) x2;
-  (void) equiv;
-}
-
-static void mcsat_satellite_release_model(void *solver) {
-  (void) solver;
-}
-
-static ipart_t *mcsat_satellite_build_partition(void *solver) {
-  (void) solver;
-  return NULL;
-}
-
-static void mcsat_satellite_release_partition(void *solver, ipart_t *partition) {
-  (void) solver;
-  (void) partition;
-}
-
-static void mcsat_satellite_attach_eterm(void *solver, thvar_t x, eterm_t t) {
-  (void) solver;
-  (void) x;
-  (void) t;
-}
-
-static eterm_t mcsat_satellite_eterm_of_var(void *solver, thvar_t x) {
-  (void) solver;
-  (void) x;
-  return null_eterm;
-}
-
-static literal_t mcsat_satellite_select_eq_polarity(void *solver, thvar_t x, thvar_t y, literal_t l) {
-  (void) solver;
-  (void) x;
-  (void) y;
-  return l;
 }
 
 /*
@@ -757,23 +818,12 @@ static th_smt_interface_t mcsat_satellite_smt = {
   NULL,
 };
 
-static th_egraph_interface_t mcsat_satellite_eg = {
+static arith_observer_interface_t mcsat_satellite_arith_observer = {
+  (arith_observer_atom_fun_t) mcsat_satellite_observe_atom,
+  (arith_observer_term_fun_t) mcsat_satellite_observe_arith_term,
   (assert_eq_fun_t) mcsat_satellite_assert_equality,
   (assert_diseq_fun_t) mcsat_satellite_assert_disequality,
   (assert_distinct_fun_t) mcsat_satellite_assert_distinct,
-  (check_diseq_fun_t) mcsat_satellite_check_diseq,
-  (is_constant_fun_t) mcsat_satellite_is_constant,
-  (expand_eq_exp_fun_t) mcsat_satellite_expand_th_expl,
-  (reconcile_model_fun_t) mcsat_satellite_reconcile_model,
-  (prepare_model_fun_t) mcsat_satellite_prepare_model,
-  (equal_in_model_fun_t) mcsat_satellite_equal_in_model,
-  (gen_inter_lemma_fun_t) mcsat_satellite_gen_interface_lemma,
-  (release_model_fun_t) mcsat_satellite_release_model,
-  (build_partition_fun_t) mcsat_satellite_build_partition,
-  (free_partition_fun_t) mcsat_satellite_release_partition,
-  (attach_to_var_fun_t) mcsat_satellite_attach_eterm,
-  (get_eterm_fun_t) mcsat_satellite_eterm_of_var,
-  (select_eq_polarity_fun_t) mcsat_satellite_select_eq_polarity,
 };
 
 
@@ -884,23 +934,9 @@ th_smt_interface_t *mcsat_satellite_smt_interface(mcsat_satellite_t *sat) {
   return &mcsat_satellite_smt;
 }
 
-th_egraph_interface_t *mcsat_satellite_egraph_interface(mcsat_satellite_t *sat) {
+arith_observer_interface_t *mcsat_satellite_arith_observer_interface(mcsat_satellite_t *sat) {
   (void) sat;
-  return &mcsat_satellite_eg;
-}
-
-int32_t mcsat_satellite_assert_formulas(mcsat_satellite_t *sat, uint32_t n, const term_t *a) {
-  uint32_t i;
-  int32_t code;
-
-  for (i = 0; i < n; i++) {
-    code = mcsat_satellite_assert_formula(sat, a[i]);
-    if (code < 0) {
-      return code;
-    }
-  }
-
-  return CTX_NO_ERROR;
+  return &mcsat_satellite_arith_observer;
 }
 
 /*
@@ -1028,7 +1064,7 @@ term_t mcsat_satellite_compute_unsat_model_interpolant(mcsat_satellite_t *sat, c
   }
 
   if (context_supports_pushpop(&sat->mctx)) {
-    context_push(&sat->mctx);
+    mcsat_push(sat->mctx.mcsat);
     pushed = true;
   }
 
@@ -1078,7 +1114,7 @@ done:
 
   if (pushed) {
     mcsat_cleanup_assumptions(sat->mctx.mcsat);
-    context_pop(&sat->mctx);
+    mcsat_pop(sat->mctx.mcsat);
   }
 
   if (result != NULL_TERM) {

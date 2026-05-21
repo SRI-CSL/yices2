@@ -752,8 +752,8 @@ struct context_s {
   // flag for enabling adding quant instances
   bool en_quant;
 
-  // true when supplementary mcsat satellite is active in cdcl(t) mode
-  bool mcsat_supplement_active;
+  // true when the supplemental MCSAT satellite is configured in CDCL(T) mode
+  bool mcsat_supplement;
 };
 
 

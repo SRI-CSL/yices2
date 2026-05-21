@@ -32,9 +32,7 @@ extern void delete_mcsat_satellite(mcsat_satellite_t *sat);
 
 extern th_ctrl_interface_t *mcsat_satellite_ctrl_interface(mcsat_satellite_t *sat);
 extern th_smt_interface_t *mcsat_satellite_smt_interface(mcsat_satellite_t *sat);
-extern th_egraph_interface_t *mcsat_satellite_egraph_interface(mcsat_satellite_t *sat);
-
-extern int32_t mcsat_satellite_assert_formulas(mcsat_satellite_t *sat, uint32_t n, const term_t *a);
+extern arith_observer_interface_t *mcsat_satellite_arith_observer_interface(mcsat_satellite_t *sat);
 
 /*
  * Register a Boolean atom term tracked by the supplementary MCSAT satellite.

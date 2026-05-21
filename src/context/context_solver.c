@@ -528,7 +528,7 @@ static void context_set_search_parameters(context_t *ctx, const param_t *params)
     egraph_set_max_interface_eqs(egraph, params->max_interface_eqs);
   }
 
-  if (ctx->mcsat_supplement_active && egraph != NULL && egraph->th[ETYPE_MCSAT] != NULL) {
+  if (ctx->mcsat_supplement && egraph != NULL && egraph->th[ETYPE_MCSAT] != NULL) {
     mcsat_satellite_set_search_parameters((mcsat_satellite_t *) egraph->th[ETYPE_MCSAT], params);
   }
 
@@ -612,7 +612,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
   }
 
   sat = NULL;
-  if (ctx->mcsat_supplement_active &&
+  if (ctx->mcsat_supplement &&
       ctx->egraph != NULL &&
       ctx->egraph->th[ETYPE_MCSAT] != NULL) {
     sat = (mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT];
@@ -652,7 +652,7 @@ smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *param
   }
 
   sat = NULL;
-  if (ctx->mcsat_supplement_active &&
+  if (ctx->mcsat_supplement &&
       ctx->egraph != NULL &&
       ctx->egraph->th[ETYPE_MCSAT] != NULL) {
     sat = (mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT];
@@ -1403,7 +1403,7 @@ static smt_status_t _o_check_context_with_term_assumptions_supplement(context_t 
   interpolant = NULL_TERM;
   sat = NULL;
 
-  if (ctx->mcsat_supplement_active &&
+  if (ctx->mcsat_supplement &&
       ctx->egraph != NULL &&
       ctx->egraph->th[ETYPE_MCSAT] != NULL) {
     sat = (mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT];
@@ -1470,7 +1470,7 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
   context_invalidate_unsat_core_cache(ctx);
 
   if (ctx->mcsat == NULL) {
-    if (ctx->mcsat_supplement_active) {
+    if (ctx->mcsat_supplement) {
       return check_context_with_term_assumptions_supplement(ctx, params, n, a, error);
     }
     smt_status_t stat;
@@ -1572,6 +1572,13 @@ smt_status_t check_context_with_model(context_t *ctx, const param_t *params, mod
     //    if (n > 0 && stat == STATUS_UNSAT && context_supports_multichecks(ctx)) {
     //      context_clear(ctx);
     //    }
+  }
+
+  if (stat == YICES_STATUS_UNSAT && n == 0 &&
+      context_supports_model_interpolation(ctx) &&
+      mcsat_get_unsat_model_interpolant(ctx->mcsat) == NULL_TERM) {
+    // With no model assumptions, false is the canonical interpolant.
+    mcsat_set_unsat_result_from_labeled_interpolant(ctx->mcsat, false_term, 0, NULL, NULL);
   }
 
   return stat;
@@ -2104,7 +2111,7 @@ void build_model(model_t *model, context_t *ctx) {
    * Supplemental MCSAT values are an overlay: apply them after the regular
    * CDCL(T) model is fully built so nonlinear/FF values are not overwritten.
    */
-  if (ctx->mcsat_supplement_active && context_has_egraph(ctx) && ctx->egraph->th[ETYPE_MCSAT] != NULL) {
+  if (ctx->mcsat_supplement && context_has_egraph(ctx) && ctx->egraph->th[ETYPE_MCSAT] != NULL) {
     mcsat_satellite_build_model((mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT], model);
   }
 }
@@ -2241,7 +2248,7 @@ term_t context_get_unsat_model_interpolant(context_t *ctx) {
     return mcsat_get_unsat_model_interpolant(ctx->mcsat);
   }
 
-  if (ctx->mcsat_supplement_active && ctx->egraph != NULL && ctx->egraph->th[ETYPE_MCSAT] != NULL) {
+  if (ctx->mcsat_supplement && ctx->egraph != NULL && ctx->egraph->th[ETYPE_MCSAT] != NULL) {
     return mcsat_satellite_get_unsat_model_interpolant((mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT]);
   }
 

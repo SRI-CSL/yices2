@@ -8870,6 +8870,7 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
   context_mode_t mode;
   bool iflag;
   bool qflag;
+  bool mcsat_supplement;
   int32_t k;
 
   if (config == NULL) {
@@ -8879,9 +8880,10 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
     mode = CTX_MODE_PUSHPOP;
     iflag = true;
     qflag = false;
+    mcsat_supplement = false;
   } else {
     // read the config
-    k = decode_config(config, &logic, &arch, &mode, &iflag, &qflag);
+    k = decode_config(config, &logic, &arch, &mode, &iflag, &qflag, &mcsat_supplement);
     if (k < 0) {
       // invalid configuration
       set_error_code(CTX_INVALID_CONFIG);
@@ -8900,6 +8902,12 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
   }
 
   context_t* ctx = _o_yices_create_context(logic, arch, mode, iflag, qflag);
+  if (mcsat_supplement && context_attach_mcsat_supplement(ctx) < 0) {
+    delete_context(ctx);
+    safe_free(ctx);
+    set_error_code(CTX_INVALID_CONFIG);
+    return NULL;
+  }
 
   // Additional setup for MCSAT options in the config
   if (config != NULL) {

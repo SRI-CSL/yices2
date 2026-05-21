@@ -82,6 +82,12 @@ static context_t *make_cdclt_context(const char *logic_name) {
     fail("setting solver-type=dpllt failed");
   }
 
+  code = yices_set_config(cfg, "mcsat-supplement", "true");
+  if (code < 0) {
+    yices_free_config(cfg);
+    fail("setting mcsat-supplement=true failed");
+  }
+
   code = yices_set_config(cfg, "mode", "push-pop");
   if (code < 0) {
     yices_free_config(cfg);
@@ -364,6 +370,27 @@ static void test_division_by_zero_remains_error(void) {
   yices_free_context(ctx);
 }
 
+static void test_disabling_required_supplement_is_invalid(void) {
+  ctx_config_t *cfg;
+  context_t *ctx;
+
+  cfg = yices_new_config();
+  check(cfg != NULL, "yices_new_config failed");
+
+  check_code(yices_default_config_for_logic(cfg, "QF_NIA"),
+             "default_config_for_logic(QF_NIA) failed");
+  check_code(yices_set_config(cfg, "solver-type", "dpllt"),
+             "setting solver-type=dpllt failed");
+  check_code(yices_set_config(cfg, "mcsat-supplement", "false"),
+             "setting mcsat-supplement=false failed");
+
+  ctx = yices_new_context(cfg);
+  check(ctx == NULL, "expected invalid config when DPLL(T) QF_NIA disables MCSAT supplement");
+  check(yices_error_code() == CTX_INVALID_CONFIG, "expected CTX_INVALID_CONFIG");
+
+  yices_free_config(cfg);
+}
+
 int main(void) {
   if (!yices_has_mcsat()) {
     return 1; // skipped
@@ -377,6 +404,7 @@ int main(void) {
   test_ff_sat_unsat_model_and_assumption_core();
   test_nla_assumption_core();
   test_division_by_zero_remains_error();
+  test_disabling_required_supplement_is_invalid();
 
   yices_exit();
   return 0;

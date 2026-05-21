@@ -3630,10 +3630,23 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
  *   visible in the egraph).
  */
 static void propagate_satellite_equality(egraph_t *egraph, etype_t i, thvar_t v1, thvar_t v2, int32_t id) {
+  arith_observer_t *obs;
+  uint32_t j, n;
+
   assert(i < NUM_SATELLITES && egraph->eg[i] != NULL);
 
   // call the merge function for theory i
   egraph->eg[i]->assert_equality(egraph->th[i], v1, v2, id);
+
+  if (i == ETYPE_INT || i == ETYPE_REAL) {
+    n = egraph->num_arith_observers;
+    for (j=0; j<n; j++) {
+      obs = egraph->arith_observer + j;
+      if (obs->interface->assert_equality != NULL) {
+        obs->interface->assert_equality(obs->solver, v1, v2, id);
+      }
+    }
+  }
 }
 
 
@@ -3641,8 +3654,21 @@ static void propagate_satellite_equality(egraph_t *egraph, etype_t i, thvar_t v1
  * Propagate disequality between v1 and v2 in theory i
  */
 static void propagate_satellite_disequality(egraph_t *egraph, etype_t i, thvar_t v1, thvar_t v2, composite_t *hint) {
+  arith_observer_t *obs;
+  uint32_t j, n;
+
   assert(i < NUM_SATELLITES && egraph->eg[i] != NULL);
   egraph->eg[i]->assert_disequality(egraph->th[i], v1, v2, hint);
+
+  if (i == ETYPE_INT || i == ETYPE_REAL) {
+    n = egraph->num_arith_observers;
+    for (j=0; j<n; j++) {
+      obs = egraph->arith_observer + j;
+      if (obs->interface->assert_disequality != NULL) {
+        obs->interface->assert_disequality(obs->solver, v1, v2, hint);
+      }
+    }
+  }
 }
 
 
@@ -3654,8 +3680,23 @@ static void propagate_satellite_disequality(egraph_t *egraph, etype_t i, thvar_t
  *   and each a[i] is a theory variable attached to the class of some term t_j
  */
 static void propagate_satellite_distinct(egraph_t *egraph, etype_t i, uint32_t n, thvar_t *a, composite_t *hint) {
+  arith_observer_t *obs;
+  uint32_t j, m;
+
   assert(i < NUM_SATELLITES && egraph->eg[i] != NULL);
   egraph->eg[i]->assert_distinct(egraph->th[i], n, a, hint);
+
+  if (i == ETYPE_INT || i == ETYPE_REAL) {
+    m = egraph->num_arith_observers;
+    for (j=0; j<m; j++) {
+      obs = egraph->arith_observer + j;
+      if (obs->interface->assert_distinct != NULL) {
+        // Arithmetic observers are notification-only: conflicts must be
+        // reported by their propagate/final_check callbacks, not here.
+        (void) obs->interface->assert_distinct(obs->solver, n, a, hint);
+      }
+    }
+  }
 }
 
 
@@ -6949,6 +6990,9 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   egraph->bv_eg = NULL;
   egraph->fun_eg = NULL;
   egraph->quant_eg = NULL;
+  egraph->arith_observer = NULL;
+  egraph->num_arith_observers = 0;
+  egraph->arith_observer_size = 0;
 
   // model-construction object
   init_egraph_model(&egraph->mdl);
@@ -7025,6 +7069,77 @@ void egraph_detach_mcsat_solver(egraph_t *egraph) {
   egraph->mcsat_smt = NULL;
 }
 
+static void egraph_extend_arith_observers(egraph_t *egraph) {
+  uint32_t n;
+
+  assert(egraph->num_arith_observers == egraph->arith_observer_size);
+  n = egraph->arith_observer_size + 1;
+  n += n >> 1;
+  egraph->arith_observer = (arith_observer_t *) safe_realloc(egraph->arith_observer, n * sizeof(arith_observer_t));
+  egraph->arith_observer_size = n;
+}
+
+void egraph_attach_arith_observer(egraph_t *egraph, void *solver,
+                                  arith_observer_interface_t *interface) {
+  arith_observer_t *obs;
+
+  assert(interface != NULL);
+  if (egraph->num_arith_observers == egraph->arith_observer_size) {
+    egraph_extend_arith_observers(egraph);
+  }
+
+  obs = egraph->arith_observer + egraph->num_arith_observers;
+  obs->solver = solver;
+  obs->interface = interface;
+  egraph->num_arith_observers ++;
+}
+
+void egraph_detach_arith_observer(egraph_t *egraph, void *solver) {
+  uint32_t i, n;
+
+  n = egraph->num_arith_observers;
+  for (i=0; i<n; i++) {
+    if (egraph->arith_observer[i].solver == solver) {
+      n --;
+      egraph->arith_observer[i] = egraph->arith_observer[n];
+      egraph->num_arith_observers = n;
+      return;
+    }
+  }
+}
+
+int32_t egraph_arith_observer_register_atom(egraph_t *egraph, term_t atom, literal_t l) {
+  arith_observer_t *obs;
+  int32_t code;
+  uint32_t i, n;
+
+  n = egraph->num_arith_observers;
+  for (i=0; i<n; i++) {
+    obs = egraph->arith_observer + i;
+    if (obs->interface->register_atom != NULL) {
+      code = obs->interface->register_atom(obs->solver, atom, l);
+      if (code < 0) {
+        return code;
+      }
+    }
+  }
+
+  return 0;
+}
+
+void egraph_arith_observer_register_arith_term(egraph_t *egraph, thvar_t x, term_t t) {
+  arith_observer_t *obs;
+  uint32_t i, n;
+
+  n = egraph->num_arith_observers;
+  for (i=0; i<n; i++) {
+    obs = egraph->arith_observer + i;
+    if (obs->interface->register_arith_term != NULL) {
+      obs->interface->register_arith_term(obs->solver, x, t);
+    }
+  }
+}
+
 
 /*
  * Attach a function subsolver
@@ -7092,6 +7207,11 @@ void egraph_attach_core(egraph_t *egraph, smt_core_t *core) {
  * Delete everything
  */
 void delete_egraph(egraph_t *egraph) {
+  safe_free(egraph->arith_observer);
+  egraph->arith_observer = NULL;
+  egraph->num_arith_observers = 0;
+  egraph->arith_observer_size = 0;
+
   delete_egraph_model(&egraph->mdl);
   if (egraph->app_partition != NULL) {
     delete_ptr_partition(egraph->app_partition);

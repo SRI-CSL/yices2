@@ -1165,7 +1165,7 @@ static void try_substitution(context_t *ctx, term_t t1, term_t t2, term_t e) {
    * In supplementary-MCSAT mode, keep equalities explicit so they can be
    * routed to the MCSAT satellite as tracked atoms/constraints.
    */
-  if (ctx->mcsat_supplement_active) {
+  if (ctx->mcsat_supplement) {
     ivector_push(&ctx->top_eqs, e);
     return;
   }
@@ -1212,7 +1212,7 @@ static void try_bool_substitution(context_t *ctx, term_t t1, term_t t2, term_t e
   /*
    * In supplementary-MCSAT mode, keep boolean equalities explicit.
    */
-  if (ctx->mcsat_supplement_active) {
+  if (ctx->mcsat_supplement) {
     ivector_push(&ctx->top_formulas, e);
     return;
   }
@@ -2262,7 +2262,7 @@ void flatten_assertion(context_t *ctx, term_t f) {
         break;
 
       case ARITH_ROOT_ATOM:
-        if (context_mcsat_supplement_active(ctx)) {
+        if (context_mcsat_supplement(ctx)) {
           intern_tbl_map_root(intern, r, bool2code(tt));
           ivector_push(&ctx->top_atoms, signed_term(r, tt));
         } else {
@@ -2349,7 +2349,7 @@ void flatten_assertion(context_t *ctx, term_t f) {
 
       case ARITH_FF_EQ_ATOM:
       case ARITH_FF_BINEQ_ATOM:
-        if (context_mcsat_supplement_active(ctx)) {
+        if (context_mcsat_supplement(ctx)) {
           intern_tbl_map_root(intern, r, bool2code(tt));
           ivector_push(&ctx->top_atoms, signed_term(r, tt));
         } else {
