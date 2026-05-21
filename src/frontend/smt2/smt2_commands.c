@@ -2647,7 +2647,6 @@ static void init_smt2_context(smt2_globals_t *g) {
 
   if (!g->mcsat && smt2_logic_uses_mcsat_supplement(g, logic)) {
     code = context_attach_mcsat_supplement(g->ctx);
-    assert(code == CTX_NO_ERROR);
     if (code < 0) {
       print_error("failed to attach the mcsat supplement");
       done = true;

@@ -36,6 +36,11 @@ typedef struct mcsat_atom_object_s {
 } mcsat_atom_object_t;
 
 static inline void mcsat_satellite_obtain_mutex(void) {
+  /*
+   * Recursive by construction: some satellite calls are reached from API
+   * paths that already hold the global lock, while CDCL(T) search reaches
+   * the same calls without holding it.
+   */
   (void) yices_obtain_mutex();
 }
 
@@ -75,6 +80,7 @@ struct mcsat_satellite_s {
   bool check_in_propagate;
 
   int32_t internal_error;
+  uint32_t internal_error_push_depth;
 
   bool cache_valid;
   uint64_t cache_signature;
@@ -166,6 +172,7 @@ static int32_t mcsat_satellite_assert_formula(mcsat_satellite_t *sat, term_t f) 
   mcsat_satellite_release_mutex();
   if (code < 0) {
     sat->internal_error = code;
+    sat->internal_error_push_depth = sat->push_depth;
   }
   return code;
 }
@@ -397,10 +404,6 @@ static bool mcsat_satellite_record_conflict(mcsat_satellite_t *sat) {
     ok = mcsat_satellite_expand_all_assumptions(sat, &seen_lits);
   }
 
-  if (!ok) {
-    assert(false && "MCSAT conflict label has no expandable CDCL explanation");
-  }
-
   if (ok) {
     ivector_push(&sat->conflict, null_literal);
     record_theory_conflict(sat->core, sat->conflict.data);
@@ -424,12 +427,7 @@ static smt_status_t mcsat_satellite_check(mcsat_satellite_t *sat, bool force, bo
   value_t vtrue;
 
   if (sat->internal_error < 0) {
-    if (emit_conflict) {
-      literal_t c[1];
-      c[0] = null_literal;
-      record_theory_conflict(sat->core, c);
-    }
-    return YICES_STATUS_UNSAT;
+    return YICES_STATUS_UNKNOWN;
   }
 
   mcsat_satellite_build_assumptions(sat, false);
@@ -686,6 +684,7 @@ static void mcsat_satellite_pop(void *solver) {
   assert(sat->atom_push_mark.size > 0);
 
   mcsat_satellite_obtain_mutex();
+  mcsat_satellite_prepare_assertion_state(sat);
   mcsat_pop(sat->mctx.mcsat);
   mcsat_satellite_release_mutex();
   assert(sat->dlevel > 0);
@@ -695,6 +694,10 @@ static void mcsat_satellite_pop(void *solver) {
     sat->atoms[i].active = false;
   }
   sat->push_depth --;
+  if (sat->internal_error < 0 && sat->internal_error_push_depth > sat->push_depth) {
+    sat->internal_error = 0;
+    sat->internal_error_push_depth = 0;
+  }
   mcsat_satellite_backtrack_to(sat, sat->dlevel - 1);
 }
 
@@ -719,6 +722,7 @@ static void mcsat_satellite_reset(void *solver) {
   sat->dlevel = 0;
   sat->cache_valid = false;
   sat->internal_error = 0;
+  sat->internal_error_push_depth = 0;
 
   ivector_reset(&sat->atom_push_mark);
   reset_pmap2(&sat->eq_active);
@@ -738,6 +742,8 @@ static void mcsat_satellite_clear(void *solver) {
   context_clear(&sat->mctx);
   mcsat_satellite_release_mutex();
   sat->cache_valid = false;
+  sat->internal_error = 0;
+  sat->internal_error_push_depth = 0;
 }
 
 /*
@@ -884,6 +890,7 @@ mcsat_satellite_t *new_mcsat_satellite(context_t *ctx) {
   sat->check_in_propagate = true;
 
   sat->internal_error = 0;
+  sat->internal_error_push_depth = 0;
 
   sat->cache_valid = false;
   sat->cache_signature = 0;

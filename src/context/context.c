@@ -445,6 +445,10 @@ static term_manager_t *context_get_mcsat_relax_manager(context_t *ctx) {
 
   manager = ctx->mcsat_relax_manager;
   if (manager == NULL) {
+    /*
+     * Use a private manager over the shared term table so relaxation rewrites
+     * do not reuse in-flight arithmetic buffers from the main internalizer.
+     */
     manager = (term_manager_t *) safe_malloc(sizeof(term_manager_t));
     init_term_manager(manager, ctx->terms);
     ctx->mcsat_relax_manager = manager;
@@ -615,6 +619,11 @@ static term_t mcsat_relax_const_division(context_t *ctx, term_manager_t *manager
   }
 }
 
+/*
+ * Build a simplex over-approximation of t.  NULL_TERM means that no sound
+ * linear relaxation could be built; callers must then leave the atom
+ * MCSAT-only.
+ */
 static term_t mcsat_relax_arith_term(context_t *ctx, term_manager_t *manager, term_t t) {
   term_table_t *terms;
   composite_term_t *c;
@@ -750,6 +759,10 @@ static literal_t map_mcsat_relaxation_to_literal(context_t *ctx, term_t atom) {
     break;
 
   default:
+    /*
+     * Finite-field and other non-simplex atoms stay MCSAT-only: simplex has
+     * no useful linear relaxation for them.
+     */
     break;
   }
 
@@ -776,8 +789,11 @@ static literal_t map_mcsat_atom_to_literal(context_t *ctx, term_t atom) {
 
   lr = map_mcsat_relaxation_to_literal(ctx, atom);
   if (lr != null_literal) {
-    // Scope the equivalence with the two atoms: if a push-level atom is popped,
-    // its relaxation literal and these clauses disappear with it.
+    /*
+     * Link the exact MCSAT atom to its simplex relaxation.  The clauses are
+     * added with the atoms that introduce both literals; after pop, the
+     * literals are no longer reachable from active assertions.
+     */
     add_binary_clause(ctx->core, not(l), lr);
     add_binary_clause(ctx->core, l, not(lr));
   }
@@ -5495,6 +5511,10 @@ static void assert_toplevel_formula(context_t *ctx, term_t t) {
   if (context_atom_requires_mcsat(ctx, t)) {
     l = map_mcsat_atom_to_literal(ctx, t);
     code = literal2code(l);
+    /*
+     * Top-level formulas may already have a placeholder mapping from
+     * preprocessing, so overwrite it.  assert_term only maps unmapped roots.
+     */
     intern_tbl_remap_root(&ctx->intern, t, code);
     assert_internalization_code(ctx, code, tt);
     return;

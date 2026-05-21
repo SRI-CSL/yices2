@@ -1447,6 +1447,10 @@ static smt_status_t _o_check_context_with_term_assumptions_supplement(context_t 
 }
 
 static smt_status_t check_context_with_term_assumptions_supplement(context_t *ctx, const param_t *params, uint32_t n, const term_t *a, int32_t *error) {
+  /*
+   * Do not MT_PROTECT the whole CDCL(T) search here.  The supplemental MCSAT
+   * satellite serializes only its embedded MCSAT/term-construction calls.
+   */
   return _o_check_context_with_term_assumptions_supplement(ctx, params, n, a, error);
 }
 

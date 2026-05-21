@@ -449,6 +449,38 @@ static void test_disabling_required_supplement_is_invalid(void) {
   yices_free_config(cfg);
 }
 
+static void test_reset_reassert_supplement(void) {
+  context_t *ctx;
+  term_t x, xx, bad, xeq2, good;
+  smt_status_t stat;
+  model_t *mdl;
+
+  ctx = make_cdclt_context("QF_UFLIA");
+  x = yices_new_uninterpreted_term(yices_int_type());
+  xx = yices_mul(x, x);
+
+  bad = yices_arith_eq_atom(xx, yices_int32(2));
+  check_code(yices_assert_formula(ctx, bad), "assert x*x=2 before reset failed");
+  stat = yices_check_context(ctx, NULL);
+  check_status(stat, YICES_STATUS_UNSAT, "expected UNSAT for integer x*x=2 before reset");
+
+  yices_reset_context(ctx);
+
+  xeq2 = yices_arith_eq_atom(x, yices_int32(2));
+  good = yices_arith_eq_atom(xx, yices_int32(4));
+  check_code(yices_assert_formula(ctx, xeq2), "assert x=2 after reset failed");
+  check_code(yices_assert_formula(ctx, good), "assert x*x=4 after reset failed");
+  stat = yices_check_context(ctx, NULL);
+  check_status(stat, YICES_STATUS_SAT, "expected SAT after reset/reassert");
+
+  mdl = yices_get_model(ctx, 1);
+  check(mdl != NULL, "get_model failed after reset/reassert");
+  check(yices_formula_true_in_model(mdl, good) == 1, "model must satisfy x*x=4 after reset");
+  yices_free_model(mdl);
+
+  yices_free_context(ctx);
+}
+
 int main(void) {
   if (!yices_has_mcsat()) {
     return 1; // skipped
@@ -464,6 +496,7 @@ int main(void) {
   test_simplex_relaxation_phase2();
   test_division_by_zero_remains_error();
   test_disabling_required_supplement_is_invalid();
+  test_reset_reassert_supplement();
 
   yices_exit();
   return 0;
