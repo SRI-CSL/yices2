@@ -1023,7 +1023,13 @@ static void init_globals(yices_globals_t *glob) {
   glob->fvars = NULL;
 
 #ifdef THREAD_SAFE
-  create_yices_lock(&(glob->lock));
+  /*
+   * Recursive: the supplemental MCSAT satellite may re-acquire the
+   * global lock from internalization paths where the outer API call
+   * already holds it.  The satellite also uses this lock to serialize
+   * embedded MCSAT operations reached from unlocked CDCL(T) search.
+   */
+  create_yices_recursive_lock(&(glob->lock));
 #endif
 
 }

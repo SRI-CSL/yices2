@@ -27,6 +27,13 @@
 
 typedef struct mcsat_satellite_s mcsat_satellite_t;
 
+/*
+ * Thread-safety note: the satellite shares the global term table with the
+ * outer context.  In THREAD_SAFE builds, calls into the embedded MCSAT engine
+ * and satellite-side term construction that can be reached from unlocked
+ * CDCL(T) search are serialized by the global Yices mutex.
+ */
+
 extern mcsat_satellite_t *new_mcsat_satellite(context_t *ctx);
 extern void delete_mcsat_satellite(mcsat_satellite_t *sat);
 

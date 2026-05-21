@@ -26,6 +26,13 @@ int32_t create_yices_lock(yices_lock_t* lock){
   return 0;
 }
 
+int32_t create_yices_recursive_lock(yices_lock_t* lock){
+  /*
+   * Windows critical sections are recursive for the owning thread.
+   */
+  return create_yices_lock(lock);
+}
+
 int32_t try_yices_lock(yices_lock_t* lock){
   if (TryEnterCriticalSection(lock) != 0) {
     return 0;

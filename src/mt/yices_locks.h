@@ -40,6 +40,9 @@ typedef pthread_mutex_t yices_lock_t;
 /* returns 0 on success; -1 on failure (and prints an error message) */
 extern int32_t create_yices_lock(yices_lock_t* lock);
 
+/* returns 0 on success; -1 on failure (and prints an error message) */
+extern int32_t create_yices_recursive_lock(yices_lock_t* lock);
+
 /* returns 0 on success; 1 if the lock was already taken; -1 on failure (and prints an error message) */
 extern int32_t try_yices_lock(yices_lock_t* lock);
 

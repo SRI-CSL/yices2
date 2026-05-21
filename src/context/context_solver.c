@@ -1447,7 +1447,7 @@ static smt_status_t _o_check_context_with_term_assumptions_supplement(context_t 
 }
 
 static smt_status_t check_context_with_term_assumptions_supplement(context_t *ctx, const param_t *params, uint32_t n, const term_t *a, int32_t *error) {
-  MT_PROTECT(smt_status_t, __yices_globals.lock, _o_check_context_with_term_assumptions_supplement(ctx, params, n, a, error));
+  return _o_check_context_with_term_assumptions_supplement(ctx, params, n, a, error);
 }
 
 /*

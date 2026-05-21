@@ -17,6 +17,7 @@
  */
 
 #include <assert.h>
+#include "api/yices_mutex.h"
 #include "context/context.h"
 #include "model/models.h"
 #include "solvers/egraph/composites.h"
@@ -33,6 +34,14 @@
 typedef struct mcsat_atom_object_s {
   uint32_t id;
 } mcsat_atom_object_t;
+
+static inline void mcsat_satellite_obtain_mutex(void) {
+  (void) yices_obtain_mutex();
+}
+
+static inline void mcsat_satellite_release_mutex(void) {
+  (void) yices_release_mutex();
+}
 
 typedef struct mcsat_atom_entry_s {
   term_t atom;
@@ -151,8 +160,10 @@ static void mcsat_satellite_prepare_assertion_state(mcsat_satellite_t *sat) {
 static int32_t mcsat_satellite_assert_formula(mcsat_satellite_t *sat, term_t f) {
   int32_t code;
 
+  mcsat_satellite_obtain_mutex();
   mcsat_satellite_prepare_assertion_state(sat);
   code = mcsat_assert_formulas(sat->mctx.mcsat, 1, &f);
+  mcsat_satellite_release_mutex();
   if (code < 0) {
     sat->internal_error = code;
   }
@@ -435,11 +446,15 @@ static smt_status_t mcsat_satellite_check(mcsat_satellite_t *sat, bool force, bo
     }
   }
 
+  /*
+   * Pure MCSAT check-sat is serialized by the global Yices mutex.  Do the
+   * same for the supplemental engine entry point without locking the whole
+   * CDCL(T) search.
+   */
+  mcsat_satellite_obtain_mutex();
   mcsat_clear(sat->mctx.mcsat);
   mcsat_solve(sat->mctx.mcsat, &sat->params, &mdl, sat->assumptions.size, (const term_t *) sat->assumptions.data);
   status = mcsat_status(sat->mctx.mcsat);
-
-  delete_model(&mdl);
 
   sat->cache_valid = false;
   if (status == YICES_STATUS_SAT) {
@@ -450,6 +465,9 @@ static smt_status_t mcsat_satellite_check(mcsat_satellite_t *sat, bool force, bo
       status = YICES_STATUS_UNKNOWN;
     }
   }
+  mcsat_satellite_release_mutex();
+
+  delete_model(&mdl);
 
   return status;
 }
@@ -489,8 +507,10 @@ static void mcsat_satellite_sync_base_level(mcsat_satellite_t *sat, uint32_t bas
   uint32_t i;
 
   for (i = 0; i < base_level; i++) {
+    mcsat_satellite_obtain_mutex();
     mcsat_satellite_prepare_assertion_state(sat);
     mcsat_push(sat->mctx.mcsat);
+    mcsat_satellite_release_mutex();
     ivector_push(&sat->atom_push_mark, sat->num_atoms);
     sat->push_depth ++;
     mcsat_satellite_open_level(sat);
@@ -563,12 +583,15 @@ static void mcsat_satellite_add_eq_notification(mcsat_satellite_t *sat, term_t t
     mcsat_satellite_extend_eq(sat);
   }
 
+  mcsat_satellite_obtain_mutex();
   label = mk_uterm(&sat->tm, bool_type(sat->mctx.types));
   atom = eq ? mk_eq(&sat->tm, t1, t2) : mk_neq(&sat->tm, t1, t2);
   implication = mk_implies(&sat->tm, label, atom);
   if (mcsat_satellite_assert_formula(sat, implication) < 0) {
+    mcsat_satellite_release_mutex();
     return;
   }
+  mcsat_satellite_release_mutex();
 
   sat->eq[sat->num_eq].label = label;
   sat->eq[sat->num_eq].t1 = t1;
@@ -595,9 +618,11 @@ static void mcsat_satellite_start_internalization(void *solver) {
 static void mcsat_satellite_start_search(void *solver) {
   mcsat_satellite_t *sat = solver;
   sat->cache_valid = false;
+  mcsat_satellite_obtain_mutex();
   if (mcsat_status(sat->mctx.mcsat) != YICES_STATUS_IDLE) {
     mcsat_clear(sat->mctx.mcsat);
   }
+  mcsat_satellite_release_mutex();
 }
 
 static bool mcsat_satellite_propagate(void *solver) {
@@ -643,8 +668,10 @@ static void mcsat_satellite_push(void *solver) {
    * only label-guarded facts into that engine, so bypass the wrapping
    * context_t push/pop machinery and scope the MCSAT engine directly.
    */
+  mcsat_satellite_obtain_mutex();
   mcsat_satellite_prepare_assertion_state(sat);
   mcsat_push(sat->mctx.mcsat);
+  mcsat_satellite_release_mutex();
   ivector_push(&sat->atom_push_mark, sat->num_atoms);
   sat->push_depth ++;
   mcsat_satellite_open_level(sat);
@@ -658,7 +685,9 @@ static void mcsat_satellite_pop(void *solver) {
   assert(sat->push_depth > 0);
   assert(sat->atom_push_mark.size > 0);
 
+  mcsat_satellite_obtain_mutex();
   mcsat_pop(sat->mctx.mcsat);
+  mcsat_satellite_release_mutex();
   assert(sat->dlevel > 0);
 
   mark = ivector_pop2(&sat->atom_push_mark);
@@ -673,7 +702,9 @@ static void mcsat_satellite_reset(void *solver) {
   mcsat_satellite_t *sat = solver;
   uint32_t i;
 
+  mcsat_satellite_obtain_mutex();
   reset_context(&sat->mctx);
+  mcsat_satellite_release_mutex();
 
   for (i=0; i<sat->num_atoms; i++) {
     if (sat->atoms[i].obj != NULL) {
@@ -703,7 +734,9 @@ static void mcsat_satellite_reset(void *solver) {
 
 static void mcsat_satellite_clear(void *solver) {
   mcsat_satellite_t *sat = solver;
+  mcsat_satellite_obtain_mutex();
   context_clear(&sat->mctx);
+  mcsat_satellite_release_mutex();
   sat->cache_valid = false;
 }
 
@@ -967,20 +1000,24 @@ int32_t mcsat_satellite_register_atom(mcsat_satellite_t *sat, term_t atom, liter
     mcsat_satellite_extend_atoms(sat);
   }
 
+  mcsat_satellite_obtain_mutex();
   plabel = mk_uterm(&sat->tm, bool_type(sat->mctx.types));
   nlabel = mk_uterm(&sat->tm, bool_type(sat->mctx.types));
 
   implication = mk_implies(&sat->tm, plabel, atom);
   code = mcsat_satellite_assert_formula(sat, implication);
   if (code < 0) {
+    mcsat_satellite_release_mutex();
     return code;
   }
 
   implication = mk_implies(&sat->tm, nlabel, not(atom));
   code = mcsat_satellite_assert_formula(sat, implication);
   if (code < 0) {
+    mcsat_satellite_release_mutex();
     return code;
   }
+  mcsat_satellite_release_mutex();
 
   atom_obj = NULL;
   if (obj != NULL) {
@@ -1021,15 +1058,25 @@ void mcsat_satellite_set_search_parameters(mcsat_satellite_t *sat, const param_t
 }
 
 void mcsat_satellite_set_trace(mcsat_satellite_t *sat, tracer_t *trace) {
+  mcsat_satellite_obtain_mutex();
   mcsat_set_tracer(sat->mctx.mcsat, trace);
+  mcsat_satellite_release_mutex();
 }
 
 term_t mcsat_satellite_get_unsat_model_interpolant(mcsat_satellite_t *sat) {
-  return mcsat_get_unsat_model_interpolant(sat->mctx.mcsat);
+  term_t t;
+
+  mcsat_satellite_obtain_mutex();
+  t = mcsat_get_unsat_model_interpolant(sat->mctx.mcsat);
+  mcsat_satellite_release_mutex();
+
+  return t;
 }
 
 void mcsat_satellite_set_unsat_model_interpolant(mcsat_satellite_t *sat, term_t t) {
+  mcsat_satellite_obtain_mutex();
   mcsat_set_unsat_result_from_labeled_interpolant(sat->mctx.mcsat, t, 0, NULL, NULL);
+  mcsat_satellite_release_mutex();
 }
 
 term_t mcsat_satellite_compute_unsat_model_interpolant(mcsat_satellite_t *sat, const param_t *params, uint32_t n, const term_t *a) {
@@ -1054,6 +1101,8 @@ term_t mcsat_satellite_compute_unsat_model_interpolant(mcsat_satellite_t *sat, c
 
   pushed = false;
   result = NULL_TERM;
+
+  mcsat_satellite_obtain_mutex();
 
   /*
    * Internal push requires an idle MCSAT state in debug builds.
@@ -1121,6 +1170,8 @@ done:
     mcsat_set_unsat_result_from_labeled_interpolant(sat->mctx.mcsat, result, 0, NULL, NULL);
   }
 
+  mcsat_satellite_release_mutex();
+
   return result;
 }
 
@@ -1148,15 +1199,16 @@ void mcsat_satellite_build_model(mcsat_satellite_t *sat, model_t *model) {
     }
   }
 
+  mcsat_satellite_obtain_mutex();
   mcsat_clear(sat->mctx.mcsat);
   mcsat_solve(sat->mctx.mcsat, &sat->params, &mdl, sat->assumptions.size, (const term_t *) sat->assumptions.data);
   status = mcsat_status(sat->mctx.mcsat);
-
-  delete_model(&mdl);
-
   if (status == YICES_STATUS_SAT) {
     mcsat_build_model(sat->mctx.mcsat, model);
   }
+  mcsat_satellite_release_mutex();
+
+  delete_model(&mdl);
 }
 
 void mcsat_satellite_gc_mark(mcsat_satellite_t *sat) {
@@ -1172,5 +1224,7 @@ void mcsat_satellite_gc_mark(mcsat_satellite_t *sat) {
     term_table_set_gc_mark(sat->mctx.terms, index_of(sat->eq[i].label));
   }
 
+  mcsat_satellite_obtain_mutex();
   mcsat_gc_mark(sat->mctx.mcsat);
+  mcsat_satellite_release_mutex();
 }
