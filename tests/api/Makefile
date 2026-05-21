@@ -261,6 +261,16 @@ $(objdir)/test_context_delegate_stats.o: \
 $(static_objdir)/test_context_delegate_stats.o: \
   CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
 
+$(objdir)/test_cdclt_bv.o: \
+  CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
+$(static_objdir)/test_cdclt_bv.o: \
+  CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
+
+$(objdir)/test_cdclt_sat_cache.o: \
+  CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
+$(static_objdir)/test_cdclt_sat_cache.o: \
+  CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
+
 #
 # Link command for purify/quantify
 #

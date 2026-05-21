@@ -3,6 +3,8 @@
 #include <assert.h>
 
 #include "yices.h"
+
+#ifdef HAVE_MCSAT
 #include "mcsat/cdclt/cdclt_sat_cache.h"
 
 #define T0  0
@@ -131,9 +133,11 @@ static void test_word_boundary_resize(void) {
   cdclt_sat_cache_destroy(&c);
   printf("PASS: test_word_boundary_resize\n");
 }
+#endif /* HAVE_MCSAT */
 
 int main(void) {
   yices_init();
+#ifdef HAVE_MCSAT
   test_register_and_build();
   test_sat_lookup();
   test_unsat_lookup();
@@ -141,4 +145,8 @@ int main(void) {
   yices_exit();
   printf("ALL PASS\n");
   return 0;
+#else
+  yices_exit();
+  return 1; /* SKIP: not compiled with MCSAT */
+#endif
 }
