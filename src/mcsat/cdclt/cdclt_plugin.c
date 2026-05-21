@@ -117,11 +117,10 @@ void cdclt_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   // Request term notifications for
   ctx->request_term_notification_by_kind(ctx, EQ_TERM, false);
-  //ctx->request_term_notification_by_kind(ctx, DISTINCT_TERM, false);
-  
-  //ctx->request_term_notification_by_kind(ctx, BV_EQ_ATOM, false);
-  //ctx->request_term_notification_by_kind(ctx, BV_GE_ATOM, false);
-  //ctx->request_term_notification_by_kind(ctx, BV_SGE_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, DISTINCT_TERM, false);
+  ctx->request_term_notification_by_kind(ctx, BV_EQ_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, BV_GE_ATOM, false);
+  ctx->request_term_notification_by_kind(ctx, BV_SGE_ATOM, false);
 
   //ctx->request_term_notification_by_kind(ctx, ARITH_EQ_ATOM, false);
   //ctx->request_term_notification_by_kind(ctx, ARITH_GE_ATOM, false);
