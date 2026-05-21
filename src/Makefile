@@ -395,6 +395,7 @@ mcsat_src_c := \
 	mcsat/bv/explain/full_bv_sat.c \
 	mcsat/bv/explain/full_bv_trivial.c \
 	mcsat/cdclt/cdclt_plugin.c \
+	mcsat/cdclt/cdclt_sat_cache.c \
 	mcsat/watch_list_manager.c \
 	mcsat/preprocessor.c \
 	mcsat/options.c
@@ -417,7 +418,6 @@ no_mcsat_src_c := \
 # + old stuff not needed anymore (except for tests)
 #
 extra_src_c := \
-	mcsat/cdclt/cdclt_sat_cache.c \
 	context/context_parameters.c \
 	context/context_printer.c \
 	context/dump_context.c \
