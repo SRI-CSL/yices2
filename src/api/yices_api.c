@@ -8904,7 +8904,7 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
   context_t* ctx = _o_yices_create_context(logic, arch, mode, iflag, qflag);
   if (mcsat_supplement && context_attach_mcsat_supplement(ctx) < 0) {
     delete_context(ctx);
-    safe_free(ctx);
+    free_context(ctx);
     set_error_code(CTX_INVALID_CONFIG);
     return NULL;
   }
