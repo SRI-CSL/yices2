@@ -449,6 +449,15 @@ term_t term_child(term_table_t *table, term_t t, uint32_t i) {
       }
       break;
 
+    case ARITH_FF_EQ_ATOM:
+      assert(i < 2);
+      if (i == 0) {
+        result = arith_ff_eq_arg(table, t);
+      } else {
+        result = ff_zero_term(table, term_type(table, arith_ff_eq_arg(table, t)));
+      }
+      break;
+
     case ARITH_IS_INT_ATOM:
     case ARITH_FLOOR:
     case ARITH_CEIL:
@@ -498,6 +507,12 @@ void get_term_children(term_table_t *table, term_t t, ivector_t *v) {
       // treat them like binary terms
       ivector_push(v, arith_atom_arg(table, t));
       ivector_push(v, zero_term);
+      break;
+
+    case ARITH_FF_EQ_ATOM:
+      // t == 0 over finite fields: expose both sides uniformly
+      ivector_push(v, arith_ff_eq_arg(table, t));
+      ivector_push(v, ff_zero_term(table, term_type(table, arith_ff_eq_arg(table, t))));
       break;
 
     case ARITH_IS_INT_ATOM:
@@ -684,4 +699,3 @@ int32_t generic_const_value(term_table_t *table, term_t t) {
   assert(is_pos_term(t) && t != true_term);
   return constant_term_index(table, t);
 }
-

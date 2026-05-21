@@ -58,6 +58,13 @@ extern bool context_arch_has_mcsat(context_arch_t arch);
 extern void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
                          context_mode_t mode, context_arch_t arch, bool qflag);
 
+/*
+ * Attach the supplemental MCSAT E-graph satellite.
+ * This must be called before assertions/search; it is a construction-time
+ * configuration step, not an assertion-time activation path.
+ */
+extern int32_t context_attach_mcsat_supplement(context_t *ctx);
+
 
 /*
  * Deletion

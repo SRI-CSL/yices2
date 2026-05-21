@@ -354,6 +354,7 @@ typedef struct smt2_globals_s {
 
   // mcsat
   bool mcsat;                      // set to true to use the mcsat solver
+  bool force_dpllt;                // force cdcl(t) architecture
   mcsat_options_t mcsat_options;   // options for the mcsat solver
   ivector_t var_order;             // order in which mcsat needs to assign variables
   
@@ -489,6 +490,12 @@ extern void init_mt2(bool benchmark, uint32_t timeout, uint32_t nthreads, bool p
  * - must not be called before init_smt2
  */
 extern void smt2_enable_mcsat(void);
+
+/*
+ * Force CDCL(T) architecture in SMT2 frontend
+ * - must not be called before init_smt2
+ */
+extern void smt2_force_dpllt(void);
 
 /*
  * Force verbosity level to k

@@ -72,6 +72,35 @@ extern void egraph_attach_bvsolver(egraph_t *egraph,
                                    bv_egraph_interface_t *bv_eg);
 
 /*
+ * Attach a supplementary MCSAT satellite
+ * - solver = pointer to the satellite object
+ * - ctrl, smt = interface descriptors
+ * - eg is optional; supplemental observers should normally pass NULL
+ */
+extern void egraph_attach_mcsat_solver(egraph_t *egraph,
+                                       void *solver,
+                                       th_ctrl_interface_t *ctrl,
+                                       th_smt_interface_t *smt,
+                                       th_egraph_interface_t *eg);
+
+/*
+ * Detach the supplementary MCSAT satellite
+ */
+extern void egraph_detach_mcsat_solver(egraph_t *egraph);
+
+/*
+ * Attach/detach an arithmetic observer.
+ */
+extern void egraph_attach_arith_observer(egraph_t *egraph,
+                                         void *solver,
+                                         arith_observer_interface_t *interface);
+
+extern void egraph_detach_arith_observer(egraph_t *egraph, void *solver);
+
+extern int32_t egraph_arith_observer_register_atom(egraph_t *egraph, term_t atom, literal_t l);
+extern void egraph_arith_observer_register_arith_term(egraph_t *egraph, thvar_t x, term_t t);
+
+/*
  * Attach a function/array subsolver
  * - solver = pointer to the subsolver object
  * - ctrl, eg, fun_eg = interface descriptors

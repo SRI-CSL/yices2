@@ -1023,7 +1023,13 @@ static void init_globals(yices_globals_t *glob) {
   glob->fvars = NULL;
 
 #ifdef THREAD_SAFE
-  create_yices_lock(&(glob->lock));
+  /*
+   * Recursive: the supplemental MCSAT satellite may re-acquire the
+   * global lock from internalization paths where the outer API call
+   * already holds it.  The satellite also uses this lock to serialize
+   * embedded MCSAT operations reached from unlocked CDCL(T) search.
+   */
+  create_yices_recursive_lock(&(glob->lock));
 #endif
 
 }
@@ -8870,6 +8876,7 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
   context_mode_t mode;
   bool iflag;
   bool qflag;
+  bool mcsat_supplement;
   int32_t k;
 
   if (config == NULL) {
@@ -8879,9 +8886,10 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
     mode = CTX_MODE_PUSHPOP;
     iflag = true;
     qflag = false;
+    mcsat_supplement = false;
   } else {
     // read the config
-    k = decode_config(config, &logic, &arch, &mode, &iflag, &qflag);
+    k = decode_config(config, &logic, &arch, &mode, &iflag, &qflag, &mcsat_supplement);
     if (k < 0) {
       // invalid configuration
       set_error_code(CTX_INVALID_CONFIG);
@@ -8900,6 +8908,12 @@ context_t *_o_yices_new_context(const ctx_config_t *config) {
   }
 
   context_t* ctx = _o_yices_create_context(logic, arch, mode, iflag, qflag);
+  if (mcsat_supplement && context_attach_mcsat_supplement(ctx) < 0) {
+    delete_context(ctx);
+    free_context(ctx);
+    set_error_code(CTX_INVALID_CONFIG);
+    return NULL;
+  }
 
   // Additional setup for MCSAT options in the config
   if (config != NULL) {
@@ -9140,6 +9154,7 @@ static const error_code_t intern_code2error[NUM_INTERNALIZATION_ERRORS] = {
   CTX_BV_SOLVER_EXCEPTION,
   MCSAT_ERROR_UNSUPPORTED_THEORY,
   CTX_HIGH_ORDER_FUN_NOT_SUPPORTED,
+  MCSAT_ERROR_UNSUPPORTED_THEORY,
 };
 
 static inline void convert_internalization_error(int32_t code) {

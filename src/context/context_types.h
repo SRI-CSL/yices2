@@ -43,8 +43,10 @@
 #include "terms/conditionals.h"
 #include "terms/int_rational_hash_maps.h"
 #include "terms/poly_buffer.h"
+#include "terms/term_manager.h"
 #include "terms/terms.h"
 #include "utils/int_bv_sets.h"
+#include "utils/int_hash_map.h"
 #include "utils/int_hash_sets.h"
 #include "utils/int_queues.h"
 #include "utils/int_stack.h"
@@ -751,6 +753,14 @@ struct context_s {
 
   // flag for enabling adding quant instances
   bool en_quant;
+
+  // true when the supplemental MCSAT satellite is configured in CDCL(T) mode
+  bool mcsat_supplement;
+
+  // Phase-2 simplex relaxation for MCSAT-owned arithmetic atoms
+  int_hmap_t *mcsat_relax_abstractions;      // original arithmetic term -> fresh internal arithmetic term
+  int_hset_t *mcsat_relax_abstraction_terms; // fresh internal arithmetic terms above
+  term_manager_t *mcsat_relax_manager;       // allocated lazily
 };
 
 
@@ -811,7 +821,7 @@ enum {
 /*
  * NUM_INTERNALIZATION_ERRORS: must be (1 + number of negative codes)
  */
-#define NUM_INTERNALIZATION_ERRORS 24
+#define NUM_INTERNALIZATION_ERRORS 25
 
 
 

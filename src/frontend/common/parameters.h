@@ -125,6 +125,7 @@ typedef enum yices_param {
   PARAM_MCSAT_BV_VAR_SIZE,
   PARAM_MCSAT_VAR_ORDER,
   PARAM_MCSAT_PARTIAL_RESTART,
+  PARAM_MCSAT_SUPPLEMENT_CHECK,
   // error
   PARAM_UNKNOWN
 } yices_param_t;
@@ -208,6 +209,12 @@ extern bool param_val_to_terms(const char *name, const param_val_t *v, ivector_t
  * - allowed modes are 'default' 'positive' 'negative' 'theory' 'th-neg' 'th-pos'
  */
 extern bool param_val_to_branching(const char *name, const param_val_t *v, branch_t *value, char **reason);
+
+/*
+ * Supplementary MCSAT check mode
+ * - allowed modes are "both" and "final-only"
+ */
+extern bool param_val_to_mcsat_supplement_check(const char *name, const param_val_t *v, mcsat_supplement_check_t *value, char **reason);
 
 /*
  * EF generalization mode

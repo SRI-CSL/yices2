@@ -634,6 +634,8 @@ static smt_status_t check_with_model(context_t *ctx, const param_t *params, uint
   model_t mdl;
   evaluator_t mdl_evaluator;
 
+  assert(ctx->mcsat != NULL);
+
   // Init model and evaluation
   init_model(&mdl, ctx->terms, true);
   init_evaluator(&mdl_evaluator, &mdl);
@@ -2254,6 +2256,27 @@ static void set_verbosity(smt2_globals_t *g, const char *name, aval_t value) {
   q_clear(&aux);
 }
 
+/*
+ * Effective architecture for SMT2 logic:
+ * - defaults to arch_for_logic(logic)
+ * - if force_dpllt is enabled, replace MCSAT architecture with CDCL(T).
+ */
+static inline context_arch_t smt2_arch_for_logic(const smt2_globals_t *g, smt_logic_t logic) {
+  context_arch_t arch;
+
+  assert(logic != SMT_UNKNOWN);
+  arch = (context_arch_t) arch_for_logic(logic);
+  if (g->force_dpllt && arch == CTX_ARCH_MCSAT) {
+    arch = CTX_ARCH_EGFUNSPLXBV;
+  }
+
+  return arch;
+}
+
+static inline bool smt2_logic_uses_mcsat_supplement(const smt2_globals_t *g, smt_logic_t logic) {
+  return g->force_dpllt && arch_for_logic(logic) == CTX_ARCH_MCSAT;
+}
+
 
 /*
  * Options: produce-unsat-cores and produce-unsat-assumptions.
@@ -2269,7 +2292,7 @@ static void set_unsat_core_option(smt2_globals_t *g, const char *name, aval_t va
     } else {
       g->produce_unsat_cores = flag;
       // Set model_interpolation if context is MCSAT or will use MCSAT architecture
-      if (g->mcsat || (g->logic_code != SMT_UNKNOWN && arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT)) {
+      if (g->mcsat || (g->logic_code != SMT_UNKNOWN && smt2_arch_for_logic(g, g->logic_code) == CTX_ARCH_MCSAT)) {
         g->mcsat_options.model_interpolation = true;
       }
       report_success();
@@ -2288,7 +2311,7 @@ static void set_unsat_assumption_option(smt2_globals_t *g, const char *name, ava
     } else {
       g->produce_unsat_assumptions = flag;
       // Set model_interpolation if context is MCSAT or will use MCSAT architecture
-      if (g->mcsat || (g->logic_code != SMT_UNKNOWN && arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT)) {
+      if (g->mcsat || (g->logic_code != SMT_UNKNOWN && smt2_arch_for_logic(g, g->logic_code) == CTX_ARCH_MCSAT)) {
         g->mcsat_options.model_interpolation = true;
       }
       report_success();
@@ -2573,6 +2596,7 @@ static void init_smt2_context(smt2_globals_t *g) {
   smt_logic_t logic;
   context_arch_t arch;
   context_mode_t mode;
+  int32_t code;
   bool iflag;
   bool qflag;
 
@@ -2585,7 +2609,7 @@ static void init_smt2_context(smt2_globals_t *g) {
   if (g->timeout > 0) {
     mode = CTX_MODE_INTERACTIVE;
   }
-  arch = arch_for_logic(logic);
+  arch = smt2_arch_for_logic(g, logic);
   iflag = iflag_for_logic(logic);
   qflag = qflag_for_logic(logic);
 
@@ -2616,13 +2640,22 @@ static void init_smt2_context(smt2_globals_t *g) {
 
   g->ctx = yices_create_context(logic, arch, mode, iflag, qflag);
   assert(g->ctx != NULL);
-  if (g->verbosity > 0 || g->tracer != NULL) {
-    context_set_trace(g->ctx, get_tracer(g));
-  }
 
   // Set the mcsat options
   g->ctx->mcsat_options = g->mcsat_options;
   ivector_copy(&g->ctx->mcsat_var_order, g->var_order.data, g->var_order.size);
+
+  if (!g->mcsat && smt2_logic_uses_mcsat_supplement(g, logic)) {
+    code = context_attach_mcsat_supplement(g->ctx);
+    if (code < 0) {
+      print_error("failed to attach the mcsat supplement");
+      done = true;
+      return;
+    }
+  }
+  if (g->verbosity > 0 || g->tracer != NULL) {
+    context_set_trace(g->ctx, get_tracer(g));
+  }
 
   /*
    * TODO: override the default context options based on
@@ -4675,6 +4708,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->pushes_after_unsat = 0;
   g->logic_name = NULL;
   g->mcsat = false;
+  g->force_dpllt = false;
   init_ivector(&g->var_order, 0);
   init_mcsat_options(&g->mcsat_options);
   g->efmode = false;
@@ -5072,7 +5106,8 @@ void smt2_get_unsat_assumptions(void) {
 
 /* Check whether MCSAT solver is going to be used. */
 static bool mcsat_enabled(smt2_globals_t *g) {
-  return g->mcsat || arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT;
+  return !g->force_dpllt &&
+         (g->mcsat || (g->logic_code != SMT_UNKNOWN && arch_for_logic(g->logic_code) == CTX_ARCH_MCSAT));
 }
 
 /*
@@ -5471,6 +5506,11 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
 
   case PARAM_MCSAT_RAND_DEC_SEED:
     print_int32_value(g->parameters.random_seed);
+    break;
+
+  case PARAM_MCSAT_SUPPLEMENT_CHECK:
+    print_string_value(g->parameters.mcsat_supplement_check == MCSAT_SUPPLEMENT_CHECK_BOTH ?
+                       "both" : "final-only");
     break;
 
   case PARAM_MCSAT_VAR_ORDER:
@@ -6271,6 +6311,12 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
     }
     break;
 
+  case PARAM_MCSAT_SUPPLEMENT_CHECK:
+    if (param_val_to_mcsat_supplement_check(param, val, &g->parameters.mcsat_supplement_check, &reason)) {
+      // parameter is consumed during check-sat
+    }
+    break;
+
   case PARAM_MCSAT_VAR_ORDER:
     if (param_val_to_terms(param, val, &terms, &reason)) {
       context = g->ctx;
@@ -6492,7 +6538,7 @@ void smt2_set_logic(const char *name) {
     arch = ef_arch_for_logic(code);
   } else if (logic_is_supported(code)) {
     __smt2_globals.efmode = false;
-    arch = arch_for_logic(code);
+    arch = smt2_arch_for_logic(&__smt2_globals, code);
   } else {
     print_error("logic %s is not supported", name);
     return;
@@ -6509,7 +6555,7 @@ void smt2_set_logic(const char *name) {
   }
 
   // if mcsat was requested, check whether the logic is supported by the MCSAT solver
-  if (__smt2_globals.mcsat && !logic_is_supported_by_mcsat(code)) {
+  if (__smt2_globals.mcsat && !__smt2_globals.force_dpllt && !logic_is_supported_by_mcsat(code)) {
     print_error("logic %s is not supported by the mcsat solver", name);
     return;
   }
@@ -6522,7 +6568,7 @@ void smt2_set_logic(const char *name) {
 
   // in efmode : can't use the mcsat solver and must not be incremental
   if (__smt2_globals.efmode) {
-    if (__smt2_globals.mcsat) {
+    if (__smt2_globals.mcsat && !__smt2_globals.force_dpllt) {
       print_error("the mcsat solver does not support quantifiers");
       return;
     }
@@ -6537,8 +6583,8 @@ void smt2_set_logic(const char *name) {
   }
 
   // Set model_interpolation if unsat cores are enabled and architecture is MCSAT
-  if ((__smt2_globals.produce_unsat_cores || __smt2_globals.produce_unsat_assumptions) && 
-      (arch == CTX_ARCH_MCSAT || __smt2_globals.mcsat)) {
+  if ((__smt2_globals.produce_unsat_cores || __smt2_globals.produce_unsat_assumptions) &&
+      (arch == CTX_ARCH_MCSAT || (__smt2_globals.mcsat && !__smt2_globals.force_dpllt))) {
     __smt2_globals.mcsat_options.model_interpolation = true;
   }
 
@@ -7302,5 +7348,14 @@ void smt2_add_pattern(int32_t op, term_t t, term_t *p, uint32_t n) {
  * Enables the mcsat solver.
  */
 void smt2_enable_mcsat(void) {
+  assert(!__smt2_globals.force_dpllt);
   __smt2_globals.mcsat = true;
+}
+
+/*
+ * Force CDCL(T) architecture in SMT2 mode.
+ */
+void smt2_force_dpllt(void) {
+  assert(!__smt2_globals.mcsat);
+  __smt2_globals.force_dpllt = true;
 }
