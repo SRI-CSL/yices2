@@ -37,7 +37,9 @@
 #include "solvers/cdcl/delegate.h"
 #include "solvers/simplex/simplex.h"
 #include "terms/poly_buffer_terms.h"
+#include "terms/rba_buffer_terms.h"
 #include "terms/term_explorer.h"
+#include "terms/term_manager.h"
 #include "terms/term_utils.h"
 #include "utils/int_hash_map.h"
 #include "utils/memalloc.h"
@@ -78,10 +80,16 @@ static literal_t internalize_to_literal(context_t *ctx, term_t t);
 static thvar_t internalize_to_arith(context_t *ctx, term_t t);
 static thvar_t internalize_to_bv(context_t *ctx, term_t t);
 
+static literal_t map_arith_eq_to_literal(context_t *ctx, term_t t);
+static literal_t map_arith_geq_to_literal(context_t *ctx, term_t t);
+static literal_t map_arith_is_int_to_literal(context_t *ctx, term_t t);
+static literal_t map_arith_divides_const_to_literal(context_t *ctx, term_t d, term_t t);
+
 static inline mcsat_satellite_t *context_mcsat_satellite(context_t *ctx);
 static bool context_atom_requires_mcsat(context_t *ctx, term_t atom);
 static void context_observe_mcsat_atom(context_t *ctx, term_t atom, literal_t l);
 static literal_t map_mcsat_atom_to_literal(context_t *ctx, term_t atom);
+static void context_reset_mcsat_relaxation(context_t *ctx);
 static void context_disable_mcsat_supplement(context_t *ctx);
 
 
@@ -333,6 +341,36 @@ static void context_disable_mcsat_supplement(context_t *ctx) {
   ctx->mcsat_supplement = false;
 }
 
+static void context_reset_mcsat_relaxation(context_t *ctx) {
+  if (ctx->mcsat_relax_abstractions != NULL) {
+    int_hmap_reset(ctx->mcsat_relax_abstractions);
+  }
+  if (ctx->mcsat_relax_abstraction_terms != NULL) {
+    int_hset_reset(ctx->mcsat_relax_abstraction_terms);
+  }
+  if (ctx->mcsat_relax_manager != NULL) {
+    reset_term_manager(ctx->mcsat_relax_manager);
+  }
+}
+
+static void context_delete_mcsat_relaxation(context_t *ctx) {
+  if (ctx->mcsat_relax_abstractions != NULL) {
+    delete_int_hmap(ctx->mcsat_relax_abstractions);
+    safe_free(ctx->mcsat_relax_abstractions);
+    ctx->mcsat_relax_abstractions = NULL;
+  }
+  if (ctx->mcsat_relax_abstraction_terms != NULL) {
+    delete_int_hset(ctx->mcsat_relax_abstraction_terms);
+    safe_free(ctx->mcsat_relax_abstraction_terms);
+    ctx->mcsat_relax_abstraction_terms = NULL;
+  }
+  if (ctx->mcsat_relax_manager != NULL) {
+    delete_term_manager(ctx->mcsat_relax_manager);
+    safe_free(ctx->mcsat_relax_manager);
+    ctx->mcsat_relax_manager = NULL;
+  }
+}
+
 static bool mcsat_satellite_candidate_atom(term_table_t *terms, term_t atom) {
   switch (term_kind(terms, atom)) {
   case ARITH_ROOT_ATOM:
@@ -398,9 +436,329 @@ static void context_observe_mcsat_atom(context_t *ctx, term_t atom, literal_t l)
   }
 }
 
+static inline bool context_mcsat_relaxation_enabled(context_t *ctx) {
+  return ctx->mcsat_supplement && context_has_simplex_solver(ctx);
+}
+
+static term_manager_t *context_get_mcsat_relax_manager(context_t *ctx) {
+  term_manager_t *manager;
+
+  manager = ctx->mcsat_relax_manager;
+  if (manager == NULL) {
+    manager = (term_manager_t *) safe_malloc(sizeof(term_manager_t));
+    init_term_manager(manager, ctx->terms);
+    ctx->mcsat_relax_manager = manager;
+  }
+  return manager;
+}
+
+static int_hmap_t *context_get_mcsat_relax_abstractions(context_t *ctx) {
+  int_hmap_t *map;
+
+  map = ctx->mcsat_relax_abstractions;
+  if (map == NULL) {
+    map = (int_hmap_t *) safe_malloc(sizeof(int_hmap_t));
+    init_int_hmap(map, 0);
+    ctx->mcsat_relax_abstractions = map;
+  }
+  return map;
+}
+
+static int_hset_t *context_get_mcsat_relax_abstraction_terms(context_t *ctx) {
+  int_hset_t *set;
+
+  set = ctx->mcsat_relax_abstraction_terms;
+  if (set == NULL) {
+    set = (int_hset_t *) safe_malloc(sizeof(int_hset_t));
+    init_int_hset(set, 0);
+    ctx->mcsat_relax_abstraction_terms = set;
+  }
+  return set;
+}
+
+static bool context_is_mcsat_relax_abstraction(context_t *ctx, term_t t) {
+  t = unsigned_term(intern_tbl_get_root(&ctx->intern, t));
+  return ctx->mcsat_relax_abstraction_terms != NULL &&
+    int_hset_member(ctx->mcsat_relax_abstraction_terms, t);
+}
+
+static bool term_requires_mcsat_supplement_uncached(context_t *ctx, term_t t) {
+  int_hmap_t cache;
+  bool trigger;
+
+  init_int_hmap(&cache, 0);
+  trigger = term_requires_mcsat_supplement(ctx, t, &cache);
+  delete_int_hmap(&cache);
+
+  return trigger;
+}
+
+static bool arith_const_is_zero(context_t *ctx, term_t t) {
+  t = unsigned_term(intern_tbl_get_root(&ctx->intern, t));
+  return term_kind(ctx->terms, t) == ARITH_CONSTANT &&
+    q_is_zero(rational_term_desc(ctx->terms, t));
+}
+
+/*
+ * Fresh internal arithmetic term used as a simplex relaxation variable.
+ * The term is intentionally not registered as the original nonlinear term:
+ * it is a pure over-approximation variable for the simplex view.
+ *
+ * This cache maps original nonlinear terms to fresh term-table variables,
+ * rather than directly to simplex thvars.  Internalizing the fresh term gives
+ * the canonical thvar and keeps the relaxation path in the normal arithmetic
+ * internalizer.  The companion set identifies these fresh terms so observer
+ * notifications can ignore only relaxation abstractions, not user terms that
+ * happen to be internalized while building a relaxation.
+ */
+static term_t mcsat_relax_abstraction_for_term(context_t *ctx, term_t t) {
+  int_hmap_pair_t *p;
+  type_t tau;
+
+  t = unsigned_term(intern_tbl_get_root(&ctx->intern, t));
+  p = int_hmap_get(context_get_mcsat_relax_abstractions(ctx), t);
+  if (p->val < 0) {
+    tau = term_type(ctx->terms, t);
+    assert(is_arithmetic_type(tau));
+    p->val = new_uninterpreted_term(ctx->terms, tau);
+    int_hset_add(context_get_mcsat_relax_abstraction_terms(ctx), p->val);
+  }
+
+  return p->val;
+}
+
+static term_t mcsat_relax_arith_term(context_t *ctx, term_manager_t *manager, term_t t);
+
+static term_t mcsat_relax_pprod(context_t *ctx, term_manager_t *manager, term_t t) {
+  pprod_t *p;
+  term_t *a;
+  term_t r;
+  uint32_t i, n;
+
+  p = pprod_term_desc(ctx->terms, t);
+  if (pprod_degree(p) > 1) {
+    return mcsat_relax_abstraction_for_term(ctx, t);
+  }
+
+  n = p->len;
+  a = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    r = mcsat_relax_arith_term(ctx, manager, p->prod[i].var);
+    if (r == NULL_TERM) {
+      free_istack_array(&ctx->istack, a);
+      return NULL_TERM;
+    }
+    a[i] = r;
+  }
+
+  r = mk_arith_pprod(manager, p, n, a);
+  free_istack_array(&ctx->istack, a);
+
+  return r;
+}
+
+static term_t mcsat_relax_poly(context_t *ctx, term_manager_t *manager, term_t t) {
+  polynomial_t *p;
+  term_t *a;
+  term_t r;
+  uint32_t i, n;
+
+  p = poly_term_desc(ctx->terms, t);
+  n = p->nterms;
+  a = alloc_istack_array(&ctx->istack, n);
+  for (i=0; i<n; i++) {
+    if (p->mono[i].var == const_idx) {
+      a[i] = const_idx;
+    } else {
+      r = mcsat_relax_arith_term(ctx, manager, p->mono[i].var);
+      if (r == NULL_TERM) {
+        free_istack_array(&ctx->istack, a);
+        return NULL_TERM;
+      }
+      a[i] = r;
+    }
+  }
+
+  r = mk_arith_poly(manager, p, n, a);
+  free_istack_array(&ctx->istack, a);
+
+  return r;
+}
+
+static term_t mcsat_relax_const_division(context_t *ctx, term_manager_t *manager, term_kind_t kind, composite_term_t *d) {
+  term_t x, y;
+
+  assert(d->arity == 2);
+  if (arith_const_is_zero(ctx, d->arg[1])) {
+    // The standard internalizer preserves Yices's literal-zero-divisor error.
+    // If relaxation reaches one as a side term, leave the atom MCSAT-only.
+    return NULL_TERM;
+  }
+  assert(!divisor_requires_mcsat(ctx->terms, d->arg[1]));
+
+  x = mcsat_relax_arith_term(ctx, manager, d->arg[0]);
+  if (x == NULL_TERM) {
+    return NULL_TERM;
+  }
+  y = unsigned_term(intern_tbl_get_root(&ctx->intern, d->arg[1]));
+
+  switch (kind) {
+  case ARITH_RDIV:
+    return mk_arith_rdiv(manager, x, y);
+  case ARITH_IDIV:
+    return mk_arith_idiv(manager, x, y);
+  case ARITH_MOD:
+    return mk_arith_mod(manager, x, y);
+  default:
+    assert(false);
+    return NULL_TERM;
+  }
+}
+
+static term_t mcsat_relax_arith_term(context_t *ctx, term_manager_t *manager, term_t t) {
+  term_table_t *terms;
+  composite_term_t *c;
+  term_t x;
+
+  t = unsigned_term(intern_tbl_get_root(&ctx->intern, t));
+  terms = ctx->terms;
+  assert(is_arithmetic_term(terms, t));
+
+  switch (term_kind(terms, t)) {
+  case ARITH_CONSTANT:
+  case UNINTERPRETED_TERM:
+    return t;
+
+  case POWER_PRODUCT:
+    return mcsat_relax_pprod(ctx, manager, t);
+
+  case ARITH_POLY:
+    return mcsat_relax_poly(ctx, manager, t);
+
+  case ARITH_FLOOR:
+    x = mcsat_relax_arith_term(ctx, manager, arith_floor_arg(terms, t));
+    return x == NULL_TERM ? NULL_TERM : mk_arith_floor(manager, x);
+
+  case ARITH_CEIL:
+    x = mcsat_relax_arith_term(ctx, manager, arith_ceil_arg(terms, t));
+    return x == NULL_TERM ? NULL_TERM : mk_arith_ceil(manager, x);
+
+  case ARITH_ABS:
+    x = mcsat_relax_arith_term(ctx, manager, arith_abs_arg(terms, t));
+    return x == NULL_TERM ? NULL_TERM : mk_arith_abs(manager, x);
+
+  case ARITH_RDIV:
+    c = arith_rdiv_term_desc(terms, t);
+    if (divisor_requires_mcsat(terms, c->arg[1])) {
+      return mcsat_relax_abstraction_for_term(ctx, t);
+    }
+    return mcsat_relax_const_division(ctx, manager, ARITH_RDIV, c);
+
+  case ARITH_IDIV:
+    c = arith_idiv_term_desc(terms, t);
+    if (divisor_requires_mcsat(terms, c->arg[1])) {
+      return mcsat_relax_abstraction_for_term(ctx, t);
+    }
+    return mcsat_relax_const_division(ctx, manager, ARITH_IDIV, c);
+
+  case ARITH_MOD:
+    c = arith_mod_term_desc(terms, t);
+    if (divisor_requires_mcsat(terms, c->arg[1])) {
+      return mcsat_relax_abstraction_for_term(ctx, t);
+    }
+    return mcsat_relax_const_division(ctx, manager, ARITH_MOD, c);
+
+  default:
+    /*
+     * For arithmetic constructs supported by simplex, keep the term exact.
+     * If an unsupported construct occurs below an otherwise opaque term
+     * (for example under an arithmetic ITE), abstract the whole term.
+     */
+    if (term_requires_mcsat_supplement_uncached(ctx, t)) {
+      return mcsat_relax_abstraction_for_term(ctx, t);
+    }
+    return t;
+  }
+}
+
+static term_t mcsat_relax_arith_difference(context_t *ctx, term_manager_t *manager, term_t t1, term_t t2) {
+  rba_buffer_t *b;
+
+  b = term_manager_get_arith_buffer(manager);
+  reset_rba_buffer(b);
+  rba_buffer_add_term(b, ctx->terms, t1);
+  rba_buffer_sub_term(b, ctx->terms, t2);
+
+  return mk_arith_term(manager, b);
+}
+
+static literal_t map_mcsat_relaxation_to_literal(context_t *ctx, term_t atom) {
+  term_table_t *terms;
+  term_manager_t *manager;
+  composite_term_t *eq;
+  literal_t l;
+  term_t t, u;
+
+  if (!context_mcsat_relaxation_enabled(ctx)) {
+    return null_literal;
+  }
+
+  terms = ctx->terms;
+  manager = context_get_mcsat_relax_manager(ctx);
+  l = null_literal;
+
+  switch (term_kind(terms, atom)) {
+  case ARITH_IS_INT_ATOM:
+    t = mcsat_relax_arith_term(ctx, manager, arith_is_int_arg(terms, atom));
+    if (t != NULL_TERM) {
+      l = map_arith_is_int_to_literal(ctx, t);
+    }
+    break;
+
+  case ARITH_EQ_ATOM:
+    t = mcsat_relax_arith_term(ctx, manager, arith_eq_arg(terms, atom));
+    if (t != NULL_TERM) {
+      l = map_arith_eq_to_literal(ctx, t);
+    }
+    break;
+
+  case ARITH_GE_ATOM:
+    t = mcsat_relax_arith_term(ctx, manager, arith_ge_arg(terms, atom));
+    if (t != NULL_TERM) {
+      l = map_arith_geq_to_literal(ctx, t);
+    }
+    break;
+
+  case ARITH_BINEQ_ATOM:
+    eq = arith_bineq_atom_desc(terms, atom);
+    t = mcsat_relax_arith_term(ctx, manager, eq->arg[0]);
+    u = mcsat_relax_arith_term(ctx, manager, eq->arg[1]);
+    if (t != NULL_TERM && u != NULL_TERM) {
+      t = mcsat_relax_arith_difference(ctx, manager, t, u);
+      l = map_arith_eq_to_literal(ctx, t);
+    }
+    break;
+
+  case ARITH_DIVIDES_ATOM:
+    eq = arith_divides_atom_desc(terms, atom);
+    if (!divisor_requires_mcsat(terms, eq->arg[0])) {
+      t = mcsat_relax_arith_term(ctx, manager, eq->arg[1]);
+      if (t != NULL_TERM) {
+        l = map_arith_divides_const_to_literal(ctx, eq->arg[0], t);
+      }
+    }
+    break;
+
+  default:
+    break;
+  }
+
+  return l;
+}
+
 static literal_t map_mcsat_atom_to_literal(context_t *ctx, term_t atom) {
   mcsat_satellite_t *sat;
-  literal_t l;
+  literal_t l, lr;
   void *obj;
   int32_t code;
 
@@ -415,6 +773,15 @@ static literal_t map_mcsat_atom_to_literal(context_t *ctx, term_t atom) {
   }
 
   attach_atom_to_bvar(ctx->core, var_of(l), tagged_mcsat_atom(obj));
+
+  lr = map_mcsat_relaxation_to_literal(ctx, atom);
+  if (lr != null_literal) {
+    // Scope the equivalence with the two atoms: if a push-level atom is popped,
+    // its relaxation literal and these clauses disappear with it.
+    add_binary_clause(ctx->core, not(l), lr);
+    add_binary_clause(ctx->core, l, not(lr));
+  }
+
   return l;
 }
 
@@ -2744,35 +3111,42 @@ static literal_t map_arith_is_int_to_literal(context_t *ctx, term_t t) {
   return l;
 }
 
-// atom (divides k t)  we assume k != 0
-static literal_t map_arith_divides_to_literal(context_t *ctx, composite_term_t *divides) {
+// atom (divides k t)  we assume k != 0 and constant
+static literal_t map_arith_divides_const_to_literal(context_t *ctx, term_t d, term_t t) {
   rational_t k;
   polynomial_t *p;
   thvar_t map[2];
   thvar_t x, y;
-  term_t d;
   literal_t l;
+
+  assert(term_kind(ctx->terms, d) == ARITH_CONSTANT);
+
+  // make a copy of the divider in k
+  q_init(&k);
+  q_set(&k, rational_term_desc(ctx->terms, d));
+  assert(q_is_nonzero(&k));
+
+  x = internalize_to_arith(ctx, t); // this is t
+  y = get_div(ctx, x, &k);  // y := (div x k)
+  p = context_get_aux_poly(ctx, 3);
+  context_store_divides_constraint(p, map, x, y, &k); // p is (- x + k * y)
+  // atom (x <= k * y) is (p >= 0)
+  l = ctx->arith.create_poly_ge_atom(ctx->arith_solver, p, map);
+
+  q_clear(&k);
+
+  return l;
+}
+
+// atom (divides k t)  we assume k != 0
+static literal_t map_arith_divides_to_literal(context_t *ctx, composite_term_t *divides) {
+  term_t d;
 
   assert(divides->arity == 2);
 
   d = divides->arg[0];
   if (term_kind(ctx->terms, d) == ARITH_CONSTANT) {
-    // make a copy of divides->arg[0] in k
-    q_init(&k);
-    q_set(&k, rational_term_desc(ctx->terms, d));
-    assert(q_is_nonzero(&k));
-
-    x = internalize_to_arith(ctx, divides->arg[1]); // this is t
-    y = get_div(ctx, x, &k);  // y := (div x k)
-    p = context_get_aux_poly(ctx, 3);
-    context_store_divides_constraint(p, map, x, y, &k); // p is (- x + k * y)
-    // atom (x <= k * y) is (p >= 0)
-    l = ctx->arith.create_poly_ge_atom(ctx->arith_solver, p, map);
-
-    q_clear(&k);
-
-    return l;
-
+    return map_arith_divides_const_to_literal(ctx, d, divides->arg[1]);
   } else {
     // k is not a constant: not supported
     longjmp(ctx->env, FORMULA_NOT_LINEAR);
@@ -3319,7 +3693,8 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
 
   }
 
-  if (ctx->mcsat_supplement && ctx->egraph != NULL) {
+  if (ctx->mcsat_supplement && ctx->egraph != NULL &&
+      !context_is_mcsat_relax_abstraction(ctx, unsigned_term(r))) {
     egraph_arith_observer_register_arith_term(ctx->egraph, x, unsigned_term(r));
   }
 
@@ -6159,6 +6534,9 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   init_mcsat_options(&ctx->mcsat_options);
   init_ivector(&ctx->mcsat_var_order, CTX_DEFAULT_VECTOR_SIZE);
   init_ivector(&ctx->mcsat_initial_var_order, CTX_DEFAULT_VECTOR_SIZE);
+  ctx->mcsat_relax_abstractions = NULL;
+  ctx->mcsat_relax_abstraction_terms = NULL;
+  ctx->mcsat_relax_manager = NULL;
   /*
    * Allocate and initialize the solvers and core
    * NOTE: no theory solver yet if arch is AUTO_IDL or AUTO_RDL
@@ -6225,6 +6603,7 @@ void delete_context(context_t *ctx) {
   /* delete_mcsat_options(&ctx->mcsat_options); // if used then the same memory is freed twice */
   delete_ivector(&ctx->mcsat_var_order);
   delete_ivector(&ctx->mcsat_initial_var_order);
+  context_delete_mcsat_relaxation(ctx);
 
   delete_intern_tbl(&ctx->intern);
   delete_ivector(&ctx->top_eqs);
@@ -6293,6 +6672,7 @@ void reset_context(context_t *ctx) {
 
   ivector_reset(&ctx->mcsat_var_order);
   ivector_reset(&ctx->mcsat_initial_var_order);
+  context_reset_mcsat_relaxation(ctx);
 
   reset_intern_tbl(&ctx->intern);
   ivector_reset(&ctx->top_eqs);

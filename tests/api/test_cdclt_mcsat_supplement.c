@@ -352,6 +352,64 @@ static void test_nla_assumption_core(void) {
   yices_free_context(ctx);
 }
 
+static void test_simplex_relaxation_phase2(void) {
+  context_t *ctx;
+  term_t x, y, xy, yx;
+  term_t ge1, le0, xeq0, gt0, xeq2, yeq2, eq4;
+  smt_status_t stat;
+  model_t *mdl;
+  int32_t v32;
+
+  ctx = make_cdclt_context("QF_UFLIA");
+  x = yices_new_uninterpreted_term(yices_int_type());
+  y = yices_new_uninterpreted_term(yices_int_type());
+  xy = yices_mul(x, y);
+  yx = yices_mul(y, x);
+
+  /*
+   * The relaxation should canonicalize (* x y) and (* y x) to the same
+   * internal simplex variable; exact MCSAT remains the final authority.
+   */
+  ge1 = yices_arith_geq_atom(xy, yices_int32(1));
+  le0 = yices_arith_leq_atom(yx, yices_int32(0));
+  check_code(yices_assert_formula(ctx, ge1), "assert x*y>=1 failed");
+  check_code(yices_assert_formula(ctx, le0), "assert y*x<=0 failed");
+  stat = yices_check_context(ctx, NULL);
+  check_status(stat, YICES_STATUS_UNSAT, "expected UNSAT for canonicalized product relaxation");
+
+  yices_reset_context(ctx);
+
+  /*
+   * The linear relaxation is satisfiable here (p_xy > 0 with x = 0), so
+   * the exact MCSAT satellite must still run after simplex.
+   */
+  xeq0 = yices_arith_eq_atom(x, yices_int32(0));
+  gt0 = yices_arith_gt_atom(xy, yices_int32(0));
+  check_code(yices_assert_formula(ctx, xeq0), "assert x=0 failed");
+  check_code(yices_assert_formula(ctx, gt0), "assert x*y>0 failed");
+  stat = yices_check_context(ctx, NULL);
+  check_status(stat, YICES_STATUS_UNSAT, "expected exact MCSAT UNSAT after satisfiable relaxation");
+
+  yices_reset_context(ctx);
+
+  xeq2 = yices_arith_eq_atom(x, yices_int32(2));
+  yeq2 = yices_arith_eq_atom(y, yices_int32(2));
+  eq4 = yices_arith_eq_atom(xy, yices_int32(4));
+  check_code(yices_assert_formula(ctx, xeq2), "assert x=2 failed");
+  check_code(yices_assert_formula(ctx, yeq2), "assert y=2 failed");
+  check_code(yices_assert_formula(ctx, eq4), "assert x*y=4 failed");
+  stat = yices_check_context(ctx, NULL);
+  check_status(stat, YICES_STATUS_SAT, "expected SAT for relaxed product with exact MCSAT model");
+  mdl = yices_get_model(ctx, 1);
+  check(mdl != NULL, "get_model failed for Phase-2 relaxation SAT case");
+  check(yices_formula_true_in_model(mdl, eq4) == 1, "model must satisfy exact x*y=4");
+  check_code(yices_get_int32_value(mdl, xy, &v32), "model must define exact x*y");
+  check(v32 == 4, "model value for exact x*y must be 4");
+  yices_free_model(mdl);
+
+  yices_free_context(ctx);
+}
+
 static void test_division_by_zero_remains_error(void) {
   context_t *ctx;
   term_t r, z, div, f;
@@ -403,6 +461,7 @@ int main(void) {
   test_nonconstant_divisor_and_param_modes();
   test_ff_sat_unsat_model_and_assumption_core();
   test_nla_assumption_core();
+  test_simplex_relaxation_phase2();
   test_division_by_zero_remains_error();
   test_disabling_required_supplement_is_invalid();
 
