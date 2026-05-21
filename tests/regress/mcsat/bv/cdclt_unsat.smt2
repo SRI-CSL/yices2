@@ -1,0 +1,5 @@
+(set-logic QF_BV)
+(declare-fun x () (_ BitVec 8))
+(assert (= x #x00))
+(assert (bvugt x #x00))
+(check-sat)
