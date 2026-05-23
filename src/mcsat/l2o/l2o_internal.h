@@ -116,33 +116,8 @@ typedef struct {
 } l2o_cost_fx_term_t;
 
 void l2o_cost_fx_term_construct(l2o_t *l2o, l2o_cost_fx_term_t *fx);
+
 void l2o_cost_fx_term_add(l2o_cost_fx_term_t *fx, term_t t);
-
-
-typedef struct {
-  l2o_cost_fx_t fx;
-
-  /** zero-terminated list of clauses with its terms */
-  term_t *lit;
-
-  /** capacity of lit */
-  uint32_t capacity;
-
-  /** offsets in lit with start of a new clause */
-  ivector_t clause_ids;
-
-  /** map of var -> [clause_id] */
-  int_lset_t var2clause;
-} l2o_cost_fx_cnf_t;
-
-void l2o_cost_fx_cnf_construct(l2o_t *l2o, l2o_cost_fx_cnf_t *fx);
-
-/** adds an assertion to the cost function. Returns the number of added clauses. */
-uint32_t l2o_cost_fx_cnf_add_clause(l2o_cost_fx_cnf_t *fx, const ivector_t *clause);
-
-void l2o_cost_fx_cnf_print(const l2o_cost_fx_cnf_t *fx, FILE *out);
-
-void l2o_cost_fx_set_trail(l2o_cost_fx_cnf_t *fx, const mcsat_trail_t *trail);
 
 bool l2o_is_valid_term(l2o_t *l2o, term_t t);
 

@@ -24,9 +24,4 @@
 /** Allocate a new bool plugin and setup the plugin-interface method */
 plugin_t* bool_plugin_allocator(void);
 
-// TEMP
-#include "bool_plugin_types.h"
-bool bool_plugin_get_clauses_of_term(const plugin_t *plugin, term_t t, ivector_t *clauses);
-void bool_plugin_query_clause(const plugin_t *plugin, clause_ref_t clause_ref, ivector_t *terms);
-
 #endif /* BOOL_PLUGIN_H_ */

@@ -329,22 +329,6 @@ bool l2o_collect_free_vars(l2o_t* l2o, term_t t) {
   return l2o_is_valid_term(l2o, t);
 }
 
-/** Returns true if all terms are valid. */
-static
-bool l2o_collect_free_vars_list(l2o_t *l2o, ivector_t *lits) {
-  bool result = true;
-  ivector_t v;
-  init_ivector(&v, 0);
-  for (uint32_t i = 0; i < lits->size; ++i) {
-    term_t t = lits->data[i];
-    collect_free_vars(l2o, t, &v, 0);
-    ivector_reset(&v);
-    result = result && l2o_is_valid_term(l2o, t);
-  }
-  delete_ivector(&v);
-  return result;
-}
-
 void l2o_set_exception_handler(l2o_t* l2o, jmp_buf* handler) {
   l2o->exception = handler;
 }
@@ -685,60 +669,6 @@ var_queue_t
   l2o_search_state_destruct(&state);
 }
 
-// TODO check for duplicate clauses
-static
-bool l2o_cost_fx_cnf_add(l2o_cost_fx_cnf_t *fx, term_t t) {
-  const plugin_t *bool_plugin = fx->fx.l2o->bool_plugin;
-  assert(bool_plugin);
-
-  bool success = true;
-  ivector_t clause_refs, terms;
-  init_ivector(&clause_refs, 0);
-  init_ivector(&terms, 0);
-  if (bool_plugin_get_clauses_of_term(bool_plugin, t, &clause_refs)) {
-    // non-unit clause
-    for (uint32_t i = 0; i < clause_refs.size; ++i) {
-      clause_ref_t ref = clause_refs.data[i];
-      bool_plugin_query_clause(bool_plugin, ref, &terms);
-      // TODO filter true_term and false_term accordingly
-      l2o_cost_fx_cnf_add_clause(fx, &terms);
-      success = success && l2o_collect_free_vars_list(fx->fx.l2o, &terms);
-      ivector_reset(&terms);
-    }
-  } else {
-    // no clause found, assume unit clause
-    ivector_push(&terms, t);
-    l2o_cost_fx_cnf_add_clause(fx, &terms);
-    success = l2o_collect_free_vars_list(fx->fx.l2o, &terms);
-  }
-  delete_ivector(&clause_refs);
-  delete_ivector(&terms);
-  return success;
-}
-
-static
-l2o_cost_fx_t* l2o_make_cost_fx_cnf(l2o_t* l2o, const mcsat_trail_t *trail) {
-  const ivector_t *assertions = &l2o->assertions;
-  bool success = true;
-
-  l2o_cost_fx_cnf_t fx;
-  l2o_cost_fx_cnf_construct(l2o, &fx);
-  for (uint32_t i = 0; i < assertions->size; ++ i) {
-    term_t t = assertions->data[i];
-    success = l2o_cost_fx_cnf_add(&fx, t);
-    if (!success) break;
-  }
-
-  if (success) {
-    l2o_cost_fx_cnf_t *fx_m = safe_malloc(sizeof(l2o_cost_fx_cnf_t));
-    *fx_m = fx;
-    return (l2o_cost_fx_t*) fx_m;
-  } else {
-    fx.fx.destruct((l2o_cost_fx_t*)&fx);
-    return NULL;
-  }
-}
-
 static
 l2o_cost_fx_t* l2o_make_cost_fx_l2o(l2o_t* l2o, const mcsat_trail_t *trail) {
   const ivector_t* assertions = &l2o->assertions;
@@ -762,16 +692,10 @@ l2o_cost_fx_t* l2o_make_cost_fx_l2o(l2o_t* l2o, const mcsat_trail_t *trail) {
 }
 
 void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values, const var_queue_t *queue) {
-  l2o_cost_fx_t *fx =
-#if 0
-      l2o_make_cost_fx_l2o(l2o, trail);
-#else
-      l2o_make_cost_fx_cnf(l2o, trail);
-#endif
+  l2o_cost_fx_t* fx = l2o_make_cost_fx_l2o(l2o, trail);
 
   if (fx) {
     l2o_minimize_and_set_hint(l2o, fx, trail, use_cached_values, queue);
-    // TODO make proper dynamic free function
     fx->destruct(fx);
     safe_free(fx);
     (*l2o->l2o_stats.n_runs)++;

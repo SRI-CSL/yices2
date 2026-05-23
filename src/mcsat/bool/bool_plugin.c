@@ -1065,24 +1065,3 @@ plugin_t* bool_plugin_allocator(void) {
 
   return (plugin_t*) plugin;
 }
-
-// TODO find proper place
-bool bool_plugin_get_clauses_of_term(const plugin_t *plugin, term_t t, ivector_t *clauses) {
-  bool_plugin_t* bp = (bool_plugin_t*) plugin;
-  variable_t v = variable_db_get_variable_if_exists(bp->ctx->var_db, unsigned_term(t));
-  assert(v != variable_null);
-  return cnf_get_clauses(&bp->cnf, v, clauses);
-}
-
-void bool_plugin_query_clause(const plugin_t *plugin, clause_ref_t clause_ref, ivector_t *terms) {
-  const bool_plugin_t* bp = (bool_plugin_t*) plugin;
-  assert(clause_db_is_clause(&bp->clause_db, clause_ref, true));
-  mcsat_clause_t *C = clause_db_get_clause(&bp->clause_db, clause_ref);
-  for (uint32_t i = 0; i < C->size; ++i) {
-    assert(C->literals[i] != 0);
-    mcsat_literal_t l = C->literals[i];
-    term_t t = variable_db_get_term(bp->ctx->var_db, literal_get_variable(l));
-    if (literal_is_negated(l)) t = opposite_term(t);
-    ivector_push(terms, t);
-  }
-}
