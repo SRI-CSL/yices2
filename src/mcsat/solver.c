@@ -865,7 +865,9 @@ void mcsat_add_plugins(mcsat_solver_t* mcsat) {
   mcsat->na_plugin_id = mcsat_add_plugin(mcsat, na_plugin_allocator, "na_plugin");
   mcsat->bv_plugin_id = mcsat_add_plugin(mcsat, bv_plugin_allocator, "bv_plugin");
   mcsat->ff_plugin_id = mcsat_add_plugin(mcsat, ff_plugin_allocator, "ff_plugin");
-  mcsat->cdclt_plugin_id = mcsat_add_plugin(mcsat, cdclt_plugin_allocator, "cdclt_plugin");
+  if (mcsat->ctx->mcsat_options.cdclt) {
+    mcsat->cdclt_plugin_id = mcsat_add_plugin(mcsat, cdclt_plugin_allocator, "cdclt_plugin");
+  }
 }
 
 static

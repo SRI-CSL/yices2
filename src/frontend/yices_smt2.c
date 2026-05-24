@@ -118,6 +118,7 @@ static int32_t mcsat_na_bound_min;
 static int32_t mcsat_na_bound_max;
 static int32_t mcsat_bv_var_size;
 static bool mcsat_partial_restart;
+static bool mcsat_cdclt;
 
 static pvector_t trace_tags;
 
@@ -175,6 +176,7 @@ typedef enum optid {
   mcsat_na_bound_max_opt, // set maximal bound
   mcsat_bv_var_size_opt,   // set size of bitvector variables
   mcsat_partial_restart_opt, // enable partial restart heuristic in MCSAT
+  mcsat_cdclt_opt,           // enable cdclt plugin in MCSAT
   trace_opt,               // enable a trace tag
   show_ef_help_opt,        // print help about the ef options
   ematch_en_opt,                    // enable ematching
@@ -227,6 +229,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "mcsat-na-bound-max", '\0', MANDATORY_INT, mcsat_na_bound_max_opt },
   { "mcsat-bv-var-size", '\0', MANDATORY_INT, mcsat_bv_var_size_opt },
   { "mcsat-partial-restart", '\0', FLAG_OPTION, mcsat_partial_restart_opt },
+  { "mcsat-cdclt", '\0', FLAG_OPTION, mcsat_cdclt_opt },
   { "trace", 't', MANDATORY_STRING, trace_opt },
   { "ef-help", '0', FLAG_OPTION, show_ef_help_opt },
   { "ematch", '\0', FLAG_OPTION, ematch_en_opt },
@@ -410,6 +413,7 @@ static void parse_command_line(int argc, char *argv[]) {
   mcsat_na_bound_max = -1;
   mcsat_bv_var_size = -1;
   mcsat_partial_restart = false;
+  mcsat_cdclt = false;
 
   init_pvector(&trace_tags, 5);
 
@@ -608,6 +612,11 @@ static void parse_command_line(int argc, char *argv[]) {
 
       case mcsat_partial_restart_opt:
         mcsat_partial_restart = true;
+        break;
+
+      case mcsat_cdclt_opt:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        mcsat_cdclt = true;
         break;
 
       case show_ef_help_opt:
@@ -840,6 +849,10 @@ static void setup_options_mcsat(void) {
 
   if (mcsat_partial_restart) {
     smt2_set_option(":yices-mcsat-partial-restart", aval_true);
+  }
+
+  if (mcsat_cdclt) {
+    smt2_set_option(":yices-mcsat-cdclt", aval_true);
   }
 }
 

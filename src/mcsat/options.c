@@ -29,5 +29,6 @@ extern void init_mcsat_options(mcsat_options_t *opts) {
   opts->bv_var_size = -1;
   opts->model_interpolation = false;
   opts->partial_restart = false;
+  opts->cdclt = false;
 }
 

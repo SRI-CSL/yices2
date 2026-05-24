@@ -1663,6 +1663,10 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_terms_param(param2string[p], &mcsat_var_order, n);
     break;
 
+  case PARAM_MCSAT_CDCLT:
+    show_bool_param(param2string[p], mcsat_parameters.cdclt, n);
+    break;
+
   case PARAM_MCSAT_PARTIAL_RESTART:
     show_bool_param(param2string[p], mcsat_parameters.partial_restart, n);
     break;
@@ -2304,6 +2308,16 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
       ivector_copy(&mcsat_var_order, terms->data, terms->size);
       if (context != NULL) {
         ivector_copy(&context->mcsat_var_order, terms->data, terms->size);
+      }
+      print_ok();
+    }
+    break;
+
+  case PARAM_MCSAT_CDCLT:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      mcsat_parameters.cdclt = tt;
+      if (context != NULL) {
+        context->mcsat_options.cdclt = tt;
       }
       print_ok();
     }
