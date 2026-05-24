@@ -310,7 +310,8 @@ static void print_mcsat_help(const char *progname) {
          "    --mcsat-na-bound-min=<B> Set initial lower bound\n"
          "    --mcsat-na-bound-max=<B> Set maximal bound for search\n"
          "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search\n"
-         "    --mcsat-partial-restart   Enable partial restart heuristic in MCSAT search"
+         "    --mcsat-partial-restart   Enable partial restart heuristic in MCSAT search\n"
+         "    --mcsat-cdclt             Enable the CDCL(T) plugin in MCSAT"
          "\n");
   fflush(stdout);
 }
