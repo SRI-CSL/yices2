@@ -1069,6 +1069,8 @@ extern void reset_nsat_solver(sat_solver_t *solver);
 /*
  * Prepare for adding more problem clauses after a SAT result:
  * - backtrack to decision level 0
+ * - reset the decision-variable list; this loses the previous variable order
+ * - clear transient backtracking/conflict state
  * - clear the solver status unless an empty clause is already present
  * - keep all problem and learned clauses
  */
@@ -1249,6 +1251,8 @@ extern void nsat_set_simplify_subst_delta(sat_solver_t *solver, uint32_t d);
  *   2) it doesn't include duplicates or complementary literals
  *
  * This function simplifies the clause then adds it
+ * - substituted literals (ATAG_SUBST) are rewritten to their representatives
+ *   before simplification
  * - n = number of literals
  * - l = array of n literals
  * - the array is modified

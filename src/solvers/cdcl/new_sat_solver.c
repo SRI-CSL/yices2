@@ -3737,13 +3737,28 @@ static void add_large_clause(sat_solver_t *solver, uint32_t n, const literal_t *
 
 
 /*
+ * Full substitution: follow the substitution chain
+ * - if l is not replaced by anything, return l
+ * - otherwise, replace l by subst(l) and iterate
+ */
+static literal_t full_lit_subst(const sat_solver_t *solver, literal_t l) {
+  assert(l < solver->nliterals);
+
+  while (solver->ante_tag[var_of(l)] == ATAG_SUBST) {
+    l = solver->ante_data[var_of(l)] ^ sign_of_lit(l);
+  }
+  return l;
+}
+
+
+/*
  * Simplify the clause then add it
+ * - substituted literals (ATAG_SUBST) are rewritten to their representatives
+ *   before simplification
  * - n = number of literals
  * - l = array of n literals
  * - the array is modified
  */
-static literal_t full_lit_subst(const sat_solver_t *solver, literal_t l);
-
 void nsat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, literal_t *lit) {
   uint32_t i, j;
   literal_t l, l_aux;
@@ -3866,20 +3881,6 @@ static inline literal_t base_subst(const sat_solver_t *solver, literal_t l) {
   return solver->ante_data[var_of(l)] ^ sign_of_lit(l);
 }
 #endif
-
-/*
- * Full substitution: follow the substitution chain
- * - if l is not replaced by anything, return l
- * - otherwise, replace l by subst(l) and iterate
- */
-static literal_t full_lit_subst(const sat_solver_t *solver, literal_t l) {
-  assert(l < solver->nliterals);
-
-  while (solver->ante_tag[var_of(l)] == ATAG_SUBST) {
-    l = solver->ante_data[var_of(l)] ^ sign_of_lit(l);
-  }
-  return l;
-}
 
 static literal_t full_var_subst(const sat_solver_t *solver, bvar_t x) {
   assert(x < solver->nvars);

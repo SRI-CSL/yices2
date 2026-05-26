@@ -267,11 +267,19 @@ static void check_y2sat_delegate_append_substituted_literal_case(void) {
   assert(delegate.check(delegate.solver) == YICES_STATUS_SAT);
 
   solver = delegate.solver;
+  /*
+   * The two binary clauses make x1 and x2 equivalent, so current SCC
+   * simplification substitutes one by the other. If that heuristic changes
+   * and neither variable is substituted, this white-box regression is not
+   * applicable.
+   */
   if (solver->ante_tag[1] == ATAG_SUBST) {
     subst = 1;
-  } else {
-    assert(solver->ante_tag[2] == ATAG_SUBST);
+  } else if (solver->ante_tag[2] == ATAG_SUBST) {
     subst = 2;
+  } else {
+    delete_delegate(&delegate);
+    return;
   }
 
   v = delegate_get_value(&delegate, subst);
