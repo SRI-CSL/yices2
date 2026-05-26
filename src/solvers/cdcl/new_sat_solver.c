@@ -8773,6 +8773,22 @@ static void backtrack(sat_solver_t *solver, uint32_t back_level) {
 }
 
 
+/*
+ * Prepare for adding more problem clauses after a SAT result.
+ */
+void nsat_solver_prepare_for_next_search(sat_solver_t *solver) {
+  if (solver->decision_level > 0) {
+    backtrack(solver, 0);
+  }
+  reset_var_list(&solver->list);
+  solver->backtrack_level = 0;
+  solver->conflict_tag = CTAG_NONE;
+  if (! solver->has_empty_clause) {
+    solver->status = STAT_UNKNOWN;
+  }
+}
+
+
 #if 0
 
 // DISABLED FOR TESTING

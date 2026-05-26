@@ -31,6 +31,7 @@
  * carve-out for -Wpedantic / -Wextra lives in tests/api/Makefile.
  */
 #include "context/context.h"
+#include "solvers/cdcl/delegate.h"
 #include "yices.h"
 
 static void expect_status(context_t *ctx, const param_t *params, smt_status_t expected) {
@@ -181,6 +182,76 @@ static void check_append_mode_add_after_solve_case(const char *delegate) {
   yices_free_context(ctx);
 }
 
+static void check_y2sat_append_add_sat_clause_after_solve_case(void) {
+  type_t bv8;
+  term_t x, y, u, v, zero, a, b, p, d, hard, f0, f1;
+  model_t *mdl;
+  context_t *ctx;
+  sat_delegate_stats_t stats;
+  int32_t pval, dval;
+
+  bv8 = yices_bv_type(8);
+  x = yices_new_uninterpreted_term(bv8);
+  y = yices_new_uninterpreted_term(bv8);
+  u = yices_new_uninterpreted_term(bv8);
+  v = yices_new_uninterpreted_term(bv8);
+  zero = yices_bvconst_uint32(8, 0);
+  a = yices_bveq_atom(yices_bvadd(x, yices_bvconst_uint32(8, 1)), x);
+  b = yices_bveq_atom(y, zero);
+  p = yices_bveq_atom(u, zero);
+  d = yices_bveq_atom(v, zero);
+  hard = yices_or2(a, b);
+  f0 = yices_and2(hard, yices_or2(p, d));
+
+  ctx = new_qfbv_pushpop_context_with_delegate("y2sat", "append");
+  assert(yices_assert_formula(ctx, f0) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+
+  mdl = yices_get_model(ctx, 1);
+  assert(mdl != NULL);
+  pval = yices_formula_true_in_model(mdl, p);
+  assert(pval == 0 || pval == 1);
+  dval = yices_formula_true_in_model(mdl, d);
+  assert(dval == 0 || dval == 1);
+  yices_free_model(mdl);
+
+  f1 = yices_or2(pval ? yices_not(p) : p, dval ? yices_not(d) : d);
+
+  assert(yices_assert_formula(ctx, f1) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+
+  context_get_sat_delegate_stats(ctx, &stats);
+  assert(stats.append_checks == 2);
+  assert(stats.rebuild_checks == 0);
+
+  yices_free_context(ctx);
+}
+
+static void check_y2sat_delegate_multi_check_add_clause_after_sat_case(void) {
+  delegate_t delegate;
+  literal_t clause[2];
+  bval_t v1, v2;
+
+  assert(init_delegate_incremental(&delegate, "y2sat", 3));
+
+  clause[0] = pos_lit(1);
+  clause[1] = pos_lit(2);
+  delegate.add_clause(delegate.solver, 2, clause);
+  assert(delegate.check(delegate.solver) == YICES_STATUS_SAT);
+
+  v1 = delegate_get_value(&delegate, 1);
+  v2 = delegate_get_value(&delegate, 2);
+  assert(bval_is_def(v1));
+  assert(bval_is_def(v2));
+
+  clause[0] = (v1 == VAL_TRUE) ? neg_lit(1) : pos_lit(1);
+  clause[1] = (v2 == VAL_TRUE) ? neg_lit(2) : pos_lit(2);
+  delegate.add_clause(delegate.solver, 2, clause);
+  assert(delegate.check(delegate.solver) == YICES_STATUS_SAT);
+
+  delete_delegate(&delegate);
+}
+
 static void check_append_mode_rebuild_after_pop_case(const char *delegate) {
   term_t f0, f1;
   context_t *ctx;
@@ -314,6 +385,8 @@ int main(void) {
       check_selector_mode_long_pushpop_case(delegates[i]);
     }
   }
+  check_y2sat_append_add_sat_clause_after_solve_case();
+  check_y2sat_delegate_multi_check_add_clause_after_sat_case();
 
   yices_exit();
   return 0;

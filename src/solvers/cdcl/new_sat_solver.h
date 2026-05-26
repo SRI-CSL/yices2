@@ -1067,6 +1067,14 @@ extern void delete_nsat_solver(sat_solver_t *solver);
 extern void reset_nsat_solver(sat_solver_t *solver);
 
 /*
+ * Prepare for adding more problem clauses after a SAT result:
+ * - backtrack to decision level 0
+ * - clear the solver status unless an empty clause is already present
+ * - keep all problem and learned clauses
+ */
+extern void nsat_solver_prepare_for_next_search(sat_solver_t *solver);
+
+/*
  * Add n fresh variables:
  * - they are indexed from nv, ..., nv + n-1 where nv = number of
  *   variables in solver (on entry to this function).
