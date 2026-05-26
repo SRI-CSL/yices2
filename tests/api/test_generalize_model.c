@@ -23,6 +23,10 @@
 
 #include <yices.h>
 
+#include "api/yices_globals.h"
+#include "model/generalization.h"
+#include "utils/int_vectors.h"
+
 
 /*
  * Helper: build a fresh QF_LRA context. The model-generalization
@@ -571,7 +575,7 @@ static void test_sat_guided_no_sharing_parity(void) {
 }
 
 static void test_sat_guided_budget_graceful(void) {
-  enum { NPAIRS = 11 };
+  enum { NPAIRS = 11, BUDGET = 4 };
   term_t dummy;
   term_t atoms[2 * NPAIRS], disj[NPAIRS];
   term_t formula, mdl_extra;
@@ -579,6 +583,7 @@ static void test_sat_guided_budget_graceful(void) {
   model_t *mdl;
   term_vector_t v_local, v_wide;
   uint32_t i;
+  int32_t r, extra_err;
 
   printf("\n=== test_sat_guided_budget_graceful ===\n");
   dummy = yices_new_uninterpreted_term(yices_real_type());
@@ -593,8 +598,29 @@ static void test_sat_guided_budget_graceful(void) {
   mdl = check_and_get_model(yices_and2(formula, mdl_extra));
 
   elim[0] = dummy;
-  run_both_modes_quiet("sat_guided_budget_graceful", formula, mdl, 1, elim, &v_local, &v_wide);
-  printf("  -> budget fallback returned a sound generalization (%u wide terms)\n", v_wide.size);
+  yices_init_term_vector(&v_local);
+  yices_init_term_vector(&v_wide);
+
+  r = yices_generalize_model(mdl, formula, 1, elim,
+                             YICES_GEN_BY_PROJ_LOCAL, &v_local);
+  assert(r == 0);
+
+  // The public API runs with cube_budget == 0 (unbounded). Call the
+  // internal entry directly with an explicit small budget so we
+  // exercise the OR(collected, local) budget-exhaustion fallback:
+  // 2^NPAIRS = 2048 implicants are possible and BUDGET = 4 is far
+  // below that.
+  extra_err = 0;
+  v_wide.size = 0;
+  r = gen_model_by_projection(mdl, __yices_globals.manager, 1, &formula,
+                              1, elim, (ivector_t *) &v_wide,
+                              BUDGET, &extra_err);
+  assert(r == 0);
+
+  assert_all_true("sat_guided_budget_graceful", &v_wide, mdl);
+  assert_local_implies_wide(&v_local, &v_wide);
+  printf("  -> cube_budget=%u yielded a sound wide cell (%u terms)\n",
+         BUDGET, v_wide.size);
 
   yices_delete_term_vector(&v_local);
   yices_delete_term_vector(&v_wide);

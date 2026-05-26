@@ -120,8 +120,8 @@ enum {
  *   Boolean implicants with a SAT solver and blocker clauses, projects
  *   each implicant via Loos-Weispfenning / Cooper / arith_proj, and
  *   unions the results at the term level. The cube_budget argument
- *   caps the number of SAT-guided cubes (pass 0 to use the built-in
- *   default).
+ *   caps the number of *successful* SAT-guided cubes (pass 0 for
+ *   unbounded; the underlying Boolean enumeration is finite).
  * - gen_model_by_projection_local:
  *   legacy projection. Builds a single literal implicant of f[] at the
  *   model and projects that flat conjunction. This is the algorithm Yices
@@ -129,7 +129,7 @@ enum {
  * - generalize_model:
  *   the generic form. Applies projection (wide) for arithmetic variables
  *   and substitution for the rest. cube_budget is the SAT-guided cube
- *   cap for the wide pass (pass 0 to use the built-in default).
+ *   cap for the wide pass (pass 0 for unbounded).
  *
  * If a projection-based call fails and returns GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM,
  * *extra_error stores the term_kind of the bad terms (see projection.h).

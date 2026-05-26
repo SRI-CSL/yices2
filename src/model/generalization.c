@@ -68,11 +68,16 @@
  *   its implicant is added as a blocker and SAT enumeration continues
  *   with a different implicant of F.
  *
- *   If SAT-guided enumeration hits the iteration budget, the result
- *   is OR(collected, local) (broader than local alone). If no cube
- *   ever projects successfully, the wide path falls back to the
- *   local cell (which carries the underlying projector error code
- *   when both paths fail for the same reason).
+ *   cube_budget caps the number of *successful* projections; failed
+ *   projections do not count against the cap. cube_budget == 0 means
+ *   unbounded -- which is sound because the underlying Boolean
+ *   enumeration is finite (each iteration adds a blocker clause that
+ *   forbids at least one assignment of the abstraction). If the cap
+ *   is hit with at least one success, the result is OR(collected,
+ *   local) (broader than local alone). If no cube ever projects
+ *   successfully, the wide path falls back to the local cell (which
+ *   carries the underlying projector error code when both paths fail
+ *   for the same reason).
  */
 
 #include <assert.h>
@@ -252,13 +257,6 @@ static int32_t gen_model_by_proj_local(model_t *mdl, term_manager_t *mngr, uint3
 }
 
 
-
-/*
- * Default cube budget for the SAT-guided wide pipeline. If SAT-guided
- * implicant enumeration would emit more than this many cubes, the
- * loop stops and the wide result is OR(collected, local fallback).
- */
-#define WIDE_CUBE_BUDGET 1024
 
 /*
  * Project a single cube via the legacy implicant+project pipeline.
@@ -1021,7 +1019,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   bool_node_id_t root;
   literal_t root_lit;
   solver_status_t sat_status;
-  uint32_t num_attempts;
+  uint32_t num_cubes;
   int32_t code;
   bool builder_inited;
   bool sat_inited;
@@ -1085,7 +1083,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     goto cleanup;
   }
 
-  num_attempts = 0;
+  num_cubes = 0;
   init_nsat_solver(&sat, builder.bvar_to_atom.size + builder.dag.size + 8, false);
   sat_inited = true;
   nsat_solver_add_vars(&sat, builder.bvar_to_atom.size - 1);
@@ -1093,14 +1091,20 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   root_lit = clausify_node(&builder.dag, &sat, root);
   sat_add_unit_clause(&sat, root_lit);
 
-  // The loop bounds the number of SAT iterations (not successful
-  // projections) by cube_budget. On a projection error we skip the
-  // failing cube, block its implicant, and continue: a different
-  // implicant may use different literals and project cleanly. We
-  // only fall back to gen_model_by_proj_local if no cube ever projects
-  // successfully (have_first stays false) or if we hit the iteration
-  // budget (in which case OR(collected, local) gives a broader cell).
-  while (num_attempts < cube_budget) {
+  // cube_budget caps the number of *successful* projections; failed
+  // projections do not count against the cap. cube_budget == 0 means
+  // unbounded (enumerate until SAT exhausts; the underlying Boolean
+  // enumeration is finite because every iteration adds a blocker
+  // clause that rules out at least one assignment of the abstraction).
+  //
+  // On a projection error we skip the failing cube, block its
+  // implicant, and continue: a different implicant may use different
+  // literals and project cleanly. If no cube ever projects
+  // successfully (have_first stays false) we fall back to
+  // gen_model_by_proj_local for its error code; if we hit the budget
+  // with at least one success we return OR(collected, local) for a
+  // broader cell.
+  while (cube_budget == 0 || num_cubes < cube_budget) {
     sat_status = nsat_solve(&sat);
     if (sat_status == STAT_UNSAT) {
       exhausted_sat = true;
@@ -1114,17 +1118,19 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     extract_implicant(&builder.dag, &sat, root, &implicant);
 
     implicant_to_cube(&builder, &implicant, &cube);
-    num_attempts ++;
 
     code = append_projected_cube_term(mdl, mngr, nelims, elim, &cube, extra_error,
                                       &have_first, &multiple, &first_projected, &cube_terms);
-    if (code != 0) {
+    if (code == 0) {
+      num_cubes ++;
+    } else {
       // Projection error on this cube (typically a literal contains a
       // term-kind the projector doesn't support, e.g. in non-MCSAT
       // builds a non-linear arithmetic term -> PROJ_ERROR_NON_LINEAR,
       // or a function application -> PROJ_ERROR_UNSUPPORTED_ARITH_TERM).
       // Drop this cube and try other implicants of F: a different
       // SAT-guided choice may avoid the offending literal entirely.
+      // Do not count the failed attempt against cube_budget.
       code = 0;
     }
 
@@ -1245,16 +1251,17 @@ int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n
  * at the term level. Wider output than gen_model_by_projection_local;
  * recommended for CEGAR-style outer loops over quantifier prefixes.
  *
- * cube_budget caps the number of SAT-guided cubes the enumeration is
- * allowed to emit before falling back to OR(collected, local). Pass 0
- * to use the built-in default (WIDE_CUBE_BUDGET).
+ * cube_budget caps the number of *successful* SAT-guided cube
+ * projections. Failed projections do not count against the cap.
+ * cube_budget == 0 means unbounded (the Boolean enumeration is
+ * always finite because each iteration adds a blocker clause).
+ * On budget exhaustion the wide result is OR(collected, local).
  */
 int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 				uint32_t nelims, const term_t elim[], ivector_t *v,
 				uint32_t cube_budget, int32_t *extra_error) {
   ivector_copy(v, f, n);
   assert(v->size == n);
-  if (cube_budget == 0) cube_budget = WIDE_CUBE_BUDGET;
   return gen_model_by_proj_sat_guided(mdl, mngr, nelims, elim, v, cube_budget, extra_error);
 }
 
@@ -1281,8 +1288,8 @@ int32_t gen_model_by_projection_local(model_t *mdl, term_manager_t *mngr, uint32
  * - 1) eliminate the discrete variables by substitution
  * - 2) use projection (wide variant) to eliminate the real variables
  *
- * cube_budget is the SAT-guided cube cap for pass 2 (pass 0 to use
- * the built-in default).
+ * cube_budget is the cap on successful SAT-guided cubes for pass 2
+ * (pass 0 for unbounded; see gen_model_by_projection).
  */
 int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 			 uint32_t nelims, const term_t elim[], ivector_t *v,
@@ -1291,8 +1298,6 @@ int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const t
   ivector_t discretes;
   ivector_t reals;
   int32_t code;
-
-  if (cube_budget == 0) cube_budget = WIDE_CUBE_BUDGET;
 
   // if n == 0, there's nothing to do
   code = 0;
