@@ -4774,12 +4774,17 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
  *                                        implicants of t against a polarity-
  *                                        aware abstraction, projects each as
  *                                        a cube, and unions the results. The
- *                                        cell is strictly broader than
- *                                        YICES_GEN_BY_PROJ whenever t has
- *                                        Boolean structure the model
- *                                        satisfies in more than one way.
- *                                        Recommended for CEGAR-style outer
- *                                        loops over quantifier prefixes.
+ *                                        cell is always at least as broad as
+ *                                        YICES_GEN_BY_PROJ; it is strictly
+ *                                        broader on many inputs where t has
+ *                                        Boolean structure the model satisfies
+ *                                        in more than one way (but not on
+ *                                        every such input: when distinct
+ *                                        Boolean implicants project to
+ *                                        equivalent theory cells, the cell
+ *                                        does not widen). Recommended for
+ *                                        CEGAR-style outer loops over
+ *                                        quantifier prefixes.
  *                                        See yices_generalize_model_with_budget
  *                                        for the cube_budget knob.
  *   mode = YICES_GEN_DEFAULT        ---> automatically choose the mode

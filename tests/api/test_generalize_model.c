@@ -351,17 +351,17 @@ static void test_overlapping_arith_disjunction(void) {
   run_both_modes("overlapping_arith_disjunction",
                  formula, mdl, 1, elim, &v_local, &v_wide);
 
-  // The wide result should be strictly broader than the local one,
-  // because both disjuncts are satisfied at the model and
-  // contribute distinct projections (y > 0 vs z > 5).
+  // The wide result must be strictly broader than the local one:
+  // both disjuncts are satisfied at the model and contribute distinct
+  // projections (y > 0 vs z > 5). This is the headline win of the
+  // wide algorithm; regressing on it would defeat the purpose of the
+  // mode even if all the cube-counting smoke tests still pass.
   if (!wide_is_strictly_broader(&v_local, &v_wide)) {
     fprintf(stderr,
-            "[overlapping_arith_disjunction] expected wide strictly broader\n");
-    // Not a hard assert: implementation may legitimately collapse
-    // both projections in some simplification path. Print and continue.
-  } else {
-    printf("  -> wide is strictly broader than local (as expected)\n");
+            "[overlapping_arith_disjunction] expected wide STRICTLY broader than local\n");
+    assert(0);
   }
+  printf("  -> wide is strictly broader than local (as expected)\n");
 
   yices_delete_term_vector(&v_local);
   yices_delete_term_vector(&v_wide);

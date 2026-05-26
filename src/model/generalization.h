@@ -36,13 +36,16 @@
  *
  * Two projection variants are exposed:
  *
- * - "wide" (the default for the public API): walks the Boolean
- *   structure of F(x, y) and unions per-disjunct projections, so
- *   that G(x) is strictly broader than the sign-invariant cell of
- *   one chosen implicant whenever F has Boolean structure the model
- *   satisfies in more than one way. Wider output, slightly more
- *   expensive per call. Recommended for CEGAR-style outer loops
- *   over quantifier prefixes (exists/forall, QSMA, etc.).
+ * - "wide" (exposed via YICES_GEN_BY_PROJ_WIDE; opt-in, not the
+ *   public default): walks the Boolean structure of F(x, y) and
+ *   unions per-disjunct projections. G(x) is always at least as
+ *   broad as the sign-invariant cell of one chosen implicant, and
+ *   strictly broader on many inputs where F has model-satisfied
+ *   Boolean structure (when distinct Boolean implicants project to
+ *   distinct theory cells; coincidentally equivalent projections do
+ *   not widen the cell, by design). Wider output on average, but
+ *   slightly more expensive per call. Recommended for CEGAR-style
+ *   outer loops over quantifier prefixes (exists/forall, QSMA, etc.).
  *
  * - "local": the legacy pipeline. Computes a single implicant of F
  *   at the model (one literal per disjunct), then projects that flat

@@ -42,11 +42,14 @@
  *   (one literal per disjunction) and projects that flat
  *   conjunction. Cheaper per call but commits to one disjunct,
  *   so the resulting cell is sign-invariant for the chosen
- *   implicant and is strictly narrower than the wide cell
- *   whenever F has Boolean structure the model satisfies in
- *   more than one way.
+ *   implicant and is often narrower than the wide cell when F
+ *   has Boolean structure the model satisfies in more than one
+ *   way (it is never broader).
  *
- * - "wide" (gen_model_by_proj_sat_guided): the public default.
+ * - "wide" (gen_model_by_proj_sat_guided): the SAT-guided
+ *   enumerator, exposed publicly via YICES_GEN_BY_PROJ_WIDE.
+ *   This is an opt-in mode; neither YICES_GEN_BY_PROJ nor
+ *   YICES_GEN_DEFAULT select it implicitly.
  *   Builds a model-pruned Boolean abstraction of f[], enumerates
  *   model-true Boolean implicants with a SAT solver and blocker
  *   clauses, projects each implicant as a cube through the legacy
@@ -1249,13 +1252,16 @@ int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n
 
 
 /*
- * Generalize by projection (wide variant, the public default).
+ * Generalize by projection (wide variant; opt-in via
+ * YICES_GEN_BY_PROJ_WIDE).
  *
  * Walks the Boolean structure of f[], enumerates model-true Boolean
  * implicants via a SAT-guided loop, projects each implicant as a cube
  * through the legacy implicant+project pipeline, and unions the results
- * at the term level. Wider output than gen_model_by_projection_local;
- * recommended for CEGAR-style outer loops over quantifier prefixes.
+ * at the term level. Output is always at least as broad as
+ * gen_model_by_projection_local and is often strictly broader when f[]
+ * has Boolean structure the model satisfies in more than one way.
+ * Recommended for CEGAR-style outer loops over quantifier prefixes.
  *
  * cube_budget caps the number of SAT iterations (extracted+attempted
  * cubes). cube_budget == 0 means unbounded (the Boolean enumeration
