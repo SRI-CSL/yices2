@@ -148,6 +148,79 @@ static int wide_is_strictly_broader(term_vector_t *v_local,
   return strict;
 }
 
+static uint32_t generalization_disjunct_count(term_vector_t *v) {
+  term_constructor_t kind;
+  int32_t n;
+
+  if (v->size == 0) {
+    return 1;
+  }
+  if (v->size != 1) {
+    return 1;
+  }
+
+  kind = yices_term_constructor(v->data[0]);
+  if (kind == YICES_OR_TERM) {
+    n = yices_term_num_children(v->data[0]);
+    assert(n >= 0);
+    return (uint32_t) n;
+  }
+  return 1;
+}
+
+static void assert_generalization_implies_term(const char *tag, term_vector_t *v,
+                                               term_t expected) {
+  context_t *ctx;
+  smt_status_t status;
+  term_t g, witness;
+  int32_t ok;
+
+  g = yices_and(v->size, v->data);
+  assert(g >= 0);
+  witness = yices_and2(g, yices_not(expected));
+  assert(witness >= 0);
+
+  ctx = new_lra_context();
+  ok = yices_assert_formula(ctx, witness);
+  assert(ok == 0);
+  status = yices_check_context(ctx, NULL);
+  if (status != YICES_STATUS_UNSAT) {
+    fprintf(stderr, "[%s] generalization does not imply expected term\n", tag);
+    fprintf(stderr, "generalization:\n");
+    yices_pp_term_array(stderr, v->size, v->data, 100, 10, 0, 1);
+    fprintf(stderr, "expected:\n");
+    yices_pp_term(stderr, expected, 100, 1, 0);
+    assert(0);
+  }
+  yices_free_context(ctx);
+}
+
+static void run_both_modes_quiet(const char *tag, term_t formula, model_t *mdl,
+                                 uint32_t nelims, const term_t elim[],
+                                 term_vector_t *out_local, term_vector_t *out_wide) {
+  int32_t r;
+
+  yices_init_term_vector(out_local);
+  yices_init_term_vector(out_wide);
+
+  r = yices_generalize_model(mdl, formula, nelims, elim,
+                             YICES_GEN_BY_PROJ_LOCAL, out_local);
+  if (r != 0) {
+    fprintf(stderr, "[%s] local generalization failed: %s\n", tag, yices_error_string());
+    assert(0);
+  }
+  r = yices_generalize_model(mdl, formula, nelims, elim,
+                             YICES_GEN_BY_PROJ, out_wide);
+  if (r != 0) {
+    fprintf(stderr, "[%s] wide generalization failed: %s\n", tag, yices_error_string());
+    assert(0);
+  }
+
+  assert_all_true(tag, out_local, mdl);
+  assert_all_true(tag, out_wide, mdl);
+  assert_local_implies_wide(out_local, out_wide);
+}
+
 /*
  * Run both projection modes and apply the standard soundness checks:
  *   - both succeed
@@ -424,6 +497,186 @@ static void test_array_form(void) {
   yices_free_model(mdl);
 }
 
+static void test_sat_guided_compression(void) {
+  term_t x, y, z;
+  term_t a, b, c, formula, mdl_extra;
+  term_t elim[1];
+  model_t *mdl;
+  term_vector_t v_local, v_wide;
+  uint32_t ndisj;
+
+  printf("\n=== test_sat_guided_compression ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_compress");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_compress");
+  z = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(z, "z_compress");
+
+  a = yices_arith_gt0_atom(y);       // A
+  b = yices_arith_gt0_atom(x);       // B
+  c = yices_arith_gt_atom(z, x);     // C
+  formula = yices_and2(yices_or2(a, b), yices_or2(a, c));
+  mdl_extra = yices_and(3, (term_t[]) { a, b, c });
+  mdl = check_and_get_model(yices_and2(formula, mdl_extra));
+
+  elim[0] = x;
+  run_both_modes("sat_guided_compression", formula, mdl, 1, elim, &v_local, &v_wide);
+
+  ndisj = generalization_disjunct_count(&v_wide);
+  if (ndisj >= 4) {
+    fprintf(stderr, "[sat_guided_compression] expected fewer than 4 cubes, got %u\n", ndisj);
+    assert(0);
+  }
+  printf("  -> SAT-guided compression produced %u disjuncts (< 4 raw cubes)\n", ndisj);
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
+static void test_sat_guided_no_sharing_parity(void) {
+  term_t dummy;
+  term_t a, b, c, d, formula, mdl_extra;
+  term_t elim[1];
+  model_t *mdl;
+  term_vector_t v_local, v_wide;
+  uint32_t ndisj;
+
+  printf("\n=== test_sat_guided_no_sharing_parity ===\n");
+  dummy = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(dummy, "x_parity");
+  a = yices_arith_gt0_atom(yices_new_uninterpreted_term(yices_real_type()));
+  b = yices_arith_gt0_atom(yices_new_uninterpreted_term(yices_real_type()));
+  c = yices_arith_gt0_atom(yices_new_uninterpreted_term(yices_real_type()));
+  d = yices_arith_gt0_atom(yices_new_uninterpreted_term(yices_real_type()));
+
+  formula = yices_and2(yices_or2(a, b), yices_or2(c, d));
+  mdl_extra = yices_and(4, (term_t[]) { a, b, c, d });
+  mdl = check_and_get_model(yices_and2(formula, mdl_extra));
+
+  elim[0] = dummy;
+  run_both_modes("sat_guided_no_sharing_parity", formula, mdl, 1, elim, &v_local, &v_wide);
+
+  ndisj = generalization_disjunct_count(&v_wide);
+  if (ndisj != 4) {
+    fprintf(stderr, "[sat_guided_no_sharing_parity] expected 4 cubes, got %u\n", ndisj);
+    assert(0);
+  }
+  printf("  -> no-sharing case produced all 4 cubes\n");
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
+static void test_sat_guided_budget_graceful(void) {
+  enum { NPAIRS = 11 };
+  term_t dummy;
+  term_t atoms[2 * NPAIRS], disj[NPAIRS];
+  term_t formula, mdl_extra;
+  term_t elim[1];
+  model_t *mdl;
+  term_vector_t v_local, v_wide;
+  uint32_t i;
+
+  printf("\n=== test_sat_guided_budget_graceful ===\n");
+  dummy = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(dummy, "x_budget");
+  for (i = 0; i < NPAIRS; i++) {
+    atoms[2 * i] = yices_arith_gt0_atom(yices_new_uninterpreted_term(yices_real_type()));
+    atoms[2 * i + 1] = yices_arith_gt0_atom(yices_new_uninterpreted_term(yices_real_type()));
+    disj[i] = yices_or2(atoms[2 * i], atoms[2 * i + 1]);
+  }
+  formula = yices_and(NPAIRS, disj);
+  mdl_extra = yices_and(2 * NPAIRS, atoms);
+  mdl = check_and_get_model(yices_and2(formula, mdl_extra));
+
+  elim[0] = dummy;
+  run_both_modes_quiet("sat_guided_budget_graceful", formula, mdl, 1, elim, &v_local, &v_wide);
+  printf("  -> budget fallback returned a sound generalization (%u wide terms)\n", v_wide.size);
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
+static void test_shared_elimination_variable(void) {
+  term_t x, y, z;
+  term_t fs[2], expected;
+  term_t elim[1];
+  model_t *mdl;
+  term_vector_t v_local, v_wide;
+  int32_t r;
+
+  printf("\n=== test_shared_elimination_variable ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_shared");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_shared");
+  z = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(z, "z_shared");
+
+  fs[0] = yices_arith_gt_atom(x, y);
+  fs[1] = yices_arith_lt_atom(x, z);
+  expected = yices_arith_lt_atom(y, z);
+  mdl = check_and_get_model(yices_and(2, fs));
+
+  elim[0] = x;
+  yices_init_term_vector(&v_local);
+  yices_init_term_vector(&v_wide);
+  r = yices_generalize_model_array(mdl, 2, fs, 1, elim,
+                                   YICES_GEN_BY_PROJ_LOCAL, &v_local);
+  assert(r == 0);
+  r = yices_generalize_model_array(mdl, 2, fs, 1, elim,
+                                   YICES_GEN_BY_PROJ, &v_wide);
+  assert(r == 0);
+
+  assert_all_true("shared_elimination_variable", &v_local, mdl);
+  assert_all_true("shared_elimination_variable", &v_wide, mdl);
+  assert_local_implies_wide(&v_local, &v_wide);
+  assert_generalization_implies_term("shared_elimination_variable", &v_wide, expected);
+  printf("  -> joint projection implies y < z\n");
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
+static void test_sat_guided_polarity(void) {
+  term_t dummy;
+  term_t a, b, c, formula, mdl_extra;
+  term_t elim[1];
+  model_t *mdl;
+  term_vector_t v_local, v_wide;
+  uint32_t ndisj;
+
+  printf("\n=== test_sat_guided_polarity ===\n");
+  dummy = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(dummy, "x_polarity");
+  a = yices_arith_gt0_atom(yices_new_uninterpreted_term(yices_real_type()));
+  b = yices_arith_gt0_atom(yices_new_uninterpreted_term(yices_real_type()));
+  c = yices_arith_gt0_atom(yices_new_uninterpreted_term(yices_real_type()));
+
+  formula = yices_and2(yices_or2(a, b), yices_or2(yices_not(a), c));
+  mdl_extra = yices_and(3, (term_t[]) { a, b, c });
+  mdl = check_and_get_model(yices_and2(formula, mdl_extra));
+
+  elim[0] = dummy;
+  run_both_modes("sat_guided_polarity", formula, mdl, 1, elim, &v_local, &v_wide);
+
+  ndisj = generalization_disjunct_count(&v_wide);
+  if (ndisj != 2) {
+    fprintf(stderr, "[sat_guided_polarity] expected 2 cubes after pruning false ¬A branch, got %u\n", ndisj);
+    assert(0);
+  }
+  printf("  -> polarity-aware abstraction produced 2 cubes\n");
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
 
 int main(void) {
   yices_init();
@@ -432,6 +685,11 @@ int main(void) {
   test_overlapping_arith_disjunction();
   test_nonoverlapping_disjunction();
   test_array_form();
+  test_sat_guided_compression();
+  test_sat_guided_no_sharing_parity();
+  test_sat_guided_budget_graceful();
+  test_shared_elimination_variable();
+  test_sat_guided_polarity();
 
   yices_exit();
   printf("\nALL TESTS PASSED\n");
