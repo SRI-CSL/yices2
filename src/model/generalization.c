@@ -53,10 +53,26 @@
  *   implicant-then-project pipeline, and unions the results at the
  *   term level.
  *
- *   If SAT-guided enumeration hits the cube budget or a projection
- *   error after collecting some cubes, the result is OR(collected,
- *   local). If no SAT-guided cube has been collected, the wide path
- *   returns the local cell.
+ *   The abstraction is *model-pruned*: every Boolean subterm of F
+ *   is evaluated at the model up front, and model-false subterms are
+ *   replaced by FALSE in the DAG (which AND simplifies away wherever
+ *   they appear under a satisfied disjunction). Only model-true
+ *   subterms are recursed into for Boolean structure. As a result
+ *   the SAT enumerator only ever sees an abstraction of the part of
+ *   F that the model satisfies. The dual precondition violations
+ *   (F evaluates to false at the model; F is not even model-evaluable)
+ *   are detected separately, see gen_model_by_proj_sat_guided.
+ *
+ *   On a per-cube projection error (a literal contains a term-kind
+ *   the projector does not support) the failing cube is skipped:
+ *   its implicant is added as a blocker and SAT enumeration continues
+ *   with a different implicant of F.
+ *
+ *   If SAT-guided enumeration hits the iteration budget, the result
+ *   is OR(collected, local) (broader than local alone). If no cube
+ *   ever projects successfully, the wide path falls back to the
+ *   local cell (which carries the underlying projector error code
+ *   when both paths fail for the same reason).
  */
 
 #include <assert.h>
@@ -1005,7 +1021,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   bool_node_id_t root;
   literal_t root_lit;
   solver_status_t sat_status;
-  uint32_t num_cubes;
+  uint32_t num_attempts;
   int32_t code;
   bool builder_inited;
   bool sat_inited;
@@ -1069,14 +1085,22 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     goto cleanup;
   }
 
-  num_cubes = 0;
+  num_attempts = 0;
   init_nsat_solver(&sat, builder.bvar_to_atom.size + builder.dag.size + 8, false);
   sat_inited = true;
   nsat_solver_add_vars(&sat, builder.bvar_to_atom.size - 1);
   bool_dag_reset_tseitin(&builder.dag);
   root_lit = clausify_node(&builder.dag, &sat, root);
   sat_add_unit_clause(&sat, root_lit);
-  while (num_cubes < cube_budget) {
+
+  // The loop bounds the number of SAT iterations (not successful
+  // projections) by cube_budget. On a projection error we skip the
+  // failing cube, block its implicant, and continue: a different
+  // implicant may use different literals and project cleanly. We
+  // only fall back to gen_model_by_proj_local if no cube ever projects
+  // successfully (have_first stays false) or if we hit the iteration
+  // budget (in which case OR(collected, local) gives a broader cell).
+  while (num_attempts < cube_budget) {
     sat_status = nsat_solve(&sat);
     if (sat_status == STAT_UNSAT) {
       exhausted_sat = true;
@@ -1090,23 +1114,25 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     extract_implicant(&builder.dag, &sat, root, &implicant);
 
     implicant_to_cube(&builder, &implicant, &cube);
+    num_attempts ++;
+
     code = append_projected_cube_term(mdl, mngr, nelims, elim, &cube, extra_error,
                                       &have_first, &multiple, &first_projected, &cube_terms);
     if (code != 0) {
-      // Projection errors are reachable on legitimate inputs: the
-      // projector can return GEN_PROJ_ERROR_NON_LINEAR,
-      // GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM, etc. when the chosen
-      // cube contains arithmetic outside what Loos-Weispfenning /
-      // Cooper can handle. Fall back to OR(collected, local) below,
-      // which preserves soundness and lets the legacy path produce
-      // a definitive error code if it also fails.
-      needs_fallback = true;
+      // Projection error on this cube (typically a literal contains a
+      // term-kind the projector doesn't support, e.g. in non-MCSAT
+      // builds a non-linear arithmetic term -> PROJ_ERROR_NON_LINEAR,
+      // or a function application -> PROJ_ERROR_UNSUPPORTED_ARITH_TERM).
+      // Drop this cube and try other implicants of F: a different
+      // SAT-guided choice may avoid the offending literal entirely.
       code = 0;
-      break;
     }
 
-    num_cubes ++;
     if (implicant.size == 0) {
+      // Root was true under no propositional assumptions (e.g. the
+      // abstraction collapsed to a true constant). There is nothing
+      // to block, so SAT will only ever produce the same trivial
+      // model; stop enumerating.
       exhausted_sat = true;
       break;
     }
@@ -1117,7 +1143,13 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     add_blocker_clause_to_sat(&sat, &implicant);
   }
 
-  if (! exhausted_sat) {
+  // Fall back to gen_model_by_proj_local when either:
+  //   - we hit the iteration budget (might be more implicants to find);
+  //   - no cube ever projected successfully (so we have nothing useful
+  //     to return on our own, and local will surface the underlying
+  //     projector error code via its own pipeline; we are not expecting
+  //     local to succeed in that case).
+  if (!exhausted_sat || !have_first) {
     needs_fallback = true;
   }
 
@@ -1151,9 +1183,9 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     goto cleanup;
   }
 
-  if (! have_first) {
-    ivector_push(v, true_term);
-  } else if (! multiple) {
+  // SAT exhausted naturally and at least one cube projected.
+  assert(have_first);
+  if (! multiple) {
     ivector_add(v, first_projected.data, first_projected.size);
   } else {
     collected = mk_or_safe(mngr, cube_terms.size, cube_terms.data);
