@@ -31,6 +31,8 @@
  * carve-out for -Wpedantic / -Wextra lives in tests/api/Makefile.
  */
 #include "context/context.h"
+#include "solvers/cdcl/delegate.h"
+#include "solvers/cdcl/new_sat_solver.h"
 #include "yices.h"
 
 static void expect_status(context_t *ctx, const param_t *params, smt_status_t expected) {
@@ -181,6 +183,175 @@ static void check_append_mode_add_after_solve_case(const char *delegate) {
   yices_free_context(ctx);
 }
 
+static void check_y2sat_append_add_sat_clause_after_solve_case(void) {
+  type_t bv8;
+  term_t x, y, u, v, zero, a, b, p, d, hard, f0, f1;
+  model_t *mdl;
+  context_t *ctx;
+  sat_delegate_stats_t stats;
+  int32_t pval, dval;
+
+  bv8 = yices_bv_type(8);
+  x = yices_new_uninterpreted_term(bv8);
+  y = yices_new_uninterpreted_term(bv8);
+  u = yices_new_uninterpreted_term(bv8);
+  v = yices_new_uninterpreted_term(bv8);
+  zero = yices_bvconst_uint32(8, 0);
+  a = yices_bveq_atom(yices_bvadd(x, yices_bvconst_uint32(8, 1)), x);
+  b = yices_bveq_atom(y, zero);
+  p = yices_bveq_atom(u, zero);
+  d = yices_bveq_atom(v, zero);
+  hard = yices_or2(a, b);
+  f0 = yices_and2(hard, yices_or2(p, d));
+
+  ctx = new_qfbv_pushpop_context_with_delegate("y2sat", "append");
+  assert(yices_assert_formula(ctx, f0) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+
+  mdl = yices_get_model(ctx, 1);
+  assert(mdl != NULL);
+  pval = yices_formula_true_in_model(mdl, p);
+  assert(pval == 0 || pval == 1);
+  dval = yices_formula_true_in_model(mdl, d);
+  assert(dval == 0 || dval == 1);
+  yices_free_model(mdl);
+
+  f1 = yices_or2(pval ? yices_not(p) : p, dval ? yices_not(d) : d);
+
+  assert(yices_assert_formula(ctx, f1) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+
+  context_get_sat_delegate_stats(ctx, &stats);
+  assert(stats.append_checks == 2);
+  assert(stats.rebuild_checks == 0);
+
+  yices_free_context(ctx);
+}
+
+static term_t block_current_model_on_atoms(context_t *ctx, uint32_t n, term_t *atoms) {
+  term_t lits[4];
+  model_t *mdl;
+  uint32_t i;
+  int32_t val;
+
+  assert(n <= 4);
+
+  mdl = yices_get_model(ctx, 1);
+  assert(mdl != NULL);
+
+  for (i=0; i<n; i++) {
+    val = yices_formula_true_in_model(mdl, atoms[i]);
+    assert(val == 0 || val == 1);
+    lits[i] = val ? yices_not(atoms[i]) : atoms[i];
+  }
+
+  yices_free_model(mdl);
+  return yices_or(n, lits);
+}
+
+static void check_y2sat_append_three_round_blocking_case(void) {
+  type_t bv8;
+  term_t x, y, u[3], zero, a, b, hard, atoms[3], f0, block;
+  context_t *ctx;
+  sat_delegate_stats_t stats;
+  uint32_t i;
+
+  bv8 = yices_bv_type(8);
+  zero = yices_bvconst_uint32(8, 0);
+
+  x = yices_new_uninterpreted_term(bv8);
+  y = yices_new_uninterpreted_term(bv8);
+  a = yices_bveq_atom(yices_bvadd(x, yices_bvconst_uint32(8, 1)), x);
+  b = yices_bveq_atom(y, zero);
+  hard = yices_or2(a, b);
+
+  for (i=0; i<3; i++) {
+    u[i] = yices_new_uninterpreted_term(bv8);
+    atoms[i] = yices_bveq_atom(u[i], zero);
+  }
+  f0 = yices_and2(hard, yices_or(3, atoms));
+
+  ctx = new_qfbv_pushpop_context_with_delegate("y2sat", "append");
+  assert(yices_assert_formula(ctx, f0) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+
+  for (i=0; i<3; i++) {
+    block = block_current_model_on_atoms(ctx, 3, atoms);
+    assert(yices_assert_formula(ctx, block) == 0);
+    expect_status(ctx, NULL, YICES_STATUS_SAT);
+  }
+
+  context_get_sat_delegate_stats(ctx, &stats);
+  assert(stats.append_checks == 4);
+  assert(stats.rebuild_checks == 0);
+
+  yices_free_context(ctx);
+}
+
+static void check_y2sat_delegate_multi_check_add_clause_after_sat_case(void) {
+  delegate_t delegate;
+  literal_t clause[2];
+  bval_t v1, v2;
+
+  assert(init_delegate_incremental(&delegate, "y2sat", 3));
+
+  clause[0] = pos_lit(1);
+  clause[1] = pos_lit(2);
+  delegate.add_clause(delegate.solver, 2, clause);
+  assert(delegate.check(delegate.solver) == YICES_STATUS_SAT);
+
+  v1 = delegate_get_value(&delegate, 1);
+  v2 = delegate_get_value(&delegate, 2);
+  assert(bval_is_def(v1));
+  assert(bval_is_def(v2));
+
+  clause[0] = (v1 == VAL_TRUE) ? neg_lit(1) : pos_lit(1);
+  clause[1] = (v2 == VAL_TRUE) ? neg_lit(2) : pos_lit(2);
+  delegate.add_clause(delegate.solver, 2, clause);
+  assert(delegate.check(delegate.solver) == YICES_STATUS_SAT);
+
+  delete_delegate(&delegate);
+}
+
+static void check_y2sat_delegate_append_substituted_literal_case(void) {
+  delegate_t delegate;
+  sat_solver_t *solver;
+  bvar_t subst;
+  literal_t l;
+  bval_t v;
+
+  assert(init_delegate_incremental(&delegate, "y2sat", 3));
+
+  delegate.add_binary_clause(delegate.solver, neg_lit(1), pos_lit(2));
+  delegate.add_binary_clause(delegate.solver, pos_lit(1), neg_lit(2));
+  assert(delegate.check(delegate.solver) == YICES_STATUS_SAT);
+
+  solver = delegate.solver;
+  /*
+   * The two binary clauses make x1 and x2 equivalent, so current SCC
+   * simplification substitutes one by the other. If that heuristic changes
+   * and neither variable is substituted, this white-box regression is not
+   * applicable.
+   */
+  if (solver->ante_tag[1] == ATAG_SUBST) {
+    subst = 1;
+  } else if (solver->ante_tag[2] == ATAG_SUBST) {
+    subst = 2;
+  } else {
+    delete_delegate(&delegate);
+    return;
+  }
+
+  v = delegate_get_value(&delegate, subst);
+  assert(bval_is_def(v));
+
+  l = (v == VAL_TRUE) ? neg_lit(subst) : pos_lit(subst);
+  delegate.add_unit_clause(delegate.solver, l);
+  assert(delegate.check(delegate.solver) == YICES_STATUS_SAT);
+
+  delete_delegate(&delegate);
+}
+
 static void check_append_mode_rebuild_after_pop_case(const char *delegate) {
   term_t f0, f1;
   context_t *ctx;
@@ -314,6 +485,10 @@ int main(void) {
       check_selector_mode_long_pushpop_case(delegates[i]);
     }
   }
+  check_y2sat_append_add_sat_clause_after_solve_case();
+  check_y2sat_append_three_round_blocking_case();
+  check_y2sat_delegate_multi_check_add_clause_after_sat_case();
+  check_y2sat_delegate_append_substituted_literal_case();
 
   yices_exit();
   return 0;
