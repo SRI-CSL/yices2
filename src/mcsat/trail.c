@@ -306,30 +306,24 @@ void trail_gc_mark(mcsat_trail_t* trail, gc_info_t* gc_vars) {
 }
 
 void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars) {
-  variable_t var;
-
   assert(gc_vars->is_id);
 
-  // Remove from the model cache, otherwise the cache might contain wrongly
-  // typed variables
-  for (var = 0; var < trail->model.size; ++ var) {
-    if (var != variable_null && gc_info_get_reloc(gc_vars, var) == variable_null) {
-      assert(!trail_has_value(trail, var));
-      if (mcsat_model_has_value(&trail->model, var)) {
-        mcsat_model_unset_value(&trail->model, var);
-      }
-      assert(!trail_has_value(trail, var));
+  // model, target_cache, and best_cache grow in lockstep with trail->level
+  // via trail_new_variable_notify; iterate the common range and clean every
+  // unmarked variable from all three caches in one pass. Skip var 0 (the
+  // variable_null sentinel).
+  for (uint32_t var = 1; var < trail->model.size; ++var) {
+    if (gc_info_get_reloc(gc_vars, var) != variable_null) {
+      continue;
     }
-  }
-  for (var = 0; var < trail->target_cache.size; ++ var) {
-    if (var != variable_null && gc_info_get_reloc(gc_vars, var) == variable_null &&
-	mcsat_model_has_value(&trail->target_cache, var)) {
+    assert(!trail_has_value(trail, var));
+    if (mcsat_model_has_value(&trail->model, var)) {
+      mcsat_model_unset_value(&trail->model, var);
+    }
+    if (mcsat_model_has_value(&trail->target_cache, var)) {
       mcsat_model_unset_value(&trail->target_cache, var);
     }
-  }
-  for (var = 0; var < trail->best_cache.size; ++ var) {
-    if (var != variable_null && gc_info_get_reloc(gc_vars, var) == variable_null &&
-	mcsat_model_has_value(&trail->best_cache, var)) {
+    if (mcsat_model_has_value(&trail->best_cache, var)) {
       mcsat_model_unset_value(&trail->best_cache, var);
     }
   }
