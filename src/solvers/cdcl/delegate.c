@@ -44,6 +44,12 @@
  */
 static void ysat_prepare_to_add_clause(sat_solver_t *solver) {
   if (solver->status == STAT_SAT) {
+    /*
+     * y2sat append-after-SAT is supported only for the incremental delegate,
+     * which disables preprocessing. External incremental delegates handle
+     * post-SAT clause additions internally.
+     */
+    assert(! solver->preprocess);
     nsat_solver_prepare_for_next_search(solver);
   }
 }

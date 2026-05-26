@@ -3742,6 +3742,8 @@ static void add_large_clause(sat_solver_t *solver, uint32_t n, const literal_t *
  * - l = array of n literals
  * - the array is modified
  */
+static literal_t full_lit_subst(const sat_solver_t *solver, literal_t l);
+
 void nsat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, literal_t *lit) {
   uint32_t i, j;
   literal_t l, l_aux;
@@ -3749,6 +3751,15 @@ void nsat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, liter
   if (n == 0) {
     add_empty_clause(solver);
     return;
+  }
+
+  /*
+   * Rewrite literals that were substituted by SCC simplification.
+   * This is required for incremental users that append clauses over the
+   * original variable set after a previous check.
+   */
+  for (i=0; i<n; i++) {
+    lit[i] = full_lit_subst(solver, lit[i]);
   }
 
   /*

@@ -32,6 +32,7 @@
  */
 #include "context/context.h"
 #include "solvers/cdcl/delegate.h"
+#include "solvers/cdcl/new_sat_solver.h"
 #include "yices.h"
 
 static void expect_status(context_t *ctx, const param_t *params, smt_status_t expected) {
@@ -252,6 +253,37 @@ static void check_y2sat_delegate_multi_check_add_clause_after_sat_case(void) {
   delete_delegate(&delegate);
 }
 
+static void check_y2sat_delegate_append_substituted_literal_case(void) {
+  delegate_t delegate;
+  sat_solver_t *solver;
+  bvar_t subst;
+  literal_t l;
+  bval_t v;
+
+  assert(init_delegate_incremental(&delegate, "y2sat", 3));
+
+  delegate.add_binary_clause(delegate.solver, neg_lit(1), pos_lit(2));
+  delegate.add_binary_clause(delegate.solver, pos_lit(1), neg_lit(2));
+  assert(delegate.check(delegate.solver) == YICES_STATUS_SAT);
+
+  solver = delegate.solver;
+  if (solver->ante_tag[1] == ATAG_SUBST) {
+    subst = 1;
+  } else {
+    assert(solver->ante_tag[2] == ATAG_SUBST);
+    subst = 2;
+  }
+
+  v = delegate_get_value(&delegate, subst);
+  assert(bval_is_def(v));
+
+  l = (v == VAL_TRUE) ? neg_lit(subst) : pos_lit(subst);
+  delegate.add_unit_clause(delegate.solver, l);
+  assert(delegate.check(delegate.solver) == YICES_STATUS_SAT);
+
+  delete_delegate(&delegate);
+}
+
 static void check_append_mode_rebuild_after_pop_case(const char *delegate) {
   term_t f0, f1;
   context_t *ctx;
@@ -387,6 +419,7 @@ int main(void) {
   }
   check_y2sat_append_add_sat_clause_after_solve_case();
   check_y2sat_delegate_multi_check_add_clause_after_sat_case();
+  check_y2sat_delegate_append_substituted_literal_case();
 
   yices_exit();
   return 0;
