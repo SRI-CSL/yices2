@@ -4833,6 +4833,36 @@ __YICES_DLLSPEC__ extern int32_t yices_generalize_model_array(model_t *mdl, uint
                                                               yices_gen_mode_t mode, term_vector_t *v);
 
 
+/*
+ * Same as yices_generalize_model and yices_generalize_model_array but with
+ * an explicit cube_budget for the wide (YICES_GEN_BY_PROJ) and default
+ * (YICES_GEN_BY_PROJ -> wide) modes:
+ * - cube_budget caps the number of SAT iterations (extracted cubes,
+ *   whether or not the per-cube projection succeeds) inside the wide
+ *   enumeration loop. When the cap is hit with at least one successful
+ *   projection, the result is OR(collected, local-fallback); otherwise
+ *   the wide path falls back to the local pipeline alone to obtain a
+ *   meaningful error code.
+ * - cube_budget = 0 means unbounded (the Boolean enumeration is always
+ *   finite -- each iteration adds a blocker clause).
+ * - cube_budget is ignored for YICES_GEN_BY_SUBST and
+ *   YICES_GEN_BY_PROJ_LOCAL.
+ *
+ * yices_generalize_model and yices_generalize_model_array are equivalent
+ * to passing cube_budget = 0.
+ *
+ * Since 2.7.0.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_generalize_model_with_budget(
+    model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
+    yices_gen_mode_t mode, uint32_t cube_budget, term_vector_t *v);
+
+__YICES_DLLSPEC__ extern int32_t yices_generalize_model_array_with_budget(
+    model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims,
+    const term_t elim[], yices_gen_mode_t mode, uint32_t cube_budget,
+    term_vector_t *v);
+
+
 
 
 /**********************

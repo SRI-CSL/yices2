@@ -23,10 +23,6 @@
 
 #include <yices.h>
 
-#include "api/yices_globals.h"
-#include "model/generalization.h"
-#include "utils/int_vectors.h"
-
 
 /*
  * Helper: build a fresh QF_LRA context. The model-generalization
@@ -583,7 +579,7 @@ static void test_sat_guided_budget_graceful(void) {
   model_t *mdl;
   term_vector_t v_local, v_wide;
   uint32_t i;
-  int32_t r, extra_err;
+  int32_t r;
 
   printf("\n=== test_sat_guided_budget_graceful ===\n");
   dummy = yices_new_uninterpreted_term(yices_real_type());
@@ -605,16 +601,13 @@ static void test_sat_guided_budget_graceful(void) {
                              YICES_GEN_BY_PROJ_LOCAL, &v_local);
   assert(r == 0);
 
-  // The public API runs with cube_budget == 0 (unbounded). Call the
-  // internal entry directly with an explicit small budget so we
-  // exercise the OR(collected, local) budget-exhaustion fallback:
-  // 2^NPAIRS = 2048 implicants are possible and BUDGET = 4 is far
+  // The public yices_generalize_model() runs with cube_budget == 0
+  // (unbounded). Call the explicit-budget variant with BUDGET = 4 so
+  // we exercise the OR(collected, local) budget-exhaustion fallback:
+  // up to 2^NPAIRS = 2048 implicants exist and BUDGET = 4 is far
   // below that.
-  extra_err = 0;
-  v_wide.size = 0;
-  r = gen_model_by_projection(mdl, __yices_globals.manager, 1, &formula,
-                              1, elim, (ivector_t *) &v_wide,
-                              BUDGET, &extra_err);
+  r = yices_generalize_model_with_budget(mdl, formula, 1, elim,
+                                         YICES_GEN_BY_PROJ, BUDGET, &v_wide);
   assert(r == 0);
 
   assert_all_true("sat_guided_budget_graceful", &v_wide, mdl);

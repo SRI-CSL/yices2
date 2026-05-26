@@ -68,16 +68,20 @@
  *   its implicant is added as a blocker and SAT enumeration continues
  *   with a different implicant of F.
  *
- *   cube_budget caps the number of *successful* projections; failed
- *   projections do not count against the cap. cube_budget == 0 means
- *   unbounded -- which is sound because the underlying Boolean
- *   enumeration is finite (each iteration adds a blocker clause that
- *   forbids at least one assignment of the abstraction). If the cap
- *   is hit with at least one success, the result is OR(collected,
- *   local) (broader than local alone). If no cube ever projects
- *   successfully, the wide path falls back to the local cell (which
- *   carries the underlying projector error code when both paths fail
- *   for the same reason).
+ *   cube_budget caps the number of SAT iterations (extracted cubes,
+ *   whether or not projection succeeds). cube_budget == 0 means
+ *   unbounded -- the Boolean enumeration is finite (each iteration
+ *   adds a blocker clause that forbids at least one assignment of
+ *   the abstraction). The cap deliberately counts attempts rather
+ *   than successes so that an input whose every implicant uses an
+ *   unsupported literal cannot force the loop through all 2^N
+ *   assignments before falling back to local.
+ *
+ *   If the cap is hit with at least one success, the result is
+ *   OR(collected, local) (broader than local alone). If no cube
+ *   ever projects successfully, the wide path falls back to the
+ *   local cell (which carries the underlying projector error code
+ *   when both paths fail for the same reason).
  */
 
 #include <assert.h>
@@ -1019,7 +1023,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   bool_node_id_t root;
   literal_t root_lit;
   solver_status_t sat_status;
-  uint32_t num_cubes;
+  uint32_t num_attempts;
   int32_t code;
   bool builder_inited;
   bool sat_inited;
@@ -1083,7 +1087,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     goto cleanup;
   }
 
-  num_cubes = 0;
+  num_attempts = 0;
   init_nsat_solver(&sat, builder.bvar_to_atom.size + builder.dag.size + 8, false);
   sat_inited = true;
   nsat_solver_add_vars(&sat, builder.bvar_to_atom.size - 1);
@@ -1091,20 +1095,24 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   root_lit = clausify_node(&builder.dag, &sat, root);
   sat_add_unit_clause(&sat, root_lit);
 
-  // cube_budget caps the number of *successful* projections; failed
-  // projections do not count against the cap. cube_budget == 0 means
-  // unbounded (enumerate until SAT exhausts; the underlying Boolean
-  // enumeration is finite because every iteration adds a blocker
-  // clause that rules out at least one assignment of the abstraction).
+  // cube_budget caps the number of SAT iterations (extracted+attempted
+  // cubes), regardless of whether projection succeeds. cube_budget == 0
+  // means unbounded -- the Boolean enumeration is finite because every
+  // iteration adds a blocker clause that rules out at least one
+  // assignment of the abstraction.
   //
   // On a projection error we skip the failing cube, block its
   // implicant, and continue: a different implicant may use different
-  // literals and project cleanly. If no cube ever projects
-  // successfully (have_first stays false) we fall back to
-  // gen_model_by_proj_local for its error code; if we hit the budget
-  // with at least one success we return OR(collected, local) for a
-  // broader cell.
-  while (cube_budget == 0 || num_cubes < cube_budget) {
+  // literals and project cleanly. We count the failed attempt against
+  // cube_budget so that an input whose every implicant uses an
+  // unsupported literal cannot force the loop through all 2^N
+  // assignments before falling back to local.
+  //
+  // If no cube ever projects successfully (have_first stays false) we
+  // fall back to gen_model_by_proj_local for its error code; if we
+  // hit the budget with at least one success we return OR(collected,
+  // local) for a broader cell.
+  while (cube_budget == 0 || num_attempts < cube_budget) {
     sat_status = nsat_solve(&sat);
     if (sat_status == STAT_UNSAT) {
       exhausted_sat = true;
@@ -1118,19 +1126,17 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     extract_implicant(&builder.dag, &sat, root, &implicant);
 
     implicant_to_cube(&builder, &implicant, &cube);
+    num_attempts ++;
 
     code = append_projected_cube_term(mdl, mngr, nelims, elim, &cube, extra_error,
                                       &have_first, &multiple, &first_projected, &cube_terms);
-    if (code == 0) {
-      num_cubes ++;
-    } else {
+    if (code != 0) {
       // Projection error on this cube (typically a literal contains a
       // term-kind the projector doesn't support, e.g. in non-MCSAT
       // builds a non-linear arithmetic term -> PROJ_ERROR_NON_LINEAR,
       // or a function application -> PROJ_ERROR_UNSUPPORTED_ARITH_TERM).
       // Drop this cube and try other implicants of F: a different
       // SAT-guided choice may avoid the offending literal entirely.
-      // Do not count the failed attempt against cube_budget.
       code = 0;
     }
 
@@ -1251,10 +1257,9 @@ int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n
  * at the term level. Wider output than gen_model_by_projection_local;
  * recommended for CEGAR-style outer loops over quantifier prefixes.
  *
- * cube_budget caps the number of *successful* SAT-guided cube
- * projections. Failed projections do not count against the cap.
- * cube_budget == 0 means unbounded (the Boolean enumeration is
- * always finite because each iteration adds a blocker clause).
+ * cube_budget caps the number of SAT iterations (extracted+attempted
+ * cubes). cube_budget == 0 means unbounded (the Boolean enumeration
+ * is always finite because each iteration adds a blocker clause).
  * On budget exhaustion the wide result is OR(collected, local).
  */
 int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
