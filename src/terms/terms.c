@@ -3572,6 +3572,16 @@ composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t)
       return arith_idiv_term_desc(terms, t);
     case ARITH_MOD:          // remainder: (mod x y) is y - x * (div x y)
       return arith_mod_term_desc(terms, t);
+    case ARITH_FLOOR: {
+      composite_for_noncomposite.arity = 1;
+      composite_for_noncomposite.arg[0] = arith_floor_arg(terms, t);
+      return (composite_term_t*)&composite_for_noncomposite;
+    }
+    case ARITH_CEIL: {
+      composite_for_noncomposite.arity = 1;
+      composite_for_noncomposite.arg[0] = arith_ceil_arg(terms, t);
+      return (composite_term_t*)&composite_for_noncomposite;
+    }
     case ARITH_ABS: {
       composite_for_noncomposite.arity = 1;
       composite_for_noncomposite.arg[0] = arith_abs_arg(terms, t);

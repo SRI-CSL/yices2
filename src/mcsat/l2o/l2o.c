@@ -673,7 +673,7 @@ static
 l2o_cost_fx_t* l2o_make_cost_fx_l2o(l2o_t* l2o, const mcsat_trail_t *trail) {
   const ivector_t* assertions = &l2o->assertions;
 
-  // ensure that the term has freevares are collected
+  // ensure that the term has free vars are collected
   for (uint32_t i = 0; i < assertions->size; ++ i) {
     term_t t = assertions->data[i];
     if (!l2o_collect_free_vars(l2o, t)) {

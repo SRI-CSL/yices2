@@ -79,16 +79,10 @@ void l2o_set_tracer(l2o_t* l2o, tracer_t* tracer);
 /** Set the exception handler */
 void l2o_set_exception_handler(l2o_t* l2o, jmp_buf* handler);
 
-/** Store an assertion to l2o.assertions */
+/** Store an assertion to l2o::assertions */
 void l2o_store_assertion(l2o_t* l2o, term_t assertion);
 
 /** Create the L2O cost function to the conjunction of the stored assertions */
 void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values, const var_queue_t *queue);
-
-/** Push L2O */
-void l2o_push(l2o_t* l2o);
-
-/** Pop L2O */
-void l2o_pop(l2o_t* l2o);
 
 #endif
