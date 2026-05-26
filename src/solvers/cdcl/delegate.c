@@ -42,17 +42,48 @@
 /*
  * WRAPPERS FOR THE YICES SAT_SOLVER
  */
+#ifndef NDEBUG
+static bool ysat_has_no_preprocessing_eliminations(const sat_solver_t *solver) {
+  uint32_t i, n;
+
+  n = solver->nvars;
+  for (i=0; i<n; i++) {
+    if (solver->ante_tag[i] == ATAG_PURE || solver->ante_tag[i] == ATAG_ELIM) {
+      return false;
+    }
+  }
+  return true;
+}
+#endif
+
+static void ysat_prepare_to_add_clause(sat_solver_t *solver) {
+  if (solver->status == STAT_SAT) {
+    /*
+     * nsat_solver_simplify_and_add_clause rewrites ATAG_SUBST literals.
+     * We rely on incremental y2sat running without preprocessing, so
+     * resolution-eliminated variables (ATAG_ELIM) and pure variables
+     * (ATAG_PURE) cannot appear in later appended clauses.
+     */
+    assert(! solver->preprocess);
+    assert(ysat_has_no_preprocessing_eliminations(solver));
+    nsat_solver_prepare_for_next_search(solver);
+  }
+}
+
 static void ysat_add_empty_clause(void *solver) {
+  ysat_prepare_to_add_clause(solver);
   nsat_solver_simplify_and_add_clause(solver, 0, NULL);
 }
 
 static void ysat_add_unit_clause(void *solver, literal_t l) {
+  ysat_prepare_to_add_clause(solver);
   nsat_solver_simplify_and_add_clause(solver, 1, &l);
 }
 
 static void ysat_add_binary_clause(void *solver, literal_t l1, literal_t l2) {
   literal_t a[2];
 
+  ysat_prepare_to_add_clause(solver);
   a[0] = l1;
   a[1] = l2;
   nsat_solver_simplify_and_add_clause(solver, 2, a);
@@ -61,6 +92,7 @@ static void ysat_add_binary_clause(void *solver, literal_t l1, literal_t l2) {
 static void ysat_add_ternary_clause(void *solver, literal_t l1, literal_t l2, literal_t l3) {
   literal_t a[3];
 
+  ysat_prepare_to_add_clause(solver);
   a[0] = l1;
   a[1] = l2;
   a[2] = l3;
@@ -68,6 +100,7 @@ static void ysat_add_ternary_clause(void *solver, literal_t l1, literal_t l2, li
 }
 
 static void ysat_add_clause(void *solver, uint32_t n, literal_t *a) {
+  ysat_prepare_to_add_clause(solver);
   nsat_solver_simplify_and_add_clause(solver, n, a);
 }
 
