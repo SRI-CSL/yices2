@@ -1069,7 +1069,7 @@ extern void reset_nsat_solver(sat_solver_t *solver);
 /*
  * Prepare for adding more problem clauses after a SAT result:
  * - backtrack to decision level 0
- * - reset the decision-variable list; this loses the previous variable order
+ * - preserve the decision-variable list and its current variable order
  * - clear transient backtracking/conflict state
  * - clear the solver status unless an empty clause is already present
  * - keep all problem and learned clauses

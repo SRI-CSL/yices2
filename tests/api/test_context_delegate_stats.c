@@ -228,6 +228,66 @@ static void check_y2sat_append_add_sat_clause_after_solve_case(void) {
   yices_free_context(ctx);
 }
 
+static term_t block_current_model_on_atoms(context_t *ctx, uint32_t n, term_t *atoms) {
+  term_t lits[4];
+  model_t *mdl;
+  uint32_t i;
+  int32_t val;
+
+  assert(n <= 4);
+
+  mdl = yices_get_model(ctx, 1);
+  assert(mdl != NULL);
+
+  for (i=0; i<n; i++) {
+    val = yices_formula_true_in_model(mdl, atoms[i]);
+    assert(val == 0 || val == 1);
+    lits[i] = val ? yices_not(atoms[i]) : atoms[i];
+  }
+
+  yices_free_model(mdl);
+  return yices_or(n, lits);
+}
+
+static void check_y2sat_append_three_round_blocking_case(void) {
+  type_t bv8;
+  term_t x, y, u[3], zero, a, b, hard, atoms[3], f0, block;
+  context_t *ctx;
+  sat_delegate_stats_t stats;
+  uint32_t i;
+
+  bv8 = yices_bv_type(8);
+  zero = yices_bvconst_uint32(8, 0);
+
+  x = yices_new_uninterpreted_term(bv8);
+  y = yices_new_uninterpreted_term(bv8);
+  a = yices_bveq_atom(yices_bvadd(x, yices_bvconst_uint32(8, 1)), x);
+  b = yices_bveq_atom(y, zero);
+  hard = yices_or2(a, b);
+
+  for (i=0; i<3; i++) {
+    u[i] = yices_new_uninterpreted_term(bv8);
+    atoms[i] = yices_bveq_atom(u[i], zero);
+  }
+  f0 = yices_and2(hard, yices_or(3, atoms));
+
+  ctx = new_qfbv_pushpop_context_with_delegate("y2sat", "append");
+  assert(yices_assert_formula(ctx, f0) == 0);
+  expect_status(ctx, NULL, YICES_STATUS_SAT);
+
+  for (i=0; i<3; i++) {
+    block = block_current_model_on_atoms(ctx, 3, atoms);
+    assert(yices_assert_formula(ctx, block) == 0);
+    expect_status(ctx, NULL, YICES_STATUS_SAT);
+  }
+
+  context_get_sat_delegate_stats(ctx, &stats);
+  assert(stats.append_checks == 4);
+  assert(stats.rebuild_checks == 0);
+
+  yices_free_context(ctx);
+}
+
 static void check_y2sat_delegate_multi_check_add_clause_after_sat_case(void) {
   delegate_t delegate;
   literal_t clause[2];
@@ -426,6 +486,7 @@ int main(void) {
     }
   }
   check_y2sat_append_add_sat_clause_after_solve_case();
+  check_y2sat_append_three_round_blocking_case();
   check_y2sat_delegate_multi_check_add_clause_after_sat_case();
   check_y2sat_delegate_append_substituted_literal_case();
 
