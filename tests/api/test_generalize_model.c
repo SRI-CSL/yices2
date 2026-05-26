@@ -195,32 +195,6 @@ static void assert_generalization_implies_term(const char *tag, term_vector_t *v
   yices_free_context(ctx);
 }
 
-static void run_both_modes_quiet(const char *tag, term_t formula, model_t *mdl,
-                                 uint32_t nelims, const term_t elim[],
-                                 term_vector_t *out_local, term_vector_t *out_wide) {
-  int32_t r;
-
-  yices_init_term_vector(out_local);
-  yices_init_term_vector(out_wide);
-
-  r = yices_generalize_model(mdl, formula, nelims, elim,
-                             YICES_GEN_BY_PROJ, out_local);
-  if (r != 0) {
-    fprintf(stderr, "[%s] local generalization failed: %s\n", tag, yices_error_string());
-    assert(0);
-  }
-  r = yices_generalize_model(mdl, formula, nelims, elim,
-                             YICES_GEN_BY_PROJ_WIDE, out_wide);
-  if (r != 0) {
-    fprintf(stderr, "[%s] wide generalization failed: %s\n", tag, yices_error_string());
-    assert(0);
-  }
-
-  assert_all_true(tag, out_local, mdl);
-  assert_all_true(tag, out_wide, mdl);
-  assert_local_implies_wide(out_local, out_wide);
-}
-
 /*
  * Run both projection modes and apply the standard soundness checks:
  *   - both succeed

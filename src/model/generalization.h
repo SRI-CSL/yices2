@@ -118,8 +118,10 @@ enum {
  * - gen_model_by_substitution:
  *   replace every elim[i] by its value in the model.
  * - gen_model_by_projection:
- *   "wide" projection (the new default for the public API): builds a
- *   polarity-aware Boolean abstraction of f[], enumerates model-true
+ *   "wide" projection (opt-in: exposed via YICES_GEN_BY_PROJ_WIDE;
+ *   neither YICES_GEN_BY_PROJ nor YICES_GEN_DEFAULT select it
+ *   implicitly). Builds a polarity-aware Boolean abstraction of
+ *   f[], enumerates model-true
  *   Boolean implicants with a SAT solver and blocker clauses, projects
  *   each implicant via Loos-Weispfenning / Cooper / arith_proj, and
  *   unions the results at the term level. The cube_budget argument
