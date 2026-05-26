@@ -28,15 +28,14 @@
  * Options for the mcsat solver.
  */
 typedef struct mcsat_options_s {
-  double rand_dec_freq;
-  double rand_dec_seed;
-  bool nra_mgcd;
-  bool nra_nlsat;
-  bool nra_bound;
-  int32_t nra_bound_min;
-  int32_t nra_bound_max;
+  bool na_mgcd;
+  bool na_nlsat;
+  bool na_bound;
+  int32_t na_bound_min;
+  int32_t na_bound_max;
   int32_t bv_var_size;
   bool model_interpolation;
+  bool partial_restart;
 } mcsat_options_t;
 
 /** Initialize options with default values. */

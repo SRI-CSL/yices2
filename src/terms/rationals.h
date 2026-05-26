@@ -586,6 +586,12 @@ extern void q_get_mpq(const rational_t *r, mpq_t q);
  */
 extern double q_get_double(rational_t *r);
 
+/*
+ * Set from floating point numbers
+ */
+static inline void q_set_float(rational_t *r, float val) {
+  q_set_double(r, (double)val);
+}
 
 
 /*

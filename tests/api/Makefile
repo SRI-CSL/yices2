@@ -243,6 +243,25 @@ endif
 endif
 
 #
+# test_context_delegate_stats reaches into internal headers
+# (context/context.h and what it transitively includes) to inspect
+# sat_delegate_stats_t and context_get_sat_delegate_stats.  Those
+# headers use zero-size flexible-array idioms and signed/unsigned
+# comparisons that are accepted when compiled by the main src/ build
+# but trip -Wpedantic / -Wextra under -Werror.  Relax those two
+# warnings for this single test object so the test binary can still
+# link against the regular libyices.{a,so} and run via run_test.sh.
+#
+# Placed after the mode-specific CFLAGS additions above so that the
+# per-target := evaluation captures the fully assembled flag set
+# (e.g., -O3 / -g) and only strips the two pedantic warning options.
+#
+$(objdir)/test_context_delegate_stats.o: \
+  CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
+$(static_objdir)/test_context_delegate_stats.o: \
+  CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
+
+#
 # Link command for purify/quantify
 #
 ifeq ($(POSIXOS),sunos)
@@ -363,7 +382,7 @@ $(static_objdir)/%.o: %.c
 all: $(tests)
 	@ echo === Running tests ===
 	@ rm -f *.log
-	@ for test in $^ ; do ./run_test.sh $$test ; done
+	@ for test in $^ ; do ./run_test.sh $$test || exit 1 ; done
 	@ echo
 	@ ./print_summary.sh tests.log
 
@@ -375,7 +394,7 @@ $(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
 all-static: $(static_tests)
 	@ echo === Running tests ===
 	@ rm -f *.log
-	@ for test in $^ ; do ./run_test.sh $$test ; done
+	@ for test in $^ ; do ./run_test.sh $$test || exit 1 ; done
 	@ echo
 	@ ./print_summary.sh tests.log
 

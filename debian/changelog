@@ -1,5 +1,5 @@
-yices2 (2.6.2-0ubuntu1) bionic; urgency=medium
+yices2 (2.7.0-0ubuntu1) jammy; urgency=medium
 
-  * Initial release. (Closes: #864786)
+  * Yices2.7.0 Release
 
- -- Ian A. Mason <iam@csl.sri.com>  Thu, 10 Aug 2017 13:46:30 +0000
+ -- Ahmed Irfan <ahmed.irfan@sri.com>  Wed, 16 Jul 2025 13:46:30 +0000

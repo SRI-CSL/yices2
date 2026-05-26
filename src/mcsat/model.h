@@ -46,6 +46,9 @@ void mcsat_model_construct_copy(mcsat_model_t* m, const mcsat_model_t* from);
 /** Destruct a new model */
 void mcsat_model_destruct(mcsat_model_t* m);
 
+/** Copy model */
+void mcsat_model_copy(mcsat_model_t* m, const mcsat_model_t* from);
+
 /** Notification of new variables */
 void mcsat_model_new_variable_notify(mcsat_model_t* m, variable_t x);
 

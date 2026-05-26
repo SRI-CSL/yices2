@@ -35,7 +35,7 @@ typedef struct l2o {
   term_table_t* terms;
 
   // TODO ugly hack
-  plugin_t *nra;
+  plugin_t *na_plugin;
   plugin_t *bool_plugin;
 
   /** Assertions */
@@ -68,7 +68,7 @@ typedef struct l2o {
 } l2o_t;
 
 /** Construct the L2O operator */
-void l2o_construct(l2o_t* l2o, term_table_t* terms, jmp_buf* handler, plugin_t* nra, plugin_t *bool_plugin);
+void l2o_construct(l2o_t* l2o, term_table_t* terms, jmp_buf* handler, plugin_t* na_plugin, plugin_t *bool_plugin);
 
 /** Destruct the L2O operator */
 void l2o_destruct(l2o_t* l2o);

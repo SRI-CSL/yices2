@@ -111,7 +111,7 @@ int32_t print_error(FILE *f) {
 
   error = yices_error_report();
   switch (error->code) {
-  case NO_ERROR:
+  case YICES_NO_ERROR:
     code = fprintf(f, "no error\n");
     break;
 
@@ -608,6 +608,10 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "mcsat: checking with assumptions only supports variables as assumptions\n");
     break;
 
+  case MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED:
+    code = fprintf(f, "mcsat: assumption variable has a type that mcsat cannot decide on\n");
+    break;
+
   case INTERNAL_EXCEPTION:
   default:
     code = fprintf(f, "internal error\n");
@@ -640,7 +644,7 @@ char *error_string(void) {
 
   error = yices_error_report();
   switch (error->code) {
-  case NO_ERROR:
+  case YICES_NO_ERROR:
     nchar = snprintf(buffer, BUFFER_SIZE, "no error");
     break;
 
@@ -1135,6 +1139,10 @@ char *error_string(void) {
 
   case MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED:
     nchar = snprintf(buffer, BUFFER_SIZE,  "mcsat: checking with assumptions only supports variables as assumptions\n");
+    break;
+
+  case MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED:
+    nchar = snprintf(buffer, BUFFER_SIZE,  "mcsat: assumption variable has a type that mcsat cannot decide on\n");
     break;
 
   case INTERNAL_EXCEPTION:

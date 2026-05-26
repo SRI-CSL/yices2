@@ -33,9 +33,9 @@ void l2o_stats_init(l2o_t* l2o) {
   l2o->l2o_stats.n_eval_runs = statistics_new_int(&l2o->stats, "l2o::eval_runs");
 }
 
-void l2o_construct(l2o_t* l2o, term_table_t* terms, jmp_buf* handler, plugin_t* nra, plugin_t* bool_plugin) {
+void l2o_construct(l2o_t* l2o, term_table_t* terms, jmp_buf* handler, plugin_t* na_plugin, plugin_t* bool_plugin) {
   l2o->terms = terms;
-  l2o->nra = nra;
+  l2o->na_plugin = na_plugin;
   l2o->bool_plugin = bool_plugin;
   init_ivector(&l2o->assertions, 0);
 
@@ -470,12 +470,12 @@ extern const lp_feasibility_set_t* get_fs_by_term(plugin_t *plugin, term_t v);
 
 static
 double l2o_pick_fs_value(l2o_t *l2o, term_t var) {
-  if (l2o->nra == NULL) {
+  if (l2o->na_plugin == NULL) {
     return 0.0;
   }
 
   double result;
-  const lp_feasibility_set_t *fs = get_fs_by_term(l2o->nra, var);
+  const lp_feasibility_set_t *fs = get_fs_by_term(l2o->na_plugin, var);
   if (fs != NULL) {
     lp_value_t lp_val;
     lp_value_construct_zero(&lp_val);
@@ -505,7 +505,7 @@ double l2o_pick_cache_value(l2o_t *l2o, term_t var, const mcsat_value_t *val_mcs
     case VALUE_LIBPOLY: {
       // check if we can find a feasible set
       double result;
-      const lp_feasibility_set_t *fs = get_fs_by_term(l2o->nra, var);
+      const lp_feasibility_set_t *fs = get_fs_by_term(l2o->na_plugin, var);
       if (fs == NULL || lp_feasibility_set_contains(fs, &val_mcsat->lp_value)) {
         result = mcsat_value_to_double(val_mcsat);
       } else {

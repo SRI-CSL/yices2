@@ -179,11 +179,11 @@ bool optimize_fs(l2o_t *l2o, l2o_cost_fx_t *fx, l2o_search_state_t *state, uint3
   double *const val = &state->val[v];
   const double old_val = state->val[v];
 
-  if (l2o->nra == NULL) {
+  if (l2o->na_plugin == NULL) {
     return false;
   }
 
-  const lp_feasibility_set_t *fs = get_fs_by_term(l2o->nra, t_var);
+  const lp_feasibility_set_t *fs = get_fs_by_term(l2o->na_plugin, t_var);
   // no feasible sets known or any number is feasible
   if (fs == NULL) {
     return false;

@@ -124,6 +124,8 @@ case $exitcode in
 	echo -n $black
 	cp $outfile ${shortname}.log
 	echo FAIL $shortname >> tests.log
+	# Propagate the test's exit code
+	exit $exitcode
 	;;
 
 esac

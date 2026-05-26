@@ -24,6 +24,7 @@ void cnf_construct(cnf_t* cnf, plugin_context_t* ctx, clause_db_t* clause_db) {
   cnf->clause_db = clause_db;
   cnf->ctx = ctx;
   cnf->variable = variable_null;
+  cnf->gc_mark_index = 0;
   int_lset_construct(&cnf->converted);
 }
 
@@ -410,20 +411,23 @@ bool cnf_get_clauses(cnf_t* cnf, variable_t var, ivector_t* clauses) {
 }
 
 void cnf_gc_mark(cnf_t* cnf, gc_info_t* gc_clauses, const gc_info_t* gc_vars) {
-  static uint32_t i;
-
+  /* Per-cnf-instance progress index across the iterations of one mcsat_gc
+   * cycle. Used to be a function-local `static`, which (a) made the index
+   * shared across all cnf_t instances and (b) was a thread-safety concern
+   * under --enable-thread-safety. See cnf_t::gc_mark_index for details and
+   * issue #616. */
   variable_t var;
   clause_ref_t clause_ref;
   int_lset_iterator_t it;
 
   // If first time at gc, reset the index
   if (gc_vars->level == 0) {
-    i = 0;
+    cnf->gc_mark_index = 0;
   }
 
   // CNF marks only the clauses that are definitions of the variables to keep
-  for (; i < gc_vars->marked.size; ++ i) {
-    var = gc_vars->marked.data[i];
+  for (; cnf->gc_mark_index < gc_vars->marked.size; ++ cnf->gc_mark_index) {
+    var = gc_vars->marked.data[cnf->gc_mark_index];
     if (trace_enabled(cnf->ctx->tracer, "mcsat::gc")) {
       ctx_trace_term(cnf->ctx, variable_db_get_term(cnf->ctx->var_db, var));
     }

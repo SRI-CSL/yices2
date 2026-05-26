@@ -110,12 +110,6 @@ for combination of nonlinear arithmetic and uninterpreted functions.
 If you configure a context for a logic such as ``"QF_NRA"`` or ``"QF_UFNIA"``
 then MCSat will be automatically selected.
 
-The MCSat solver does not currently support as many features as the
-DPLL(T) implementation. In particular, MCSat does not yet support
-computing unsat cores. However, unsat cores in MCSat can be computed
-using :c:func:`yices_check_context_with_model` and
-:c:func:`yices_get_model_interpolant`.
-
 
 **Theory Solvers**
 
@@ -232,6 +226,69 @@ specialized for difference logic and support only mode one-shot.
 The default mode is push-pop.
 
 
+.. _sat_delegate_config:
+
+**SAT Delegate (QF_BV only)**
+
+For QF_BV contexts, Yices can be configured to use a third-party
+Boolean SAT solver --- called a *delegate* --- as the back-end CNF
+engine. When a delegate is selected, Yices bit-blasts the assertions
+to CNF as usual and hands the resulting clause set to the chosen
+delegate instead of the internal Yices CDCL SAT solver.
+
+Yices recognizes four delegate names. ``y2sat`` is an internal SAT
+solver always available in any Yices build. ``cadical``,
+``cryptominisat``, and ``kissat`` are external solvers; their
+inclusion in a particular Yices build is optional and can be checked
+at runtime with :c:func:`yices_has_delegate`. The capabilities of each
+delegate are summarized in the following table.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Delegate
+     - Availability
+     - Incremental modes
+     - ``check_with_assumptions``
+     - Unsat core from assumptions
+   * - ``y2sat``
+     - always
+     - ``rebuild``, ``append``
+     - no
+     - no
+   * - ``cadical``
+     - optional
+     - ``rebuild``, ``append``, ``selector-frames``
+     - yes
+     - yes
+   * - ``cryptominisat``
+     - optional
+     - ``rebuild``, ``append``, ``selector-frames``
+     - yes
+     - yes
+   * - ``kissat``
+     - optional
+     - ``rebuild``
+     - no
+     - no
+
+For incremental QF_BV contexts (``push-pop`` or ``multi-checks`` mode),
+delegates can be configured with ``sat-delegate-incremental-mode``. The
+``rebuild`` mode builds a fresh delegate at every check, ``append`` keeps a
+live delegate and appends newly generated clauses, and ``selector-frames`` uses
+activation literals to keep CaDiCaL or CryptoMiniSat live across ``pop``. If no
+mode is set explicitly, Yices selects the default from the delegate and context
+mode: all delegates use ``rebuild`` in one-shot contexts; y2sat uses
+``append`` in reusable contexts; CaDiCaL and CryptoMiniSat use
+``selector-frames`` in reusable contexts; Kissat always uses ``rebuild``.
+
+The delegate can also be selected, or one-shot overridden, on a
+per-check basis through the ``delegate`` field of a search-parameter
+record (see :ref:`heuristic_parameters`).
+
+The SAT delegate options are ignored for any logic other than QF_BV.
+
+
 
 Configuration Descriptor
 ........................
@@ -292,6 +349,43 @@ arithmetic fragment and the operating mode:
    +--------------------+-----------------------------------------------------+
    | mode               |  one-shot, multi-checks, push-pop, or interactive   |
    +--------------------+-----------------------------------------------------+
+
+
+Two more parameters control the SAT back-end for QF_BV contexts.
+They are ignored for any other logic. See
+:ref:`SAT delegate configuration <sat_delegate_config>` above for the meaning
+of each value.
+
+.. list-table::
+   :header-rows: 1
+
+   * - Name
+     - Value
+     - Meaning
+   * - ``sat-delegate``
+     - ``"none"``
+     - use the internal Yices SAT solver (default)
+   * - ``sat-delegate``
+     - ``"y2sat"``
+     - use y2sat as the SAT back-end
+   * - ``sat-delegate``
+     - ``"cadical"``
+     - use CaDiCaL as the SAT back-end
+   * - ``sat-delegate``
+     - ``"cryptominisat"``
+     - use CryptoMiniSat as the SAT back-end
+   * - ``sat-delegate``
+     - ``"kissat"``
+     - use Kissat as the SAT back-end
+   * - ``sat-delegate-incremental-mode``
+     - ``"rebuild"``
+     - build a fresh delegate at every check
+   * - ``sat-delegate-incremental-mode``
+     - ``"append"``
+     - keep a live delegate and append clauses
+   * - ``sat-delegate-incremental-mode``
+     - ``"selector-frames"``
+     - keep a live delegate using activation frames
 
 
 
@@ -533,21 +627,21 @@ assert formulas, check satisfiability, and query the context's status.
 
    The returned value is one of the following codes:
 
-   - :c:enum:`STATUS_IDLE`. This is the initial state.
+   - :c:enum:`YICES_STATUS_IDLE`. This is the initial state.
 
      In this state, it is possible to assert formulas. The state may
-     then change to :c:enum:`STATUS_UNSAT` if the assertions are
+     then change to :c:enum:`YICES_STATUS_UNSAT` if the assertions are
      trivially unsatisfiable Otherwise, the state remains
-     :c:enum:`STATUS_IDLE`.
+     :c:enum:`YICES_STATUS_IDLE`.
 
-   - :c:enum:`STATUS_SEARCHING`. This is the context state during search.
+   - :c:enum:`YICES_STATUS_SEARCHING`. This is the context state during search.
 
      The context enters this state on a call to :c:func:`yices_check_context` and remains
      in this state until the solver completes or the search is interrupted.
 
-   - :c:enum:`STATUS_SAT`, :c:enum:`STATUS_UNSAT`, :c:enum:`STATUS_UNKNOWN`.
+   - :c:enum:`YICES_STATUS_SAT`, :c:enum:`YICES_STATUS_UNSAT`, :c:enum:`YICES_STATUS_UNKNOWN`.
 
-     These are the states after a search completes. :c:enum:`STATUS_UNKNOWN` means
+     These are the states after a search completes. :c:enum:`YICES_STATUS_UNKNOWN` means
      that the search was inconclusive, which may happen if the solver is not complete.
 
    - :c:enum:`YICES_STATUS_INTERRUPTED`.
@@ -566,17 +660,17 @@ assert formulas, check satisfiability, and query the context's status.
    The term *t* must be Boolean.
 
    The context *ctx* must be in one of the following states:
-   :c:enum:`STATUS_IDLE`, :c:enum:`STATUS_UNSAT`,
-   :c:enum:`STATUS_SAT`, or :c:enum:`STATUS_UNKNOWN`.
+   :c:enum:`YICES_STATUS_IDLE`, :c:enum:`YICES_STATUS_UNSAT`,
+   :c:enum:`YICES_STATUS_SAT`, or :c:enum:`YICES_STATUS_UNKNOWN`.
 
-   - if the current state is :c:enum:`STATUS_UNSAT`, this function does nothing.
+   - if the current state is :c:enum:`YICES_STATUS_UNSAT`, this function does nothing.
 
    - otherwise, the formula *t* is simplified and asserted in the context. The context's state
-     is then changed to :c:enum:`STATUS_UNSAT` if the assertion simplifies to false, or to
-     :c:enum:`STATUS_IDLE` otherwise.
+     is then changed to :c:enum:`YICES_STATUS_UNSAT` if the assertion simplifies to false, or to
+     :c:enum:`YICES_STATUS_IDLE` otherwise.
 
    If the context is in mode *one-shot*, this function fails if the state is either
-   :c:enum:`STATUS_SAT` or :c:enum:`STATUS_UNKNOWN`.
+   :c:enum:`YICES_STATUS_SAT` or :c:enum:`YICES_STATUS_UNKNOWN`.
 
    The function returns 0 if there's no error, or -1 otherwise.
 
@@ -600,7 +694,7 @@ assert formulas, check satisfiability, and query the context's status.
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
-   - if *ctx*'s mode is *one-shot* and *ctx*'s state is neither :c:enum:`STATUS_IDLE` nor :c:enum:`STATUS_UNSAT`
+   - if *ctx*'s mode is *one-shot* and *ctx*'s state is neither :c:enum:`YICES_STATUS_IDLE` nor :c:enum:`YICES_STATUS_UNSAT`
 
      -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
 
@@ -620,9 +714,9 @@ assert formulas, check satisfiability, and query the context's status.
 
    - *t* must be an array of *n* Boolean terms.
 
-   The context must be in state :c:enum:`STATUS_IDLE`,
-   :c:enum:`STATUS_UNSAT`, :c:enum:`STATUS_SAT`, or
-   :c:enum:`STATUS_UNKNOWN`.
+   The context must be in state :c:enum:`YICES_STATUS_IDLE`,
+   :c:enum:`YICES_STATUS_UNSAT`, :c:enum:`YICES_STATUS_SAT`, or
+   :c:enum:`YICES_STATUS_UNKNOWN`.
 
    This function is equivalent to calling
    :c:func:`yices_assert_formula` with input *(and t[0] ... t[n-1])*.
@@ -649,10 +743,10 @@ assert formulas, check satisfiability, and query the context's status.
 
    This function's behavior and returned value depend on *ctx*'s current state.
 
-   - If the state is :c:enum:`STATUS_SAT`, :c:enum:`STATUS_UNSAT`, or :c:enum:`STATUS_UNKNOWN`,
+   - If the state is :c:enum:`YICES_STATUS_SAT`, :c:enum:`YICES_STATUS_UNSAT`, or :c:enum:`YICES_STATUS_UNKNOWN`,
      the function just returns this status.
 
-   - If the state is :c:enum:`STATUS_IDLE`, then the context's solver
+   - If the state is :c:enum:`YICES_STATUS_IDLE`, then the context's solver
      (as defined by the context's configuration) searches for a
      satisfying assignment to all the assertions stored in *ctx*.
      If *params* is not :c:macro:`NULL`, the solver uses the
@@ -660,11 +754,11 @@ assert formulas, check satisfiability, and query the context's status.
 
      Then the function returns one of the following codes:
 
-     - :c:enum:`STATUS_UNSAT`: the context is not satisfiable.
+     - :c:enum:`YICES_STATUS_UNSAT`: the context is not satisfiable.
 
-     - :c:enum:`STATUS_SAT`: the context is satisfiable.
+     - :c:enum:`YICES_STATUS_SAT`: the context is satisfiable.
 
-     - :c:enum:`STATUS_UNKNOWN`: the solver can't prove whether the context is
+     - :c:enum:`YICES_STATUS_UNKNOWN`: the solver can't prove whether the context is
        satisfiable or not.
 
      - :c:enum:`YICES_STATUS_INTERRUPTED`: the search was interrupted by a
@@ -675,10 +769,10 @@ assert formulas, check satisfiability, and query the context's status.
      - If the context is configured for mode *interactive* and the search is interrupted,
        then the function returns :c:enum:`YICES_STATUS_INTERRUPTED` but the context's state is
        restored to what it was before the call to :c:func:`yices_check_context`, and the
-       internal status flag is reset to  :c:enum:`STATUS_IDLE`.
+       internal status flag is reset to  :c:enum:`YICES_STATUS_IDLE`.
 
    - If *ctx* is in another state, the function
-     returns :c:enum:`STATUS_ERROR`.
+     returns :c:enum:`YICES_STATUS_ERROR`.
 
    **Error report**
 
@@ -693,7 +787,7 @@ assert formulas, check satisfiability, and query the context's status.
 
    This function can be called from a signal handler to stop the
    search after at call to :c:func:`yices_check_context`. If the
-   context's state is :c:enum:`STATUS_SEARCHING` then the search is
+   context's state is :c:enum:`YICES_STATUS_SEARCHING` then the search is
    interrupted, otherwise the function does nothing.
 
    .. note:: If the search is interrupted and the context's mode is
@@ -708,7 +802,7 @@ assert formulas, check satisfiability, and query the context's status.
    Resets a context.
 
    This function removes all the assertions stored in *ctx* and resets
-   the context's state to :c:enum:`STATUS_IDLE`.
+   the context's state to :c:enum:`YICES_STATUS_IDLE`.
 
 
 .. c:function:: int32_t yices_assert_blocking_clause(context_t* ctx)
@@ -718,19 +812,19 @@ assert formulas, check satisfiability, and query the context's status.
    This function is intended to enumerate different models for a set
    of assertions.
 
-   - If *ctx*'s status is either :c:enum:`STATUS_SAT` or
-     :c:enum:`STATUS_UNKNOWN`, then a new clause is asserted in *ctx*
+   - If *ctx*'s status is either :c:enum:`YICES_STATUS_SAT` or
+     :c:enum:`YICES_STATUS_UNKNOWN`, then a new clause is asserted in *ctx*
      to remove the current truth assignment.  After this clause is
      added, the next call to :c:func:`yices_check_context` will either
      produce a different truth assignment (hence a different model) or
-     return :c:enum:`STATUS_UNSAT`.
+     return :c:enum:`YICES_STATUS_UNSAT`.
 
      After adding the clause, the context's state is updated to either
-     :c:enum:`STATUS_IDLE` (if the clause is not empty) or to
-     :c:enum:`STATUS_UNSAT` if the blocking clause is empty.
+     :c:enum:`YICES_STATUS_IDLE` (if the clause is not empty) or to
+     :c:enum:`YICES_STATUS_UNSAT` if the blocking clause is empty.
 
 
-   - If *ctx*'s status is not :c:enum:`STATUS_SAT` or :c:enum:`STATUS_UNKNOWN`,
+   - If *ctx*'s status is not :c:enum:`YICES_STATUS_SAT` or :c:enum:`YICES_STATUS_UNKNOWN`,
      the function reports an error.
 
    This function is not supported if the context's mode is *one-shot*.
@@ -739,7 +833,7 @@ assert formulas, check satisfiability, and query the context's status.
 
    **Error report**
 
-   - if *ctx*'s status is different from :c:enum:`STATUS_SAT` and :c:enum:`STATUS_UNKNOWN`
+   - if *ctx*'s status is different from :c:enum:`YICES_STATUS_SAT` and :c:enum:`YICES_STATUS_UNKNOWN`
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
@@ -770,8 +864,8 @@ be removed by :c:func:`yices_pop`.
 
    This function starts a new assertion level. The *ctx* must be
    configured to support push and pop, and its state must be either
-   :c:enum:`STATUS_IDLE`, or :c:enum:`STATUS_SAT`, or
-   :c:enum:`STATUS_UNKNOWN`.
+   :c:enum:`YICES_STATUS_IDLE`, or :c:enum:`YICES_STATUS_SAT`, or
+   :c:enum:`YICES_STATUS_UNKNOWN`.
 
    The function returns 0 if the operation succeeds or -1 otherwise.
 
@@ -781,8 +875,8 @@ be removed by :c:func:`yices_pop`.
 
      -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
 
-   - if *ctx* supports push and pop but its status is :c:enum:`STATUS_UNSAT`,
-     :c:enum:`STATUS_SEARCHING`, or :c:enum:`YCIES_STATUS_INTERRUPTED`:
+   - if *ctx* supports push and pop but its status is :c:enum:`YICES_STATUS_UNSAT`,
+     :c:enum:`YICES_STATUS_SEARCHING`, or :c:enum:`YICES_STATUS_INTERRUPTED`:
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
@@ -803,7 +897,7 @@ be removed by :c:func:`yices_pop`.
 
      -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
 
-   - if *ctx*'s status is :c:enum:`STATUS_SEARCHING` or if the assertion level is zero:
+   - if *ctx*'s status is :c:enum:`YICES_STATUS_SEARCHING` or if the assertion level is zero:
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
@@ -862,26 +956,26 @@ distribution.
    The function checks whether all assertions currently asserted in *ctx*
    together with the *n* assumptions *t[0]* |...| *t[n-1]* are
    satisfiable, and returns the result as a status code. If the
-   function returns :c:enum:`STATUS_UNSAT` then one can compute an
+   function returns :c:enum:`YICES_STATUS_UNSAT` then one can compute an
    unsat core (i.e., a subset of the assumptions that is
    unsatisfiable) by calling :c:func:`yices_get_unsat_core`.
 
    More precisely:
 
-   - If *ctx*'s current status is :c:enum:`STATUS_UNSAT` then the function does nothing
-     and returns :c:enum:`STATUS_UNSAT`.
+   - If *ctx*'s current status is :c:enum:`YICES_STATUS_UNSAT` then the function does nothing
+     and returns :c:enum:`YICES_STATUS_UNSAT`.
 
-   - If *ctx*'s status is :c:enum:`STATUS_IDLE`, :c:enum:`STATUS_SAT`,
-     or :c:enum:`STATUS_UNKNOWN` then the function checks whether *ctx* conjoined
+   - If *ctx*'s status is :c:enum:`YICES_STATUS_IDLE`, :c:enum:`YICES_STATUS_SAT`,
+     or :c:enum:`YICES_STATUS_UNKNOWN` then the function checks whether *ctx* conjoined
      with the *n* assumptions is satisfiable. This is done even if *n* is zero.
      The function will then return a code as in :c:func:`yices_check_context`.
 
-   - If *ctx*'s status is anything else, the function returns :c:enum:`STATUS_ERROR`.
+   - If *ctx*'s status is anything else, the function returns :c:enum:`YICES_STATUS_ERROR`.
 
 
-   This operation fails and returns :c:enum:`STATUS_ERROR` if *ctx* is
+   This operation fails and returns :c:enum:`YICES_STATUS_ERROR` if *ctx* is
    configured for one-shot solving and *ctx*'s status is anything
-   other than :c:enum:`STATUS_IDLE`.
+   other than :c:enum:`YICES_STATUS_IDLE`.
 
    **Error report**
 
@@ -906,7 +1000,7 @@ distribution.
    - *v* must be an initialized term vector (see :c:func:`yices_init_term_vector`).
 
    The function checks whether *ctx*'s status is
-   :c:enum:`STATUS_UNSAT`. If so, it computes and unsat core and store
+   :c:enum:`YICES_STATUS_UNSAT`. If so, it computes and unsat core and store
    it in vector *v*. The unsat core is an subset of the assumptions
    passed to the most recent call to :c:func:`yices_check_context_with_assumptions`.
 
@@ -923,12 +1017,12 @@ distribution.
      There are no duplicates in the *v->data* array.
 
 
-   If *ctx*'s status is anything other than :c:enum:`STATUS_UNSAT`,
+   If *ctx*'s status is anything other than :c:enum:`YICES_STATUS_UNSAT`,
    the function leaves *v* unchanged and returns -1.
 
    **Error report**
 
-   - If *ctx*'s status is not :c:enum:`STATUS_UNSAT`
+   - If *ctx*'s status is not :c:enum:`YICES_STATUS_UNSAT`
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
@@ -1013,27 +1107,27 @@ yices_set_config). This model interpolant is constructed by calling
    NOTE: if *t[i]* does not have a value in *mdl*, then a default value is
    picked for *v_i*.
 
-   If this function returns STATUS_UNSAT and the context supports
+   If this function returns YICES_STATUS_UNSAT and the context supports
    model interpolation, then one can construct a model interpolant by
    calling function :c:func:`yices_get_model_interpolant`.
 
    More precisely:
 
-   - If *ctx*'s current status is :c:enum:`STATUS_UNSAT` then the function does nothing
-     and returns :c:enum:`STATUS_UNSAT`.
+   - If *ctx*'s current status is :c:enum:`YICES_STATUS_UNSAT` then the function does nothing
+     and returns :c:enum:`YICES_STATUS_UNSAT`.
 
-   - If *ctx*'s status is :c:enum:`STATUS_IDLE`, :c:enum:`STATUS_SAT`,
-     or :c:enum:`STATUS_UNKNOWN` then the function checks whether
+   - If *ctx*'s status is :c:enum:`YICES_STATUS_IDLE`, :c:enum:`YICES_STATUS_SAT`,
+     or :c:enum:`YICES_STATUS_UNKNOWN` then the function checks whether
      *ctx* conjoined with the *n* equalities given by *mdl* and *t* is
      satisfiable. This is done even if *n* is zero.  The function will
      then return a code as in :c:func:`yices_check_context`.
 
-   - If *ctx*'s status is anything else, the function returns :c:enum:`STATUS_ERROR`.
+   - If *ctx*'s status is anything else, the function returns :c:enum:`YICES_STATUS_ERROR`.
 
 
-   This operation fails and returns :c:enum:`STATUS_ERROR` if *ctx* is
+   This operation fails and returns :c:enum:`YICES_STATUS_ERROR` if *ctx* is
    configured for one-shot solving and *ctx*'s status is anything
-   other than :c:enum:`STATUS_IDLE`.
+   other than :c:enum:`YICES_STATUS_IDLE`.
 
    **Error report**
 
@@ -1045,7 +1139,7 @@ yices_set_config). This model interpolant is constructed by calling
 
      -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
 
-   - If the resulting status is :c:enum:`STATUS_SAT` and context does not support multichecks:
+   - If the resulting status is :c:enum:`YICES_STATUS_SAT` and context does not support multichecks:
 
      -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
 
@@ -1086,27 +1180,27 @@ yices_set_config). This model interpolant is constructed by calling
    NOTE: if *t[i]* does not have a value in *mdl*, then a default value is
    picked for *v_i*.
 
-   If this function returns STATUS_UNSAT and the context supports
+   If this function returns YICES_STATUS_UNSAT and the context supports
    model interpolation, then one can construct a model interpolant by
    calling function :c:func:`yices_get_model_interpolant`.
 
    More precisely:
 
-   - If *ctx*'s current status is :c:enum:`STATUS_UNSAT` then the function does nothing
-     and returns :c:enum:`STATUS_UNSAT`.
+   - If *ctx*'s current status is :c:enum:`YICES_STATUS_UNSAT` then the function does nothing
+     and returns :c:enum:`YICES_STATUS_UNSAT`.
 
-   - If *ctx*'s status is :c:enum:`STATUS_IDLE`, :c:enum:`STATUS_SAT`,
-     or :c:enum:`STATUS_UNKNOWN` then the function checks whether
+   - If *ctx*'s status is :c:enum:`YICES_STATUS_IDLE`, :c:enum:`YICES_STATUS_SAT`,
+     or :c:enum:`YICES_STATUS_UNKNOWN` then the function checks whether
      *ctx* conjoined with the *n* equalities given by *mdl* and *t* is
      satisfiable. This is done even if *n* is zero.  The function will
      then return a code as in :c:func:`yices_check_context`.
 
-   - If *ctx*'s status is anything else, the function returns :c:enum:`STATUS_ERROR`.
+   - If *ctx*'s status is anything else, the function returns :c:enum:`YICES_STATUS_ERROR`.
 
 
-   This operation fails and returns :c:enum:`STATUS_ERROR` if *ctx* is
+   This operation fails and returns :c:enum:`YICES_STATUS_ERROR` if *ctx* is
    configured for one-shot solving and *ctx*'s status is anything
-   other than :c:enum:`STATUS_IDLE`.
+   other than :c:enum:`YICES_STATUS_IDLE`.
 
    **Error report**
 
@@ -1118,7 +1212,7 @@ yices_set_config). This model interpolant is constructed by calling
 
      -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
 
-   - If the resulting status is :c:enum:`STATUS_SAT` and context does not support multichecks:
+   - If the resulting status is :c:enum:`YICES_STATUS_SAT` and context does not support multichecks:
 
      -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
 
@@ -1139,7 +1233,7 @@ yices_set_config). This model interpolant is constructed by calling
    :c:func:`yices_check_context_with_model` or
    :c:func:`yices_check_context_with_model_and_hint`
    that returned
-   :c:enum:`STATUS_UNSAT`. In this case, the function builds an model
+   :c:enum:`YICES_STATUS_UNSAT`. In this case, the function builds an model
    interpolant. The model interpolant is a clause implied by the
    current context that is false in the model provides to
    :c:func:`yices_check_context_with_model`.
@@ -1150,7 +1244,7 @@ yices_set_config). This model interpolant is constructed by calling
 
      -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
 
-   - If the context's status is not :c:enum:`STATUS_UNSAT`:
+   - If the context's status is not :c:enum:`YICES_STATUS_UNSAT`:
 
      -- error code: :c:enum:`CTX_INVALID_OPERATION`
 
@@ -1193,10 +1287,10 @@ as follows::
 
    - *ctx->ctx_B* can be another context (not necessarily with MCSAT support).
 
-   If this function returns :c:enum:`STATUS_UNSAT`, then an
+   If this function returns :c:enum:`YICES_STATUS_UNSAT`, then an
    interpolant is returned in *ctx->interpolant*.
 
-   If this function returns :c:enum:`STATUS_SAT` and *build_model* is
+   If this function returns :c:enum:`YICES_STATUS_SAT` and *build_model* is
    true, then a model is returned in *ctx->model*. This model must be
    freed when no-longer needed by calling :c:func:`yices_free_model`.
 
@@ -1230,8 +1324,8 @@ previously set ordering.
 
    - *n* is the size of the *t* array
 
-   If the operation fails, it will return :c:enum:`STATUS_ERROR`,
-   otherwise it returns :c:enum:`STATUS_IDLE`.
+   If the operation fails, it will return :c:enum:`YICES_STATUS_ERROR`,
+   otherwise it returns :c:enum:`YICES_STATUS_IDLE`.
 
    **Error report**
 
@@ -1264,8 +1358,8 @@ onward.
 
    - *n* is the size of the *t* array
 
-   If the operation fails, it will return :c:enum:`STATUS_ERROR`,
-   otherwise it returns :c:enum:`STATUS_IDLE`.
+   If the operation fails, it will return :c:enum:`YICES_STATUS_ERROR`,
+   otherwise it returns :c:enum:`YICES_STATUS_IDLE`.
 
    **Error report**
 
@@ -1351,4 +1445,3 @@ record is no longer needed, it can be deleted by
    *param* must be a record returned by :c:func:`yices_new_param_record`.
 
    This function frees the memory allocated to this record.
-

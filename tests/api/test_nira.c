@@ -55,7 +55,7 @@ int main(void)
   status = yices_check_context(ctx, NULL);
   assert(!yices_error_code());
 
-  assert(status == STATUS_UNSAT);
+  assert(status == YICES_STATUS_UNSAT);
 
   yices_free_context(ctx);
   yices_exit();
