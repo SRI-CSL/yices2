@@ -38,10 +38,11 @@
  *
  * - "wide" (the default for the public API): walks the Boolean
  *   structure of F(x, y) and unions per-disjunct projections, so
- *   that G(x) is truth-invariant for the formula rather than
- *   sign-invariant for one chosen implicant. Wider output, slightly
- *   more expensive per call. Recommended for CEGAR-style outer
- *   loops over quantifier prefixes (exists/forall, QSMA, etc.).
+ *   that G(x) is strictly broader than the sign-invariant cell of
+ *   one chosen implicant whenever F has Boolean structure the model
+ *   satisfies in more than one way. Wider output, slightly more
+ *   expensive per call. Recommended for CEGAR-style outer loops
+ *   over quantifier prefixes (exists/forall, QSMA, etc.).
  *
  * - "local": the legacy pipeline. Computes a single implicant of F
  *   at the model (one literal per disjunct), then projects that flat
@@ -114,17 +115,21 @@ enum {
  * - gen_model_by_substitution:
  *   replace every elim[i] by its value in the model.
  * - gen_model_by_projection:
- *   "wide" projection (the new default for the public API): walks the
- *   Boolean structure of f[], collects every literal cube reachable from
- *   the model, projects each via Loos-Weispfenning / Cooper / arith_proj,
- *   and unions the results at the term level.
+ *   "wide" projection (the new default for the public API): builds a
+ *   polarity-aware Boolean abstraction of f[], enumerates model-true
+ *   Boolean implicants with a SAT solver and blocker clauses, projects
+ *   each implicant via Loos-Weispfenning / Cooper / arith_proj, and
+ *   unions the results at the term level. The cube_budget argument
+ *   caps the number of SAT-guided cubes (pass 0 to use the built-in
+ *   default).
  * - gen_model_by_projection_local:
  *   legacy projection. Builds a single literal implicant of f[] at the
  *   model and projects that flat conjunction. This is the algorithm Yices
  *   has used historically.
  * - generalize_model:
  *   the generic form. Applies projection (wide) for arithmetic variables
- *   and substitution for the rest.
+ *   and substitution for the rest. cube_budget is the SAT-guided cube
+ *   cap for the wide pass (pass 0 to use the built-in default).
  *
  * If a projection-based call fails and returns GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM,
  * *extra_error stores the term_kind of the bad terms (see projection.h).
@@ -133,13 +138,15 @@ extern int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uin
 					 uint32_t nelims, const term_t elim[], ivector_t *v);
 
 extern int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
-				       uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error);
+				       uint32_t nelims, const term_t elim[], ivector_t *v,
+				       uint32_t cube_budget, int32_t *extra_error);
 
 extern int32_t gen_model_by_projection_local(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 					     uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error);
 
 extern int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
-				uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error);
+				uint32_t nelims, const term_t elim[], ivector_t *v,
+				uint32_t cube_budget, int32_t *extra_error);
 
 
 

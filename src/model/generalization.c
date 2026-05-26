@@ -42,7 +42,9 @@
  *   (one literal per disjunction) and projects that flat
  *   conjunction. Cheaper per call but commits to one disjunct,
  *   so the resulting cell is sign-invariant for the chosen
- *   implicant rather than truth-invariant for the formula.
+ *   implicant and is strictly narrower than the wide cell
+ *   whenever F has Boolean structure the model satisfies in
+ *   more than one way.
  *
  * - "wide" (gen_model_by_proj_sat_guided): the public default.
  *   Builds a model-pruned Boolean abstraction of f[], enumerates
@@ -1037,11 +1039,13 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   }
 
   if (abstract_formula_array(&builder, input.size, input.data, &root) != ABS_OK) {
-    // Conservative fallback to the legacy local pipeline if the Boolean
-    // abstraction cannot classify a subterm. In practice ABS_ERROR only
-    // fires when a Boolean subterm has no Boolean value in the given
-    // model (i.e. the API precondition that F be model-true is violated),
-    // so this path is effectively unreachable for well-formed inputs.
+    // ABS_ERROR means eval_boolean_at_model could not produce a Boolean
+    // value for a Boolean subterm of F. That is a precondition violation
+    // (the API requires F to be true at the model, hence model-evaluable).
+    // We delegate to gen_model_by_proj_local rather than asserting: the
+    // legacy pipeline runs the same model evaluator inside get_implicant
+    // and will surface the specific GEN_EVAL_* / MDL_EVAL_* error code,
+    // giving the caller a precise diagnostic instead of an abort.
     ivector_reset(v);
     ivector_add(v, input.data, input.size);
     code = gen_model_by_proj_local(mdl, mngr, nelims, elim, v, extra_error);
@@ -1078,10 +1082,9 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
       exhausted_sat = true;
       break;
     }
-    if (sat_status != STAT_SAT) {
-      needs_fallback = true;
-      break;
-    }
+    // nsat_solve is documented to return only STAT_SAT or STAT_UNSAT
+    // (see solvers/cdcl/new_sat_solver.h); anything else is a bug.
+    assert(sat_status == STAT_SAT);
 
     ivector_reset(&implicant);
     extract_implicant(&builder.dag, &sat, root, &implicant);
@@ -1090,6 +1093,13 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     code = append_projected_cube_term(mdl, mngr, nelims, elim, &cube, extra_error,
                                       &have_first, &multiple, &first_projected, &cube_terms);
     if (code != 0) {
+      // Projection errors are reachable on legitimate inputs: the
+      // projector can return GEN_PROJ_ERROR_NON_LINEAR,
+      // GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM, etc. when the chosen
+      // cube contains arithmetic outside what Loos-Weispfenning /
+      // Cooper can handle. Fall back to OR(collected, local) below,
+      // which preserves soundness and lets the legacy path produce
+      // a definitive error code if it also fails.
       needs_fallback = true;
       code = 0;
       break;
@@ -1197,16 +1207,23 @@ int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n
 /*
  * Generalize by projection (wide variant, the public default).
  *
- * Walks the Boolean structure of f[], builds a truth-invariant cell
- * via per-cube projection, and unions the results at the term level.
- * Wider output than gen_model_by_projection_local; recommended for
- * CEGAR-style outer loops over quantifier prefixes.
+ * Walks the Boolean structure of f[], enumerates model-true Boolean
+ * implicants via a SAT-guided loop, projects each implicant as a cube
+ * through the legacy implicant+project pipeline, and unions the results
+ * at the term level. Wider output than gen_model_by_projection_local;
+ * recommended for CEGAR-style outer loops over quantifier prefixes.
+ *
+ * cube_budget caps the number of SAT-guided cubes the enumeration is
+ * allowed to emit before falling back to OR(collected, local). Pass 0
+ * to use the built-in default (WIDE_CUBE_BUDGET).
  */
 int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
-				uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error) {
+				uint32_t nelims, const term_t elim[], ivector_t *v,
+				uint32_t cube_budget, int32_t *extra_error) {
   ivector_copy(v, f, n);
   assert(v->size == n);
-  return gen_model_by_proj_sat_guided(mdl, mngr, nelims, elim, v, WIDE_CUBE_BUDGET, extra_error);
+  if (cube_budget == 0) cube_budget = WIDE_CUBE_BUDGET;
+  return gen_model_by_proj_sat_guided(mdl, mngr, nelims, elim, v, cube_budget, extra_error);
 }
 
 
@@ -1231,13 +1248,19 @@ int32_t gen_model_by_projection_local(model_t *mdl, term_manager_t *mngr, uint32
  * Generalize mdl: two passes:
  * - 1) eliminate the discrete variables by substitution
  * - 2) use projection (wide variant) to eliminate the real variables
+ *
+ * cube_budget is the SAT-guided cube cap for pass 2 (pass 0 to use
+ * the built-in default).
  */
 int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
-			 uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error) {
+			 uint32_t nelims, const term_t elim[], ivector_t *v,
+			 uint32_t cube_budget, int32_t *extra_error) {
   term_table_t *terms;
   ivector_t discretes;
   ivector_t reals;
   int32_t code;
+
+  if (cube_budget == 0) cube_budget = WIDE_CUBE_BUDGET;
 
   // if n == 0, there's nothing to do
   code = 0;
@@ -1252,7 +1275,7 @@ int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const t
       code = gen_model_by_subst(mdl, mngr, discretes.size, discretes.data, v);
     }
     if (code == 0 && reals.size > 0) {
-      code = gen_model_by_proj_sat_guided(mdl, mngr, reals.size, reals.data, v, WIDE_CUBE_BUDGET, extra_error);
+      code = gen_model_by_proj_sat_guided(mdl, mngr, reals.size, reals.data, v, cube_budget, extra_error);
     }
 
     delete_ivector(&reals);

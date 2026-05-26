@@ -4761,11 +4761,17 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
  * by setting parameter mode to one of the following values:
  *
  *   mode = YICES_GEN_BY_SUBST       ---> generalize by substitution
- *   mode = YICES_GEN_BY_PROJ        ---> wide projection (the default,
- *                                        truth-invariant cell): walks the
- *                                        Boolean structure of t and unions
- *                                        per-disjunct projections. Recommended
- *                                        for CEGAR-style outer loops over
+ *   mode = YICES_GEN_BY_PROJ        ---> wide projection (the default):
+ *                                        walks the Boolean structure of t,
+ *                                        enumerates model-true Boolean
+ *                                        implicants of t against a polarity-
+ *                                        aware abstraction, projects each as
+ *                                        a cube, and unions the results. The
+ *                                        cell is strictly broader than the
+ *                                        local cell whenever t has Boolean
+ *                                        structure the model satisfies in
+ *                                        more than one way. Recommended for
+ *                                        CEGAR-style outer loops over
  *                                        quantifier prefixes.
  *   mode = YICES_GEN_BY_PROJ_LOCAL  ---> legacy projection (sign-invariant
  *                                        cell): builds one literal implicant
