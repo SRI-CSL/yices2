@@ -128,9 +128,12 @@ enum {
  *   model and projects that flat conjunction. This is the algorithm Yices
  *   has used historically.
  * - generalize_model:
- *   the generic form. Applies projection (wide) for arithmetic variables
- *   and substitution for the rest. cube_budget is the SAT-guided cube
- *   cap for the wide pass (pass 0 for unbounded).
+ *   the generic form (the public default, YICES_GEN_DEFAULT). Applies
+ *   substitution for discrete variables and the legacy projection
+ *   (gen_model_by_projection_local) for real variables. Callers who
+ *   want the SAT-guided wide projection in the real-var pass must
+ *   call gen_model_by_projection directly (or use the public
+ *   YICES_GEN_BY_PROJ_WIDE mode).
  *
  * If a projection-based call fails and returns GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM,
  * *extra_error stores the term_kind of the bad terms (see projection.h).
@@ -147,7 +150,7 @@ extern int32_t gen_model_by_projection_local(model_t *mdl, term_manager_t *mngr,
 
 extern int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 				uint32_t nelims, const term_t elim[], ivector_t *v,
-				uint32_t cube_budget, int32_t *extra_error);
+				int32_t *extra_error);
 
 
 

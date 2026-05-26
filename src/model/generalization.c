@@ -1291,14 +1291,16 @@ int32_t gen_model_by_projection_local(model_t *mdl, term_manager_t *mngr, uint32
 /*
  * Generalize mdl: two passes:
  * - 1) eliminate the discrete variables by substitution
- * - 2) use projection (wide variant) to eliminate the real variables
+ * - 2) use the legacy projection (gen_model_by_proj_local) to eliminate
+ *      the real variables
  *
- * cube_budget is the cap on successful SAT-guided cubes for pass 2
- * (pass 0 for unbounded; see gen_model_by_projection).
+ * Callers who want the SAT-guided wide projection for pass 2 should call
+ * gen_model_by_projection directly or go through the public API with
+ * YICES_GEN_BY_PROJ_WIDE.
  */
 int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 			 uint32_t nelims, const term_t elim[], ivector_t *v,
-			 uint32_t cube_budget, int32_t *extra_error) {
+			 int32_t *extra_error) {
   term_table_t *terms;
   ivector_t discretes;
   ivector_t reals;
@@ -1317,7 +1319,7 @@ int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const t
       code = gen_model_by_subst(mdl, mngr, discretes.size, discretes.data, v);
     }
     if (code == 0 && reals.size > 0) {
-      code = gen_model_by_proj_sat_guided(mdl, mngr, reals.size, reals.data, v, cube_budget, extra_error);
+      code = gen_model_by_proj_local(mdl, mngr, reals.size, reals.data, v, extra_error);
     }
 
     delete_ivector(&reals);

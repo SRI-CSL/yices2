@@ -4761,30 +4761,38 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
  * by setting parameter mode to one of the following values:
  *
  *   mode = YICES_GEN_BY_SUBST       ---> generalize by substitution
- *   mode = YICES_GEN_BY_PROJ        ---> wide projection (the default):
- *                                        walks the Boolean structure of t,
- *                                        enumerates model-true Boolean
- *                                        implicants of t against a polarity-
- *                                        aware abstraction, projects each as
- *                                        a cube, and unions the results. The
- *                                        cell is strictly broader than the
- *                                        local cell whenever t has Boolean
- *                                        structure the model satisfies in
- *                                        more than one way. Recommended for
- *                                        CEGAR-style outer loops over
- *                                        quantifier prefixes.
- *   mode = YICES_GEN_BY_PROJ_LOCAL  ---> legacy projection (sign-invariant
+ *   mode = YICES_GEN_BY_PROJ        ---> legacy projection (sign-invariant
  *                                        cell): builds one literal implicant
  *                                        of t at the model and projects it.
  *                                        Cheaper per call, narrower output.
+ *                                        This is the historical Yices
+ *                                        behaviour and remains the default
+ *                                        projection algorithm.
+ *   mode = YICES_GEN_BY_PROJ_WIDE   ---> SAT-guided wide projection (since
+ *                                        2.7.0): walks the Boolean structure
+ *                                        of t, enumerates model-true Boolean
+ *                                        implicants of t against a polarity-
+ *                                        aware abstraction, projects each as
+ *                                        a cube, and unions the results. The
+ *                                        cell is strictly broader than
+ *                                        YICES_GEN_BY_PROJ whenever t has
+ *                                        Boolean structure the model
+ *                                        satisfies in more than one way.
+ *                                        Recommended for CEGAR-style outer
+ *                                        loops over quantifier prefixes.
+ *                                        See yices_generalize_model_with_budget
+ *                                        for the cube_budget knob.
  *   mode = YICES_GEN_DEFAULT        ---> automatically choose the mode
  *                                        depending on the variables to
- *                                        eliminate (uses the wide projection
- *                                        for arithmetic variables).
+ *                                        eliminate: substitution for
+ *                                        discrete variables and the legacy
+ *                                        YICES_GEN_BY_PROJ for real
+ *                                        variables. The wide algorithm is
+ *                                        never selected implicitly.
  *
  * Any value other than these is interpreted the same as YICES_GEN_DEFAULT.
  *
- * Both projection modes preserve the contract: G(X) is true at the model
+ * All projection modes preserve the contract: G(X) is true at the model
  * and implies (EXISTS to_eliminate. t).
  */
 
@@ -4803,14 +4811,13 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
  *    v->data[0] ....  v->data[v->size-1] = the formulas themselves.
  *
  * Shape of the returned formulas:
- * - If mode = YICES_GEN_BY_PROJ_LOCAL, every element of v is a literal
- *   (the conjunction of literals is the generalization).
- * - If mode = YICES_GEN_BY_PROJ (the default), the shape depends on
- *   whether the input formula has Boolean structure that the wide walk
- *   can decompose into multiple cubes:
+ * - For YICES_GEN_BY_PROJ (and YICES_GEN_DEFAULT), every element of v
+ *   is a literal (the conjunction of literals is the generalization).
+ * - For YICES_GEN_BY_PROJ_WIDE, the shape depends on whether the
+ *   Boolean walk decomposes the input into multiple cubes:
  *     * If the walk produces a single cube (which is always the case
  *       for purely conjunctive input), v is filled with the projected
- *       literals exactly as in YICES_GEN_BY_PROJ_LOCAL.
+ *       literals exactly as in YICES_GEN_BY_PROJ.
  *     * If the walk produces multiple cubes, v contains a single
  *       element which is a disjunction of literal-conjunctions.
  *   In all cases, the conjunction of v[0...v->size-1] is the
@@ -4835,8 +4842,11 @@ __YICES_DLLSPEC__ extern int32_t yices_generalize_model_array(model_t *mdl, uint
 
 /*
  * Same as yices_generalize_model and yices_generalize_model_array but with
- * an explicit cube_budget for the wide (YICES_GEN_BY_PROJ) and default
- * (YICES_GEN_BY_PROJ -> wide) modes:
+ * an explicit cube_budget. The budget only applies to mode =
+ * YICES_GEN_BY_PROJ_WIDE; it is ignored for YICES_GEN_BY_SUBST,
+ * YICES_GEN_BY_PROJ, and YICES_GEN_DEFAULT.
+ *
+ * For YICES_GEN_BY_PROJ_WIDE:
  * - cube_budget caps the number of SAT iterations (extracted cubes,
  *   whether or not the per-cube projection succeeds) inside the wide
  *   enumeration loop. When the cap is hit with at least one successful
@@ -4845,8 +4855,6 @@ __YICES_DLLSPEC__ extern int32_t yices_generalize_model_array(model_t *mdl, uint
  *   meaningful error code.
  * - cube_budget = 0 means unbounded (the Boolean enumeration is always
  *   finite -- each iteration adds a blocker clause).
- * - cube_budget is ignored for YICES_GEN_BY_SUBST and
- *   YICES_GEN_BY_PROJ_LOCAL.
  *
  * yices_generalize_model and yices_generalize_model_array are equivalent
  * to passing cube_budget = 0.

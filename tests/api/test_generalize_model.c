@@ -2,8 +2,8 @@
  * Regression tests for yices_generalize_model.
  *
  * Covers:
- *   1. Pure conjunction: both YICES_GEN_BY_PROJ_LOCAL (legacy) and
- *      YICES_GEN_BY_PROJ (wide) succeed and produce results that are
+ *   1. Pure conjunction: both YICES_GEN_BY_PROJ (legacy) and
+ *      YICES_GEN_BY_PROJ_WIDE (wide) succeed and produce results that are
  *      true at the model.
  *   2. Soundness contract: each result is true at the model.
  *   3. Wide is at least as broad as local: AND(local) implies AND(wide).
@@ -204,13 +204,13 @@ static void run_both_modes_quiet(const char *tag, term_t formula, model_t *mdl,
   yices_init_term_vector(out_wide);
 
   r = yices_generalize_model(mdl, formula, nelims, elim,
-                             YICES_GEN_BY_PROJ_LOCAL, out_local);
+                             YICES_GEN_BY_PROJ, out_local);
   if (r != 0) {
     fprintf(stderr, "[%s] local generalization failed: %s\n", tag, yices_error_string());
     assert(0);
   }
   r = yices_generalize_model(mdl, formula, nelims, elim,
-                             YICES_GEN_BY_PROJ, out_wide);
+                             YICES_GEN_BY_PROJ_WIDE, out_wide);
   if (r != 0) {
     fprintf(stderr, "[%s] wide generalization failed: %s\n", tag, yices_error_string());
     assert(0);
@@ -237,13 +237,13 @@ static void run_both_modes(const char *tag, term_t formula, model_t *mdl,
   yices_init_term_vector(out_wide);
 
   r = yices_generalize_model(mdl, formula, nelims, elim,
-                             YICES_GEN_BY_PROJ_LOCAL, out_local);
+                             YICES_GEN_BY_PROJ, out_local);
   if (r != 0) {
     fprintf(stderr, "[%s] local generalization failed: %s\n", tag, yices_error_string());
     assert(0);
   }
   r = yices_generalize_model(mdl, formula, nelims, elim,
-                             YICES_GEN_BY_PROJ, out_wide);
+                             YICES_GEN_BY_PROJ_WIDE, out_wide);
   if (r != 0) {
     fprintf(stderr, "[%s] wide generalization failed: %s\n", tag, yices_error_string());
     assert(0);
@@ -467,14 +467,14 @@ static void test_array_form(void) {
   yices_init_term_vector(&v_wide);
 
   r = yices_generalize_model_array(mdl, 3, fs, 1, elim,
-                                   YICES_GEN_BY_PROJ_LOCAL, &v_local);
+                                   YICES_GEN_BY_PROJ, &v_local);
   if (r != 0) {
     fprintf(stderr, "[array_form] LOCAL failed: ");
     yices_print_error(stderr);
   }
   assert(r == 0);
   r = yices_generalize_model_array(mdl, 3, fs, 1, elim,
-                                   YICES_GEN_BY_PROJ, &v_wide);
+                                   YICES_GEN_BY_PROJ_WIDE, &v_wide);
   if (r != 0) {
     fprintf(stderr, "[array_form] WIDE failed: ");
     yices_print_error(stderr);
@@ -598,7 +598,7 @@ static void test_sat_guided_budget_graceful(void) {
   yices_init_term_vector(&v_wide);
 
   r = yices_generalize_model(mdl, formula, 1, elim,
-                             YICES_GEN_BY_PROJ_LOCAL, &v_local);
+                             YICES_GEN_BY_PROJ, &v_local);
   assert(r == 0);
 
   // The public yices_generalize_model() runs with cube_budget == 0
@@ -607,7 +607,7 @@ static void test_sat_guided_budget_graceful(void) {
   // up to 2^NPAIRS = 2048 implicants exist and BUDGET = 4 is far
   // below that.
   r = yices_generalize_model_with_budget(mdl, formula, 1, elim,
-                                         YICES_GEN_BY_PROJ, BUDGET, &v_wide);
+                                         YICES_GEN_BY_PROJ_WIDE, BUDGET, &v_wide);
   assert(r == 0);
 
   assert_all_true("sat_guided_budget_graceful", &v_wide, mdl);
@@ -645,10 +645,10 @@ static void test_shared_elimination_variable(void) {
   yices_init_term_vector(&v_local);
   yices_init_term_vector(&v_wide);
   r = yices_generalize_model_array(mdl, 2, fs, 1, elim,
-                                   YICES_GEN_BY_PROJ_LOCAL, &v_local);
+                                   YICES_GEN_BY_PROJ, &v_local);
   assert(r == 0);
   r = yices_generalize_model_array(mdl, 2, fs, 1, elim,
-                                   YICES_GEN_BY_PROJ, &v_wide);
+                                   YICES_GEN_BY_PROJ_WIDE, &v_wide);
   assert(r == 0);
 
   assert_all_true("shared_elimination_variable", &v_local, mdl);

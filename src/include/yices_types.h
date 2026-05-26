@@ -275,20 +275,32 @@ typedef struct yval_vector_s {
  *      yices_generalize_model
  * and  yices_generalize_model_array
  *
- * There are three algorithms: generalization by substitution,
- * generalization by projection (the new default, which walks the
- * Boolean structure of the formula and unions per-disjunct
- * projections to produce a cell broader than the legacy one), and
- * the legacy projection algorithm (implicant-then-project,
- * producing a sign-invariant cell of one chosen implicant).
- * The default is to select the algorithm based on variables
- * to eliminate.
+ * Three projection-style algorithms are available:
+ *   YICES_GEN_BY_SUBST     -- pure substitution (each elim variable is
+ *                             replaced by its value in the model).
+ *   YICES_GEN_BY_PROJ      -- legacy "implicant-then-project": builds one
+ *                             literal implicant of F at the model and
+ *                             projects that flat conjunction; produces a
+ *                             sign-invariant cell of the chosen implicant.
+ *   YICES_GEN_BY_PROJ_WIDE -- SAT-guided wide projection (Since 2.7.0):
+ *                             enumerates model-true Boolean implicants of
+ *                             F over a polarity-aware abstraction and
+ *                             unions their per-cube projections. Wider
+ *                             output than YICES_GEN_BY_PROJ when F has
+ *                             Boolean structure the model satisfies in
+ *                             more than one way. Accepts a cube_budget
+ *                             through yices_generalize_model_with_budget.
+ *
+ * The default (YICES_GEN_DEFAULT) selects the algorithm based on the
+ * variables to eliminate: substitution for discrete variables and the
+ * legacy projection (YICES_GEN_BY_PROJ) for real variables. The wide
+ * algorithm is opt-in.
  */
 typedef enum yices_gen_mode {
   YICES_GEN_DEFAULT,
   YICES_GEN_BY_SUBST,
-  YICES_GEN_BY_PROJ,        // wide projection (default): walks Boolean structure, unions per-disjunct projections
-  YICES_GEN_BY_PROJ_LOCAL,  // legacy: implicant-then-project (sign-invariant cell of one chosen implicant)
+  YICES_GEN_BY_PROJ,        // legacy: implicant-then-project (sign-invariant cell of one chosen implicant)
+  YICES_GEN_BY_PROJ_WIDE,   // SAT-guided wide projection (since 2.7.0)
 } yices_gen_mode_t;
 
 
