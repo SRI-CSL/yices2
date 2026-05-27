@@ -336,6 +336,7 @@ struct mcsat_solver_s {
   uint32_t ite_plugin_id;
   uint32_t na_plugin_id;
   uint32_t bv_plugin_id;
+  uint32_t ff_plugin_id;
 };
 
 static
@@ -871,6 +872,7 @@ void mcsat_add_plugins(mcsat_solver_t* mcsat) {
   mcsat->ite_plugin_id = mcsat_add_plugin(mcsat, ite_plugin_allocator, "ite_plugin");
   mcsat->na_plugin_id = mcsat_add_plugin(mcsat, na_plugin_allocator, "na_plugin");
   mcsat->bv_plugin_id = mcsat_add_plugin(mcsat, bv_plugin_allocator, "bv_plugin");
+  mcsat->ff_plugin_id = mcsat_add_plugin(mcsat, ff_plugin_allocator, "ff_plugin");
 }
 
 static
