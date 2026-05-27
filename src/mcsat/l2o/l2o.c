@@ -105,12 +105,22 @@ void collect_free_vars(l2o_t *l2o, term_t t, ivector_t *v, uint32_t offset) {
   switch (current_kind) {
     case CONSTANT_TERM:
     case ARITH_CONSTANT:
+    case ARITH_FF_CONSTANT:
     case BV64_CONSTANT:
     case BV_CONSTANT:
       break;
 
     case ARITH_POLY: {
       polynomial_t *poly_desc = poly_term_desc(l2o->terms, current_term);
+      for (uint32_t i = 0; i < poly_desc->nterms; ++i) {
+        term_t var = poly_desc->mono[i].var;
+        if (var > 0) ivector_push(&subterms, var);
+      }
+      break;
+    }
+
+    case ARITH_FF_POLY: {
+      polynomial_t *poly_desc = finitefield_poly_term_desc(l2o->terms, current_term);
       for (uint32_t i = 0; i < poly_desc->nterms; ++i) {
         term_t var = poly_desc->mono[i].var;
         if (var > 0) ivector_push(&subterms, var);

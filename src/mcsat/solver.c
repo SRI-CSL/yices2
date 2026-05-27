@@ -376,9 +376,8 @@ static
 void mcsat_heuristics_init(mcsat_solver_t* mcsat, const param_t *params) {
   mcsat->heuristic_params.restart_interval = 10;
   mcsat->heuristic_params.lemma_restart_weight_type = LEMMA_WEIGHT_SIZE;
-  mcsat->heuristic_params.recache_interval = 50;
-  mcsat->heuristic_params.recache_initial_delay = 50;
-  mcsat->heuristic_params.recache_interval = 300;
+  mcsat->heuristic_params.recache_interval = mcsat->ctx->mcsat_options.l2o ? 50 : 300;
+  mcsat->heuristic_params.recache_initial_delay = mcsat->ctx->mcsat_options.l2o ? 50 : 300;
   // Use params for random decision parameters
   mcsat->heuristic_params.random_decision_freq = params->randomness;
   mcsat->heuristic_params.random_decision_seed = params->random_seed;
@@ -1579,12 +1578,17 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
     // recache target cache
     if (mcsat->pending_requests_all.recache) {
       mcsat->pending_requests_all.recache = false;
-#if 0
-      // TODO combine l2o with regular recache
-      l2o_run(&mcsat->l2o, mcsat->trail, (*mcsat->solver_stats.recaches) % 3, NULL);
-#else
-      trail_recache(mcsat->trail, (*mcsat->solver_stats.recaches));
-#endif
+      uint32_t recache_count = *mcsat->solver_stats.recaches;
+      bool use_l2o = mcsat->ctx->mcsat_options.l2o && (recache_count % 2 == 0);
+      if (use_l2o) {
+        // vary cache seeding: every 3rd l2o run cold-starts (ignores cached values)
+        bool use_cached_values = (recache_count / 2) % 3 != 0;
+        l2o_run(&mcsat->l2o, mcsat->trail, use_cached_values, NULL);
+        trail_clear_extra_cache(mcsat->trail, true); // keep best cache and clear target cache
+      } else {
+        uint32_t recache_param = mcsat->ctx->mcsat_options.l2o ? recache_count / 2 : recache_count;
+        trail_recache(mcsat->trail, recache_param);
+      }
       (*mcsat->solver_stats.recaches) ++;
     }
 
