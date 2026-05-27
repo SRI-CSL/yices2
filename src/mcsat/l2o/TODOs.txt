@@ -30,3 +30,15 @@ Ideas:
 * consider using other term table for l2o terms?
 * use free_var_index
 
+Investigate (perf): delta cost evaluation in l2o_cost_fx_term_eval.
+  Hill climbing changes one variable per move, so only assertions containing
+  that variable change cost. Maintain per-assertion cost + running total + a
+  var->assertions index (from var_member); recompute only affected assertions
+  (use the evaluator's modified_vars), commit on update_cache (re-sum to avoid
+  float drift). Turns each move from O(formula) into O(assertions touching the
+  moved var). Caveats: (1) interacts with the evaluator's eval_cache swap
+  (partial eval erodes its hit rate but stays correct); (2) the regression
+  diff is BLIND to a wrong delta (l2o only emits a hint mcsat re-checks) -- add
+  a debug-only assert that delta total == full re-sum each eval and run under
+  the debug build. Benchmark before adopting; weigh vs the array-map win.
+
