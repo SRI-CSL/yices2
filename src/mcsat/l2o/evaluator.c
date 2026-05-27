@@ -195,6 +195,12 @@ double l2o_evaluator_get_value_if_exists(const l2o_evaluator_t *evaluator, term_
   return evaluator_get_fix_pol(evaluator, term);
 }
 
+// Approximate equality for the lossy double evaluation: |x-y| within a
+// magnitude-scaled tolerance (absolute near 0, relative for large values).
+// Arguments must be side-effect free (they are evaluated more than once).
+#define L2O_EPSILON 0.0000001
+#define L2O_APPROX_EQ(x, y) (fabs((x) - (y)) <= L2O_EPSILON * fmax(1.0, fmax(fabs((x)), fabs((y)))))
+
 double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
   l2o_t *l2o = evaluator->l2o;
   term_table_t *terms = l2o->terms;
@@ -500,9 +506,9 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
             if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
               printf("\n is positive (t == 0)\n");
             }
-            current_eval = t_eval == 0.0;
+            current_eval = L2O_APPROX_EQ(t_eval, 0.0);
           } else {                        // t != 0
-            current_eval = t_eval != 0.0;
+            current_eval = !L2O_APPROX_EQ(t_eval, 0.0);
           }
           break;
         } else {
@@ -542,12 +548,12 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
             if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
               printf("\n is positive (t1==t2)\n");
             }
-            current_eval = args_eval[0] == args_eval[1];
+            current_eval = L2O_APPROX_EQ(args_eval[0], args_eval[1]);
           } else {                        // t1 != t2
             if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
               printf("\n is negative (t1!=t2)\n");
             }
-            current_eval = args_eval[0] != args_eval[1];
+            current_eval = !L2O_APPROX_EQ(args_eval[0], args_eval[1]);
           }
           break;
         }
@@ -584,12 +590,12 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
             if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
               printf("\n is positive (t1==t2)\n");
             }
-            current_eval = args_eval[0] == args_eval[1];
+            current_eval = L2O_APPROX_EQ(args_eval[0], args_eval[1]);
           } else {                        // t1 != t2
             if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
               printf("\n is negative (t1!=t2)\n");
             }
-            current_eval = args_eval[0] != args_eval[1];
+            current_eval = !L2O_APPROX_EQ(args_eval[0], args_eval[1]);
           }
           break;
         }
@@ -814,7 +820,9 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
           double num = args_eval[0];
           double den = args_eval[1];
 
-          // TODO Q avoid approximation error? E.g if 8 / 2 = 3.999 (that should not happen for int of reasonable size...)
+          // div/mod is computed in double to keep the evaluator fast: exact for
+          // integers within 2^53, approximate beyond. Acceptable since the result
+          // only feeds the cost function / hint (mcsat re-checks).
           if (den == 0) {
             current_eval = 0;
           } else if (den > 0) {

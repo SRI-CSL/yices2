@@ -193,6 +193,9 @@ void collect_free_vars(l2o_t *l2o, term_t t, ivector_t *v, uint32_t offset) {
 #define L2O_TRUE 0.0
 #define L2O_FALSE 1.0
 #define L2O_EPSILON 0.0000001
+// Approximate equality for the lossy double evaluation: |x-y| within a
+// magnitude-scaled tolerance. Arguments must be side-effect free.
+#define L2O_APPROX_EQ(x, y) (fabs((x) - (y)) <= L2O_EPSILON * fmax(1.0, fmax(fabs((x)), fabs((y)))))
 
 double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval) {
   term_table_t *terms = l2o->terms;
@@ -239,7 +242,7 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval) {
       if (is_pos_term(t)) { // x == 0
         return fabs(x);
       } else { // x != 0
-        return x != 0.0 ? L2O_TRUE : L2O_FALSE;
+        return !L2O_APPROX_EQ(x, 0.0) ? L2O_TRUE : L2O_FALSE;
       }
     }
 
@@ -301,7 +304,7 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval) {
       } else { // t1 != t2
         double val1 = l2o_evaluator_run_term(eval, t1);
         double val2 = l2o_evaluator_run_term(eval, t2);
-        return val1 != val2 ? L2O_TRUE : L2O_FALSE;
+        return !L2O_APPROX_EQ(val1, val2) ? L2O_TRUE : L2O_FALSE;
       }
     }
 
@@ -317,7 +320,7 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval) {
       if (is_pos_term(t)) { // t1 == t2
         return fabs(val1 - val2);
       } else { // t1 != t2
-        return val1 != val2 ? L2O_TRUE : L2O_FALSE;
+        return !L2O_APPROX_EQ(val1, val2) ? L2O_TRUE : L2O_FALSE;
       }
     }
 
