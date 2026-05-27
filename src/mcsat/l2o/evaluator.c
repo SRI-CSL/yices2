@@ -54,7 +54,6 @@ double evaluator_get_if_cached(const l2o_evaluator_t *evaluator, term_t t) {
   assert(is_pos_term(t));
   double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_cache, t);
   return find ? find->val : INFINITY;
-
 }
 
 /** Check whether t has been already evaluated */

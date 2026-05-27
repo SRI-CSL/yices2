@@ -307,7 +307,7 @@ static void print_mcsat_help(const char *progname) {
          "    --mcsat-na-mgcd          Use model-based GCD instead of PSC for projection\n"
          "    --mcsat-na-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
          "    --mcsat-na-bound         Search by increasing the bound on variable magnitude\n"
-         "    --mcsat-l2o              Enable L2O mode\n"
+         "    --mcsat-l2o              Enable L2O mcsat value selection heuristic\n"
          "    --mcsat-na-bound-min=<B> Set initial lower bound\n"
          "    --mcsat-na-bound-max=<B> Set maximal bound for search\n"
          "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search\n"
