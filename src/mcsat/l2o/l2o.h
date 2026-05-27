@@ -23,7 +23,6 @@
 #include "terms/terms.h"
 #include "terms/term_manager.h"
 #include "utils/int_hash_mmap.h"
-#include "utils/double_hash_map.h"
 #include "io/tracer.h"
 
 #include "mcsat/tracing.h"

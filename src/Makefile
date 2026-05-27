@@ -277,7 +277,6 @@ core_src_c := \
 	utils/csets.c \
 	utils/cputime.c \
 	utils/dep_tables.c \
-	utils/double_hash_map.c \
 	utils/error.c \
 	utils/gcd.c \
 	utils/generic_heap.c \
