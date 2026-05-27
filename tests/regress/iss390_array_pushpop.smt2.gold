@@ -1,0 +1,3 @@
+sat
+sat
+((define-fun a ((x!0 Int)) Int (ite (= x!0 0) 5 1)))
