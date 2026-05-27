@@ -33,9 +33,22 @@ typedef struct {
   double *val;
 } l2o_search_state_t;
 
+/**
+ * Map from a (non-negative) term id to a double, backed by a flat array indexed
+ * by the term id (term ids are dense small integers, so this avoids hashing).
+ * Live keys are tracked in `marked` so a reset is O(number of live entries) --
+ * the same sparse-array-map scheme as utils/tag_map and utils/mark_vectors.
+ */
 typedef struct {
-  double_hmap_t eval_map;
-  double_hmap_t eval_cache;
+  double *val;       // val[k] for term id k
+  uint8_t *present;  // present[k] != 0 iff k holds a live value
+  ivector_t marked;  // the live keys (present[k] != 0); its size is the entry count
+  uint32_t size;     // number of slots allocated
+} term_double_map_t;
+
+typedef struct {
+  term_double_map_t eval_map;
+  term_double_map_t eval_cache;
   ivector_t modified_vars;
 
   /** the l2o the evaluator is associated to */

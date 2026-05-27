@@ -18,14 +18,108 @@
 
 #include "mcsat/l2o/l2o.h"
 #include "mcsat/l2o/l2o_internal.h"
-#include "utils/double_hash_map.h"
 #include "utils/int_array_sort.h"
+#include "utils/memalloc.h"
 
 #include <math.h>
+#include <string.h>
+
+// ----- term_double_map: term-id-indexed double map (see l2o_internal.h) -----
+
+#define TERM_DOUBLE_MAP_DEFAULT_SIZE 64
+
+static
+void term_double_map_construct(term_double_map_t *m, uint32_t n) {
+  if (n == 0) n = TERM_DOUBLE_MAP_DEFAULT_SIZE;
+  m->val = (double *) safe_malloc(n * sizeof(double));
+  m->present = (uint8_t *) safe_malloc(n * sizeof(uint8_t));
+  memset(m->present, 0, n * sizeof(uint8_t));
+  init_ivector(&m->marked, 20);
+  m->size = n;
+}
+
+static
+void term_double_map_destruct(term_double_map_t *m) {
+  safe_free(m->val);
+  safe_free(m->present);
+  delete_ivector(&m->marked);
+  m->val = NULL;
+  m->present = NULL;
+  m->size = 0;
+}
+
+// reset to empty: clear only the live keys, O(number of entries)
+static
+void term_double_map_reset(term_double_map_t *m) {
+  uint32_t i, n = m->marked.size;
+  for (i = 0; i < n; ++i) {
+    m->present[m->marked.data[i]] = 0;
+  }
+  ivector_reset(&m->marked);
+}
+
+// grow so that index x is storable (x >= m->size); mirrors utils/tag_map
+static
+void term_double_map_resize(term_double_map_t *m, uint32_t x) {
+  uint32_t n;
+  assert(x >= m->size);
+  if (x == UINT32_MAX) {
+    out_of_memory();
+  }
+  // try ~50% larger, else exactly x+1
+  n = m->size + 1;
+  n += (n >> 1);
+  if (x >= n) {
+    n = x + 1;
+  }
+  // guard against size_t overflow in the double allocation (matters on 32-bit)
+  if ((size_t) n > SIZE_MAX / sizeof(double)) {
+    out_of_memory();
+  }
+  m->val = (double *) safe_realloc(m->val, n * sizeof(double));
+  m->present = (uint8_t *) safe_realloc(m->present, n * sizeof(uint8_t));
+  memset(m->present + m->size, 0, (n - m->size) * sizeof(uint8_t));
+  m->size = n;
+}
+
+static inline
+bool term_double_map_present(const term_double_map_t *m, term_t k) {
+  return (uint32_t) k < m->size && m->present[k] != 0;
+}
+
+static inline
+bool term_double_map_find(const term_double_map_t *m, term_t k, double *out) {
+  if ((uint32_t) k < m->size && m->present[k] != 0) {
+    *out = m->val[k];
+    return true;
+  }
+  return false;
+}
+
+static
+void term_double_map_set(term_double_map_t *m, term_t k, double v) {
+  if ((uint32_t) k >= m->size) {
+    term_double_map_resize(m, (uint32_t) k);
+  }
+  if (m->present[k] == 0) {
+    m->present[k] = 1;
+    ivector_push(&m->marked, k);
+  }
+  m->val[k] = v;
+}
+
+static inline
+void term_double_map_swap(term_double_map_t *m1, term_double_map_t *m2) {
+  term_double_map_t tmp = *m1;
+  *m1 = *m2;
+  *m2 = tmp;
+}
+
+// ----- evaluator value accessors -----
 
 static inline
 bool evaluator_has_cache(const l2o_evaluator_t *evaluator) {
-  return evaluator->eval_cache.nelems != 0;
+  return evaluator->eval_cache.marked.size != 0;
 }
 
 static inline
@@ -34,7 +128,7 @@ bool evaluator_is_cached(const l2o_evaluator_t *evaluator, term_t t) {
   if (!evaluator_has_cache(evaluator)) {
     return false;
   }
-  if (double_hmap_find(&evaluator->eval_cache, t) == NULL) {
+  if (!term_double_map_present(&evaluator->eval_cache, t)) {
     return false;
   }
   return !l2o_term_has_variables(evaluator->l2o, t, &evaluator->modified_vars);
@@ -44,40 +138,26 @@ static inline
 double evaluator_get_cache(const l2o_evaluator_t *evaluator, term_t t) {
   assert(is_pos_term(t));
   assert(evaluator_is_cached(evaluator, t));
-  double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_cache, t);
-  assert(find != NULL);
-  return find->val;
-}
-
-static inline
-double evaluator_get_if_cached(const l2o_evaluator_t *evaluator, term_t t) {
-  assert(is_pos_term(t));
-  double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_cache, t);
-  return find ? find->val : INFINITY;
+  double v;
+  bool found = term_double_map_find(&evaluator->eval_cache, t, &v);
+  (void) found; assert(found);
+  return v;
 }
 
 /** Check whether t has been already evaluated */
 static inline
 bool already_evaluated(const l2o_evaluator_t *evaluator, term_t t) {
-  t = unsigned_term(t);
-  double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_map, t);
-  return find != NULL;
+  return term_double_map_present(&evaluator->eval_map, unsigned_term(t));
 }
 
 /** Get evaluated value of t IF already evaluated. Always to use in combination with already_evaluated */
 static inline
 double evaluator_get(const l2o_evaluator_t *evaluator, term_t t) {
   assert(is_pos_term(t));
-  double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_map, t);
-  assert(find != NULL);
-  return find->val;
-}
-
-static inline
-double evaluator_get_if_eval(const l2o_evaluator_t *evaluator, term_t t) {
-  assert(is_pos_term(t));
-  double_hmap_pair_t *find = double_hmap_find(&evaluator->eval_map, t);
-  return find ? find->val : INFINITY;
+  double v;
+  bool found = term_double_map_find(&evaluator->eval_map, t, &v);
+  (void) found; assert(found);
+  return v;
 }
 
 /** Set t_eval as the evaluated value of t */
@@ -85,19 +165,18 @@ static inline
 void evaluator_set(l2o_evaluator_t *evaluator, term_t t, double t_eval) {
   assert(is_pos_term(t));
   assert(!already_evaluated(evaluator, t) || evaluator_get(evaluator, t) == t_eval);
-  double_hmap_pair_t *p = double_hmap_get(&evaluator->eval_map, t);
-  p->val = t_eval;
+  term_double_map_set(&evaluator->eval_map, t, t_eval);
 }
 
 /** Results are kept in the order of state. */
 static
-bool cache_find_changed_variables(const double_hmap_t *eval_cache, const l2o_search_state_t *state, ivector_t *diff) {
+bool cache_find_changed_variables(const term_double_map_t *eval_cache, const l2o_search_state_t *state, ivector_t *diff) {
   for (int i = 0; i < state->n_var; ++i) {
     term_t t = state->var[i];
-    double_hmap_pair_t *p = double_hmap_find(eval_cache, t);
-    if (p == NULL) {
+    double v;
+    if (!term_double_map_find(eval_cache, t, &v)) {
       return false;
-    } else if (p->val != state->val[i]) {
+    } else if (v != state->val[i]) {
       ivector_push(diff, t);
     }
   }
@@ -109,8 +188,8 @@ static
 bool ensure_cache_values(const l2o_search_state_t *state, const l2o_evaluator_t *evaluator) {
   assert(!l2o_search_state_is_empty(state));
   for (int i = 0; i < state->n_var; ++i) {
-    double_hmap_pair_t *p = double_hmap_find(&evaluator->eval_map, state->var[i]);
-    if (!p || p->val != state->val[i]) return false;
+    double v;
+    if (!term_double_map_find(&evaluator->eval_map, state->var[i], &v) || v != state->val[i]) return false;
   }
   return true;
 }
@@ -118,31 +197,31 @@ bool ensure_cache_values(const l2o_search_state_t *state, const l2o_evaluator_t 
 
 void l2o_evaluator_construct(l2o_t *l2o, l2o_evaluator_t *evaluator) {
   evaluator->l2o = l2o;
-  init_double_hmap(&evaluator->eval_map, 0);
-  init_double_hmap(&evaluator->eval_cache, 0);
+  term_double_map_construct(&evaluator->eval_map, 0);
+  term_double_map_construct(&evaluator->eval_cache, 0);
   init_ivector(&evaluator->modified_vars, 0);
 }
 
 void l2o_evaluator_destruct(l2o_evaluator_t *evaluator) {
-  delete_double_hmap(&evaluator->eval_map);
-  delete_double_hmap(&evaluator->eval_cache);
+  term_double_map_destruct(&evaluator->eval_map);
+  term_double_map_destruct(&evaluator->eval_cache);
   delete_ivector(&evaluator->modified_vars);
 }
 
 void l2o_evaluator_reset(l2o_evaluator_t *evaluator) {
-  double_hmap_reset(&evaluator->eval_map);
-  double_hmap_reset(&evaluator->eval_cache);
+  term_double_map_reset(&evaluator->eval_map);
+  term_double_map_reset(&evaluator->eval_cache);
   ivector_reset(&evaluator->modified_vars);
 }
 
 void l2o_evaluator_update_cache(l2o_evaluator_t *evaluator) {
-  assert(evaluator->eval_map.nelems > 0);
-  double_hmap_swap(&evaluator->eval_map, &evaluator->eval_cache);
+  assert(evaluator->eval_map.marked.size > 0);
+  term_double_map_swap(&evaluator->eval_map, &evaluator->eval_cache);
 }
 
 void l2o_evaluator_set_state(l2o_evaluator_t *evaluator, const l2o_search_state_t *state) {
   // reset the evaluation
-  double_hmap_reset(&evaluator->eval_map);
+  term_double_map_reset(&evaluator->eval_map);
   ivector_reset(&evaluator->modified_vars);
 
   if (evaluator_has_cache(evaluator)) {
