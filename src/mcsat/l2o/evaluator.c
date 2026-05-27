@@ -399,13 +399,6 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
         }
       }
 
-      case XOR_TERM:
-      {
-        // TODO implement
-        assert(false);
-        break;
-      }
-
       case ITE_SPECIAL:
       case ITE_TERM:
       {
@@ -703,17 +696,12 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
         pprod_t *ppdesc = pprod_term_desc(terms, current);
         n = ppdesc->len;
         varexp_t *pow_t = ppdesc->prod;
-        double vars_eval[n];
         bool vars_already_evaluated = true;
         for (uint32_t i = 0; i < n; ++i) {
-          varexp_t pow_i = pow_t[i];
-          term_t var = pow_i.var;
-          bool var_already_evaluated = already_evaluated(evaluator, var);
-          if (!var_already_evaluated) {
+          term_t var = pow_t[i].var;
+          if (!already_evaluated(evaluator, var)) {
             ivector_push(&eval_stack, var);
             vars_already_evaluated = false;
-          } else {
-            vars_eval[i] = evaluator_get(evaluator, var);;
           }
         }
         if (!vars_already_evaluated) {
@@ -721,10 +709,8 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
         } else {
           current_eval = 1;
           for (uint32_t i = 0; i < n; ++i) {
-            uint32_t exp = pow_t[i].exp;
-            //uint32_t exp = 1;
-            double var_eval = vars_eval[i];
-            double pow_eval = pow(var_eval, exp);
+            double var_eval = evaluator_get(evaluator, pow_t[i].var);
+            double pow_eval = pow(var_eval, pow_t[i].exp);
             current_eval = current_eval * pow_eval;
           }
           break;
@@ -737,21 +723,13 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
         polynomial_t *polydesc = poly_term_desc(terms, current);
         n = polydesc->nterms;
         monomial_t *mono = polydesc->mono;
-        double vars_eval[n];
         bool vars_already_evaluated = true;
         for (uint32_t i = 0; i < n; ++i) {
-          monomial_t mono_i = mono[i];
-          term_t var = mono_i.var;
-          if (!good_term(terms, var)) {    // If monomiao has 0 degree then var is UNUSED_TERM
-            vars_eval[i] = 1;             // Neutral element of product
-            continue;
-          }
-          bool var_already_evaluated = already_evaluated(evaluator, var);
-          if (!var_already_evaluated) {
+          term_t var = mono[i].var;
+          // If monomial has 0 degree then var is UNUSED_TERM (constant term)
+          if (good_term(terms, var) && !already_evaluated(evaluator, var)) {
             ivector_push(&eval_stack, var);
             vars_already_evaluated = false;
-          } else {
-            vars_eval[i] = evaluator_get(evaluator, var);
           }
         }
         if (!vars_already_evaluated) {
@@ -759,10 +737,10 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
         } else {
           current_eval = 0;
           for (uint32_t i = 0; i < n; ++i) {
-            rational_t coeff = mono[i].coeff;
-            double coeff_eval = q_get_double(&coeff);
-            double mono_eval = coeff_eval * vars_eval[i];
-            current_eval = current_eval + mono_eval;
+            term_t var = mono[i].var;
+            double var_eval = good_term(terms, var) ? evaluator_get(evaluator, var) : 1.0;
+            double coeff_eval = q_get_double(&mono[i].coeff);
+            current_eval = current_eval + coeff_eval * var_eval;
           }
           break;
         }
@@ -893,12 +871,15 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
         }
       }
 
-      default:    // TODO consider for example also  EQ_TERM, DISTINCT_TERM, ...
+      default:    // unsupported kind (XOR_TERM, DISTINCT_TERM, ...): such assertions
+                  // are rejected before l2o_run by l2o_term_is_supported, so this is
+                  // a defensive path. Free the stack before escaping to avoid a leak.
         if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
           printf("\ncurrent_kind: %d\n", current_kind);
           printf("\ncurrent kind is UNSUPPORTED\n");
         }
 
+        delete_ivector(&eval_stack);
         longjmp(*l2o->exception, INTERNAL_EXCEPTION);
         break;
     }

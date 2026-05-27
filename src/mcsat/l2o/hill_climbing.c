@@ -22,6 +22,7 @@
 #include "mcsat/l2o/l2o_internal.h"
 
 #include "utils/int_hash_sets.h"
+#include "utils/memalloc.h"
 
 #include <poly/feasibility_set.h>
 #include <poly/interval.h>
@@ -242,7 +243,7 @@ void hill_climbing(l2o_t *l2o, l2o_cost_fx_t *fx, l2o_search_state_t *state) {
   var_order_t order;
   init_var_order(&order, n_var_flex);
 
-  double step_size[n_var];
+  double *step_size = (double *) safe_malloc(n_var * sizeof(double));
   for (uint32_t i = 0; i < n_var; ++i) {
     step_size[i] = 1.0;
   }
@@ -292,5 +293,6 @@ void hill_climbing(l2o_t *l2o, l2o_cost_fx_t *fx, l2o_search_state_t *state) {
   }
 #endif
 
+  safe_free(step_size);
   delete_var_order(&order);
 }

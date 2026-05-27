@@ -22,6 +22,7 @@
 
 #include "terms/term_explorer.h"
 #include "utils/int_array_sort2.h"
+#include "utils/int_hash_sets.h"
 
 #include <math.h>
 #include <poly/feasibility_set.h>
@@ -679,6 +680,93 @@ var_queue_t
   l2o_search_state_destruct(&state);
 }
 
+/**
+ * Returns true iff every subterm of t has a kind that the l2o cost function and
+ * evaluator can handle. Assertions containing an unsupported kind are rejected
+ * (so l2o_run is skipped) instead of crashing collect_free_vars / the evaluator
+ * at run time. The supported set is the intersection of what l2o_calculate and
+ * l2o_evaluator_run_term implement.
+ */
+static
+bool l2o_term_is_supported(l2o_t *l2o, term_t t) {
+  term_table_t *terms = l2o->terms;
+  bool supported = true;
+
+  int_hset_t visited;
+  init_int_hset(&visited, 0);
+
+  ivector_t stack;
+  init_ivector(&stack, 0);
+  ivector_push(&stack, unsigned_term(t));
+
+  while (stack.size > 0) {
+    term_t current = unsigned_term(ivector_last(&stack));
+    ivector_pop(&stack);
+    if (!int_hset_add(&visited, current)) {
+      continue; // already visited
+    }
+
+    term_kind_t kind = term_kind(terms, current);
+    switch (kind) {
+    case CONSTANT_TERM:
+    case ARITH_CONSTANT:
+    case UNINTERPRETED_TERM:
+      break;
+
+    case POWER_PRODUCT: {
+      pprod_t *pp = pprod_term_desc(terms, current);
+      for (uint32_t i = 0; i < pp->len; ++i) {
+        ivector_push(&stack, unsigned_term(pp->prod[i].var));
+      }
+      break;
+    }
+
+    case ARITH_POLY: {
+      polynomial_t *p = poly_term_desc(terms, current);
+      for (uint32_t i = 0; i < p->nterms; ++i) {
+        term_t var = p->mono[i].var;
+        if (good_term(terms, var)) {
+          ivector_push(&stack, unsigned_term(var));
+        }
+      }
+      break;
+    }
+
+    case ITE_TERM:
+    case ITE_SPECIAL:
+    case OR_TERM:
+    case EQ_TERM:
+    case ARITH_EQ_ATOM:
+    case ARITH_BINEQ_ATOM:
+    case ARITH_GE_ATOM:
+    case ARITH_FLOOR:
+    case ARITH_CEIL:
+    case ARITH_ABS:
+    case ARITH_RDIV:
+    case ARITH_IDIV:
+    case ARITH_MOD: {
+      composite_term_t *c = get_composite(terms, kind, current);
+      for (uint32_t i = 0; i < c->arity; ++i) {
+        ivector_push(&stack, unsigned_term(c->arg[i]));
+      }
+      break;
+    }
+
+    default:
+      supported = false;
+      break;
+    }
+
+    if (!supported) {
+      break;
+    }
+  }
+
+  delete_ivector(&stack);
+  delete_int_hset(&visited);
+  return supported;
+}
+
 static
 l2o_cost_fx_t* l2o_make_cost_fx_l2o(l2o_t* l2o, const mcsat_trail_t *trail) {
   const ivector_t* assertions = &l2o->assertions;
@@ -686,7 +774,9 @@ l2o_cost_fx_t* l2o_make_cost_fx_l2o(l2o_t* l2o, const mcsat_trail_t *trail) {
   // ensure that the term has free vars are collected
   for (uint32_t i = 0; i < assertions->size; ++ i) {
     term_t t = assertions->data[i];
-    if (!l2o_collect_free_vars(l2o, t)) {
+    // reject (skip l2o) assertions with kinds the cost fx / evaluator can't handle;
+    // checked before collect_free_vars so it never walks an unsupported term
+    if (!l2o_term_is_supported(l2o, t) || !l2o_collect_free_vars(l2o, t)) {
       return NULL;
     }
   }
