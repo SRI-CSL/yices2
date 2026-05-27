@@ -204,8 +204,10 @@ double l2o_evaluator_get_value_if_exists(const l2o_evaluator_t *evaluator, term_
 double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
   l2o_t *l2o = evaluator->l2o;
   term_table_t *terms = l2o->terms;
+  // computed once: the tag lookup is otherwise done on every term visited
+  const bool trace = trace_enabled(l2o->tracer, "mcsat::evaluator");
 
-  if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+  if (trace) {
     printf("\nl2o_evaluate_term_approx\n");
   }
 
@@ -222,14 +224,13 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
   while (eval_stack.size > 0) {
     // Current term
     term_t current = ivector_last(&eval_stack);
-    type_kind_t current_type = term_type_kind(terms, current);
     term_kind_t current_kind = term_kind(terms, current);
     double current_eval = INFINITY;
-    if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+    if (trace) {
       mcsat_trace_printf(l2o->tracer, "\n\n *  current = ");
       trace_term_ln(l2o->tracer, terms, current);
       printf(" --current id: %d", current);
-      printf(" --current type: %d", current_type);
+      printf(" --current type: %d", term_type_kind(terms, current));
       printf(" --current kind: %d", current_kind);
     }
 
@@ -246,8 +247,8 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
     }
 
 #ifndef NDEBUG
-    if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
-      switch (current_type) {
+    if (trace) {
+      switch (term_type_kind(terms, current)) {
         case BOOL_TYPE:
           printf("\nType is BOOL\n");
           break;
@@ -272,7 +273,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
     switch (current_kind) {
       case CONSTANT_TERM:    // constant of uninterpreted/scalar/boolean types
       {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is CONSTANT_TERM");
         }
         current_eval = 0;
@@ -280,7 +281,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
       }
       case ARITH_CONSTANT:   // rational constant
       {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is ARITH_CONSTANT");
         }
         rational_t *desc_rat = rational_term_desc(terms, current);
@@ -290,11 +291,11 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
       }
       case UNINTERPRETED_TERM:  // (i.e., global variables, can't be bound).
       {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is UNINTERPRETED_TERM");
         }
         // Otherwise, should already have the value stored
-        assert(current_type == BOOL_TYPE && is_neg_term(current));
+        assert(term_type_kind(terms, current) == BOOL_TYPE && is_neg_term(current));
         term_t current_positive_polarity = opposite_term(current);
         assert(already_evaluated(evaluator, current_positive_polarity));
         double current_pos_eval = evaluator_get(evaluator, current_positive_polarity);
@@ -305,12 +306,12 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
       case OR_TERM:
       {
         if (is_pos_term(current)) {
-          if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+          if (trace) {
             printf("\ncurrent kind is OR_TERM (positive polarity)\n");
           }
           composite_term_t *desc = get_composite(terms, current_kind, current);
           n = desc->arity;
-          if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+          if (trace) {
             printf("\n n: %d\n", n);
           }
           args = desc->arg;
@@ -350,13 +351,13 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
             }
           }
         } else { // !is_pos_term(current)
-          if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+          if (trace) {
             printf("\ncurrent kind is AND_TERM (i.e. OR with negative polarity)\n");
           }
           term_t current_unsigned = unsigned_term(current);
           composite_term_t *desc = get_composite(terms, current_kind, current_unsigned);
           n = desc->arity;
-          if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+          if (trace) {
             printf("\n n: %d\n", n);
           }
           args = desc->arg;
@@ -407,7 +408,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
       case ITE_SPECIAL:
       case ITE_TERM:
       {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is ITE_TERM or ITE_SPECIAL\n");
         }
         if (is_pos_term(current)) {
@@ -489,7 +490,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
 
       case ARITH_EQ_ATOM:      // equality (t == 0)
       {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is ARITH_EQ_ATOM\n");
         }
         term_t current_unsigned = unsigned_term(current);
@@ -503,7 +504,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
         if (t_already_evaluated) {
           double t_eval = evaluator_get_fix_pol(evaluator, t);
           if (is_pos_term(current)) {   // t == 0
-            if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+            if (trace) {
               printf("\n is positive (t == 0)\n");
             }
             current_eval = L2O_APPROX_EQ(t_eval, 0.0);
@@ -519,7 +520,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
 
       case EQ_TERM:      // eq_term
       {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is EQ_TERM\n");
         }
         term_t current_unsigned = unsigned_term(current);
@@ -545,12 +546,12 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
           continue;
         } else {
           if (is_pos_term(current)) {   // t1 == t2
-            if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+            if (trace) {
               printf("\n is positive (t1==t2)\n");
             }
             current_eval = L2O_APPROX_EQ(args_eval[0], args_eval[1]);
           } else {                        // t1 != t2
-            if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+            if (trace) {
               printf("\n is negative (t1!=t2)\n");
             }
             current_eval = !L2O_APPROX_EQ(args_eval[0], args_eval[1]);
@@ -561,7 +562,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
 
       case ARITH_BINEQ_ATOM:      // equality: (t1 == t2)  (between two arithmetic terms)
       {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is ARITH_BINEQ_ATOM\n");
         }
         term_t current_unsigned = unsigned_term(current);
@@ -587,12 +588,12 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
           continue;
         } else {
           if (is_pos_term(current)) {   // t1 == t2
-            if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+            if (trace) {
               printf("\n is positive (t1==t2)\n");
             }
             current_eval = L2O_APPROX_EQ(args_eval[0], args_eval[1]);
           } else {                        // t1 != t2
-            if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+            if (trace) {
               printf("\n is negative (t1!=t2)\n");
             }
             current_eval = !L2O_APPROX_EQ(args_eval[0], args_eval[1]);
@@ -603,7 +604,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
 
       case ARITH_GE_ATOM:      // atom t >= 0
       {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is ARITH_GE_ATOM\n");
         }
         term_t current_unsigned = unsigned_term(current);
@@ -617,12 +618,12 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
         if (t_already_evaluated) {
           double t_eval = evaluator_get_fix_pol(evaluator, t);
           if (is_pos_term(current)) {   // t >= 0
-            if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+            if (trace) {
               printf("\n is positive (t >= 0)\n");
             }
             current_eval = t_eval >= 0;
           } else {                        // t < 0
-            if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+            if (trace) {
               printf("\n is negative (t < 0)\n");
             }
             current_eval = t_eval < 0;
@@ -635,7 +636,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
       }
 
       case ARITH_FLOOR: {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is ARITH_ABS\n");
         }
         term_t subt = arith_floor_arg(terms, current);
@@ -643,7 +644,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
 
         if (subt_already_evaluated) {
           double subt_eval = evaluator_get(evaluator, subt);
-          if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+          if (trace) {
             mcsat_trace_printf(l2o->tracer, "\nsubt = ");
             trace_term_ln(l2o->tracer, terms, subt);
           }
@@ -655,7 +656,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
         }
       }
       case ARITH_CEIL: {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is ARITH_CEIL\n");
         }
         term_t subt = arith_ceil_arg(terms, current);
@@ -663,7 +664,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
 
         if (subt_already_evaluated) {
           double subt_eval = evaluator_get(evaluator, subt);
-          if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+          if (trace) {
             mcsat_trace_printf(l2o->tracer, "\nsubt = ");
             trace_term_ln(l2o->tracer, terms, subt);
           }
@@ -675,7 +676,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
         }
       }
       case ARITH_ABS: {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is ARITH_ABS\n");
         }
         term_t subt = arith_abs_arg(terms, current);
@@ -683,7 +684,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
 
         if (subt_already_evaluated) {
           double subt_eval = evaluator_get(evaluator, subt);
-          if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+          if (trace) {
             mcsat_trace_printf(l2o->tracer, "\nsubt = ");
             trace_term_ln(l2o->tracer, terms, subt);
           }
@@ -695,7 +696,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
         }
       }
       case POWER_PRODUCT: {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is POWER_PRODUCT\n");
         }
         pprod_t *ppdesc = pprod_term_desc(terms, current);
@@ -715,14 +716,18 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
           current_eval = 1;
           for (uint32_t i = 0; i < n; ++i) {
             double var_eval = evaluator_get(evaluator, pow_t[i].var);
-            double pow_eval = pow(var_eval, pow_t[i].exp);
+            uint32_t exp = pow_t[i].exp;
+            // avoid the libm pow() call for the common small exponents
+            double pow_eval = (exp == 1) ? var_eval
+                            : (exp == 2) ? var_eval * var_eval
+                            : pow(var_eval, exp);
             current_eval = current_eval * pow_eval;
           }
           break;
         }
       }
       case ARITH_POLY: {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is ARITH_POLY\n");
         }
         polynomial_t *polydesc = poly_term_desc(terms, current);
@@ -752,7 +757,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
       }
       case ARITH_RDIV:      // real division: (/ x y)
       {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is ARITH_IDIV\n");
         }
         term_t current_unsigned = unsigned_term(current);
@@ -791,7 +796,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
       }
       case ARITH_IDIV:      // integer division: (div x y) as defined in SMT-LIB 2
       {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is ARITH_IDIV\n");
         }
         term_t current_unsigned = unsigned_term(current);
@@ -835,7 +840,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
       }
       case ARITH_MOD:     // remainder:  (mod x y) is x - y * (div x y)
       {
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent kind is ARITH_MOD\n");
         }
         term_t current_unsigned = unsigned_term(current);
@@ -881,7 +886,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
       default:    // unsupported kind (XOR_TERM, DISTINCT_TERM, ...): such assertions
                   // are rejected before l2o_run by l2o_term_is_supported, so this is
                   // a defensive path. Free the stack before escaping to avoid a leak.
-        if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+        if (trace) {
           printf("\ncurrent_kind: %d\n", current_kind);
           printf("\ncurrent kind is UNSUPPORTED\n");
         }
@@ -891,7 +896,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
         break;
     }
 
-    if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+    if (trace) {
       printf("\nsetting...");
       mcsat_trace_printf(l2o->tracer, "\n  current_eval = %f ", current_eval);
       mcsat_trace_printf(l2o->tracer, "\n  current_id = %d ", current);
@@ -905,7 +910,7 @@ double l2o_evaluator_run_term(l2o_evaluator_t *evaluator, term_t term) {
   // TODO or just allow unsigned terms
   double t_eval = evaluator_get_fix_pol(evaluator, term);
 
-  if (trace_enabled(l2o->tracer, "mcsat::evaluator")) {
+  if (trace) {
     printf("\nt_eval = %f", t_eval);
   }
 
