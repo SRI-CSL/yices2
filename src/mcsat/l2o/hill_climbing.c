@@ -90,7 +90,10 @@ uint32_t next_var(var_order_t *o) {
 
 static inline
 bool did_improve(double *best, double new) {
-  if (*best - new > IMPROVEMENT_THRESHOLD) {
+  // Only ever move to a finite cost. Accept it when the current best is
+  // non-finite (NaN/Inf seed) so the search can escape a bad starting point,
+  // or when it strictly improves on a finite best.
+  if (isfinite(new) && (!isfinite(*best) || *best - new > IMPROVEMENT_THRESHOLD)) {
     *best = new;
     return true;
   } else {
@@ -254,8 +257,9 @@ void hill_climbing(l2o_t *l2o, l2o_cost_fx_t *fx, l2o_search_state_t *state) {
 
   uint32_t var_idx = state->n_var_fixed + next_var(&order);
 
-  // main loop
-  while (best_cost > 0.0
+  // main loop: keep going while unsatisfied; a non-finite (NaN/Inf) cost is
+  // treated as unsatisfied so the search can move toward a finite cost
+  while (!(best_cost <= 0.0)
          && n_var_visited <= n_var_flex
          && n_iter < MAX_ITER
          && n_calls < MAX_CALLS
