@@ -129,38 +129,5 @@ extern void int_hmmap_add_all(int_hmmap_t * hmmap, int32_t k, const ivector_t *v
 bool int_hmmap_contains_key(const int_hmmap_t *hmmap, int32_t k);
 
 
-#if 0
-
-/*
-* Remove all records that satisfy f
-* - calls f(aux, p) on every record p stored in hmmap
-* - if f(aux, p) returns true then record p is removed
-*/
-typedef bool (*int_hmmap_filter_t)(void *aux, const int_hmmap_pair_t *p);
-
-extern void int_hmmap_remove_records(int_hmmap_t *hmmap, void *aux, int_hmmap_filter_t f);
-
-
-/*
-* Iterator: call f(aux, p) on every record p stored in hmmap
-* - f must not have any side effect on the hmmap
-*/
-typedef void (*int_hmmap_iterator_t)(void *aux, const int_hmmap_pair_t *p);
-
-extern void int_hmmap_iterate(int_hmmap_t *hmmap, void *aux, int_hmmap_iterator_t f);
-
-
-
-
-/*
-* Support for scanning all records:
-* - first gives the first non-null record in the table or NULL
-* - next(p) gives the next record after p or NULL
-* IMPORTANT: The hmmap must not be modified between calls to next
-*/
-extern int_hmmap_pair_t *int_hmmap_first_record(const int_hmmap_t *hmmap);
-extern int_hmmap_pair_t *int_hmmap_next_record(const int_hmmap_t *hmmap, const int_hmmap_pair_t *p);
-
-#endif
 
 #endif /* __INT_HASH_MMAP_H */
