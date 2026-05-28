@@ -371,9 +371,15 @@ static void smt2_push_name(smt2_name_stack_t *s, char *name) {
 /*
  * Remove names on top of the stack and remove them from the term_name table
  * - ptr = new top: names[0 ... ptr-1] are kept
+ *
+ * Also drop any array-constant markers in __smt2_globals.array_const_terms
+ * for the popped term ids. Most popped names are not arrays, so we look up
+ * the marker first and only erase if present.
  */
 static void smt2_pop_term_names(smt2_name_stack_t *s, uint32_t ptr) {
   char *name;
+  term_t t;
+  int_hmap_pair_t *p;
   uint32_t n;
 
   n = s->top;
@@ -381,7 +387,13 @@ static void smt2_pop_term_names(smt2_name_stack_t *s, uint32_t ptr) {
     n --;
     name = s->names[n];
 
-    assert(yices_get_term_by_name(name) != NULL_TERM);
+    t = yices_get_term_by_name(name);
+    assert(t != NULL_TERM);
+    p = int_hmap_find(&__smt2_globals.array_const_terms, t);
+    if (p != NULL) {
+      int_hmap_erase(&__smt2_globals.array_const_terms, p);
+    }
+
     yices_remove_term_name(name);
     assert(yices_get_term_by_name(name) == NULL_TERM);
 
@@ -4078,7 +4090,9 @@ static void print_smt2_model(smt2_pp_t *printer, smt2_model_t *sm) {
      */
     if (good_object(vtbl, v)) {
       tau = term_type(terms, t);
-      smt2_pp_def(printer, vtbl, sm->names.data[i], tau, v);
+      bool array_const =
+        int_hmap_find(&__smt2_globals.array_const_terms, t) != NULL;
+      smt2_pp_def(printer, vtbl, sm->names.data[i], tau, v, array_const);
     }
   }
   pp_close_block(&printer->pp, true);
@@ -4721,6 +4735,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_named_term_stack(&g->named_asserts);
 
   init_pvector(&g->model_term_names, 0);
+  init_int_hmap(&g->array_const_terms, 0);
 
   g->unsat_core = NULL;
   g->unsat_assumptions = NULL;
@@ -4789,6 +4804,7 @@ static void delete_smt2_globals(smt2_globals_t *g) {
   delete_named_term_stack(&g->named_asserts);
 
   delete_string_vector(&g->model_term_names);
+  delete_int_hmap(&g->array_const_terms);
 
   if (g->unsat_core != NULL) {
     free_assumptions(g->unsat_core);
@@ -7039,6 +7055,20 @@ void smt2_declare_fun(const char *name, uint32_t n, type_t *tau) {
     save_term_name(&__smt2_globals, name);
     save_name_for_model(&__smt2_globals, name);
 
+    /*
+     * Record array-constant declarations so that the model printer can
+     * emit them in SMT-LIB store/const form rather than as a function
+     * with parameters. A 0-arity declaration whose internal Yices type
+     * is a unary function type can only have come from (Array K V) in
+     * the SMT-LIB grammar (directly, via define-sort, or nested).
+     */
+    if (n == 0
+        && is_function_type(__yices_globals.types, sigma)
+        && function_type_arity(__yices_globals.types, sigma) == 1) {
+      int_hmap_pair_t *p = int_hmap_get(&__smt2_globals.array_const_terms, t);
+      p->val = 1;
+    }
+
     report_success();
   }
 }
@@ -7207,10 +7237,14 @@ void smt2_reset_assertions(void) {
       ivector_reset(&g->val_vector);
 
       /*
-       * Reset the internal name tables, unless global_decls is set
+       * Reset the internal name tables, unless global_decls is set.
+       * yices_reset_tables() recycles term ids, so we must also drop
+       * stale array-constant markers; otherwise they could alias
+       * freshly minted unrelated terms after the reset.
        */
       if (!g->global_decls) {
         yices_reset_tables();
+        int_hmap_reset(&g->array_const_terms);
       }
 
       // build a fresh empty context
