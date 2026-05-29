@@ -187,5 +187,7 @@ term_t conflict_get_formula(conflict_t* conflict);
 /** Returns the all the disjuncts of the conflict */
 void conflict_get_disjuncts(conflict_t* conflict, ivector_t* disjuncts);
 
+/** Remove a disjunct from the conflict (must currently be present) */
+void conflict_remove_disjunct(conflict_t* conflict, term_t disjunct);
 
 #endif
