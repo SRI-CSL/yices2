@@ -47,6 +47,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "utils/int_hash_map.h"
 #include "utils/int_vectors.h"
 #include "utils/ptr_vectors.h"
 #include "utils/string_hash_map.h"
@@ -429,6 +430,15 @@ typedef struct smt2_globals_s {
   // This is used if clean_model_format is false to keep track of all
   // terms whose value we may need to print.
   pvector_t model_term_names;
+
+  // Map term_id -> 1 for term ids that were declared as SMT-LIB array
+  // constants (i.e., via (declare-fun s () (Array K V)) or
+  // (declare-const s (Array K V))). We record this here because once
+  // the term/type are interned, Yices' type system no longer
+  // distinguishes Array K V from a unary function. Used by
+  // print_smt2_model to emit (define-fun s () (Array K V) (store ...))
+  // instead of the function form (define-fun s ((x!0 K)) V (ite ...)).
+  int_hmap_t array_const_terms;
 
   // data structures for unsat cores/unsat assumptions
   // allocated on demand

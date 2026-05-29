@@ -1,0 +1,2 @@
+sat
+((define-fun a () (Array Int Int) (store (store (store ((as const (Array Int Int)) 4) 2 5) 1 3) 0 1)))
