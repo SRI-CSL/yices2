@@ -289,6 +289,8 @@ struct mcsat_solver_s {
     statistic_int_t* assertions;
     // Lemmas added
     statistic_int_t* lemmas;
+    // Minimized literals in lemmas
+    statistic_int_t* minimized_literals;
     // Decisions performed
     statistic_int_t* decisions;
     // Restarts performed
@@ -359,6 +361,7 @@ void mcsat_stats_init(mcsat_solver_t* mcsat) {
   mcsat->solver_stats.decisions = statistics_new_int(&mcsat->stats, "mcsat::decisions");
   mcsat->solver_stats.gc_calls = statistics_new_int(&mcsat->stats, "mcsat::gc_calls");
   mcsat->solver_stats.lemmas = statistics_new_int(&mcsat->stats, "mcsat::lemmas");
+  mcsat->solver_stats.minimized_literals = statistics_new_int(&mcsat->stats, "mcsat::minimized_literals");
   mcsat->solver_stats.restarts = statistics_new_int(&mcsat->stats, "mcsat::restarts");
   mcsat->solver_stats.partial_restarts = statistics_new_int(&mcsat->stats, "mcsat::partial_restarts");
   mcsat->solver_stats.recaches = statistics_new_int(&mcsat->stats, "mcsat::recaches");
