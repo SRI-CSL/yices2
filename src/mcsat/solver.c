@@ -2449,6 +2449,10 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
       mcsat_minimize_conflict(&conflict, mcsat->trail, mcsat->bool_plugin_id,
                               &provider.base, mcsat->ctx->mcsat_options.minimize_depth,
                               mcsat->solver_stats.minimized_literals);
+      if (trace_enabled(trace, "mcsat::minimize::check")) {
+        // Minimized lemma must remain a valid (UNSAT) theory clause.
+        conflict_check(&conflict);
+      }
       // Minimization never removes the asserting disjunct, so the UIP invariant
       // (exactly one top-level variable) must still hold.
       assert(conflict_get_top_level_vars_count(&conflict) == 1);
