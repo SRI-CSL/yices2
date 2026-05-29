@@ -350,6 +350,7 @@ mcsat_src_c := \
 	mcsat/model.c \
 	mcsat/trail.c \
 	mcsat/conflict.c \
+	mcsat/conflict_minimize.c \
 	mcsat/unit_info.c \
 	mcsat/gc.c \
 	mcsat/eq/equality_graph.c \
