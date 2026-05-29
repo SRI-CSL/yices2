@@ -34,6 +34,7 @@
 #include "mcsat/variable_queue.h"
 #include "mcsat/trail.h"
 #include "mcsat/conflict.h"
+#include "mcsat/conflict_minimize.h"
 #include "mcsat/plugin.h"
 #include "mcsat/tracing.h"
 
@@ -2190,6 +2191,18 @@ bool mcsat_conflict_with_assumptions(mcsat_solver_t* mcsat, uint32_t conflict_le
   return false;
 }
 
+/* Adapter exposing the Boolean plugin's reason clauses to the minimizer. */
+typedef struct {
+  mcsat_reason_provider_t base;
+  plugin_t* bool_plugin;
+} mcsat_bool_reason_provider_t;
+
+static void mcsat_bool_reason_provider_get_vars(const mcsat_reason_provider_t* self,
+                                                variable_t var, ivector_t* out_vars) {
+  const mcsat_bool_reason_provider_t* p = (const mcsat_bool_reason_provider_t*) self;
+  bool_plugin_get_reason_vars(p->bool_plugin, var, out_vars);
+}
+
 static
 void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) {
 
@@ -2426,6 +2439,21 @@ void mcsat_analyze_conflicts(mcsat_solver_t* mcsat, uint32_t* restart_resource) 
     assert(conflict_get_top_level_vars_count(&conflict) == 1);
     // We should still be in conflict, so back out
     assert(conflict.level == mcsat->trail->decision_level);
+
+    // Boolean-part lemma minimization (before backtrack: all disjunct
+    // variables are still assigned, so their reasons are live).
+    if (mcsat->ctx->mcsat_options.minimize_lemmas) {
+      mcsat_bool_reason_provider_t provider;
+      provider.base.get_reason_vars = mcsat_bool_reason_provider_get_vars;
+      provider.bool_plugin = mcsat->plugins[mcsat->bool_plugin_id].plugin;
+      mcsat_minimize_conflict(&conflict, mcsat->trail, mcsat->bool_plugin_id,
+                              &provider.base, mcsat->ctx->mcsat_options.minimize_depth,
+                              mcsat->solver_stats.minimized_literals);
+      // Minimization never removes the asserting disjunct, so the UIP invariant
+      // (exactly one top-level variable) must still hold.
+      assert(conflict_get_top_level_vars_count(&conflict) == 1);
+    }
+
     mcsat_backtrack_to(mcsat, mcsat->trail->decision_level - 1, true);
 
     // Get the literals
