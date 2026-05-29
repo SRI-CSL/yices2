@@ -45,6 +45,47 @@ typedef enum {
 
 #define NUM_BRANCHING_MODES 6
 
+/*
+ * Optional SAT delegate for QF_BV solving.
+ */
+typedef enum {
+  SAT_DELEGATE_NONE,
+  SAT_DELEGATE_Y2SAT,
+  SAT_DELEGATE_CADICAL,
+  SAT_DELEGATE_CRYPTOMINISAT,
+  SAT_DELEGATE_KISSAT,
+} sat_delegate_t;
+
+#define NUM_SAT_DELEGATES 5
+
+/*
+ * Execution mode for QF_BV SAT delegates.
+ */
+typedef enum {
+  SAT_DELEGATE_MODE_REBUILD,
+  SAT_DELEGATE_MODE_APPEND,
+  SAT_DELEGATE_MODE_SELECTOR_FRAMES,
+} sat_delegate_incremental_mode_t;
+
+#define NUM_SAT_DELEGATE_INCREMENTAL_MODES 3
+
+/*
+ * SAT delegate helpers.
+ */
+extern const char *sat_delegate_name(sat_delegate_t mode);
+extern int32_t parse_sat_delegate(const char *value, sat_delegate_t *v);
+extern sat_delegate_t effective_sat_delegate_mode(sat_delegate_t config_delegate, const param_t *params, bool *one_shot);
+extern const char *sat_delegate_incremental_mode_name(sat_delegate_incremental_mode_t mode);
+extern int32_t parse_sat_delegate_incremental_mode(const char *value, sat_delegate_incremental_mode_t *v);
+extern sat_delegate_incremental_mode_t sat_delegate_default_incremental_mode(sat_delegate_t delegate, bool one_check);
+extern bool sat_delegate_incremental_mode_supported(sat_delegate_t delegate, sat_delegate_incremental_mode_t mode);
+extern bool effective_sat_delegate_incremental_mode(sat_delegate_t delegate,
+                                                    sat_delegate_incremental_mode_t config_mode,
+                                                    bool config_mode_set,
+                                                    bool one_check_context,
+                                                    bool one_shot_delegate,
+                                                    sat_delegate_incremental_mode_t *mode);
+
 
 struct param_s {
   /*
@@ -102,6 +143,7 @@ struct param_s {
   float    clause_decay;    // decay factor for learned-clause activity
   bool     cache_tclauses;
   uint32_t tclause_size;
+  sat_delegate_t delegate;
 
   /*
    * EGRAPH PARAMETERS

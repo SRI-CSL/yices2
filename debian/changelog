@@ -1,5 +1,5 @@
-yices2 (2.6.5-0ubuntu1) bionic; urgency=medium
+yices2 (2.7.0-0ubuntu1) jammy; urgency=medium
 
-  * Yices2.6.5 Release
+  * Yices2.7.0 Release
 
- -- Ahmed Irfan <ahmed.irfan@sri.com>  Thu, 19 Dec 2024 13:46:30 +0000
+ -- Ahmed Irfan <ahmed.irfan@sri.com>  Wed, 16 Jul 2025 13:46:30 +0000

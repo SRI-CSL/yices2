@@ -158,12 +158,12 @@ static void sat_search(smt_core_t *core, uint32_t conflict_bound, uint32_t reduc
   uint64_t max_conflicts;
   literal_t l;
 
-  assert(smt_status(core) == STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
+  assert(smt_status(core) == YICES_STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
 
   smt_process(core);
-  while (smt_status(core) == STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
+  while (smt_status(core) == YICES_STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
     // reduce heuristic
     if (num_learned_clauses(core) >= reduce_threshold) {
       reduce_clause_database(core);
@@ -215,7 +215,7 @@ static void sat_solve(smt_core_t *core, core_param_t *params, bool verbose) {
   uint32_t c_threshold, d_threshold; // Picosat-style
   uint32_t n_reductions, reduce_threshold;
 
-  assert(smt_status(core) == STATUS_IDLE);
+  assert(smt_status(core) == YICES_STATUS_IDLE);
 
   if (params == NULL) {
     params = &default_settings;
@@ -241,11 +241,11 @@ static void sat_solve(smt_core_t *core, core_param_t *params, bool verbose) {
     show_progress(core, d_threshold, reduce_threshold, true);
   }
 
-  if (smt_status(core) == STATUS_SEARCHING) {
+  if (smt_status(core) == YICES_STATUS_SEARCHING) {
     // loop
     for (;;) {
       sat_search(core, c_threshold, reduce_threshold);
-      if (smt_status(core) != STATUS_SEARCHING) break;
+      if (smt_status(core) != YICES_STATUS_SEARCHING) break;
 
       smt_restart(core);
 
@@ -281,7 +281,7 @@ static void sat_solve(smt_core_t *core, core_param_t *params, bool verbose) {
  * Check whether the unassignment is good (if result is SAT)
  */
 static void validate_assignment(smt_core_t *core) {
-  if (smt_status(core) == STATUS_SAT) {
+  if (smt_status(core) == YICES_STATUS_SAT) {
     if (all_clauses_true(core)) {
       printf("\nModel looks correct\n");
     } else {
@@ -590,7 +590,7 @@ static double search_time;
  * Signal handler: call stop_search
  */
 static void handler(int signum) {
-  if (solver.status == STATUS_SEARCHING) {
+  if (solver.status == YICES_STATUS_SEARCHING) {
     stop_search(&solver);
   }
 }

@@ -2273,15 +2273,6 @@ static void extend_var_list(nvar_list_t *list, uint32_t n) {
 
 
 /*
- * Increase the number of variables to n
- */
-static void var_list_add_vars(nvar_list_t *list, uint32_t n) {
-  assert(list->nvars <= n && n <= list->size);
-  list->nvars = n;
-}
-
-
-/*
  * Delete
  */
 static void delete_var_list(nvar_list_t *list) {
@@ -2303,6 +2294,14 @@ static void reset_var_list(nvar_list_t *list) {
   list->unassigned_index = 0;
   list->unassigned_rank = 0;
   reset_vector(&list->active_vars);
+}
+
+
+/*
+ * Check whether the list is empty.
+ */
+static inline bool var_list_is_empty(const nvar_list_t *list) {
+  return list->link[0].pre == 0 && list->link[0].next == 0;
 }
 
 
@@ -2405,6 +2404,31 @@ static void var_list_add(nvar_list_t *list, bvar_t x) {
   var_list_insert_before(list, x, 0); // add x as last element
 }
 
+
+/*
+ * Increase the number of variables to n.
+ * If the list is already populated, append the fresh variables while
+ * preserving the existing variable order.
+ */
+static void var_list_add_vars(nvar_list_t *list, uint32_t n) {
+  uint32_t i, old_nvars;
+
+  assert(list->nvars <= n && n <= list->size);
+
+  old_nvars = list->nvars;
+  list->nvars = n;
+
+  if (! var_list_is_empty(list)) {
+    for (i=old_nvars; i<n; i++) {
+      var_list_add(list, i);
+    }
+    if (old_nvars < n) {
+      var_list_set_unassigned(list, list->link[0].pre);
+    }
+  }
+}
+
+
 /*
  * Add all variables to the list
  * - the list must be empty on entry
@@ -2416,7 +2440,7 @@ static void var_list_add(nvar_list_t *list, bvar_t x) {
 static void var_list_add_all(nvar_list_t *list, bool reverse) {
   uint32_t i;
 
-  assert(list->link[0].pre == 0 && list->link[0].next == 0);
+  assert(var_list_is_empty(list));
 
   if (reverse) {
     i = list->nvars;
@@ -2435,6 +2459,17 @@ static void var_list_add_all(nvar_list_t *list, bool reverse) {
   // unassigned_index = last variable in the list
   i = list->link[0].pre;
   var_list_set_unassigned(list, i);
+}
+
+
+/*
+ * Populate the list if this is the first search after initialization/reset.
+ * Incremental rechecks keep the existing list to preserve variable ranks.
+ */
+static void var_list_add_all_if_empty(nvar_list_t *list, bool reverse) {
+  if (var_list_is_empty(list)) {
+    var_list_add_all(list, reverse);
+  }
 }
 
 
@@ -3737,7 +3772,24 @@ static void add_large_clause(sat_solver_t *solver, uint32_t n, const literal_t *
 
 
 /*
+ * Full substitution: follow the substitution chain
+ * - if l is not replaced by anything, return l
+ * - otherwise, replace l by subst(l) and iterate
+ */
+static literal_t full_lit_subst(const sat_solver_t *solver, literal_t l) {
+  assert(l < solver->nliterals);
+
+  while (solver->ante_tag[var_of(l)] == ATAG_SUBST) {
+    l = solver->ante_data[var_of(l)] ^ sign_of_lit(l);
+  }
+  return l;
+}
+
+
+/*
  * Simplify the clause then add it
+ * - substituted literals (ATAG_SUBST) are rewritten to their representatives
+ *   before simplification
  * - n = number of literals
  * - l = array of n literals
  * - the array is modified
@@ -3749,6 +3801,15 @@ void nsat_solver_simplify_and_add_clause(sat_solver_t *solver, uint32_t n, liter
   if (n == 0) {
     add_empty_clause(solver);
     return;
+  }
+
+  /*
+   * Rewrite literals that were substituted by SCC simplification.
+   * This is required for incremental users that append clauses over the
+   * original variable set after a previous check.
+   */
+  for (i=0; i<n; i++) {
+    lit[i] = full_lit_subst(solver, lit[i]);
   }
 
   /*
@@ -3855,20 +3916,6 @@ static inline literal_t base_subst(const sat_solver_t *solver, literal_t l) {
   return solver->ante_data[var_of(l)] ^ sign_of_lit(l);
 }
 #endif
-
-/*
- * Full substitution: follow the substitution chain
- * - if l is not replaced by anything, return l
- * - otherwise, replace l by subst(l) and iterate
- */
-static literal_t full_lit_subst(const sat_solver_t *solver, literal_t l) {
-  assert(l < solver->nliterals);
-
-  while (solver->ante_tag[var_of(l)] == ATAG_SUBST) {
-    l = solver->ante_data[var_of(l)] ^ sign_of_lit(l);
-  }
-  return l;
-}
 
 static literal_t full_var_subst(const sat_solver_t *solver, bvar_t x) {
   assert(x < solver->nvars);
@@ -8773,6 +8820,22 @@ static void backtrack(sat_solver_t *solver, uint32_t back_level) {
 }
 
 
+/*
+ * Prepare for adding more problem clauses after a SAT result.
+ */
+void nsat_solver_prepare_for_next_search(sat_solver_t *solver) {
+  if (solver->decision_level > 0) {
+    backtrack(solver, 0);
+  }
+  reset_vector(&solver->list.active_vars);
+  solver->backtrack_level = 0;
+  solver->conflict_tag = CTAG_NONE;
+  if (! solver->has_empty_clause) {
+    solver->status = STAT_UNKNOWN;
+  }
+}
+
+
 #if 0
 
 // DISABLED FOR TESTING
@@ -11117,7 +11180,7 @@ solver_status_t nsat_apply_preprocessing(sat_solver_t *solver) {
     if (solver->has_empty_clause) goto done;
   }
 
-  var_list_add_all(&solver->list, true);
+  var_list_add_all_if_empty(&solver->list, true);
 
   nsat_simplify(solver);
   done_simplify(solver);
@@ -11165,7 +11228,7 @@ solver_status_t nsat_solve(sat_solver_t *solver) {
     if (solver->has_empty_clause) goto done;
   }
 
-  var_list_add_all(&solver->list, true);
+  var_list_add_all_if_empty(&solver->list, true);
   if (false) bump_free_vars(solver, true); // optional
 
   nsat_simplify(solver);

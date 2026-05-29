@@ -83,6 +83,7 @@
  * Default branching = the smt_core default
  */
 #define DEFAULT_BRANCHING  BRANCHING_DEFAULT
+#define DEFAULT_SAT_DELEGATE SAT_DELEGATE_NONE
 
 /*
  * The default EGRAPH parameters are defined in egraph_types.h
@@ -142,6 +143,7 @@ static const param_t default_settings = {
   DEFAULT_CLAUSE_DECAY,
   DEFAULT_CACHE_TCLAUSES,
   DEFAULT_TCLAUSE_SIZE,
+  DEFAULT_SAT_DELEGATE,
 
   DEFAULT_USE_DYN_ACK,
   DEFAULT_USE_BOOL_DYN_ACK,
@@ -185,6 +187,7 @@ typedef enum param_key {
   PARAM_D_THRESHOLD,
   PARAM_C_FACTOR,
   PARAM_D_FACTOR,
+  PARAM_DELEGATE,
   // clause deletion heuristic
   PARAM_R_INITIAL_THRESHOLD,
   PARAM_R_INTERVAL,
@@ -234,6 +237,7 @@ static const char *const param_key_names[NUM_PARAM_KEYS] = {
   "clause-decay",
   "d-factor",
   "d-threshold",
+  "delegate",
   "dyn-ack",
   "dyn-ack-threshold",
   "dyn-bool-ack",
@@ -270,6 +274,7 @@ static const int32_t param_code[NUM_PARAM_KEYS] = {
   PARAM_CLAUSE_DECAY,
   PARAM_D_FACTOR,
   PARAM_D_THRESHOLD,
+  PARAM_DELEGATE,
   PARAM_DYN_ACK,
   PARAM_DYN_ACK_THRESHOLD,
   PARAM_DYN_BOOL_ACK,
@@ -316,6 +321,173 @@ static const int32_t branching_code[NUM_BRANCHING_MODES] = {
   BRANCHING_TH_POS,
   BRANCHING_THEORY,
 };
+
+/*
+ * Names of delegate solvers (in lexicographic order)
+ */
+static const char * const sat_delegate_modes[NUM_SAT_DELEGATES] = {
+  "cadical",
+  "cryptominisat",
+  "kissat",
+  "none",
+  "y2sat",
+};
+
+static const int32_t sat_delegate_code[NUM_SAT_DELEGATES] = {
+  SAT_DELEGATE_CADICAL,
+  SAT_DELEGATE_CRYPTOMINISAT,
+  SAT_DELEGATE_KISSAT,
+  SAT_DELEGATE_NONE,
+  SAT_DELEGATE_Y2SAT,
+};
+
+static const char * const sat_delegate_incremental_mode_names[NUM_SAT_DELEGATE_INCREMENTAL_MODES] = {
+  "append",
+  "rebuild",
+  "selector-frames",
+};
+
+static const int32_t sat_delegate_incremental_mode_code[NUM_SAT_DELEGATE_INCREMENTAL_MODES] = {
+  SAT_DELEGATE_MODE_APPEND,
+  SAT_DELEGATE_MODE_REBUILD,
+  SAT_DELEGATE_MODE_SELECTOR_FRAMES,
+};
+
+const char *sat_delegate_name(sat_delegate_t mode) {
+  switch (mode) {
+  case SAT_DELEGATE_Y2SAT:
+    return "y2sat";
+  case SAT_DELEGATE_CADICAL:
+    return "cadical";
+  case SAT_DELEGATE_CRYPTOMINISAT:
+    return "cryptominisat";
+  case SAT_DELEGATE_KISSAT:
+    return "kissat";
+  case SAT_DELEGATE_NONE:
+  default:
+    return NULL;
+  }
+}
+
+int32_t parse_sat_delegate(const char *value, sat_delegate_t *v) {
+  int32_t k;
+
+  k = parse_as_keyword(value, sat_delegate_modes, sat_delegate_code, NUM_SAT_DELEGATES);
+  assert(k >= 0 || k == -1);
+
+  if (k >= 0) {
+    assert(SAT_DELEGATE_NONE <= k && k <= SAT_DELEGATE_KISSAT);
+    *v = (sat_delegate_t) k;
+    return 0;
+  }
+
+  return -2;
+}
+
+const char *sat_delegate_incremental_mode_name(sat_delegate_incremental_mode_t mode) {
+  switch (mode) {
+  case SAT_DELEGATE_MODE_REBUILD:
+    return "rebuild";
+  case SAT_DELEGATE_MODE_APPEND:
+    return "append";
+  case SAT_DELEGATE_MODE_SELECTOR_FRAMES:
+    return "selector-frames";
+  default:
+    return NULL;
+  }
+}
+
+int32_t parse_sat_delegate_incremental_mode(const char *value, sat_delegate_incremental_mode_t *v) {
+  int32_t k;
+
+  k = parse_as_keyword(value, sat_delegate_incremental_mode_names,
+                       sat_delegate_incremental_mode_code, NUM_SAT_DELEGATE_INCREMENTAL_MODES);
+  assert(k >= 0 || k == -1);
+
+  if (k >= 0) {
+    assert(SAT_DELEGATE_MODE_REBUILD <= k && k <= SAT_DELEGATE_MODE_SELECTOR_FRAMES);
+    *v = (sat_delegate_incremental_mode_t) k;
+    return 0;
+  }
+
+  return -2;
+}
+
+sat_delegate_incremental_mode_t sat_delegate_default_incremental_mode(sat_delegate_t delegate, bool one_check) {
+  if (one_check) {
+    return SAT_DELEGATE_MODE_REBUILD;
+  }
+
+  switch (delegate) {
+  case SAT_DELEGATE_Y2SAT:
+    return SAT_DELEGATE_MODE_APPEND;
+  case SAT_DELEGATE_CADICAL:
+  case SAT_DELEGATE_CRYPTOMINISAT:
+    return SAT_DELEGATE_MODE_SELECTOR_FRAMES;
+  case SAT_DELEGATE_KISSAT:
+  case SAT_DELEGATE_NONE:
+  default:
+    return SAT_DELEGATE_MODE_REBUILD;
+  }
+}
+
+bool sat_delegate_incremental_mode_supported(sat_delegate_t delegate, sat_delegate_incremental_mode_t mode) {
+  switch (mode) {
+  case SAT_DELEGATE_MODE_REBUILD:
+    return true;
+  case SAT_DELEGATE_MODE_APPEND:
+    return delegate == SAT_DELEGATE_Y2SAT ||
+           delegate == SAT_DELEGATE_CADICAL ||
+           delegate == SAT_DELEGATE_CRYPTOMINISAT;
+  case SAT_DELEGATE_MODE_SELECTOR_FRAMES:
+    return delegate == SAT_DELEGATE_CADICAL ||
+           delegate == SAT_DELEGATE_CRYPTOMINISAT;
+  default:
+    return false;
+  }
+}
+
+bool effective_sat_delegate_incremental_mode(sat_delegate_t delegate,
+                                             sat_delegate_incremental_mode_t config_mode,
+                                             bool config_mode_set,
+                                             bool one_check_context,
+                                             bool one_shot_delegate,
+                                             sat_delegate_incremental_mode_t *mode) {
+  if (one_shot_delegate) {
+    *mode = SAT_DELEGATE_MODE_REBUILD;
+    return true;
+  }
+
+  if (config_mode_set) {
+    *mode = config_mode;
+    return !(one_check_context && *mode != SAT_DELEGATE_MODE_REBUILD) &&
+           sat_delegate_incremental_mode_supported(delegate, *mode);
+  }
+
+  *mode = sat_delegate_default_incremental_mode(delegate, one_check_context);
+  return true;
+}
+
+sat_delegate_t effective_sat_delegate_mode(sat_delegate_t config_delegate, const param_t *params, bool *one_shot) {
+  sat_delegate_t req;
+
+  req = SAT_DELEGATE_NONE;
+  if (params != NULL) {
+    req = params->delegate;
+  }
+
+  if (req != SAT_DELEGATE_NONE) {
+    if (one_shot != NULL) {
+      *one_shot = (req != config_delegate || config_delegate == SAT_DELEGATE_NONE);
+    }
+    return req;
+  }
+
+  if (one_shot != NULL) {
+    *one_shot = false;
+  }
+  return config_delegate;
+}
 
 
 
@@ -373,6 +545,15 @@ static int32_t set_branching_param(const char *value, branch_t *v) {
   }
 
   return k;
+}
+
+/*
+ * Parse value as a SAT delegate mode. Store the result in *v
+ * - return 0 if this works
+ * - return -2 otherwise
+ */
+static int32_t set_sat_delegate_param(const char *value, sat_delegate_t *v) {
+  return parse_sat_delegate(value, v);
 }
 
 
@@ -516,6 +697,10 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
 
   case PARAM_D_FACTOR:
     r = set_double_param(value, &parameters->d_factor, 1.0, DBL_MAX);
+    break;
+
+  case PARAM_DELEGATE:
+    r = set_sat_delegate_param(value, &parameters->delegate);
     break;
 
   case PARAM_R_INITIAL_THRESHOLD:

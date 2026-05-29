@@ -1,0 +1,8 @@
+(set-option :produce-unsat-cores true)
+(set-logic QF_LIA)
+(declare-fun x () Int)
+(declare-fun y () Int)
+(assert (! (and (> x 2) (< x 0)) :named x20))
+(assert (! (< y 0) :named y0))
+(check-sat)
+(get-unsat-core)

@@ -14,7 +14,7 @@
  *          yices_arith_leq_atom()
  *          _o_yices_arith_leq_atom()
  *          yices_new_context()
- *          yices_check_context() - STATUS_IDLE branch
+ *          yices_check_context() - YICES_STATUS_IDLE branch
  */
 
 #ifdef NDEBUG
@@ -59,7 +59,7 @@ int main(void) {
 
   term_t f_arr[] = { r_1, one };
   yices_assert_formula(ctx, yices_distinct(2, f_arr));
-  assert(yices_check_context(ctx, NULL) == STATUS_UNSAT);
+  assert(yices_check_context(ctx, NULL) == YICES_STATUS_UNSAT);
   assert(!yices_error_code());
 
   yices_free_context(ctx);

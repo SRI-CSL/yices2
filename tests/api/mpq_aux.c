@@ -30,7 +30,7 @@ int main(void) {
   val = yices_abs(val);
 
   yices_assert_formula(ctx, yices_arith_eq_atom(val, yices_power(yices_int32(2), 30)));
-  assert(yices_check_context(ctx, NULL) == STATUS_SAT);
+  assert(yices_check_context(ctx, NULL) == YICES_STATUS_SAT);
 
   assert(!yices_error_code());
 

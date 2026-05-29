@@ -27,6 +27,8 @@
 #include "utils/int_array_sort2.h"
 #include "mcsat/utils/scope_holder.h"
 
+#include <math.h>
+
 typedef struct {
 
   /** The plugin interface */
@@ -80,6 +82,9 @@ typedef struct {
   /** GC info for clause removal */
   gc_info_t gc_clauses;
 
+  /** GC round */
+  uint32_t gc_round;
+
   struct {
 
     /** Score increase per bump (multiplicative) */
@@ -92,7 +97,7 @@ typedef struct {
     /** Limit on lemma clauses before we ask for gc */
     uint32_t lemma_limit_init;
     /** Increase of the lemma limit after gc */
-    float lemma_limit_factor;
+    float lemma_limit_interval;
 
     /** bump factor for bool vars -- geq 1. Higher number means more weightage **/
     uint32_t bool_var_bump_factor;
@@ -128,7 +133,7 @@ void bool_plugin_heuristics_init(bool_plugin_t* bp) {
 
   // Clause database compact
   bp->heuristic_params.lemma_limit_init = 1000;
-  bp->heuristic_params.lemma_limit_factor = 1.05;
+  bp->heuristic_params.lemma_limit_interval = 100;
 
   // Bool var scoring
   bp->heuristic_params.bool_var_bump_factor = 20;
@@ -778,7 +783,7 @@ bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars
   if (t_var == variable_null) {
     // trying one step further to evaluate equality terms
     if (term_kind(bp->ctx->terms, t_unsigned) == EQ_TERM) {
-      composite_term_t* t_desc = eq_term_desc(bp->ctx->terms, t);
+      composite_term_t* t_desc = eq_term_desc(bp->ctx->terms, t_unsigned);
       term_t t1 = t_desc->arg[0];
       term_t t2 = t_desc->arg[1];
       assert(t1 != NULL_TERM);
@@ -787,6 +792,8 @@ bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars
       variable_t t2_var = variable_db_get_variable_if_exists(var_db, t2);
       if (t1_var != variable_null && t2_var != variable_null) {
 	if (trail_has_value(trail, t1_var) && trail_has_value(trail, t2_var)) {
+          int_mset_add(vars, t1_var);
+          int_mset_add(vars, t2_var);
 	  bool negated = is_neg_term(t);
 	  const mcsat_value_t* t1_var_value = trail_get_value(trail, t1_var);
 	  const mcsat_value_t* t2_var_value = trail_get_value(trail, t2_var);
@@ -906,8 +913,8 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
-    // keep binary clauses
-    for (i = 0; i < bp->lemmas.size; ++ i) {
+    // keep binary clauses for a little longer -- one more round
+    for (i = 0; bp->gc_round % 2 != 0 && i < bp->lemmas.size; ++ i) {
       clause_ref = bp->lemmas.data[i];
       assert(clause_db_is_clause(db, clause_ref, true));
       c = clause_db_get_clause(&bp->clause_db, clause_ref);
@@ -1007,13 +1014,15 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
   switch (kind) {
   case MCSAT_SOLVER_START:
     // Re-initialize the heuristics
-    bp->lemmas_limit = bp->lemmas.size + bp->heuristic_params.lemma_limit_init;
+    bp->lemmas_limit = bp->heuristic_params.lemma_limit_init;
+    bp->gc_round = 0;
     break;
   case MCSAT_SOLVER_RESTART:
     // Check if clause compaction needed
     if (bp->lemmas.size > bp->lemmas_limit) {
       bp->ctx->request_gc(bp->ctx);
-      bp->lemmas_limit *= bp->heuristic_params.lemma_limit_factor;
+      bp->gc_round++;
+      bp->lemmas_limit += bp->heuristic_params.lemma_limit_interval * sqrt(bp->gc_round);
     }
     break;
   case MCSAT_SOLVER_CONFLICT:

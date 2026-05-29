@@ -65,9 +65,9 @@ static void test_export(const char *filename, uint32_t n, const term_t t[], bool
     printf("Produced DIMACS file `%s`\n", filename);
   } else if (code == 0) {
     printf("Solved by preprocessing: no file produced\n");
-    if (status == STATUS_SAT) {
+    if (status == YICES_STATUS_SAT) {
       printf(" formulas are satisfiable\n");
-    } else if (status == STATUS_UNSAT) {
+    } else if (status == YICES_STATUS_UNSAT) {
       printf(" formulas are not satisfiable\n");
     } else {
       printf(" BUG: invalid status\n");

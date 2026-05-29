@@ -32,6 +32,7 @@
 #include "solvers/floyd_warshall/rdl_floyd_warshall.h"
 #include "solvers/funs/fun_solver.h"
 #include "solvers/quant/quant_solver.h"
+#include "solvers/cdcl/delegate.h"
 #include "solvers/simplex/simplex.h"
 #include "terms/poly_buffer_terms.h"
 #include "terms/term_utils.h"
@@ -2550,6 +2551,7 @@ static literal_t map_bit_select_to_literal(context_t *ctx, select_term_t *select
 
 static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
   term_table_t *terms;
+  term_t root;
   term_t r;
   uint32_t polarity;
   int32_t code;
@@ -2564,9 +2566,10 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
     goto abort;
   }
 
-  r = intern_tbl_get_root(&ctx->intern, t);
-  polarity = polarity_of(r);
-  r  = unsigned_term(r);
+  root = intern_tbl_get_root(&ctx->intern, t);
+  polarity = polarity_of(root);
+  root = unsigned_term(root);
+  r = root;
 
   /*
    * r is a positive root in the internalization table
@@ -2589,6 +2592,28 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
      */
     terms = ctx->terms;
     tau = type_of_root(ctx, r);
+    if (is_unit_type(ctx->types, tau)) {
+      // Canonicalize singleton types to one representative term.
+      r = get_unit_type_rep(terms, tau);
+      r = intern_tbl_get_root(&ctx->intern, r);
+      r = unsigned_term(r);
+      assert(is_pos_term(r) && intern_tbl_is_root(&ctx->intern, r));
+      if (intern_tbl_root_is_mapped(&ctx->intern, r)) {
+        code = intern_tbl_map_of_root(&ctx->intern, r);
+        u = translate_code_to_eterm(ctx, r, code);
+        if (root != r) {
+          if (intern_tbl_root_is_free(&ctx->intern, root)) {
+            intern_tbl_map_root(&ctx->intern, root, occ2code(u));
+          } else {
+            // If root is already mapped, it must map to the same egraph
+            // occurrence we are about to return for the unit-type rep.
+            assert(intern_tbl_map_of_root(&ctx->intern, root) == occ2code(u));  // LCOV_EXCL_LINE - consistency check, unreachable on well-formed inputs
+          }
+        }
+        return u ^ polarity;
+      }
+    }
+
     if (is_boolean_type(tau)) {
       l = internalize_to_literal(ctx, r);
       u = egraph_literal2occ(ctx->egraph, l);
@@ -2762,6 +2787,19 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
 
       // store the mapping r --> u
       intern_tbl_map_root(&ctx->intern, r, occ2code(u));
+    }
+  }
+
+  // If we canonicalized root to a different unit-type representative r,
+  // remember that root internalizes to the same egraph occurrence.
+  if (root != r) {
+    if (intern_tbl_root_is_free(&ctx->intern, root)) {
+      intern_tbl_map_root(&ctx->intern, root, occ2code(u));
+    } else {
+      // If root was mapped during the recursive internalization of r (e.g.,
+      // because root was reached as a sub-term), the mapping must agree
+      // with the occurrence we are about to return.
+      assert(intern_tbl_map_of_root(&ctx->intern, root) == occ2code(u));  // LCOV_EXCL_LINE - consistency check, unreachable on well-formed inputs
     }
   }
 
@@ -5627,6 +5665,9 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->mode = mode;
   ctx->arch = arch;
   ctx->logic = logic;
+  ctx->sat_delegate = SAT_DELEGATE_NONE;
+  ctx->sat_delegate_incremental_mode = SAT_DELEGATE_MODE_REBUILD;
+  ctx->sat_delegate_incremental_mode_set = false;
   ctx->theories = arch2theories[arch];
   ctx->options = mode2options[mode];
   if (qflag) {
@@ -5636,6 +5677,7 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   }
 
   ctx->base_level = 0;
+  context_reset_sat_delegate_stats(ctx);
 
   /*
    * The core is always needed: allocate it here. It's not initialized yet.
@@ -5698,6 +5740,8 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->eq_cache = NULL;
   ctx->divmod_table = NULL;
   ctx->explorer = NULL;
+  ctx->unsat_core_cache = NULL;
+  ctx->sat_delegate_state = NULL;
 
   ctx->dl_profile = NULL;
   ctx->arith_buffer = NULL;
@@ -5732,6 +5776,8 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
  * Delete ctx
  */
 void delete_context(context_t *ctx) {
+  context_sat_delegate_state_cleanup(ctx);
+
   if (ctx->core != NULL) {
     delete_smt_core(ctx->core);
     safe_free(ctx->core);
@@ -5809,9 +5855,18 @@ void delete_context(context_t *ctx) {
   context_free_aux_poly(ctx);
 
   context_free_bvpoly_buffer(ctx);
+  context_invalidate_unsat_core_cache(ctx);
 
   q_clear(&ctx->aux);
   delete_bvconstant(&ctx->bv_buffer);
+}
+
+void context_invalidate_unsat_core_cache(context_t *ctx) {
+  if (ctx->unsat_core_cache != NULL) {
+    delete_ivector(ctx->unsat_core_cache);
+    safe_free(ctx->unsat_core_cache);
+    ctx->unsat_core_cache = NULL;
+  }
 }
 
 
@@ -5821,6 +5876,9 @@ void delete_context(context_t *ctx) {
  */
 void reset_context(context_t *ctx) {
   ctx->base_level = 0;
+  context_reset_sat_delegate_stats(ctx);
+  context_invalidate_unsat_core_cache(ctx);
+  context_sat_delegate_state_cleanup(ctx);
 
   reset_smt_core(ctx->core); // this propagates reset to all solvers
 
@@ -5889,6 +5947,7 @@ void context_set_trace(context_t *ctx, tracer_t *trace) {
  */
 void context_push(context_t *ctx) {
   assert(context_supports_pushpop(ctx));
+  context_invalidate_unsat_core_cache(ctx);
   smt_push(ctx->core);  // propagates to all solvers
   if (ctx->mcsat != NULL) {
     mcsat_push(ctx->mcsat);
@@ -5903,6 +5962,7 @@ void context_push(context_t *ctx) {
 
 void context_pop(context_t *ctx) {
   assert(context_supports_pushpop(ctx) && ctx->base_level > 0);
+  context_invalidate_unsat_core_cache(ctx);
   smt_pop(ctx->core);   // propagates to all solvers
   if (ctx->mcsat != NULL) {
     mcsat_pop(ctx->mcsat);
@@ -5911,6 +5971,8 @@ void context_pop(context_t *ctx) {
   assumption_stack_pop(&ctx->assumptions);
   context_eq_cache_pop(ctx);
   context_divmod_table_pop(ctx);
+
+  context_sat_delegate_state_pop(ctx, ctx->base_level);
 
   ctx->base_level --;
 }
@@ -6215,7 +6277,7 @@ int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
 
   assert(ctx->arch == CTX_ARCH_AUTO_IDL ||
          ctx->arch == CTX_ARCH_AUTO_RDL ||
-         smt_status(ctx->core) == STATUS_IDLE);
+         smt_status(ctx->core) == YICES_STATUS_IDLE);
   assert(!context_quant_enabled(ctx));
 
   code = context_process_assertions(ctx, n, f);
@@ -6229,10 +6291,10 @@ int32_t _o_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
       ctx->options = 0;
     }
 
-    if( smt_status(ctx->core) != STATUS_UNSAT) {
+    if( smt_status(ctx->core) != YICES_STATUS_UNSAT) {
       // force UNSAT in the core
       add_empty_clause(ctx->core);
-      ctx->core->status = STATUS_UNSAT;
+      ctx->core->status = YICES_STATUS_UNSAT;
     }
   }
 
@@ -6254,7 +6316,7 @@ int32_t quant_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
   int32_t code;
 
   assert(context_quant_enabled(ctx));
-  assert(smt_status(ctx->core) == STATUS_SEARCHING);
+  assert(smt_status(ctx->core) == YICES_STATUS_SEARCHING);
 
   code = context_process_assertions(ctx, n, f);
   if (code == TRIVIALLY_UNSAT) {
@@ -6267,10 +6329,10 @@ int32_t quant_assert_formulas(context_t *ctx, uint32_t n, const term_t *f) {
       ctx->options = 0;
     }
 
-    if( smt_status(ctx->core) != STATUS_UNSAT) {
+    if( smt_status(ctx->core) != YICES_STATUS_UNSAT) {
       // force UNSAT in the core
       add_empty_clause(ctx->core);
-      ctx->core->status = STATUS_UNSAT;
+      ctx->core->status = YICES_STATUS_UNSAT;
     }
   }
 
@@ -6547,6 +6609,7 @@ void context_stop_search(context_t *ctx) {
 void context_cleanup(context_t *ctx) {
   // restore the state to IDLE, propagate to all solvers (via pop)
   assert(context_supports_cleaninterrupt(ctx));
+  context_invalidate_unsat_core_cache(ctx);
   if (ctx->mcsat == NULL) {
     smt_cleanup(ctx->core);
   } else {
@@ -6563,6 +6626,7 @@ void context_cleanup(context_t *ctx) {
  */
 void context_clear(context_t *ctx) {
   assert(context_supports_multichecks(ctx));
+  context_invalidate_unsat_core_cache(ctx);
   if (ctx->mcsat == NULL) {
     smt_clear(ctx->core);
   } else {
@@ -6585,6 +6649,7 @@ void context_clear(context_t *ctx) {
  *   in a state with core base level = context base level + 1.
  */
 void context_clear_unsat(context_t *ctx) {
+  context_invalidate_unsat_core_cache(ctx);
   if (ctx->mcsat == NULL) {
     smt_clear_unsat(ctx->core);
     assert(smt_base_level(ctx->core) == ctx->base_level);
@@ -6613,8 +6678,8 @@ int32_t assert_blocking_clause(context_t *ctx) {
   uint32_t i, n;
   int32_t code;
 
-  assert(smt_status(ctx->core) == STATUS_SAT ||
-         smt_status(ctx->core) == STATUS_UNKNOWN);
+  assert(smt_status(ctx->core) == YICES_STATUS_SAT ||
+         smt_status(ctx->core) == YICES_STATUS_UNKNOWN);
 
   // get decision literals and build the blocking clause
   v = &ctx->aux_vector;
@@ -6637,10 +6702,10 @@ int32_t assert_blocking_clause(context_t *ctx) {
   code = CTX_NO_ERROR;
   if (n == 0) {
     code = TRIVIALLY_UNSAT;
-    ctx->core->status = STATUS_UNSAT;
+    ctx->core->status = YICES_STATUS_UNSAT;
   }
 
-  assert(n == 0 || smt_status(ctx->core) == STATUS_IDLE);
+  assert(n == 0 || smt_status(ctx->core) == YICES_STATUS_IDLE);
 
   return code;
 }
@@ -6690,8 +6755,15 @@ void context_gc_mark(context_t *ctx) {
     pmap2_iterate(ctx->eq_cache, ctx->terms, ctx_mark_eq);
   }
 
+  if (ctx->unsat_core_cache != NULL) {
+    uint32_t i, n;
+    n = ctx->unsat_core_cache->size;
+    for (i=0; i<n; i++) {
+      term_table_set_gc_mark(ctx->terms, index_of(ctx->unsat_core_cache->data[i]));
+    }
+  }
+
   if (ctx->mcsat != NULL) {
     mcsat_gc_mark(ctx->mcsat);
   }
 }
-
