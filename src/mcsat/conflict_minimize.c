@@ -121,9 +121,16 @@ void mcsat_minimize_conflict(conflict_t* conflict, const mcsat_trail_t* trail,
   /* 2. Walk all conflict top vars. Boolean-propagated, non-base, non-UIP vars
    *    are candidates; everything else is a KEEP anchor (theory/decision/base
    *    disjuncts that the recursion may legitimately terminate against). */
+  /* Iterate the raw slots and skip empty (-1) and deleted (-2) entries.
+   * The map accumulates deleted slots during resolution (int_hmap_erase), and
+   * the int_hmap iterator API does NOT skip deleted entries, so we cannot use
+   * it here -- mirror the deletion-safe scan used by conflict_print. */
   int_hmap_t* m2e = &conflict->var_to_element_map;
-  int_hmap_pair_t* p = int_hmap_first_record(m2e);
-  for (; p != NULL; p = int_hmap_next_record(m2e, p)) {
+  for (i = 0; i < m2e->size; ++ i) {
+    int_hmap_pair_t* p = m2e->data + i;
+    if (p->key < 0) {
+      continue;
+    }
     variable_t v = p->key;
     if (int_hmap_find(&marks, v) != NULL) {
       continue; /* already a UIP keep */
@@ -157,7 +164,10 @@ void mcsat_minimize_conflict(conflict_t* conflict, const mcsat_trail_t* trail,
       /* schedule the disjunct term(s) of v for removal */
       conflict_get_literals_of(conflict, v, &to_remove);
     } else {
-      int_hmap_add(&marks, v, MCSAT_MIN_MARK_KEEP);
+      /* Not removable: the recursion already memoized v as POISON. Overwrite
+       * it with KEEP so later candidates may legitimately anchor against v
+       * (it stays in the clause). int_hmap_get returns the existing record. */
+      int_hmap_get(&marks, v)->val = MCSAT_MIN_MARK_KEEP;
     }
   }
 
