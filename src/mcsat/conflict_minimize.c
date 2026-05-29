@@ -31,6 +31,7 @@ bool conflict_min_var_is_removable(const conflict_min_graph_t* g, int_hmap_t* ma
 
   int kind = g->classify(g->data, v);
   if (kind == MCSAT_MIN_KIND_BASE) {
+    int_hmap_add(marks, v, MCSAT_MIN_MARK_REMOVABLE);
     return true;
   }
   if (kind == MCSAT_MIN_KIND_DECISION || kind == MCSAT_MIN_KIND_NO_REASON) {

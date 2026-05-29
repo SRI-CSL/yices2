@@ -42,9 +42,9 @@
  * MCSat driver (real trail/conflict) and by tests (synthetic graph).
  */
 typedef struct conflict_min_graph_s {
-  /* Classify v into one of MCSAT_MIN_KIND_*. */
+  /** Classify v into one of MCSAT_MIN_KIND_*. */
   int (*classify)(void* data, variable_t v);
-  /* For MCSAT_MIN_KIND_REASON vars: append the OTHER reason-clause variables. */
+  /** For MCSAT_MIN_KIND_REASON vars: append the OTHER reason-clause variables. */
   void (*reason_vars)(void* data, variable_t v, ivector_t* out);
   void* data;
 } conflict_min_graph_t;
