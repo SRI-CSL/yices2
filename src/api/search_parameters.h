@@ -112,9 +112,10 @@ struct param_s {
   double   d_factor;        // increase factor for next d_threshold
 
   /*
-   * Clause-deletion heuristic
-   * - initial reduce_threshold is r_initial_threshold
-   * - increase by a factor of r_interval on every reduce call
+   * Clause-deletion heuristic (CaDiCaL-style, triggered on conflict count)
+   * - initial reduce threshold is r_initial_threshold
+   * - on each reduce, the next threshold is set to
+   *     num_conflicts + r_interval * sqrt(num_conflicts)
    */
   uint32_t r_initial_threshold;
   uint32_t r_interval;

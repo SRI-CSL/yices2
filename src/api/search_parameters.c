@@ -56,8 +56,8 @@
 /*
  * Default clause deletion parameters
  */
-#define DEFAULT_R_INITIAL_THRESHOLD   1000
-#define DEFAULT_R_INTERVAL    100
+#define DEFAULT_R_INITIAL_THRESHOLD   300
+#define DEFAULT_R_INTERVAL    25
 
 
 /*

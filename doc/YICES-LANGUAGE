@@ -741,9 +741,7 @@ The following parameters can be set using (set-param ...) and examined using (sh
 
        when the number of conflicts >= reduction bound
        delete low-activity clauses
-       reduction-bound := reduction-bound + (r-interval * sqrt(reduction-count))
-
-       where reduction-count is the number of times clause deletion has been performed
+       reduction-bound := number of conflicts + (r-interval * sqrt(number of conflicts))
 
 6.2.3) Decision heuristic
 

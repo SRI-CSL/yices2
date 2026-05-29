@@ -147,45 +147,41 @@ static void process_assumption(smt_core_t *core, literal_t l) {
  */
 
 /*
- * Handle the reduce heuristic:
- * - If number of conflicts exceeds threshold, reduce the clause database
- * - Update the threshold 
- * - Return the number of clauses deleted
+ * Handle the reduce heuristic (CaDiCaL-style):
+ * - if the number of conflicts has reached the threshold, reduce the clause database
+ * - set the next threshold to num_conflicts + r_interval * sqrt(num_conflicts)
  */
-static inline uint64_t try_reduce_heuristic(smt_core_t *core, uint32_t *r_threshold, uint64_t *r_count, uint64_t r_interval) {
-  uint64_t deletions = 0;
+static inline void try_reduce_heuristic(smt_core_t *core, uint64_t *r_threshold, uint32_t r_interval) {
+  uint64_t conflicts, deletions;
 
-  if (num_learned_clauses(core) >= *r_threshold) {
+  conflicts = num_conflicts(core);
+  if (conflicts >= *r_threshold) {
     deletions = core->stats.learned_clauses_deleted;
     reduce_clause_database(core);
-    *r_count = *r_count + 1;
-    *r_threshold += (uint32_t) (r_interval * sqrt(*r_count));
+    *r_threshold = conflicts + (uint64_t) (r_interval * sqrt((double) conflicts));
     trace_reduce(core, core->stats.learned_clauses_deleted - deletions);
   }
-
-  return deletions;
 }
 
 /*
  * Bounded search with the default branching heuristic (picosat-like)
  * - search until the conflict bound is reached or until the problem is solved.
- * - reduce_threshold: number of learned clauses above which reduce_clause_database is called
- * - r_factor = increment factor for reduce_threshold
+ * - reduce_threshold: conflict count above which reduce_clause_database is called
+ * - r_interval = increment factor for reduce_threshold
  * - use the default branching heuristic implemented by the core
  */
-static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold, uint32_t r_interval) {
-  uint64_t max_conflicts, r_count;
+static void search(smt_core_t *core, uint32_t conflict_bound, uint64_t *reduce_threshold, uint32_t r_interval) {
+  uint64_t max_conflicts;
   literal_t l;
 
   assert(smt_status(core) == YICES_STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
-  r_count = 0;
 
   smt_process(core);
   while (smt_status(core) == YICES_STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
     // reduce heuristic
-    try_reduce_heuristic(core, reduce_threshold, &r_count, r_interval);
+    try_reduce_heuristic(core, reduce_threshold, r_interval);
 
     // assumption
     if (core->has_assumptions) {
@@ -212,24 +208,23 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_t
 /*
  * HACK: Variant for Luby restart:
  * - search until the conflict bound is reached or until the problem is solved.
- * - reduce_threshold: number of learned clauses above which reduce_clause_database is called
- * - r_factor = increment factor for reduce_threshold
+ * - reduce_threshold: conflict count above which reduce_clause_database is called
+ * - r_interval = increment factor for reduce_threshold
  * - use the default branching heuristic implemented by the core
  *
  * This uses smt_bounded_process to force more frequent restarts.
  */
-static void luby_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold, uint32_t r_interval) {
-  uint64_t max_conflicts, r_count;
+static void luby_search(smt_core_t *core, uint32_t conflict_bound, uint64_t *reduce_threshold, uint32_t r_interval) {
+  uint64_t max_conflicts;
   literal_t l;
 
   assert(smt_status(core) == YICES_STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
-  r_count = 0;
   smt_bounded_process(core, max_conflicts);
   while (smt_status(core) == YICES_STATUS_SEARCHING && num_conflicts(core) < max_conflicts) {
     // reduce heuristic
-    try_reduce_heuristic(core, reduce_threshold, &r_count, r_interval);
+    try_reduce_heuristic(core, reduce_threshold, r_interval);
 
     // assumption
     if (core->has_assumptions) {
@@ -262,23 +257,22 @@ typedef literal_t (*branching_fun_t)(smt_core_t *core, literal_t l);
 /*
  * Bounded search with a non-default branching heuristics
  * - search until the conflict bound is reached or until the problem is solved.
- * - reduce_threshold: number of learned clauses above which reduce_clause_database is called
- * - r_factor = increment factor for reduce_threshold
+ * - reduce_threshold: conflict count above which reduce_clause_database is called
+ * - r_interval = increment factor for reduce_threshold
  * - use the branching heuristic implemented by branch
  */
-static void special_search(smt_core_t *core, uint32_t conflict_bound, uint32_t *reduce_threshold,
+static void special_search(smt_core_t *core, uint32_t conflict_bound, uint64_t *reduce_threshold,
                            uint32_t r_interval, branching_fun_t branch) {
-  uint64_t max_conflicts, r_count;
+  uint64_t max_conflicts;
   literal_t l;
 
   assert(smt_status(core) == YICES_STATUS_SEARCHING || smt_status(core) == YICES_STATUS_INTERRUPTED);
 
   max_conflicts = num_conflicts(core) + conflict_bound;
-  r_count = 0;
   smt_process(core);
   while (smt_status(core) == YICES_STATUS_SEARCHING && num_conflicts(core) <= max_conflicts) {
     // reduce heuristic
-    try_reduce_heuristic(core, reduce_threshold, &r_count, r_interval);
+    try_reduce_heuristic(core, reduce_threshold, r_interval);
 
     // assumption
     if (core->has_assumptions) {
@@ -371,7 +365,7 @@ static void solve(smt_core_t *core, const param_t *params, uint32_t n, const lit
   bool luby;
   uint32_t c_threshold, d_threshold; // Picosat-style
   uint32_t u, v, period;             // for Luby-style
-  uint32_t reduce_threshold;
+  uint64_t reduce_threshold;
 
   c_threshold = params->c_threshold;
   d_threshold = c_threshold; // required by trace_start in slow_restart mode
