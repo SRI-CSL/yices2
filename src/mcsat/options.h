@@ -36,6 +36,8 @@ typedef struct mcsat_options_s {
   int32_t bv_var_size;
   bool model_interpolation;
   bool partial_restart;
+  bool minimize_lemmas;
+  uint32_t minimize_depth;
 } mcsat_options_t;
 
 /** Initialize options with default values. */
