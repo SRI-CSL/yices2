@@ -222,16 +222,18 @@ const mcsat_value_t* bv_feasible_set_db_pick_value(bv_feasible_set_db_t* db, var
   term_t x_term = variable_db_get_term(db->ctx->var_db, x);
   uint32_t x_bitsize = term_bitsize(db->ctx->terms, x_term);
 
-  // Check the cached value from the
+  // Check the cached values: the trail returns the cached hints in priority order;
+  // return the first that is in the feasible set.
   const mcsat_trail_t* trail = db->ctx->trail;
-  if (trail_has_cached_value(trail, x)) {
-    const mcsat_value_t* cached_value = trail_get_cached_value(trail, x);
+  const mcsat_value_t* candidates[2];
+  uint32_t num_candidates = trail_get_cached_candidates(trail, x, candidates);
+  for (uint32_t i = 0; i < num_candidates; ++i) {
+    const mcsat_value_t* cached_value = candidates[i];
     if (x_feasible_full) {
       return cached_value;
-    } else {
-      ok = bv_bdd_manager_is_model(db->bddm, x_term, x_feasible_bdd, &cached_value->bv_value);
-      if (ok) { return cached_value; }
     }
+    ok = bv_bdd_manager_is_model(db->bddm, x_term, x_feasible_bdd, &cached_value->bv_value);
+    if (ok) { return cached_value; }
   }
 
   // Initialize the value we're using
