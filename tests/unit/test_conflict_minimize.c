@@ -2,7 +2,6 @@
  * Unit tests for the pure conflict-minimization recursion core.
  */
 
-#include <assert.h>
 #include <stdio.h>
 #include <stdbool.h>
 
@@ -43,7 +42,7 @@ static conflict_min_graph_t make_graph(mock_graph_t* m) {
 }
 
 /* v2's reason is {v1}, v1 is base-level => v2 removable. */
-static void test_linear_redundant(void) {
+static int test_linear_redundant(void) {
   mock_graph_t m = {0};
   m.kind[1] = MCSAT_MIN_KIND_BASE;
   m.kind[2] = MCSAT_MIN_KIND_REASON;
@@ -51,13 +50,18 @@ static void test_linear_redundant(void) {
   conflict_min_graph_t g = make_graph(&m);
   int_hmap_t marks; init_int_hmap(&marks, 0);
   bool r = conflict_min_var_is_removable(&g, &marks, 2, 0, 1000);
-  assert(r == true);
+  if (r != true) {
+    fprintf(stderr, "FAIL: test_linear_redundant (expected true, got %d)\n", (int) r);
+    delete_int_hmap(&marks);
+    return 1;
+  }
   delete_int_hmap(&marks);
   printf("test_linear_redundant: PASS\n");
+  return 0;
 }
 
 /* v2's reason is {v1}, v1 is a decision => v2 NOT removable. */
-static void test_decision_blocks(void) {
+static int test_decision_blocks(void) {
   mock_graph_t m = {0};
   m.kind[1] = MCSAT_MIN_KIND_DECISION;
   m.kind[2] = MCSAT_MIN_KIND_REASON;
@@ -65,13 +69,18 @@ static void test_decision_blocks(void) {
   conflict_min_graph_t g = make_graph(&m);
   int_hmap_t marks; init_int_hmap(&marks, 0);
   bool r = conflict_min_var_is_removable(&g, &marks, 2, 0, 1000);
-  assert(r == false);
+  if (r != false) {
+    fprintf(stderr, "FAIL: test_decision_blocks (expected false, got %d)\n", (int) r);
+    delete_int_hmap(&marks);
+    return 1;
+  }
   delete_int_hmap(&marks);
   printf("test_decision_blocks: PASS\n");
+  return 0;
 }
 
 /* v2's reason is {v1}, v1 is a theory propagation (no clausal reason) => fail. */
-static void test_theory_boundary(void) {
+static int test_theory_boundary(void) {
   mock_graph_t m = {0};
   m.kind[1] = MCSAT_MIN_KIND_NO_REASON;
   m.kind[2] = MCSAT_MIN_KIND_REASON;
@@ -79,13 +88,18 @@ static void test_theory_boundary(void) {
   conflict_min_graph_t g = make_graph(&m);
   int_hmap_t marks; init_int_hmap(&marks, 0);
   bool r = conflict_min_var_is_removable(&g, &marks, 2, 0, 1000);
-  assert(r == false);
+  if (r != false) {
+    fprintf(stderr, "FAIL: test_theory_boundary (expected false, got %d)\n", (int) r);
+    delete_int_hmap(&marks);
+    return 1;
+  }
   delete_int_hmap(&marks);
   printf("test_theory_boundary: PASS\n");
+  return 0;
 }
 
 /* v2's reason is {v1}, v1 pre-seeded KEEP (an anchor disjunct) => v2 removable. */
-static void test_keep_anchor(void) {
+static int test_keep_anchor(void) {
   mock_graph_t m = {0};
   m.kind[1] = MCSAT_MIN_KIND_NO_REASON; /* would fail if not for the KEEP mark */
   m.kind[2] = MCSAT_MIN_KIND_REASON;
@@ -94,13 +108,18 @@ static void test_keep_anchor(void) {
   int_hmap_t marks; init_int_hmap(&marks, 0);
   int_hmap_add(&marks, 1, MCSAT_MIN_MARK_KEEP);
   bool r = conflict_min_var_is_removable(&g, &marks, 2, 0, 1000);
-  assert(r == true);
+  if (r != true) {
+    fprintf(stderr, "FAIL: test_keep_anchor (expected true, got %d)\n", (int) r);
+    delete_int_hmap(&marks);
+    return 1;
+  }
   delete_int_hmap(&marks);
   printf("test_keep_anchor: PASS\n");
+  return 0;
 }
 
 /* Chain v3->v2->v1->v0(base); max_depth=1 cuts it off => v3 NOT removable. */
-static void test_depth_limit(void) {
+static int test_depth_limit(void) {
   mock_graph_t m = {0};
   m.kind[0] = MCSAT_MIN_KIND_BASE;
   m.kind[1] = MCSAT_MIN_KIND_REASON; m.reason[1][0] = 0; m.reason_len[1] = 1;
@@ -109,17 +128,27 @@ static void test_depth_limit(void) {
   conflict_min_graph_t g = make_graph(&m);
   int_hmap_t marks; init_int_hmap(&marks, 0);
   bool r = conflict_min_var_is_removable(&g, &marks, 3, 0, 1);
-  assert(r == false);
+  if (r != false) {
+    fprintf(stderr, "FAIL: test_depth_limit (expected false, got %d)\n", (int) r);
+    delete_int_hmap(&marks);
+    return 1;
+  }
   delete_int_hmap(&marks);
   printf("test_depth_limit: PASS\n");
+  return 0;
 }
 
 int main(void) {
-  test_linear_redundant();
-  test_decision_blocks();
-  test_theory_boundary();
-  test_keep_anchor();
-  test_depth_limit();
+  int fails = 0;
+  fails += test_linear_redundant();
+  fails += test_decision_blocks();
+  fails += test_theory_boundary();
+  fails += test_keep_anchor();
+  fails += test_depth_limit();
+  if (fails != 0) {
+    fprintf(stderr, "%d conflict_minimize core test(s) FAILED.\n", fails);
+    return 1;
+  }
   printf("All conflict_minimize core tests passed.\n");
   return 0;
 }
