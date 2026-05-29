@@ -24,4 +24,11 @@
 /** Allocate a new bool plugin and setup the plugin-interface method */
 plugin_t* bool_plugin_allocator(void);
 
+/*
+ * Append the variables of var's reason clause (other than var) to out_vars.
+ * Side-effect free: no activity or clause-score bumping. var must be a
+ * Boolean propagation owned by this plugin (caller guarantees this).
+ */
+void bool_plugin_get_reason_vars(plugin_t* plugin, variable_t var, ivector_t* out_vars);
+
 #endif /* BOOL_PLUGIN_H_ */

@@ -771,6 +771,18 @@ term_t bool_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector
   return bool2term(var_value);
 }
 
+void bool_plugin_get_reason_vars(plugin_t* plugin, variable_t var, ivector_t* out_vars) {
+  bool_plugin_t* bp = (bool_plugin_t*) plugin;
+  const mcsat_clause_t* clause = bool_plugin_get_reason(bp, var);
+  uint32_t i;
+  for (i = 0; i < clause->size; ++ i) {
+    variable_t x_i = literal_get_variable(clause->literals[i]);
+    if (x_i != var) {
+      ivector_push(out_vars, x_i);
+    }
+  }
+}
+
 bool bool_plugin_explain_evaluation(plugin_t* plugin, term_t t, int_mset_t* vars, mcsat_value_t* value) {
 
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
