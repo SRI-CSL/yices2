@@ -30,6 +30,10 @@ extern void init_mcsat_options(mcsat_options_t *opts) {
   opts->model_interpolation = false;
   opts->partial_restart = false;
   opts->minimize_lemmas = true;
+  // Recursion depth bound for Boolean-part lemma minimization. Do NOT raise
+  // this above 1000: deeper recursion has no demonstrated benefit while
+  // risking stack/time blowup. The optimal value still needs more evaluation;
+  // treat 1000 as a provisional default, not a tuned one.
   opts->minimize_depth = 1000;
 }
 
