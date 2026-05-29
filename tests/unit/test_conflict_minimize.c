@@ -156,6 +156,71 @@ static int test_depth_limit(void) {
   return 0;
 }
 
+/* Diamond: v3's reason is {v1, v2}, both base-level => v3 removable
+ * (every branch of a multi-literal reason must succeed). */
+static int test_diamond(void) {
+  mock_graph_t m = {0};
+  m.kind[1] = MCSAT_MIN_KIND_BASE;
+  m.kind[2] = MCSAT_MIN_KIND_BASE;
+  m.kind[3] = MCSAT_MIN_KIND_REASON;
+  m.reason[3][0] = 1; m.reason[3][1] = 2; m.reason_len[3] = 2;
+  conflict_min_graph_t g = make_graph(&m);
+  int_hmap_t marks; init_int_hmap(&marks, 0);
+  bool r = conflict_min_var_is_removable(&g, &marks, 3, 0, 1000);
+  if (r != true) {
+    fprintf(stderr, "FAIL: test_diamond (expected true, got %d)\n", (int) r);
+    delete_int_hmap(&marks);
+    return 1;
+  }
+  delete_int_hmap(&marks);
+  printf("test_diamond: PASS\n");
+  return 0;
+}
+
+/* Diamond with one decision branch: v3's reason is {v1(base), v2(decision)}
+ * => v3 NOT removable (one failing branch poisons the whole). */
+static int test_diamond_one_decision(void) {
+  mock_graph_t m = {0};
+  m.kind[1] = MCSAT_MIN_KIND_BASE;
+  m.kind[2] = MCSAT_MIN_KIND_DECISION;
+  m.kind[3] = MCSAT_MIN_KIND_REASON;
+  m.reason[3][0] = 1; m.reason[3][1] = 2; m.reason_len[3] = 2;
+  conflict_min_graph_t g = make_graph(&m);
+  int_hmap_t marks; init_int_hmap(&marks, 0);
+  bool r = conflict_min_var_is_removable(&g, &marks, 3, 0, 1000);
+  if (r != false) {
+    fprintf(stderr, "FAIL: test_diamond_one_decision (expected false, got %d)\n", (int) r);
+    delete_int_hmap(&marks);
+    return 1;
+  }
+  delete_int_hmap(&marks);
+  printf("test_diamond_one_decision: PASS\n");
+  return 0;
+}
+
+/* Cross-candidate memoization reuse over a SHARED marks map: first prove v1
+ * removable (it gets a REMOVABLE mark), then v2 whose reason is {v1} must be
+ * removable by anchoring on v1's REMOVABLE mark (success terminal). */
+static int test_removable_reuse(void) {
+  mock_graph_t m = {0};
+  m.kind[0] = MCSAT_MIN_KIND_BASE;
+  m.kind[1] = MCSAT_MIN_KIND_REASON; m.reason[1][0] = 0; m.reason_len[1] = 1;
+  m.kind[2] = MCSAT_MIN_KIND_REASON; m.reason[2][0] = 1; m.reason_len[2] = 1;
+  conflict_min_graph_t g = make_graph(&m);
+  int_hmap_t marks; init_int_hmap(&marks, 0);
+  bool r1 = conflict_min_var_is_removable(&g, &marks, 1, 0, 1000);
+  bool r2 = conflict_min_var_is_removable(&g, &marks, 2, 0, 1000);
+  if (r1 != true || r2 != true) {
+    fprintf(stderr, "FAIL: test_removable_reuse (expected true/true, got %d/%d)\n",
+            (int) r1, (int) r2);
+    delete_int_hmap(&marks);
+    return 1;
+  }
+  delete_int_hmap(&marks);
+  printf("test_removable_reuse: PASS\n");
+  return 0;
+}
+
 int main(void) {
   int fails = 0;
   fails += test_linear_redundant();
@@ -163,6 +228,9 @@ int main(void) {
   fails += test_theory_boundary();
   fails += test_keep_anchor();
   fails += test_depth_limit();
+  fails += test_diamond();
+  fails += test_diamond_one_decision();
+  fails += test_removable_reuse();
   if (fails != 0) {
     fprintf(stderr, "%d conflict_minimize core test(s) FAILED.\n", fails);
     return 1;
