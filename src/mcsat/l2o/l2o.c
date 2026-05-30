@@ -386,6 +386,75 @@ double mcsat_value_to_double(const mcsat_value_t* val){
   }
 }
 
+// Cap on the denominator when turning a hill-climbing double into a rational
+// hint. mpq_set_d is exact, so a value like 0.1 becomes a ~2^52 fraction;
+// instead approximate by the simplest p/q with q <= this bound, so libpoly's
+// exact arithmetic doesn't carry a huge denominator downstream.
+#define L2O_HINT_MAX_DENOM 1024u  // 2^10
+
+/*
+ * Approximate x by the simplest rational p/q with q <= max_den, using the
+ * continued-fraction convergents. Recovers exact simple rationals (0.5 -> 1/2,
+ * 0.1 -> 1/10, integers -> n/1) and bounds the denominator. The hint is
+ * advisory, so the approximation loss is harmless; the search is fast: the
+ * convergent denominators grow at least Fibonacci-style, so the loop breaks in
+ * O(log(max_den)) iterations of plain double/int64 arithmetic.
+ */
+static
+void rational_from_double_capped(lp_rational_t* out, double x, unsigned long max_den) {
+  // Non-finite has no rational value; callers must not pass one (l2o_set_hint
+  // filters it). Guard defensively so we never hand mpq_set_d a NaN/Inf.
+  if (!isfinite(x)) {
+    assert(false);
+    lp_rational_construct_from_int(out, 0, 1);
+    return;
+  }
+  // |x| >= 2^52 is already integral, so the exact conversion is cheap (it has
+  // denominator 1) and there is no fractional part to simplify. Also keeps the
+  // continued-fraction integer part from overflowing int64.
+  if (fabs(x) >= (double) (1LL << 52)) {
+    lp_rational_construct_from_double(out, x);
+    return;
+  }
+
+  long sign = (x < 0.0) ? -1 : 1;
+  double frac = fabs(x);
+
+  // convergents: p1/q1 current, p2/q2 previous (init to the -1/-2 terms)
+  int64_t p2 = 0, p1 = 1;
+  int64_t q2 = 1, q1 = 0;
+
+  for (int it = 0; it < 64; ++it) {
+    double fl = floor(frac);
+    int64_t ai = (int64_t) fl;
+
+    // Stop before this term pushes the denominator past the cap. Testing via
+    // division (rather than computing q first) also keeps ai*q1 and ai*p1 from
+    // overflowing int64. q1 == 0 only on the first iteration, where the
+    // integer-part convergent ai/1 is always taken regardless of ai.
+    if (q1 != 0 && ai > ((int64_t) max_den - q2) / q1) {
+      break;
+    }
+
+    int64_t p = ai * p1 + p2;
+    int64_t q = ai * q1 + q2;
+    p2 = p1; p1 = p;
+    q2 = q1; q1 = q;
+
+    double rem = frac - fl;
+    if (rem <= 0.0) {
+      break;  // exact
+    }
+    frac = 1.0 / rem;
+    if (!isfinite(frac)) {
+      break;
+    }
+  }
+
+  // q1 >= 1: the integer-part convergent is always taken on the first iteration
+  lp_rational_construct_from_int(out, sign * p1, (unsigned long) q1);
+}
+
 static
 void double_to_mcsat_value(mcsat_value_t* val, mcsat_value_type_t type, double d) {
   switch (type) {
@@ -402,7 +471,7 @@ void double_to_mcsat_value(mcsat_value_t* val, mcsat_value_type_t type, double d
     }
     case VALUE_LIBPOLY: {
       lp_rational_t lp_r;
-      lp_rational_construct_from_double(&lp_r, d);
+      rational_from_double_capped(&lp_r, d, L2O_HINT_MAX_DENOM);
       mcsat_value_construct_lp_value_direct(val, LP_VALUE_RATIONAL, &lp_r);
       lp_rational_destruct(&lp_r);
       break;
