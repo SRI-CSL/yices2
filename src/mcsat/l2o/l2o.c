@@ -482,6 +482,21 @@ bool l2o_is_valid_term(l2o_t *l2o, term_t t) {
 
 extern const lp_feasibility_set_t* get_fs_by_term(plugin_t *plugin, term_t v);
 
+/**
+ * True if var currently has an empty feasible set: no value is consistent with
+ * the trail. This is a not-yet-reported conflict (l2o_run executes before the
+ * next propagation that would detect it), so any l2o hint would be computed
+ * over a doomed assignment.
+ */
+static
+bool l2o_var_is_infeasible(l2o_t *l2o, term_t var) {
+  if (l2o->na_plugin == NULL) {
+    return false;
+  }
+  const lp_feasibility_set_t *fs = get_fs_by_term(l2o->na_plugin, var);
+  return fs != NULL && lp_feasibility_set_is_empty(fs);
+}
+
 static
 double l2o_pick_fs_value(l2o_t *l2o, term_t var) {
   if (l2o->na_plugin == NULL) {
@@ -491,6 +506,7 @@ double l2o_pick_fs_value(l2o_t *l2o, term_t var) {
   double result;
   const lp_feasibility_set_t *fs = get_fs_by_term(l2o->na_plugin, var);
   if (fs != NULL) {
+    assert(!lp_feasibility_set_is_empty(fs)); // l2o_run bails before this on an empty set
     lp_value_t lp_val;
     lp_value_construct_zero(&lp_val);
     lp_feasibility_set_pick_value(fs, &lp_val);
@@ -520,6 +536,7 @@ double l2o_pick_cache_value(l2o_t *l2o, term_t var, const mcsat_value_t *val_mcs
       // check if we can find a feasible set
       double result;
       const lp_feasibility_set_t *fs = get_fs_by_term(l2o->na_plugin, var);
+      assert(fs == NULL || !lp_feasibility_set_is_empty(fs)); // l2o_run bails before this on an empty set
       if (fs == NULL || lp_feasibility_set_contains(fs, &val_mcsat->lp_value)) {
         result = mcsat_value_to_double(val_mcsat);
       } else {
@@ -558,12 +575,23 @@ var_queue_t *queue, l2o_search_state_t *state) {
 
   uint32_t n_var = vars_t.size;
 
+  // empty state by default, so the caller always sees a valid (skippable) state
+  l2o_search_state_construct_empty(state);
+
   if (n_var == 0) {
     delete_ivector(&vars_t);
     return;
   }
 
-  l2o_search_state_construct_empty(state);
+  // If any variable is currently infeasible, the trail is heading for a conflict
+  // that the next propagation will report; a hint computed now would be over a
+  // doomed assignment, so skip this l2o run.
+  for (uint32_t i = 0; i < n_var; ++ i) {
+    if (l2o_var_is_infeasible(l2o, vars_t.data[i])) {
+      delete_ivector(&vars_t);
+      return;
+    }
+  }
 
   assert(state->val == NULL && state->var == NULL);
   state->n_var = n_var;
