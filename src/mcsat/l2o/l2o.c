@@ -676,6 +676,13 @@ void l2o_set_hint(l2o_t *l2o, mcsat_trail_t *trail, const l2o_search_state_t *st
       val_d = round(val_d);
     }
 
+    // A non-finite value has no rational representation (double_to_mcsat_value
+    // would feed NaN/Inf to mpq_set_d); skip the hint for this variable. The
+    // hint is advisory, so leaving it unset is safe.
+    if (!isfinite(val_d)) {
+      continue;
+    }
+
     assert(vi_type != BOOL_TYPE || val_d == 1.0 || val_d == 0.0);
 
     double_to_mcsat_value(&val_mcsat, vi_type == BOOL_TYPE ? VALUE_BOOLEAN : VALUE_LIBPOLY, val_d);
