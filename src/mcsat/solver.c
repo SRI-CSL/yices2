@@ -1583,8 +1583,8 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       uint32_t recache_count = *mcsat->solver_stats.recaches;
       bool use_l2o = mcsat->ctx->mcsat_options.l2o && (recache_count % 2 == 0);
       if (use_l2o) {
-        // vary cache seeding: every 3rd l2o run cold-starts (ignores cached values)
-        bool use_cached_values = (recache_count / 2) % 3 != 0;
+        // vary cache seeding: use cache for two l2o runs, then every 3rd cold-starts
+        bool use_cached_values = (recache_count / 2) % 3 != 2;
         l2o_run(&mcsat->l2o, mcsat->trail, use_cached_values, NULL);
         trail_clear_extra_cache(mcsat->trail, true); // keep best cache and clear target cache
       } else {
