@@ -3055,13 +3055,6 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
       luby_next(&luby);
       mcsat_request_restart(mcsat);
 
-    } else if ((*mcsat->solver_stats.conflicts) > recache_limit) {
-      // recache
-      ++recache_round;
-      mcsat_request_recache(mcsat);
-      double l = log10(recache_round + 9);
-      recache_limit = (*mcsat->solver_stats.conflicts) +
-	(recache_round * l * l * l *  mcsat->heuristic_params.recache_interval);
     }
 
     // Process any outstanding requests
