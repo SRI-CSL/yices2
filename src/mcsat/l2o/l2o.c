@@ -210,7 +210,7 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval) {
       assert(false);
       break;
 
-    case UNINTERPRETED_TERM:
+    case UNINTERPRETED_TERM: {
       double val = l2o_evaluator_run_term(eval, t);
       if (t_type == BOOL_TYPE) {
         assert(val == 1.0 || val == 0.0);
@@ -221,6 +221,7 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval) {
         assert(false);
       }
       break;
+    }
 
     case ARITH_CONSTANT:
     case ARITH_FLOOR:
