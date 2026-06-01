@@ -138,7 +138,7 @@ static inline
 double evaluator_get_cache(const l2o_evaluator_t *evaluator, term_t t) {
   assert(is_pos_term(t));
   assert(evaluator_is_cached(evaluator, t));
-  double v;
+  double v = 0.0; // always overwritten: caller guarantees a hit (asserted below)
   bool found = term_double_map_find(&evaluator->eval_cache, t, &v);
   (void) found; assert(found);
   return v;
@@ -154,7 +154,7 @@ bool already_evaluated(const l2o_evaluator_t *evaluator, term_t t) {
 static inline
 double evaluator_get(const l2o_evaluator_t *evaluator, term_t t) {
   assert(is_pos_term(t));
-  double v;
+  double v = 0.0; // always overwritten: caller guarantees a hit (asserted below)
   bool found = term_double_map_find(&evaluator->eval_map, t, &v);
   (void) found; assert(found);
   return v;
