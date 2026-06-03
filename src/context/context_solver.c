@@ -154,6 +154,8 @@ static void process_assumption(smt_core_t *core, literal_t l) {
 static inline void try_reduce_heuristic(smt_core_t *core, uint64_t *r_threshold, uint32_t r_interval) {
   uint64_t conflicts, deletions;
 
+  assert(r_interval > 0);
+
   conflicts = num_conflicts(core);
   if (conflicts >= *r_threshold) {
     deletions = core->stats.learned_clauses_deleted;
@@ -167,7 +169,7 @@ static inline void try_reduce_heuristic(smt_core_t *core, uint64_t *r_threshold,
  * Bounded search with the default branching heuristic (picosat-like)
  * - search until the conflict bound is reached or until the problem is solved.
  * - reduce_threshold: conflict count above which reduce_clause_database is called
- * - r_interval = increment factor for reduce_threshold
+ * - r_interval = coefficient in threshold update: next = conflicts + r_interval * sqrt(conflicts)
  * - use the default branching heuristic implemented by the core
  */
 static void search(smt_core_t *core, uint32_t conflict_bound, uint64_t *reduce_threshold, uint32_t r_interval) {
@@ -209,7 +211,7 @@ static void search(smt_core_t *core, uint32_t conflict_bound, uint64_t *reduce_t
  * HACK: Variant for Luby restart:
  * - search until the conflict bound is reached or until the problem is solved.
  * - reduce_threshold: conflict count above which reduce_clause_database is called
- * - r_interval = increment factor for reduce_threshold
+ * - r_interval = coefficient in threshold update: next = conflicts + r_interval * sqrt(conflicts)
  * - use the default branching heuristic implemented by the core
  *
  * This uses smt_bounded_process to force more frequent restarts.
@@ -258,7 +260,7 @@ typedef literal_t (*branching_fun_t)(smt_core_t *core, literal_t l);
  * Bounded search with a non-default branching heuristics
  * - search until the conflict bound is reached or until the problem is solved.
  * - reduce_threshold: conflict count above which reduce_clause_database is called
- * - r_interval = increment factor for reduce_threshold
+ * - r_interval = coefficient in threshold update: next = conflicts + r_interval * sqrt(conflicts)
  * - use the branching heuristic implemented by branch
  */
 static void special_search(smt_core_t *core, uint32_t conflict_bound, uint64_t *reduce_threshold,

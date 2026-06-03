@@ -703,19 +703,25 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
     r = set_sat_delegate_param(value, &parameters->delegate);
     break;
 
-  case PARAM_R_INITIAL_THRESHOLD:
-    r = set_int32_param(value, &z, 1, INT32_MAX);
+  case PARAM_R_INITIAL_THRESHOLD: {
+    uint32_t u;
+    r = set_uint32_param(value, &u);
     if (r == 0) {
-      parameters->r_initial_threshold = z;
+      if (u == 0) r = -2;
+      else parameters->r_initial_threshold = u;
     }
     break;
+  }
 
-  case PARAM_R_INTERVAL:
-    r = set_int32_param(value, &z, 1, INT32_MAX);
+  case PARAM_R_INTERVAL: {
+    uint32_t u;
+    r = set_uint32_param(value, &u);
     if (r == 0) {
-      parameters->r_interval = z;
+      if (u == 0) r = -2;
+      else parameters->r_interval = u;
     }
     break;
+  }
 
   case PARAM_VAR_DECAY:
     r = set_double_param(value, &parameters->var_decay, 0.0, 1.0);

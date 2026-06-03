@@ -721,7 +721,7 @@ The following parameters can be set using (set-param ...) and examined using (sh
     clause-decay        Float	Clause activity decay (must be between 0.0 and 1.0)
 
 
-    To control clause deletion, Yices uses a similar strategy as Kissat.
+    To control clause deletion, Yices uses a similar strategy as CaDiCaL.
 
     Clause activity:
 
