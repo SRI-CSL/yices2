@@ -13164,11 +13164,6 @@ EXPORTED int32_t yices_generalize_model_with_budget(model_t *mdl, term_t t, uint
 	     _o_yices_generalize_model_with_budget(mdl, t, nelims, elim, mode, cube_budget, v));
 }
 
-int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
-				  yices_gen_mode_t mode, term_vector_t *v) {
-  return _o_yices_generalize_model_with_budget(mdl, t, nelims, elim, mode, 0, v);
-}
-
 int32_t _o_yices_generalize_model_with_budget(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
 					      yices_gen_mode_t mode, uint32_t cube_budget,
 					      term_vector_t *v) {
@@ -13224,11 +13219,6 @@ EXPORTED int32_t yices_generalize_model_array_with_budget(model_t *mdl, uint32_t
 							  uint32_t cube_budget, term_vector_t *v) {
   MT_PROTECT(int32_t,  __yices_globals.lock,
 	     _o_yices_generalize_model_array_with_budget(mdl, n, a, nelims, elim, mode, cube_budget, v));
-}
-
-int32_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
-					yices_gen_mode_t mode, term_vector_t *v) {
-  return _o_yices_generalize_model_array_with_budget(mdl, n, a, nelims, elim, mode, 0, v);
 }
 
 int32_t _o_yices_generalize_model_array_with_budget(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims,
