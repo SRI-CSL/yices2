@@ -828,8 +828,8 @@ extern int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims
 				  yices_gen_mode_t mode, term_vector_t *v);
 
 
-extern term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
-				       yices_gen_mode_t mode, term_vector_t *v);
+extern int32_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
+					       yices_gen_mode_t mode, term_vector_t *v);
 
 
 /*************************
