@@ -449,17 +449,32 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
 
   assert(eq_graph_is_trail_propagated(&uf->eq_graph));
 
-  // Get the cached value
-  const mcsat_value_t* x_cached_value = NULL;
-  if (trail_has_cached_value(uf->ctx->trail, x)) {
-    x_cached_value = trail_get_cached_value(uf->ctx->trail, x);
-  }
+  // Cached values to try, in priority order (only hints; each is checked against
+  // the forbidden set via eq_graph_get_forbidden).
+  const mcsat_value_t* x_candidates[2] = { NULL, NULL };
+  uint32_t x_num_candidates = trail_get_cached_candidates(uf->ctx->trail, x, x_candidates);
 
   // Pick a value not in the forbidden set
   term_t x_term = variable_db_get_term(uf->ctx->var_db, x);
   pvector_t forbidden;
   init_pvector(&forbidden, 0);
-  bool cache_ok = eq_graph_get_forbidden(&uf->eq_graph, x_term, &forbidden, x_cached_value);
+  // Build the forbidden list while testing the first candidate (the list does not
+  // depend on the candidate, so pass NULL when there is none); then test any
+  // remaining candidates against the already-built list (values == NULL).
+  const mcsat_value_t* x_cached_value = NULL;
+  bool cache_ok = eq_graph_get_forbidden(&uf->eq_graph, x_term, &forbidden,
+                                         x_num_candidates > 0 ? x_candidates[0] : NULL);
+  if (cache_ok) {
+    x_cached_value = x_candidates[0];
+  } else {
+    for (uint32_t i = 1; i < x_num_candidates; ++i) {
+      if (eq_graph_get_forbidden(&uf->eq_graph, x_term, NULL, x_candidates[i])) {
+        x_cached_value = x_candidates[i];
+        cache_ok = true;
+        break;
+      }
+    }
+  }
   if (ctx_trace_enabled(uf->ctx, "uf_plugin::decide")) {
     ctx_trace_printf(uf->ctx, "picking !=");
     uint32_t i;

@@ -274,7 +274,7 @@ bool mcsat_value_eq(const mcsat_value_t* v1, const mcsat_value_t* v2) {
     if (v2->type == VALUE_LIBPOLY) {
       return lp_value_cmp(&v1->lp_value, &v2->lp_value) == 0;
     } else {
-      assert(v1->type == VALUE_RATIONAL);
+      assert(v2->type == VALUE_RATIONAL);
       mpq_t v2_mpq;
       mpq_init(v2_mpq);
       q_get_mpq((rational_t*)&v2->q, v2_mpq);
