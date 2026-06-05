@@ -125,9 +125,16 @@ extern void smt2_pp_queued_functions(smt2_pp_t *printer, value_table_t *table, b
  * Print a definition in the SMT2 style:
  *
  *   (define-fun name () tau value)
+ *
+ * If array_const is true, the definition is rendered as a 0-arity
+ * constant of array type, with the value built from store/(as const ...)
+ * instead of as a function with parameters and an if-then-else cascade.
+ * This is required for symbols originally declared via the SMT-LIB
+ * Array sort, since the model output must match the declaration's
+ * arity and sort.
  */
 extern void smt2_pp_def(smt2_pp_t *printer, value_table_t *table, const char *name,
-			type_t tau, value_t c);
+			type_t tau, value_t c, bool array_const);
 
 
 /*
