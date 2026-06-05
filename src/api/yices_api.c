@@ -13213,9 +13213,9 @@ int32_t _o_yices_generalize_model_with_budget(model_t *mdl, term_t t, uint32_t n
 /*
  * Same thing for a conjunction of formulas a[0 ... n-1]
  */
-EXPORTED term_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
-					     yices_gen_mode_t mode, term_vector_t *v) {
-  MT_PROTECT(term_t,  __yices_globals.lock,
+EXPORTED int32_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
+					      yices_gen_mode_t mode, term_vector_t *v) {
+  MT_PROTECT(int32_t,  __yices_globals.lock,
 	     _o_yices_generalize_model_array_with_budget(mdl, n, a, nelims, elim, mode, 0, v));
 }
 
@@ -13226,8 +13226,8 @@ EXPORTED int32_t yices_generalize_model_array_with_budget(model_t *mdl, uint32_t
 	     _o_yices_generalize_model_array_with_budget(mdl, n, a, nelims, elim, mode, cube_budget, v));
 }
 
-term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
-				       yices_gen_mode_t mode, term_vector_t *v) {
+int32_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
+					yices_gen_mode_t mode, term_vector_t *v) {
   return _o_yices_generalize_model_array_with_budget(mdl, n, a, nelims, elim, mode, 0, v);
 }
 
@@ -13240,7 +13240,7 @@ int32_t _o_yices_generalize_model_array_with_budget(model_t *mdl, uint32_t n, co
   if (! check_good_terms(__yices_globals.manager, n, a) ||
       ! check_boolean_args(__yices_globals.manager, n, a) ||
       ! check_elim_vars(__yices_globals.manager, nelims, elim)) {
-    return NULL_TERM;
+    return -1;
   }
 
   extra_error = 0;
