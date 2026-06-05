@@ -88,6 +88,8 @@
  */
 
 #include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "model/generalization.h"
 #include "model/model_eval.h"
@@ -1026,13 +1028,15 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   bool_node_id_t root;
   literal_t root_lit;
   solver_status_t sat_status;
-  uint32_t num_attempts;
+  uint32_t num_attempts, num_projected, num_skipped;
   int32_t code;
   bool builder_inited;
   bool sat_inited;
   bool have_first, multiple;
   bool needs_fallback, exhausted_sat;
+  bool trace_stats;
   term_t collected, local_term, result_terms[2];
+  const char *status;
 
   init_ivector(&input, v->size);
   ivector_add(&input, v->data, v->size);
@@ -1043,6 +1047,11 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   builder_inited = true;
   sat_inited = false;
   code = 0;
+  num_attempts = 0;
+  num_projected = 0;
+  num_skipped = 0;
+  trace_stats = getenv("YICES_WIDE_PROJECTION_STATS") != NULL;
+  status = "started";
 
   init_ivector(&implicant, 16);
   init_ivector(&cube, 16);
@@ -1056,6 +1065,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
 
   if (input.size == 0) {
     ivector_push(v, true_term);
+    status = "empty-input";
     goto cleanup;
   }
 
@@ -1069,28 +1079,33 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     // giving the caller a precise diagnostic instead of an abort.
     ivector_reset(v);
     ivector_add(v, input.data, input.size);
+    needs_fallback = true;
     code = gen_model_by_proj_local(mdl, mngr, nelims, elim, v, extra_error);
+    status = code == 0 ? "abstraction-fallback" : "abstraction-fallback-error";
     goto cleanup;
   }
 
   if (bool_node_is_false(root)) {
     code = MDL_EVAL_FORMULA_FALSE;
+    status = "model-false";
     goto cleanup;
   }
 
   if (bool_node_is_true(root)) {
     ivector_push(v, true_term);
+    status = "constant-true";
     goto cleanup;
   }
 
   if (! builder.decomposed) {
     ivector_reset(v);
     ivector_add(v, input.data, input.size);
+    needs_fallback = true;
     code = gen_model_by_proj_local(mdl, mngr, nelims, elim, v, extra_error);
+    status = code == 0 ? "not-decomposed-fallback" : "not-decomposed-fallback-error";
     goto cleanup;
   }
 
-  num_attempts = 0;
   init_nsat_solver(&sat, builder.bvar_to_atom.size + builder.dag.size + 8, false);
   sat_inited = true;
   nsat_solver_add_vars(&sat, builder.bvar_to_atom.size - 1);
@@ -1119,6 +1134,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     sat_status = nsat_solve(&sat);
     if (sat_status == STAT_UNSAT) {
       exhausted_sat = true;
+      status = "sat-exhausted";
       break;
     }
     // nsat_solve is documented to return only STAT_SAT or STAT_UNSAT
@@ -1140,7 +1156,10 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
       // or a function application -> PROJ_ERROR_UNSUPPORTED_ARITH_TERM).
       // Drop this cube and try other implicants of F: a different
       // SAT-guided choice may avoid the offending literal entirely.
+      num_skipped ++;
       code = 0;
+    } else {
+      num_projected ++;
     }
 
     if (implicant.size == 0) {
@@ -1149,6 +1168,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
       // to block, so SAT will only ever produce the same trivial
       // model; stop enumerating.
       exhausted_sat = true;
+      status = "trivial-implicant";
       break;
     }
     // Must backtrack away from the SAT model before adding the blocker:
@@ -1166,6 +1186,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   //     local to succeed in that case).
   if (!exhausted_sat || !have_first) {
     needs_fallback = true;
+    status = !exhausted_sat ? "budget-fallback" : "no-success-fallback";
   }
 
   if (needs_fallback) {
@@ -1173,25 +1194,30 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     ivector_add(&local, input.data, input.size);
     code = gen_model_by_proj_local(mdl, mngr, nelims, elim, &local, extra_error);
     if (code != 0) {
+      status = "fallback-error";
       goto cleanup;
     }
     if (! have_first) {
       ivector_reset(v);
       ivector_add(v, local.data, local.size);
+      status = "fallback-local";
     } else {
       collected = make_projected_cubes_term(mngr, multiple, &first_projected, &cube_terms);
       local_term = mk_and_safe(mngr, local.size, local.data);
       ivector_reset(v);
       if (collected == NULL_TERM || local_term == NULL_TERM) {
         ivector_add(v, local.data, local.size);
+        status = "fallback-local";
       } else {
         result_terms[0] = collected;
         result_terms[1] = local_term;
         collected = mk_or_safe(mngr, 2, result_terms);
         if (collected == NULL_TERM) {
           ivector_add(v, local.data, local.size);
+          status = "fallback-local";
         } else {
           ivector_push(v, collected);
+          status = "budget-or-local";
         }
       }
     }
@@ -1202,6 +1228,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   assert(have_first);
   if (! multiple) {
     ivector_add(v, first_projected.data, first_projected.size);
+    status = "sat-exhausted-single";
   } else {
     collected = mk_or_safe(mngr, cube_terms.size, cube_terms.data);
     if (collected == NULL_TERM) {
@@ -1210,13 +1237,24 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
       code = gen_model_by_proj_local(mdl, mngr, nelims, elim, &local, extra_error);
       if (code == 0) {
         ivector_add(v, local.data, local.size);
+        needs_fallback = true;
+        status = "or-build-fallback";
       }
     } else {
       ivector_push(v, collected);
+      status = "sat-exhausted-or";
     }
   }
 
  cleanup:
+  if (trace_stats) {
+    fprintf(stderr,
+            "[yices-wide-projection] status=%s budget=%u input_terms=%u elim_vars=%u atoms=%u attempted_cubes=%u projected_cubes=%u skipped_cubes=%u sat_exhausted=%u fallback=%u result_terms=%u code=%d\n",
+            status, cube_budget, input.size, nelims,
+            builder_inited ? builder.bvar_to_atom.size - 1 : 0,
+            num_attempts, num_projected, num_skipped,
+            exhausted_sat ? 1 : 0, needs_fallback ? 1 : 0, v->size, code);
+  }
   delete_ivector(&local);
   delete_ivector(&cube_terms);
   delete_ivector(&first_projected);
