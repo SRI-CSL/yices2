@@ -53,11 +53,14 @@ jobs:
           REGRESS_EXCLUDE_FILTER: ${{ matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat') && 'iss517.smt2$' || '' }}
         with:
           mode: ${{ matrix.mode }}
+      # Coverage is uploaded once per commit. The push build uploads it only
+      # for master (the baseline); pull-request builds upload it for PRs. This
+      # avoids two runs racing to close the same Coveralls build for one commit.
       - name: Coverage
-        if: matrix.mode == 'gcov' && matrix.config-opt == '--enable-mcsat'
+        if: matrix.mode == 'gcov' && matrix.config-opt == '--enable-mcsat' && github.ref == 'refs/heads/master'
         uses: ./.github/actions/coverage
       - name: Coveralls
-        if: matrix.mode == 'gcov' && matrix.config-opt == '--enable-mcsat'
+        if: matrix.mode == 'gcov' && matrix.config-opt == '--enable-mcsat' && github.ref == 'refs/heads/master'
         uses: coverallsapp/github-action@master
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
