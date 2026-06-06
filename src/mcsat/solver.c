@@ -243,7 +243,11 @@ struct mcsat_solver_s {
   /** The queue for variable decisions */
   var_queue_t var_queue;
 
-  /** All pending requests */
+  /**
+   * All pending requests. Note: gc_calls can stay set while
+   * pending_requests is false — a GC is deferred until right after a full
+   * restart, and the next restart request triggers its processing.
+   */
   struct {
     bool restart;
     bool gc_calls;
@@ -1521,6 +1525,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
   if (mcsat->pending_requests) {
 
     // Restarts
+    bool full_restart = false;
     if (mcsat->pending_requests_all.restart) {
       // save target cache before restart
       trail_update_extra_cache(mcsat->trail);
@@ -1532,8 +1537,10 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       // Determine the backtrack level for restart:
       // If partial_restart is enabled, use mcsat_partial_restart_level to compute the level.
       // Otherwise, perform a full restart by backtracking to the base level.
+      // A pending GC (clause-database reduction) forces a full restart: the
+      // GC must run at base level.
       uint32_t backtrack_level = mcsat->trail->decision_level_base;
-      if (mcsat->ctx->mcsat_options.partial_restart) {
+      if (mcsat->ctx->mcsat_options.partial_restart && !mcsat->pending_requests_all.gc_calls) {
         backtrack_level = mcsat_partial_restart_level(mcsat);
       }
       if (backtrack_level == mcsat->trail->decision_level_base) {
@@ -1544,6 +1551,7 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       mcsat->pending_requests_all.restart = false;
       // notify if backtracked to base level
       if (backtrack_level == mcsat->trail->decision_level_base) {
+        full_restart = true;
         (*mcsat->solver_stats.restarts) ++;
         mcsat_notify_plugins(mcsat, MCSAT_SOLVER_RESTART);
       } else {
@@ -1551,8 +1559,10 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       }
     }
 
-    // GC
-    if (mcsat->pending_requests_all.gc_calls) {
+    // GC -- only right after a full restart, when the solver is in a
+    // quiescent state at base level. A pending GC forces the next restart
+    // to be full (see above), so the GC is never deferred for long.
+    if (mcsat->pending_requests_all.gc_calls && full_restart) {
       if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
         mcsat_trace_printf(mcsat->ctx->trace, "garbage collection\n");
       }
@@ -1568,7 +1578,9 @@ void mcsat_process_requests(mcsat_solver_t* mcsat) {
       (*mcsat->solver_stats.recaches) ++;
     }
 
-    // All services
+    // All services done. A deferred GC stays recorded in
+    // pending_requests_all.gc_calls; the next restart request triggers
+    // its processing.
     mcsat->pending_requests = false;
   }
 }

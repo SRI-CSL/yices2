@@ -182,6 +182,9 @@ clause_ref_t clause_db_new_clause(clause_db_t* db, const mcsat_literal_t* litera
   clause_size = clause_size_in_bytes(size);
   clause_memory = allocate(&clause_size, &db->memory, &db->size, &db->capacity);
 
+  // Lemmas start protected so they survive the GC round(s) following their creation
+  tag.used = tag.type == CLAUSE_LEMMA ? clause_used_init(size) : 0;
+
   // Construct the clause and tag it
   clause_construct(&clause_memory->clause, literals, size);
   clause_memory->tag = tag;
