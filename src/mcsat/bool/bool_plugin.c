@@ -885,6 +885,20 @@ bool bool_plugin_clause_compare_for_removal(void *data, clause_ref_t c1, clause_
   return c1_tag->score > c2_tag->score;
 }
 
+/**
+ * True if the clause is binary with a satisfied literal. GC runs at base
+ * level, so such a clause is permanently satisfied and not worth keeping
+ * (unless it is the reason of a propagation). Binary clauses only: they
+ * are the ones given extra retention (cf. clause_used_init), and the
+ * check is two literal lookups instead of a full clause scan.
+ */
+static inline
+bool bool_plugin_binary_clause_is_true(const mcsat_clause_t* c, const mcsat_trail_t* trail) {
+  return c->size == 2 &&
+    (literal_is_true(c->literals[0], trail) ||
+     literal_is_true(c->literals[1], trail));
+}
+
 void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
 
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
@@ -919,6 +933,11 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
         // since the clauses are sorted according to their scores, we break here
         break;
       }
+      // don't keep binary clauses with a satisfied literal
+      c = clause_db_get_clause(db, clause_ref);
+      if (bool_plugin_binary_clause_is_true(c, trail)) {
+        continue;
+      }
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
@@ -941,12 +960,9 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
         if (bp->reduce_requested) {
           c_tag->used --;
         }
-        // no protection for binary clauses with a satisfied literal: GC
-        // runs at base level, so they are permanently satisfied
+        // no protection for binary clauses with a satisfied literal
         c = clause_db_get_clause(db, clause_ref);
-        if (c->size == 2 &&
-            (literal_is_true(c->literals[0], trail) ||
-             literal_is_true(c->literals[1], trail))) {
+        if (bool_plugin_binary_clause_is_true(c, trail)) {
           continue;
         }
         gc_info_mark(&bp->gc_clauses, clause_ref);
