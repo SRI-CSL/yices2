@@ -3065,7 +3065,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     }
 
     // Should we decide on an assumption
-    bool assumption_decided = mcsat_decide_assumption(mcsat, model_get_vtbl(mdl));
+    bool assumption_decided = mcsat_decide_assumption(mcsat, mdl != NULL ? model_get_vtbl(mdl) : NULL);
     if (assumption_decided) {
       continue;
     }

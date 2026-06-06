@@ -10798,8 +10798,6 @@ static void try_naive_search(sat_solver_t *solver) {
   if (naive_search(solver, &searcher, true)) {
     search_report(solver, "c NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
 		  searcher.conflicts, searcher.decisions);
-    fprintf(stderr, "c NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
-		  searcher.conflicts, searcher.decisions);
     solver->status = STAT_SAT;
     goto done;
   }
@@ -10812,8 +10810,6 @@ static void try_naive_search(sat_solver_t *solver) {
   reset_naive_searcher(&searcher);
   if (naive_search(solver, &searcher, false)) {
     search_report(solver, "c REVERSE NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
-		  searcher.conflicts, searcher.decisions);
-    fprintf(stderr, "c NAIVE SEARCH SUCCEEDED: %"PRIu64" conflicts, %"PRIu64" decisions\nc\n",
 		  searcher.conflicts, searcher.decisions);
     solver->status = STAT_SAT;
     goto done;
