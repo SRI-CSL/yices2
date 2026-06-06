@@ -13153,11 +13153,20 @@ static void report_gen_error(int32_t code, int32_t bad_term_kind) {
  */
 EXPORTED int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
 					yices_gen_mode_t mode, term_vector_t *v) {
-  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_generalize_model(mdl, t, nelims, elim, mode, v));
+  MT_PROTECT(int32_t,  __yices_globals.lock,
+	     _o_yices_generalize_model_with_budget(mdl, t, nelims, elim, mode, 0, v));
 }
 
-int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
-				  yices_gen_mode_t mode, term_vector_t *v) {
+EXPORTED int32_t yices_generalize_model_with_budget(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
+						    yices_gen_mode_t mode, uint32_t cube_budget,
+						    term_vector_t *v) {
+  MT_PROTECT(int32_t,  __yices_globals.lock,
+	     _o_yices_generalize_model_with_budget(mdl, t, nelims, elim, mode, cube_budget, v));
+}
+
+int32_t _o_yices_generalize_model_with_budget(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
+					      yices_gen_mode_t mode, uint32_t cube_budget,
+					      term_vector_t *v) {
   int32_t code;
   int32_t extra_error;
 
@@ -13175,7 +13184,11 @@ int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const
     break;
 
   case YICES_GEN_BY_PROJ:
-    code = gen_model_by_projection(mdl, __yices_globals.manager, 1, &t, nelims, elim, (ivector_t *) v, &extra_error);
+    code = gen_model_by_projection_local(mdl, __yices_globals.manager, 1, &t, nelims, elim, (ivector_t *) v, &extra_error);
+    break;
+
+  case YICES_GEN_BY_PROJ_WIDE:
+    code = gen_model_by_projection(mdl, __yices_globals.manager, 1, &t, nelims, elim, (ivector_t *) v, cube_budget, &extra_error);
     break;
 
   default:
@@ -13195,20 +13208,29 @@ int32_t _o_yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const
 /*
  * Same thing for a conjunction of formulas a[0 ... n-1]
  */
-EXPORTED term_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
-					     yices_gen_mode_t mode, term_vector_t *v) {
-  MT_PROTECT(term_t,  __yices_globals.lock, _o_yices_generalize_model_array(mdl, n, a, nelims, elim, mode, v));
+EXPORTED int32_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
+					      yices_gen_mode_t mode, term_vector_t *v) {
+  MT_PROTECT(int32_t,  __yices_globals.lock,
+	     _o_yices_generalize_model_array_with_budget(mdl, n, a, nelims, elim, mode, 0, v));
 }
 
-term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
-					     yices_gen_mode_t mode, term_vector_t *v) {
+EXPORTED int32_t yices_generalize_model_array_with_budget(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims,
+							  const term_t elim[], yices_gen_mode_t mode,
+							  uint32_t cube_budget, term_vector_t *v) {
+  MT_PROTECT(int32_t,  __yices_globals.lock,
+	     _o_yices_generalize_model_array_with_budget(mdl, n, a, nelims, elim, mode, cube_budget, v));
+}
+
+int32_t _o_yices_generalize_model_array_with_budget(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims,
+						    const term_t elim[], yices_gen_mode_t mode,
+						    uint32_t cube_budget, term_vector_t *v) {
   int32_t code;
   int32_t extra_error;
 
   if (! check_good_terms(__yices_globals.manager, n, a) ||
       ! check_boolean_args(__yices_globals.manager, n, a) ||
       ! check_elim_vars(__yices_globals.manager, nelims, elim)) {
-    return NULL_TERM;
+    return -1;
   }
 
   extra_error = 0;
@@ -13219,7 +13241,11 @@ term_t _o_yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[
     break;
 
   case YICES_GEN_BY_PROJ:
-    code = gen_model_by_projection(mdl, __yices_globals.manager, n, a, nelims, elim, (ivector_t *) v, &extra_error);
+    code = gen_model_by_projection_local(mdl, __yices_globals.manager, n, a, nelims, elim, (ivector_t *) v, &extra_error);
+    break;
+
+  case YICES_GEN_BY_PROJ_WIDE:
+    code = gen_model_by_projection(mdl, __yices_globals.manager, n, a, nelims, elim, (ivector_t *) v, cube_budget, &extra_error);
     break;
 
   default:
