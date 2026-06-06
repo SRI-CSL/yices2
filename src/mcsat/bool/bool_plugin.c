@@ -58,6 +58,13 @@ typedef struct {
   /** Next conflict count at which to reduce the lemma database */
   uint64_t reduce_threshold;
 
+  /**
+   * Whether the next GC was requested by this plugin's reduce schedule.
+   * The 'used' protection counters decay only on such GCs, not on GCs
+   * triggered for other reasons (e.g. the GC on every pop).
+   */
+  bool reduce_requested;
+
   /** Clauses to re-check for propagations. */
   ivector_t clauses_to_repropagate;
 
@@ -84,9 +91,6 @@ typedef struct {
 
   /** GC info for clause removal */
   gc_info_t gc_clauses;
-
-  /** Whether to keep unsatisfied binary clauses this GC (alternates each GC) */
-  bool gc_keep_binary;
 
   struct {
 
@@ -178,10 +182,10 @@ void bool_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   // Conflict-based reduce schedule. Conflicts are counted cumulatively here so
   // bp->conflicts matches the core solver's conflict count (mcsat::conflicts);
-  // only the schedule (threshold/toggle) is reset per search, not the count.
+  // only the schedule (threshold) is reset per search, not the count.
   bp->conflicts = 0;
   bp->reduce_threshold = bp->heuristic_params.reduce_init_threshold;
-  bp->gc_keep_binary = false;
+  bp->reduce_requested = false;
 }
 
 static
@@ -427,6 +431,8 @@ void bool_plugin_bump_clause(bool_plugin_t* bp, const mcsat_clause_t* clause) {
   if (tag->type == CLAUSE_LEMMA) {
     // Bump
     tag->score += bp->heuristic_params.clause_score_bump_factor;
+    // Used in conflict analysis: protect from the next GC round(s)
+    tag->used = clause_used_init(clause->size);
     // If over the limit, normalize
     if (tag->score > bp->heuristic_params.clause_score_limit) {
       bool_plugin_rescale_clause_scores(bp);
@@ -923,19 +929,30 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
-    // keep binary clauses for a little longer -- one more round (alternate each GC)
-    bp->gc_keep_binary = !bp->gc_keep_binary;
-    for (i = 0; bp->gc_keep_binary && i < bp->lemmas.size; ++ i) {
+    // Keep clauses recently created or resolved in conflict analysis
+    // (cf. smt_core). The protection decays only on reduce GCs (the ones
+    // this plugin scheduled), not on GCs triggered for other reasons.
+    // Binary clauses start higher, so they get an extra reduce round.
+    for (i = 0; i < bp->lemmas.size; ++ i) {
       clause_ref = bp->lemmas.data[i];
       assert(clause_db_is_clause(db, clause_ref, true));
-      c = clause_db_get_clause(&bp->clause_db, clause_ref);
-      if (c->size == 2) {
-        if (!literal_is_true(c->literals[0], trail) &&
-            !literal_is_true(c->literals[1], trail)) {
-          gc_info_mark(&bp->gc_clauses, clause_ref);
+      c_tag = clause_db_get_tag(db, clause_ref);
+      if (c_tag->used > 0) {
+        if (bp->reduce_requested) {
+          c_tag->used --;
         }
+        // no protection for binary clauses with a satisfied literal: GC
+        // runs at base level, so they are permanently satisfied
+        c = clause_db_get_clause(db, clause_ref);
+        if (c->size == 2 &&
+            (literal_is_true(c->literals[0], trail) ||
+             literal_is_true(c->literals[1], trail))) {
+          continue;
+        }
+        gc_info_mark(&bp->gc_clauses, clause_ref);
       }
     }
+    bp->reduce_requested = false;
   }
 
   // Mark all the CNF definitions
@@ -1029,7 +1046,6 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
     // first threshold at the current conflict count + the initial offset
     // (cf. CaDiCaL's lim.reduce = conflicts + reduceinit).
     bp->reduce_threshold = bp->conflicts + bp->heuristic_params.reduce_init_threshold;
-    bp->gc_keep_binary = false;
     break;
   case MCSAT_SOLVER_RESTART:
     // Reduce the lemma database on a conflict-based schedule (cf. smt_core):
@@ -1037,6 +1053,7 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
     // next threshold to conflicts + reduce_interval * sqrt(conflicts).
     if (bp->conflicts >= bp->reduce_threshold) {
       bp->ctx->request_gc(bp->ctx);
+      bp->reduce_requested = true;
       bp->reduce_threshold = bp->conflicts +
         (uint64_t) (bp->heuristic_params.reduce_interval * sqrt((double) bp->conflicts));
     }

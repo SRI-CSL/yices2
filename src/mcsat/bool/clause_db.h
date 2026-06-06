@@ -55,7 +55,24 @@ typedef struct {
     float score;
   };
 
+  /**
+   * Reduce-protection counter for lemma clauses (CaDiCaL-style "used
+   * recently" flag, cf. smt_core). Set when the clause is created or
+   * resolved in conflict analysis, decremented on each GC; the clause is
+   * protected from deletion while > 0.
+   */
+  uint8_t used;
+
 } mcsat_clause_tag_t;
+
+/**
+ * Reduce protection given to a lemma clause when it is created or resolved
+ * in conflict analysis. Binary clauses get one extra GC round of protection
+ * (this subsumes the old keep-binary-clauses-every-other-GC heuristic).
+ */
+static inline uint8_t clause_used_init(uint32_t clause_size) {
+  return clause_size == 2 ? 2 : 1;
+}
 
 /**
  * A tagged clause is a clause with additional information. For definitional
