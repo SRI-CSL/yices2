@@ -65,8 +65,6 @@
 #include <inttypes.h>
 #include <math.h>
 
-#include <math.h>
-
 /**
  * Notification of new variables for the main solver.
  */

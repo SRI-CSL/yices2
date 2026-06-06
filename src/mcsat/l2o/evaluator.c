@@ -171,7 +171,7 @@ void evaluator_set(l2o_evaluator_t *evaluator, term_t t, double t_eval) {
 /** Results are kept in the order of state. */
 static
 bool cache_find_changed_variables(const term_double_map_t *eval_cache, const l2o_search_state_t *state, ivector_t *diff) {
-  for (int i = 0; i < state->n_var; ++i) {
+  for (uint32_t i = 0; i < state->n_var; ++i) {
     term_t t = state->var[i];
     double v;
     if (!term_double_map_find(eval_cache, t, &v)) {
@@ -187,7 +187,7 @@ bool cache_find_changed_variables(const term_double_map_t *eval_cache, const l2o
 static
 bool ensure_cache_values(const l2o_search_state_t *state, const l2o_evaluator_t *evaluator) {
   assert(!l2o_search_state_is_empty(state));
-  for (int i = 0; i < state->n_var; ++i) {
+  for (uint32_t i = 0; i < state->n_var; ++i) {
     double v;
     if (!term_double_map_find(&evaluator->eval_map, state->var[i], &v) || v != state->val[i]) return false;
   }

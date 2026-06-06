@@ -325,7 +325,4 @@ void trail_clear_extra_cache(mcsat_trail_t* trail, bool keep_best);
 /** clear all caches */
 void trail_clear_cache(mcsat_trail_t* trail);
 
-/** Clear model cache */
-void trail_model_cache_clear(mcsat_trail_t* trail);
-
 #endif /* MCSAT_TRAIL_H_ */

@@ -159,7 +159,7 @@ void collect_free_vars(l2o_t *l2o, term_t t, ivector_t *v, uint32_t offset) {
 
     default: {
       composite_term_t *c = get_composite(l2o->terms, current_kind, current_term);
-      for (int i = 0; i < c->arity; ++i) {
+      for (uint32_t i = 0; i < c->arity; ++i) {
         term_t arg = c->arg[i];
         ivector_push(&subterms, arg);
       }
@@ -277,14 +277,14 @@ double l2o_calculate(l2o_t *l2o, term_t t, l2o_evaluator_t *eval) {
       double result;
       if (is_pos_term(t)) { // or term
         result = 1.0;
-        for (int i = 0; i < n; ++i) {
+        for (uint32_t i = 0; i < n; ++i) {
           term_t tv = desc->arg[i];
           result *= l2o_calculate(l2o, tv, eval);
           if (result == 0.0) break;
         }
       } else { // and term
         result = 0.0;
-        for (int i = 0; i < n; ++i) {
+        for (uint32_t i = 0; i < n; ++i) {
           term_t tv = desc->arg[i];
           result += l2o_calculate(l2o, opposite_term(tv), eval);
         }

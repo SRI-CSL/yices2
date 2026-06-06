@@ -3528,7 +3528,22 @@ typedef struct composite_term1_s {
   term_t arg[1];  // real size = arity
 } composite_term1_t;
 
-static
+/*
+ * Scratch descriptor used by get_composite() to present the "non-composite"
+ * atoms (ARITH_EQ/GE/FF_EQ/FLOOR/CEIL/ABS and BIT) through the
+ * composite_term_t interface. The pointer returned by get_composite() for
+ * those kinds aliases this single buffer, so it is only valid until the next
+ * get_composite() call on such a term; callers must not hold two of these
+ * descriptors simultaneously. The buffer is thread-local so that the
+ * (otherwise read-only) get_composite() API remains safe in THREAD_SAFE builds.
+ */
+#ifdef THREAD_SAFE
+#define COMPOSITE_THREAD_LOCAL __thread
+#else
+#define COMPOSITE_THREAD_LOCAL
+#endif
+
+static COMPOSITE_THREAD_LOCAL
 composite_term1_t composite_for_noncomposite;
 
 composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t) {
