@@ -1048,20 +1048,23 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
     bp->reduce_threshold = bp->conflicts + bp->heuristic_params.reduce_init_threshold;
     break;
   case MCSAT_SOLVER_RESTART:
+    // Nothing to do: the reduce schedule is driven by MCSAT_SOLVER_CONFLICT
+    break;
+  case MCSAT_SOLVER_CONFLICT:
+    // Count conflicts and decay the scores each conflict
+    bp->conflicts ++;
+    bool_plugin_decay_clause_scores(bp);
     // Reduce the lemma database on a conflict-based schedule (cf. smt_core):
-    // when the conflict count reaches the threshold, schedule a GC and set the
-    // next threshold to conflicts + reduce_interval * sqrt(conflicts).
+    // when the conflict count reaches the threshold, request a GC and set the
+    // next threshold to conflicts + reduce_interval * sqrt(conflicts). The
+    // solver runs the GC at base level, right after the next restart (a
+    // pending GC forces a full restart, even with partial restarts enabled).
     if (bp->conflicts >= bp->reduce_threshold) {
       bp->ctx->request_gc(bp->ctx);
       bp->reduce_requested = true;
       bp->reduce_threshold = bp->conflicts +
         (uint64_t) (bp->heuristic_params.reduce_interval * sqrt((double) bp->conflicts));
     }
-    break;
-  case MCSAT_SOLVER_CONFLICT:
-    // Count conflicts and decay the scores each conflict
-    bp->conflicts ++;
-    bool_plugin_decay_clause_scores(bp);
     break;
   case MCSAT_SOLVER_POP:
     // Remove all learnt clauses above base level, regular clauses will be

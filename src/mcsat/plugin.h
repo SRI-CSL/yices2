@@ -95,7 +95,11 @@ struct plugin_context_s {
   /** Request a restart */
   void (*request_restart) (plugin_context_t* self);
 
-  /** Request garbage collection */
+  /**
+   * Request garbage collection. The GC runs at base level, right after the
+   * next full restart (a pending GC forces the next restart to be full,
+   * even when partial restarts are enabled).
+   */
   void (*request_gc) (plugin_context_t* self);
 
   /** Request decision calls for a specific type */
