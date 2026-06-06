@@ -52,8 +52,18 @@ typedef struct {
   /** Lemmas, so that we can potentially remove them */
   ivector_t lemmas;
 
-  /** Limit on lemma count before we do compaction */
-  uint32_t lemmas_limit;
+  /** Cumulative number of conflicts (drives the conflict-based reduce trigger) */
+  uint64_t conflicts;
+
+  /** Next conflict count at which to reduce the lemma database */
+  uint64_t reduce_threshold;
+
+  /**
+   * Whether the next GC was requested by this plugin's reduce schedule.
+   * The 'used' protection counters decay only on such GCs, not on GCs
+   * triggered for other reasons (e.g. the GC on every pop).
+   */
+  bool reduce_requested;
 
   /** Clauses to re-check for propagations. */
   ivector_t clauses_to_repropagate;
@@ -82,9 +92,6 @@ typedef struct {
   /** GC info for clause removal */
   gc_info_t gc_clauses;
 
-  /** GC round */
-  uint32_t gc_round;
-
   struct {
 
     /** Score increase per bump (multiplicative) */
@@ -94,10 +101,10 @@ typedef struct {
     /** Limit for when to scale down */
     float clause_score_limit;
 
-    /** Limit on lemma clauses before we ask for gc */
-    uint32_t lemma_limit_init;
-    /** Increase of the lemma limit after gc */
-    float lemma_limit_interval;
+    /** Initial conflict count at which to reduce the lemma database */
+    uint32_t reduce_init_threshold;
+    /** Reduce interval multiplier (next threshold = conflicts + this * sqrt(conflicts)) */
+    uint32_t reduce_interval;
 
     /** bump factor for bool vars -- geq 1. Higher number means more weightage **/
     uint32_t bool_var_bump_factor;
@@ -131,9 +138,9 @@ void bool_plugin_heuristics_init(bool_plugin_t* bp) {
   bp->heuristic_params.clause_score_decay_factor = 0.999;
   bp->heuristic_params.clause_score_limit = 1e20;
 
-  // Clause database compact
-  bp->heuristic_params.lemma_limit_init = 1000;
-  bp->heuristic_params.lemma_limit_interval = 100;
+  // Clause database reduction (conflict-based schedule, cf. smt_core)
+  bp->heuristic_params.reduce_init_threshold = 300;
+  bp->heuristic_params.reduce_interval = 25;
 
   // Bool var scoring
   bp->heuristic_params.bool_var_bump_factor = 20;
@@ -172,6 +179,13 @@ void bool_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
 
   bool_plugin_stats_init(bp);
   bool_plugin_heuristics_init(bp);
+
+  // Conflict-based reduce schedule. Conflicts are counted cumulatively here so
+  // bp->conflicts matches the core solver's conflict count (mcsat::conflicts);
+  // only the schedule (threshold) is reset per search, not the count.
+  bp->conflicts = 0;
+  bp->reduce_threshold = bp->heuristic_params.reduce_init_threshold;
+  bp->reduce_requested = false;
 }
 
 static
@@ -417,6 +431,8 @@ void bool_plugin_bump_clause(bool_plugin_t* bp, const mcsat_clause_t* clause) {
   if (tag->type == CLAUSE_LEMMA) {
     // Bump
     tag->score += bp->heuristic_params.clause_score_bump_factor;
+    // Used in conflict analysis: protect from the next GC round(s)
+    tag->used = clause_used_init(clause->size);
     // If over the limit, normalize
     if (tag->score > bp->heuristic_params.clause_score_limit) {
       bool_plugin_rescale_clause_scores(bp);
@@ -869,6 +885,20 @@ bool bool_plugin_clause_compare_for_removal(void *data, clause_ref_t c1, clause_
   return c1_tag->score > c2_tag->score;
 }
 
+/**
+ * True if the clause is binary with a satisfied literal. GC runs at base
+ * level, so such a clause is permanently satisfied and not worth keeping
+ * (unless it is the reason of a propagation). Binary clauses only: they
+ * are the ones given extra retention (cf. clause_used_init), and the
+ * check is two literal lookups instead of a full clause scan.
+ */
+static inline
+bool bool_plugin_binary_clause_is_true(const mcsat_clause_t* c, const mcsat_trail_t* trail) {
+  return c->size == 2 &&
+    (literal_is_true(c->literals[0], trail) ||
+     literal_is_true(c->literals[1], trail));
+}
+
 void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
 
   bool_plugin_t* bp = (bool_plugin_t*) plugin;
@@ -903,6 +933,11 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
         // since the clauses are sorted according to their scores, we break here
         break;
       }
+      // don't keep binary clauses with a satisfied literal
+      c = clause_db_get_clause(db, clause_ref);
+      if (bool_plugin_binary_clause_is_true(c, trail)) {
+        continue;
+      }
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
@@ -913,18 +948,27 @@ void bool_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
       gc_info_mark(&bp->gc_clauses, clause_ref);
     }
 
-    // keep binary clauses for a little longer -- one more round
-    for (i = 0; bp->gc_round % 2 != 0 && i < bp->lemmas.size; ++ i) {
+    // Keep clauses recently created or resolved in conflict analysis
+    // (cf. smt_core). The protection decays only on reduce GCs (the ones
+    // this plugin scheduled), not on GCs triggered for other reasons.
+    // Binary clauses start higher, so they get an extra reduce round.
+    for (i = 0; i < bp->lemmas.size; ++ i) {
       clause_ref = bp->lemmas.data[i];
       assert(clause_db_is_clause(db, clause_ref, true));
-      c = clause_db_get_clause(&bp->clause_db, clause_ref);
-      if (c->size == 2) {
-        if (!literal_is_true(c->literals[0], trail) &&
-            !literal_is_true(c->literals[1], trail)) {
-          gc_info_mark(&bp->gc_clauses, clause_ref);
+      c_tag = clause_db_get_tag(db, clause_ref);
+      if (c_tag->used > 0) {
+        if (bp->reduce_requested) {
+          c_tag->used --;
         }
+        // no protection for binary clauses with a satisfied literal
+        c = clause_db_get_clause(db, clause_ref);
+        if (bool_plugin_binary_clause_is_true(c, trail)) {
+          continue;
+        }
+        gc_info_mark(&bp->gc_clauses, clause_ref);
       }
     }
+    bp->reduce_requested = false;
   }
 
   // Mark all the CNF definitions
@@ -1013,21 +1057,30 @@ void bool_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
 
   switch (kind) {
   case MCSAT_SOLVER_START:
-    // Re-initialize the heuristics
-    bp->lemmas_limit = bp->heuristic_params.lemma_limit_init;
-    bp->gc_round = 0;
+    // Re-initialize the reduce schedule for this search. bp->conflicts is
+    // cumulative (it tracks the core solver's conflict count), so anchor the
+    // first threshold at the current conflict count + the initial offset
+    // (cf. CaDiCaL's lim.reduce = conflicts + reduceinit).
+    bp->reduce_threshold = bp->conflicts + bp->heuristic_params.reduce_init_threshold;
     break;
   case MCSAT_SOLVER_RESTART:
-    // Check if clause compaction needed
-    if (bp->lemmas.size > bp->lemmas_limit) {
-      bp->ctx->request_gc(bp->ctx);
-      bp->gc_round++;
-      bp->lemmas_limit += bp->heuristic_params.lemma_limit_interval * sqrt(bp->gc_round);
-    }
+    // Nothing to do: the reduce schedule is driven by MCSAT_SOLVER_CONFLICT
     break;
   case MCSAT_SOLVER_CONFLICT:
-    // Decay the scores each conflict
+    // Count conflicts and decay the scores each conflict
+    bp->conflicts ++;
     bool_plugin_decay_clause_scores(bp);
+    // Reduce the lemma database on a conflict-based schedule (cf. smt_core):
+    // when the conflict count reaches the threshold, request a GC and set the
+    // next threshold to conflicts + reduce_interval * sqrt(conflicts). The
+    // solver runs the GC at base level, right after the next restart (a
+    // pending GC forces a full restart, even with partial restarts enabled).
+    if (bp->conflicts >= bp->reduce_threshold) {
+      bp->ctx->request_gc(bp->ctx);
+      bp->reduce_requested = true;
+      bp->reduce_threshold = bp->conflicts +
+        (uint64_t) (bp->heuristic_params.reduce_interval * sqrt((double) bp->conflicts));
+    }
     break;
   case MCSAT_SOLVER_POP:
     // Remove all learnt clauses above base level, regular clauses will be
