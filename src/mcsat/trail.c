@@ -168,7 +168,7 @@ uint32_t trail_pop_base_level(mcsat_trail_t* trail) {
   assert(trail->decision_level_base > 0);
 
   // clear target and best cache, setting their depths to zero
-  trail_clear_extra_cache(trail);
+  trail_clear_extra_cache(trail, false);
 
   trail->decision_level_base --;
   return trail->decision_level_base;
@@ -368,7 +368,7 @@ bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_
 inline static
 void trail_copy_unassigned_cache(mcsat_trail_t* trail, mcsat_model_t* to_cache, const mcsat_model_t* from_cache) {
   for (variable_t var = 0; var < from_cache->size; ++var) {
-    const mcsat_value_t* val = mcsat_model_get_value(from_cache, var); 
+    const mcsat_value_t* val = mcsat_model_get_value(from_cache, var);
     if (!trail_has_value(trail, var) && val->type != VALUE_NONE) {
       mcsat_model_set_value(to_cache, var, val);
     }
@@ -444,14 +444,16 @@ void trail_update_extra_cache(mcsat_trail_t* trail) {
   }
 }
 
-void trail_clear_extra_cache(mcsat_trail_t* trail) {
+void trail_clear_extra_cache(mcsat_trail_t* trail, bool keep_best) {
   clear_cache(&trail->target_cache);
-  clear_cache(&trail->best_cache);
   trail->target_depth = 0;
-  trail->best_depth = 0;
+  if (!keep_best) {
+    clear_cache(&trail->best_cache);
+    trail->best_depth = 0;
+  }
 }
 
 void trail_clear_cache(mcsat_trail_t* trail) {
   trail_clear_unassigned_cache(trail, &trail->model);
-  trail_clear_extra_cache(trail);
+  trail_clear_extra_cache(trail, false);
 }

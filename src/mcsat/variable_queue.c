@@ -267,7 +267,7 @@ void var_queue_set_activity(var_queue_t* queue, variable_t x, double a) {
   queue->activity[x] = a;
 }
 
-int var_queue_cmp_variables(var_queue_t *queue, variable_t x, variable_t y) {
+int var_queue_cmp_variables(const var_queue_t *queue, variable_t x, variable_t y) {
   assert(x < queue->size);
   assert(y < queue->size);
 
