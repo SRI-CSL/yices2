@@ -230,7 +230,12 @@ static void assert_generalization_with_term_status(const char *tag,
 
   ctx = new_context_for_logic(logic, use_mcsat);
   ok = yices_assert_formula(ctx, witness);
-  assert(ok == 0);
+  if (ok != 0) {
+    fprintf(stderr, "[%s] failed to assert witness:\n", tag);
+    yices_pp_term(stderr, witness, 100, 10, 0);
+    yices_print_error(stderr);
+    assert(0);
+  }
   status = yices_check_context(ctx, NULL);
   if (status != expected) {
     fprintf(stderr, "[%s] unexpected status: got %d, expected %d\n",
@@ -834,6 +839,83 @@ static void test_nia_integer_elim_substitution(void) {
   yices_free_model(mdl);
 }
 
+static void test_nia_presburger_salvage_multi_elim(void) {
+  term_t x, y, z, w;
+  term_t yz, two_w, rhs, formula, model_formula;
+  term_t admits_other_w, rejects_wrong_parity;
+  term_t elim[2];
+  model_t *mdl;
+  term_vector_t v_local, v_wide;
+  int32_t r;
+
+  printf("\n=== test_nia_presburger_salvage_multi_elim ===\n");
+  if (! yices_has_mcsat()) {
+    printf("  -> skipped: MCSAT not available\n");
+    return;
+  }
+
+  x = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(x, "x_nia_salvage");
+  y = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(y, "y_nia_salvage");
+  z = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(z, "z_nia_salvage");
+  w = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(w, "w_nia_salvage");
+
+  yz = yices_mul(y, z);
+  two_w = yices_mul(yices_int32(2), w);
+  rhs = yices_add(yz, two_w);
+  formula = yices_arith_eq_atom(x, rhs);
+  model_formula = yices_and(4, (term_t[]) {
+      formula,
+      yices_arith_eq_atom(y, yices_int32(3)),
+      yices_arith_eq_atom(z, yices_int32(1)),
+      yices_arith_eq_atom(w, yices_int32(1)),
+  });
+  mdl = check_and_get_model_for_logic(model_formula, "QF_NIA", true);
+
+  elim[0] = y;
+  elim[1] = w;
+  yices_init_term_vector(&v_local);
+  yices_init_term_vector(&v_wide);
+
+  r = yices_generalize_model(mdl, formula, 2, elim,
+                             YICES_GEN_BY_PROJ, &v_local);
+  assert(r == 0);
+  r = yices_generalize_model(mdl, formula, 2, elim,
+                             YICES_GEN_BY_PROJ_WIDE, &v_wide);
+  assert(r == 0);
+
+  assert_all_true("nia_presburger_salvage_multi_elim/local", &v_local, mdl);
+  assert_all_true("nia_presburger_salvage_multi_elim/wide", &v_wide, mdl);
+
+  // Part I's pure substitution fallback would pin w=1 and imply x=3*z+2.
+  // Salvage substitutes y=3, then Presburger-eliminates w, so it admits any
+  // x with x-3*z even. At z=1, x=7 exercises the preserved w-generalization.
+  admits_other_w = yices_and2(yices_arith_eq_atom(z, yices_int32(1)),
+                              yices_arith_eq_atom(x, yices_int32(7)));
+  assert_generalization_with_term_status("nia_presburger_salvage_multi_elim/local-admits",
+                                         &v_local, admits_other_w, "QF_LIA", false,
+                                         YICES_STATUS_SAT);
+  assert_generalization_with_term_status("nia_presburger_salvage_multi_elim/wide-admits",
+                                         &v_wide, admits_other_w, "QF_LIA", false,
+                                         YICES_STATUS_SAT);
+
+  rejects_wrong_parity = yices_and2(yices_arith_eq_atom(z, yices_int32(1)),
+                                    yices_arith_eq_atom(x, yices_int32(6)));
+  assert_generalization_with_term_status("nia_presburger_salvage_multi_elim/local-rejects",
+                                         &v_local, rejects_wrong_parity, "QF_LIA", false,
+                                         YICES_STATUS_UNSAT);
+  assert_generalization_with_term_status("nia_presburger_salvage_multi_elim/wide-rejects",
+                                         &v_wide, rejects_wrong_parity, "QF_LIA", false,
+                                         YICES_STATUS_UNSAT);
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
 static void test_nira_integer_subst_real_projection(void) {
   term_t x, y, rvar;
   term_t formula, model_formula, bad_x, allow_r_zero;
@@ -916,6 +998,7 @@ int main(void) {
   test_sat_guided_polarity();
   test_lia_presburger_divisibility();
   test_nia_integer_elim_substitution();
+  test_nia_presburger_salvage_multi_elim();
   test_nira_integer_subst_real_projection();
 
   yices_exit();
