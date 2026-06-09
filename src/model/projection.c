@@ -237,6 +237,45 @@ static void proj_build_val_subst(projector_t *proj) {
   proj->val_subst = tmp;
 }
 
+/*
+ * Build val_subst for the selected variables var[0 ... n-1].
+ * This is used before arithmetic projection to substitute integer
+ * eliminands without also substituting real eliminands.
+ */
+static void proj_build_selected_val_subst(projector_t *proj, uint32_t n, const term_t *var) {
+  term_subst_t *tmp;
+  ivector_t *v;
+  uint32_t m;
+  int32_t code;
+
+  assert(proj->val_subst == NULL);
+  assert(n > 0);
+
+  v = &proj->buffer;
+  resize_ivector(v, n);
+
+  code = evaluate_term_array(proj->mdl, n, var, v->data);
+  if (code < 0) {
+    // error in evaluation
+    proj_error(proj, PROJ_ERROR_IN_EVAL, code);
+    return;
+  }
+
+  // convert v->data[0 ... n-1] to constant terms
+  m = convert_value_array(proj->mngr, proj->terms, model_get_vtbl(proj->mdl), n, v->data);
+  assert(m <= n);
+  if (m < n) {
+    // no subcode for conversion errors
+    proj_error(proj, PROJ_ERROR_IN_CONVERT, 0);
+    return;
+  }
+
+  // build the substitution: var[i] is mapped to v->data[i]
+  tmp = (term_subst_t *) safe_malloc(sizeof(term_subst_t));
+  init_term_subst(tmp, proj->mngr, n, var, v->data);
+  proj->val_subst = tmp;
+}
+
 
 /*
  * Delete: free memory
@@ -350,6 +389,7 @@ static void proj_add_pprod_vars(projector_t *proj, pprod_t *p) {
   term_t var;
 
   proj->is_nonlinear = true;
+  proj->is_presburger = false;
 
   n = p->len;
   i = 0;
@@ -528,6 +568,87 @@ static void proj_elim_by_substitution(projector_t *proj) {
  * ARITHMETIC
  */
 
+static void proj_subst_vector(projector_t *proj, ivector_t *v);
+
+/*
+ * Check whether any real arithmetic variable still needs arithmetic
+ * projection.
+ */
+static bool proj_has_real_evar(projector_t *proj) {
+  term_table_t *terms;
+  uint32_t i, n;
+
+  terms = proj->terms;
+  n = proj->num_evars;
+  for (i=0; i<n; i++) {
+    if (is_real_term(terms, proj->evars[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/*
+ * Substitute integer eliminands by their model values before using the
+ * real-arithmetic projection machinery.
+ */
+static void proj_subst_integer_evars(projector_t *proj) {
+  term_table_t *terms;
+  term_t *int_evars;
+  term_t x;
+  uint32_t i, j, n, count;
+
+  terms = proj->terms;
+  n = proj->num_evars;
+  count = 0;
+  for (i=0; i<n; i++) {
+    if (is_integer_term(terms, proj->evars[i])) {
+      count ++;
+    }
+  }
+
+  if (count == 0) {
+    return;
+  }
+
+  int_evars = (term_t *) safe_malloc(count * sizeof(term_t));
+  j = 0;
+  for (i=0; i<n; i++) {
+    x = proj->evars[i];
+    if (is_integer_term(terms, x)) {
+      assert(j < count);
+      int_evars[j] = x;
+      j ++;
+    }
+  }
+  assert(j == count);
+
+  proj_build_selected_val_subst(proj, count, int_evars);
+  safe_free(int_evars);
+
+  if (proj->flag == PROJ_NO_ERROR) {
+    proj_subst_vector(proj, &proj->gen_literals);
+  }
+  if (proj->flag == PROJ_NO_ERROR) {
+    proj_subst_vector(proj, &proj->arith_literals);
+  }
+  proj_delete_val_subst(proj);
+
+  if (proj->flag != PROJ_NO_ERROR) {
+    return;
+  }
+
+  j = 0;
+  for (i=0; i<n; i++) {
+    x = proj->evars[i];
+    if (! is_integer_term(terms, x)) {
+      proj->evars[j] = x;
+      j ++;
+    }
+  }
+  proj->num_evars = j;
+}
+
 /*
  * Add a variable x to the internal arith_projector
  */
@@ -566,6 +687,17 @@ static void proj_process_arith_literals(projector_t *proj) {
   printf("[1]  --> Process arith_literals\n");
   fflush(stdout);
 #endif
+
+  proj_subst_integer_evars(proj);
+  if (proj->flag != PROJ_NO_ERROR) {
+    return;
+  }
+  if (proj->arith_literals.size == 0) {
+    return;
+  }
+  if (! proj_has_real_evar(proj)) {
+    return;
+  }
 
 #ifdef HAVE_MCSAT
   // check if there are any variables assigned to an algebraic number in the model
@@ -614,15 +746,15 @@ static void proj_process_arith_literals(projector_t *proj) {
   proj_build_arith_proj(proj);
 
   /*
-   * Pass all arithmetic variables in proj->evars to the arithmetic projector
-   * and remove them from proj->evars.
+   * Pass all real arithmetic variables in proj->evars to the arithmetic
+   * projector and remove them from proj->evars.
    */
   terms = proj->terms;
   n = proj->num_evars;
   j = 0;
   for (i=0; i<n; i++) {
     x = proj->evars[i];
-    if (is_arithmetic_term(terms, x)) {
+    if (is_real_term(terms, x)) {
       proj_push_arith_var(proj, x, true);
     } else {
       proj->evars[j] = x;
