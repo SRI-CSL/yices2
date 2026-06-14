@@ -28,6 +28,19 @@
 
 
 /*
+ * RDIV preprocessing context.
+ *
+ * This is scoped to one model/generalization call. It caches the rewrite of
+ * signed literals because WIDE projection may see the same atom in several
+ * enumerated cubes.
+ */
+typedef struct rdiv_preprocess_cache_s rdiv_preprocess_cache_t;
+
+extern rdiv_preprocess_cache_t *new_rdiv_preprocess_cache(model_t *mdl, term_manager_t *mngr);
+
+extern void delete_rdiv_preprocess_cache(rdiv_preprocess_cache_t *cache);
+
+/*
  * Rewrite RDIV-containing arithmetic literals in a model-true cube into
  * RDIV-free literals plus model-sign guards.
  *
@@ -39,7 +52,7 @@
  * If the return code is PROJ_ERROR_UNSUPPORTED_ARITH_TERM, *extra_error is set
  * to ARITH_RDIV.
  */
-extern proj_flag_t preprocess_rdiv_literals(model_t *mdl, term_manager_t *mngr,
+extern proj_flag_t preprocess_rdiv_literals(rdiv_preprocess_cache_t *cache,
                                             uint32_t n, const term_t *a,
                                             ivector_t *v, int32_t *extra_error);
 

@@ -20,8 +20,8 @@
  * RDIV elimination for projection.
  *
  * This rewrites RDIV-containing arithmetic literals in a model-true cube into
- * RDIV-free arithmetic literals plus model-sign guards. It is intentionally
- * cube-local and runs after get_implicant has selected model branches.
+ * RDIV-free arithmetic literals plus model-sign guards. It runs after
+ * get_implicant has selected model branches.
  */
 
 #include <assert.h>
@@ -32,6 +32,7 @@
 #include "model/projection_preprocess.h"
 #include "terms/rba_buffer_terms.h"
 #include "terms/terms.h"
+#include "utils/int_hash_map.h"
 #include "utils/memalloc.h"
 
 #ifdef HAVE_MCSAT
@@ -52,12 +53,24 @@ typedef enum {
   RDIV_ATOM_LT,
 } rdiv_atom_kind_t;
 
-typedef struct rdiv_preproc_s {
+typedef struct rdiv_cache_entry_s {
+  proj_flag_t code;
+  int32_t extra_error;
+  ivector_t lits;
+} rdiv_cache_entry_t;
+
+struct rdiv_preprocess_cache_s {
   model_t *mdl;
   term_manager_t *mngr;
   term_table_t *terms;
   evaluator_t eval;
-} rdiv_preproc_t;
+  int_hmap_t map;
+  rdiv_cache_entry_t *data;
+  uint32_t size;
+  uint32_t capacity;
+};
+
+typedef rdiv_preprocess_cache_t rdiv_preproc_t;
 
 typedef struct rdiv_frac_s {
   term_t num;
@@ -67,6 +80,111 @@ typedef struct rdiv_frac_s {
 
 
 static proj_flag_t rewrite_literal_rdiv(rdiv_preproc_t *p, term_t lit, ivector_t *out, int32_t *extra_error);
+
+
+/*
+ * Rewrite cache
+ */
+
+static void extend_rdiv_preprocess_cache(rdiv_preprocess_cache_t *cache) {
+  uint32_t n;
+
+  n = cache->capacity;
+  if (n == 0) {
+    n = 16;
+  } else {
+    if (n > INT32_MAX/2) {
+      out_of_memory();
+    }
+    n <<= 1;
+  }
+  cache->data = (rdiv_cache_entry_t *) safe_realloc(cache->data, n * sizeof(rdiv_cache_entry_t));
+  cache->capacity = n;
+}
+
+rdiv_preprocess_cache_t *new_rdiv_preprocess_cache(model_t *mdl, term_manager_t *mngr) {
+  rdiv_preprocess_cache_t *cache;
+
+  cache = (rdiv_preprocess_cache_t *) safe_malloc(sizeof(rdiv_preprocess_cache_t));
+  cache->mdl = mdl;
+  cache->mngr = mngr;
+  cache->terms = mngr->terms;
+  assert(cache->terms == mdl->terms);
+
+  init_evaluator(&cache->eval, mdl);
+  init_int_hmap(&cache->map, 0);
+  cache->data = NULL;
+  cache->size = 0;
+  cache->capacity = 0;
+
+  return cache;
+}
+
+void delete_rdiv_preprocess_cache(rdiv_preprocess_cache_t *cache) {
+  uint32_t i, n;
+
+  n = cache->size;
+  for (i=0; i<n; i++) {
+    delete_ivector(&cache->data[i].lits);
+  }
+  safe_free(cache->data);
+  delete_int_hmap(&cache->map);
+  delete_evaluator(&cache->eval);
+  safe_free(cache);
+}
+
+static bool cached_rdiv_rewrite(rdiv_preprocess_cache_t *cache, term_t lit,
+                                ivector_t *out, int32_t *extra_error, proj_flag_t *code) {
+  int_hmap_pair_t *p;
+  rdiv_cache_entry_t *entry;
+
+  if (lit < 0) {
+    return false;
+  }
+
+  p = int_hmap_find(&cache->map, lit);
+  if (p == NULL) {
+    return false;
+  }
+
+  assert(0 <= p->val && p->val < (int32_t) cache->size);
+  entry = cache->data + p->val;
+  *code = entry->code;
+  if (entry->code == PROJ_NO_ERROR) {
+    ivector_add(out, entry->lits.data, entry->lits.size);
+  } else {
+    *extra_error = entry->extra_error;
+  }
+  return true;
+}
+
+static void cache_rdiv_rewrite(rdiv_preprocess_cache_t *cache, term_t lit,
+                               proj_flag_t code, int32_t extra_error, const ivector_t *lits) {
+  rdiv_cache_entry_t *entry;
+  uint32_t k;
+
+  if (lit < 0) {
+    return;
+  }
+
+  if (cache->size == cache->capacity) {
+    extend_rdiv_preprocess_cache(cache);
+  }
+
+  k = cache->size;
+  assert(k < (uint32_t) INT32_MAX);
+  cache->size = k + 1;
+
+  entry = cache->data + k;
+  entry->code = code;
+  entry->extra_error = extra_error;
+  init_ivector(&entry->lits, lits->size);
+  if (code == PROJ_NO_ERROR) {
+    ivector_add(&entry->lits, lits->data, lits->size);
+  }
+
+  int_hmap_add(&cache->map, lit, (int32_t) k);
+}
 
 
 /*
@@ -736,26 +854,29 @@ static proj_flag_t rewrite_literal_rdiv(rdiv_preproc_t *p, term_t lit, ivector_t
   return code;
 }
 
-proj_flag_t preprocess_rdiv_literals(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t *a,
+proj_flag_t preprocess_rdiv_literals(rdiv_preprocess_cache_t *pre, uint32_t n, const term_t *a,
                                      ivector_t *v, int32_t *extra_error) {
-  rdiv_preproc_t pre;
   proj_flag_t code;
+  ivector_t rewritten;
   uint32_t i;
 
-  pre.mdl = mdl;
-  pre.mngr = mngr;
-  pre.terms = mngr->terms;
-  assert(pre.terms == mdl->terms);
-
-  init_evaluator(&pre.eval, mdl);
   code = PROJ_NO_ERROR;
+  init_ivector(&rewritten, 4);
   for (i=0; i<n; i++) {
-    code = rewrite_literal_rdiv(&pre, a[i], v, extra_error);
-    if (code != PROJ_NO_ERROR) {
+    if (! cached_rdiv_rewrite(pre, a[i], v, extra_error, &code)) {
+      ivector_reset(&rewritten);
+      code = rewrite_literal_rdiv(pre, a[i], &rewritten, extra_error);
+      cache_rdiv_rewrite(pre, a[i], code, *extra_error, &rewritten);
+      if (code == PROJ_NO_ERROR) {
+        ivector_add(v, rewritten.data, rewritten.size);
+      } else {
+        break;
+      }
+    } else if (code != PROJ_NO_ERROR) {
       break;
     }
   }
-  delete_evaluator(&pre.eval);
+  delete_ivector(&rewritten);
 
   return code;
 }

@@ -242,7 +242,10 @@ static int32_t gen_model_by_subst(model_t *mdl, term_manager_t *mngr, uint32_t n
  * has Boolean structure (disjunctions, Boolean ITEs), only one branch
  * is captured: the one selected by get_implicant from the model.
  */
-static int32_t gen_model_by_proj_local(model_t *mdl, term_manager_t *mngr, uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error) {
+static int32_t gen_model_by_proj_local_with_cache(model_t *mdl, term_manager_t *mngr,
+                                                  uint32_t nelims, const term_t elim[],
+                                                  ivector_t *v, int32_t *extra_error,
+                                                  rdiv_preprocess_cache_t *rdiv_cache) {
   ivector_t implicant, preprocessed;
   int32_t code;
   proj_flag_t pflag;
@@ -257,7 +260,7 @@ static int32_t gen_model_by_proj_local(model_t *mdl, term_manager_t *mngr, uint3
     goto done;
   }
 
-  pflag = preprocess_rdiv_literals(mdl, mngr, implicant.size, implicant.data, &preprocessed, extra_error);
+  pflag = preprocess_rdiv_literals(rdiv_cache, implicant.size, implicant.data, &preprocessed, extra_error);
   if (pflag != PROJ_NO_ERROR) {
     code = gen_projection_error(pflag);
     goto done;
@@ -278,6 +281,19 @@ static int32_t gen_model_by_proj_local(model_t *mdl, term_manager_t *mngr, uint3
   
 }
 
+static int32_t gen_model_by_proj_local(model_t *mdl, term_manager_t *mngr,
+                                       uint32_t nelims, const term_t elim[],
+                                       ivector_t *v, int32_t *extra_error) {
+  rdiv_preprocess_cache_t *rdiv_cache;
+  int32_t code;
+
+  rdiv_cache = new_rdiv_preprocess_cache(mdl, mngr);
+  code = gen_model_by_proj_local_with_cache(mdl, mngr, nelims, elim, v, extra_error, rdiv_cache);
+  delete_rdiv_preprocess_cache(rdiv_cache);
+
+  return code;
+}
+
 
 
 /*
@@ -289,6 +305,7 @@ static int32_t gen_model_by_proj_local(model_t *mdl, term_manager_t *mngr, uint3
  * whose AND is the projected cube). out is not reset.
  */
 static int32_t project_one_cube_into(model_t *mdl, term_manager_t *mngr,
+                                     rdiv_preprocess_cache_t *rdiv_cache,
                                      const term_t *cube_lits, uint32_t cube_size,
                                      uint32_t nelims, const term_t elim[],
                                      ivector_t *out, int32_t *extra_error) {
@@ -305,7 +322,7 @@ static int32_t project_one_cube_into(model_t *mdl, term_manager_t *mngr,
     goto cleanup;
   }
 
-  pflag = preprocess_rdiv_literals(mdl, mngr, implicant.size, implicant.data, &preprocessed, extra_error);
+  pflag = preprocess_rdiv_literals(rdiv_cache, implicant.size, implicant.data, &preprocessed, extra_error);
   if (pflag != PROJ_NO_ERROR) {
     code = gen_projection_error(pflag);
     goto cleanup;
@@ -1636,6 +1653,7 @@ static term_t make_projected_cubes_term(term_manager_t *mngr, bool multiple,
 }
 
 static int32_t append_projected_cube_term(model_t *mdl, term_manager_t *mngr,
+                                          rdiv_preprocess_cache_t *rdiv_cache,
                                           uint32_t nelims, const term_t elim[],
                                           ivector_t *cube, int32_t *extra_error,
                                           bool *have_first, bool *multiple,
@@ -1645,7 +1663,7 @@ static int32_t append_projected_cube_term(model_t *mdl, term_manager_t *mngr,
   int32_t code;
 
   init_ivector(&projected, 4);
-  code = project_one_cube_into(mdl, mngr, cube->data, cube->size, nelims, elim, &projected, extra_error);
+  code = project_one_cube_into(mdl, mngr, rdiv_cache, cube->data, cube->size, nelims, elim, &projected, extra_error);
   if (code != 0) {
     delete_ivector(&projected);
     return code;
@@ -1684,6 +1702,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   cube_enum_status_t enum_status;
   ivector_t input, cubes, cube;
   ivector_t first_projected, cube_terms, local;
+  rdiv_preprocess_cache_t *rdiv_cache;
   uint32_t i;
   int32_t code;
   bool have_first, multiple;
@@ -1705,6 +1724,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   multiple = false;
   needs_fallback = false;
   exhausted_sat = false;
+  rdiv_cache = new_rdiv_preprocess_cache(mdl, mngr);
 
   code = enumerate_implicant_cubes_with_status(mdl, mngr, input.size, input.data,
                                                cube_budget, &cubes, &enum_status);
@@ -1716,7 +1736,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   for (i = 0; i < cubes.size; i++) {
     ivector_reset(&cube);
     ivector_push(&cube, cubes.data[i]);
-    code = append_projected_cube_term(mdl, mngr, nelims, elim, &cube, extra_error,
+    code = append_projected_cube_term(mdl, mngr, rdiv_cache, nelims, elim, &cube, extra_error,
                                       &have_first, &multiple, &first_projected, &cube_terms);
     if (code != 0) {
       // Projection error on this cube (typically a literal contains a
@@ -1742,7 +1762,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   if (needs_fallback) {
     ivector_reset(&local);
     ivector_add(&local, input.data, input.size);
-    code = gen_model_by_proj_local(mdl, mngr, nelims, elim, &local, extra_error);
+    code = gen_model_by_proj_local_with_cache(mdl, mngr, nelims, elim, &local, extra_error, rdiv_cache);
     if (code != 0) {
       goto cleanup;
     }
@@ -1778,7 +1798,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     if (collected == NULL_TERM) {
       ivector_reset(&local);
       ivector_add(&local, input.data, input.size);
-      code = gen_model_by_proj_local(mdl, mngr, nelims, elim, &local, extra_error);
+      code = gen_model_by_proj_local_with_cache(mdl, mngr, nelims, elim, &local, extra_error, rdiv_cache);
       if (code == 0) {
         ivector_add(v, local.data, local.size);
       }
@@ -1788,6 +1808,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   }
 
  cleanup:
+  delete_rdiv_preprocess_cache(rdiv_cache);
   delete_ivector(&local);
   delete_ivector(&cube_terms);
   delete_ivector(&first_projected);
