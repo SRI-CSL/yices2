@@ -120,14 +120,14 @@ enum {
  * - gen_model_by_projection:
  *   "wide" projection (opt-in: exposed via YICES_GEN_BY_PROJ_WIDE;
  *   neither YICES_GEN_BY_PROJ nor YICES_GEN_DEFAULT select it
- *   implicitly). Builds a polarity-aware Boolean abstraction of
- *   f[], enumerates model-true
- *   Boolean implicants with a SAT solver and blocker clauses, projects
- *   each implicant via Loos-Weispfenning / Cooper / arith_proj, and
- *   unions the results at the term level. The cube_budget argument
- *   caps the number of SAT iterations (extracted+attempted cubes,
- *   whether or not projection succeeds); pass 0 for unbounded (the
- *   underlying Boolean enumeration is always finite).
+ *   implicitly). Builds a literal-leaf Boolean abstraction of f[],
+ *   enumerates model-true subset-minimal Boolean implicants with a
+ *   strict false-first Boolean core and superset blockers, projects each
+ *   implicant via Loos-Weispfenning / Cooper / arith_proj, and unions
+ *   the results at the term level. The cube_budget argument caps the
+ *   number of distinct normalized cubes attempted for projection; pass
+ *   0 for unbounded (the underlying Boolean enumeration is always
+ *   finite).
  * - gen_model_by_projection_local:
  *   legacy projection. Builds a single literal implicant of f[] at the
  *   model and projects that flat conjunction. This is the algorithm Yices
@@ -152,6 +152,9 @@ extern int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint3
 
 extern int32_t gen_model_by_projection_local(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 					     uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error);
+
+extern int32_t get_implicant_cubes(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
+                                   uint32_t max_cubes, ivector_t *cubes);
 
 extern int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 				uint32_t nelims, const term_t elim[], ivector_t *v,
