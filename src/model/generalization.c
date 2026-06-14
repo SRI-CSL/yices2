@@ -93,6 +93,7 @@
 #include "model/model_eval.h"
 #include "model/model_queries.h"
 #include "model/projection.h"
+#include "model/projection_preprocess.h"
 #include "model/val_to_term.h"
 #include "solvers/cdcl/smt_core.h"
 #include "terms/term_manager.h"
@@ -242,26 +243,35 @@ static int32_t gen_model_by_subst(model_t *mdl, term_manager_t *mngr, uint32_t n
  * is captured: the one selected by get_implicant from the model.
  */
 static int32_t gen_model_by_proj_local(model_t *mdl, term_manager_t *mngr, uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error) {
-  ivector_t implicant;
+  ivector_t implicant, preprocessed;
   int32_t code;
   proj_flag_t pflag;
 
   init_ivector(&implicant, 10);
+  init_ivector(&preprocessed, 10);
+
   code = get_implicant(mdl, mngr, LIT_COLLECTOR_ALL_OPTIONS, v->size, v->data, &implicant);
   if (code < 0) {
     // implicant construction failed
     code = gen_implicant_error(code);
     goto done;
   }
+
+  pflag = preprocess_rdiv_literals(mdl, mngr, implicant.size, implicant.data, &preprocessed, extra_error);
+  if (pflag != PROJ_NO_ERROR) {
+    code = gen_projection_error(pflag);
+    goto done;
+  }
   
   ivector_reset(v); // reset v to collect the projection result
   code = 0;
-  pflag = project_literals(mdl, mngr, implicant.size, implicant.data, nelims, elim, v, extra_error);
+  pflag = project_literals(mdl, mngr, preprocessed.size, preprocessed.data, nelims, elim, v, extra_error);
   if (pflag != PROJ_NO_ERROR) {
     code = gen_projection_error(pflag);
   }
 
  done:
+  delete_ivector(&preprocessed);
   delete_ivector(&implicant);
 
   return code;
@@ -282,11 +292,12 @@ static int32_t project_one_cube_into(model_t *mdl, term_manager_t *mngr,
                                      const term_t *cube_lits, uint32_t cube_size,
                                      uint32_t nelims, const term_t elim[],
                                      ivector_t *out, int32_t *extra_error) {
-  ivector_t implicant;
+  ivector_t implicant, preprocessed;
   proj_flag_t pflag;
   int32_t code;
 
   init_ivector(&implicant, cube_size);
+  init_ivector(&preprocessed, cube_size);
 
   code = get_implicant(mdl, mngr, LIT_COLLECTOR_ALL_OPTIONS, cube_size, cube_lits, &implicant);
   if (code < 0) {
@@ -294,7 +305,13 @@ static int32_t project_one_cube_into(model_t *mdl, term_manager_t *mngr,
     goto cleanup;
   }
 
-  pflag = project_literals(mdl, mngr, implicant.size, implicant.data,
+  pflag = preprocess_rdiv_literals(mdl, mngr, implicant.size, implicant.data, &preprocessed, extra_error);
+  if (pflag != PROJ_NO_ERROR) {
+    code = gen_projection_error(pflag);
+    goto cleanup;
+  }
+
+  pflag = project_literals(mdl, mngr, preprocessed.size, preprocessed.data,
                            nelims, elim, out, extra_error);
   if (pflag != PROJ_NO_ERROR) {
     code = gen_projection_error(pflag);
@@ -304,6 +321,7 @@ static int32_t project_one_cube_into(model_t *mdl, term_manager_t *mngr,
   code = 0;
 
  cleanup:
+  delete_ivector(&preprocessed);
   delete_ivector(&implicant);
   return code;
 }

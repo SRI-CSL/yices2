@@ -161,6 +161,7 @@ core_src_c := \
 	model/models.c \
 	model/presburger.c \
 	model/projection.c \
+	model/projection_preprocess.c \
 	model/term_to_val.c \
 	model/val_to_term.c \
 	mt/yices_locks.c \

@@ -24,18 +24,13 @@
 #include <yices.h>
 
 
-/*
- * Helper: build a fresh QF_LRA context. The model-generalization
- * API itself is solver-independent; the simplex backend suffices
- * for these LRA tests.
- */
-static context_t *new_lra_context(void) {
+static context_t *new_context_for_logic(const char *logic) {
   ctx_config_t *config;
   context_t *ctx;
   int32_t ok;
 
   config = yices_new_config();
-  ok = yices_default_config_for_logic(config, "QF_LRA");
+  ok = yices_default_config_for_logic(config, logic);
   if (ok != 0) {
     yices_print_error(stderr);
     assert(0);
@@ -50,16 +45,25 @@ static context_t *new_lra_context(void) {
 }
 
 /*
+ * Helper: build a fresh QF_LRA context. The model-generalization
+ * API itself is solver-independent; the simplex backend suffices
+ * for these LRA tests.
+ */
+static context_t *new_lra_context(void) {
+  return new_context_for_logic("QF_LRA");
+}
+
+/*
  * Build a model satisfying `formula` (in QF_LRA).
  * Asserts test failure if `formula` is unsat.
  */
-static model_t *check_and_get_model(term_t formula) {
+static model_t *check_and_get_model_for_logic(const char *logic, term_t formula) {
   context_t *ctx;
   smt_status_t status;
   model_t *m;
   int32_t ok;
 
-  ctx = new_lra_context();
+  ctx = new_context_for_logic(logic);
   ok = yices_assert_formula(ctx, formula);
   assert(ok == 0);
   status = yices_check_context(ctx, NULL);
@@ -68,6 +72,10 @@ static model_t *check_and_get_model(term_t formula) {
   assert(m != NULL);
   yices_free_context(ctx);
   return m;
+}
+
+static model_t *check_and_get_model(term_t formula) {
+  return check_and_get_model_for_logic("QF_LRA", formula);
 }
 
 /*
@@ -670,6 +678,148 @@ static void test_sat_guided_polarity(void) {
   yices_free_model(mdl);
 }
 
+static void run_rdiv_case(const char *tag, term_t formula, term_t elim_var, model_t *mdl) {
+  term_t elim[1];
+  term_vector_t v_local, v_wide;
+
+  assert(yices_formula_true_in_model(mdl, formula) == 1);
+  elim[0] = elim_var;
+  run_both_modes(tag, formula, mdl, 1, elim, &v_local, &v_wide);
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
+static void test_rdiv_positive_denominator(void) {
+  term_t x, y, div, bound, formula, expected;
+  model_t *mdl;
+
+  printf("\n=== test_rdiv_positive_denominator ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_rdiv_pos");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_rdiv_pos");
+
+  div = yices_division(x, y);
+  bound = yices_arith_lt_atom(div, yices_int32(3));
+  expected = yices_arith_gt0_atom(y);
+  formula = yices_and2(expected, bound);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 0, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 1, 1) == 0);
+  run_rdiv_case("rdiv_positive_denominator", formula, x, mdl);
+}
+
+static void test_rdiv_negative_denominator(void) {
+  term_t x, y, div, bound, formula, expected;
+  model_t *mdl;
+
+  printf("\n=== test_rdiv_negative_denominator ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_rdiv_neg");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_rdiv_neg");
+
+  div = yices_division(x, y);
+  bound = yices_arith_lt_atom(div, yices_int32(3));
+  expected = yices_arith_lt0_atom(y);
+  formula = yices_and2(expected, bound);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 0, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, -1, 1) == 0);
+  run_rdiv_case("rdiv_negative_denominator", formula, x, mdl);
+}
+
+static void test_rdiv_hidden_in_sum(void) {
+  term_t x, a, y, div, sum, bound, formula, expected;
+  model_t *mdl;
+
+  printf("\n=== test_rdiv_hidden_in_sum ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_rdiv_sum");
+  a = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(a, "a_rdiv_sum");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_rdiv_sum");
+
+  div = yices_division(a, y);
+  sum = yices_add(x, div);
+  bound = yices_arith_lt0_atom(sum);
+  expected = yices_arith_gt0_atom(y);
+  formula = yices_and2(expected, bound);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, -2, 1) == 0);
+  assert(yices_model_set_rational32(mdl, a, 1, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 1, 1) == 0);
+  run_rdiv_case("rdiv_hidden_in_sum", formula, x, mdl);
+}
+
+#ifdef HAVE_MCSAT
+static void test_rdiv_hidden_in_product(void) {
+  term_t x, a, y, div, product, bound, formula, expected;
+  model_t *mdl;
+
+  printf("\n=== test_rdiv_hidden_in_product ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_rdiv_product");
+  a = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(a, "a_rdiv_product");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_rdiv_product");
+
+  div = yices_division(a, y);
+  product = yices_mul(div, x);
+  bound = yices_arith_lt_atom(product, yices_int32(1));
+  expected = yices_arith_gt0_atom(y);
+  formula = yices_and2(expected, bound);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 0, 1) == 0);
+  assert(yices_model_set_rational32(mdl, a, 1, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 1, 1) == 0);
+  run_rdiv_case("rdiv_hidden_in_product", formula, x, mdl);
+}
+#endif
+
+static void test_rdiv_ite_dead_branch_denominator(void) {
+  term_t x, y, v, c, live_div, dead_div, ite, bound, args[4], formula;
+  term_t expected;
+  model_t *mdl;
+
+  printf("\n=== test_rdiv_ite_dead_branch_denominator ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_rdiv_ite");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_rdiv_ite");
+  v = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(v, "v_rdiv_ite_dead");
+  c = yices_new_uninterpreted_term(yices_bool_type());
+  yices_set_term_name(c, "c_rdiv_ite");
+
+  live_div = yices_division(x, y);
+  dead_div = yices_division(x, v);
+  ite = yices_ite(c, live_div, dead_div);
+  bound = yices_arith_lt_atom(ite, yices_int32(3));
+  expected = yices_arith_gt0_atom(y);
+
+  args[0] = c;
+  args[1] = expected;
+  args[2] = yices_arith_eq0_atom(v);
+  args[3] = bound;
+  formula = yices_and(4, args);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 0, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 1, 1) == 0);
+  assert(yices_model_set_rational32(mdl, v, 0, 1) == 0);
+  assert(yices_model_set_bool(mdl, c, 1) == 0);
+  run_rdiv_case("rdiv_ite_dead_branch_denominator", formula, x, mdl);
+}
+
 
 int main(void) {
   yices_init();
@@ -683,6 +833,13 @@ int main(void) {
   test_sat_guided_budget_graceful();
   test_shared_elimination_variable();
   test_sat_guided_polarity();
+  test_rdiv_positive_denominator();
+  test_rdiv_negative_denominator();
+  test_rdiv_hidden_in_sum();
+#ifdef HAVE_MCSAT
+  test_rdiv_hidden_in_product();
+#endif
+  test_rdiv_ite_dead_branch_denominator();
 
   yices_exit();
   printf("\nALL TESTS PASSED\n");
