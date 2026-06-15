@@ -55,6 +55,11 @@
  *   clauses, projects each implicant as a cube through the legacy
  *   implicant-then-project pipeline, and unions the results at the
  *   term level.
+ *   The per-cube get_implicant call in that legacy pipeline is not
+ *   used because the SAT-guided cube is suspected not to be an
+ *   implicant. It is retained to reuse the existing branch/literal
+ *   normalization that project_literals currently expects, instead of
+ *   duplicating that cleanup in the WIDE path.
  *
  *   The abstraction is *model-pruned*: every Boolean subterm of F
  *   is evaluated at the model up front, and model-false subterms are
@@ -104,9 +109,6 @@
 #include "utils/int_hash_map.h"
 #include "utils/int_vectors.h"
 #include "utils/memalloc.h"
-
-
-#define ABS_DEFAULT_ITE_EXPANSION_LIMIT 64
 
 
 /*
@@ -226,6 +228,29 @@ static int32_t gen_model_by_subst(model_t *mdl, term_manager_t *mngr, uint32_t n
 }
 
 
+static proj_flag_t project_literals_with_extra_elims(model_t *mdl, term_manager_t *mngr,
+                                                     uint32_t n, const term_t lits[],
+                                                     uint32_t nelims, const term_t elim[],
+                                                     const ivector_t *fresh_elims,
+                                                     ivector_t *v, int32_t *extra_error) {
+  ivector_t all_elims;
+  proj_flag_t pflag;
+
+  if (fresh_elims == NULL || fresh_elims->size == 0) {
+    return project_literals(mdl, mngr, n, lits, nelims, elim, v, extra_error);
+  }
+
+  init_ivector(&all_elims, nelims + fresh_elims->size);
+  ivector_add(&all_elims, elim, nelims);
+  ivector_add(&all_elims, fresh_elims->data, fresh_elims->size);
+
+  pflag = project_literals(mdl, mngr, n, lits, all_elims.size, all_elims.data, v, extra_error);
+  delete_ivector(&all_elims);
+
+  return pflag;
+}
+
+
 /*
  * Generalization by local projection (legacy pipeline):
  *   - compute an implicant of v then project the implicant
@@ -245,37 +270,73 @@ static int32_t gen_model_by_subst(model_t *mdl, term_manager_t *mngr, uint32_t n
 static int32_t gen_model_by_proj_local_with_cache(model_t *mdl, term_manager_t *mngr,
                                                   uint32_t nelims, const term_t elim[],
                                                   ivector_t *v, int32_t *extra_error,
+                                                  arith_construct_preprocess_cache_t *construct_cache,
                                                   rdiv_preprocess_cache_t *rdiv_cache) {
-  ivector_t implicant, preprocessed;
+  ivector_t abs_input, implicant, construct_preprocessed, fresh_elims, preprocessed;
+  evaluator_t eval;
   int32_t code;
   proj_flag_t pflag;
+  bool eval_initialized;
 
+  init_ivector(&abs_input, v->size);
   init_ivector(&implicant, 10);
+  init_ivector(&construct_preprocessed, 10);
+  init_ivector(&fresh_elims, 0);
   init_ivector(&preprocessed, 10);
+  eval_initialized = false;
 
-  code = get_implicant(mdl, mngr, LIT_COLLECTOR_ALL_OPTIONS, v->size, v->data, &implicant);
+  pflag = preprocess_abs_terms(mngr, v->size, v->data, &abs_input, extra_error);
+  if (pflag != PROJ_NO_ERROR) {
+    code = gen_projection_error(pflag);
+    goto done;
+  }
+
+  code = get_implicant(mdl, mngr, LIT_COLLECTOR_ALL_OPTIONS, abs_input.size, abs_input.data, &implicant);
   if (code < 0) {
     // implicant construction failed
     code = gen_implicant_error(code);
     goto done;
   }
 
-  pflag = preprocess_rdiv_literals(rdiv_cache, implicant.size, implicant.data, &preprocessed, extra_error);
+  init_evaluator(&eval, mdl);
+  eval_initialized = true;
+
+  pflag = preprocess_arith_construct_literals(construct_cache, &eval,
+                                              implicant.size, implicant.data,
+                                              &construct_preprocessed, &fresh_elims, extra_error);
   if (pflag != PROJ_NO_ERROR) {
     code = gen_projection_error(pflag);
     goto done;
   }
+
+  pflag = preprocess_rdiv_literals(rdiv_cache, &eval,
+                                   construct_preprocessed.size, construct_preprocessed.data,
+                                   &preprocessed, extra_error);
+  if (pflag != PROJ_NO_ERROR) {
+    code = gen_projection_error(pflag);
+    goto done;
+  }
+
+  delete_evaluator(&eval);
+  eval_initialized = false;
   
   ivector_reset(v); // reset v to collect the projection result
   code = 0;
-  pflag = project_literals(mdl, mngr, preprocessed.size, preprocessed.data, nelims, elim, v, extra_error);
+  pflag = project_literals_with_extra_elims(mdl, mngr, preprocessed.size, preprocessed.data,
+                                            nelims, elim, &fresh_elims, v, extra_error);
   if (pflag != PROJ_NO_ERROR) {
     code = gen_projection_error(pflag);
   }
 
  done:
+  if (eval_initialized) {
+    delete_evaluator(&eval);
+  }
   delete_ivector(&preprocessed);
+  delete_ivector(&fresh_elims);
+  delete_ivector(&construct_preprocessed);
   delete_ivector(&implicant);
+  delete_ivector(&abs_input);
 
   return code;
   
@@ -284,12 +345,16 @@ static int32_t gen_model_by_proj_local_with_cache(model_t *mdl, term_manager_t *
 static int32_t gen_model_by_proj_local(model_t *mdl, term_manager_t *mngr,
                                        uint32_t nelims, const term_t elim[],
                                        ivector_t *v, int32_t *extra_error) {
+  arith_construct_preprocess_cache_t *construct_cache;
   rdiv_preprocess_cache_t *rdiv_cache;
   int32_t code;
 
+  construct_cache = new_arith_construct_preprocess_cache(mdl, mngr);
   rdiv_cache = new_rdiv_preprocess_cache(mdl, mngr);
-  code = gen_model_by_proj_local_with_cache(mdl, mngr, nelims, elim, v, extra_error, rdiv_cache);
+  code = gen_model_by_proj_local_with_cache(mdl, mngr, nelims, elim, v, extra_error,
+                                            construct_cache, rdiv_cache);
   delete_rdiv_preprocess_cache(rdiv_cache);
+  delete_arith_construct_preprocess_cache(construct_cache);
 
   return code;
 }
@@ -297,24 +362,31 @@ static int32_t gen_model_by_proj_local(model_t *mdl, term_manager_t *mngr,
 
 
 /*
- * Project a single cube via the legacy implicant+project pipeline.
- * The cube's literals are normalized through get_implicant (which
- * expands ITE-inside-arith, etc.) and then projected.
+ * Project a single SAT-guided cube via the legacy implicant+project
+ * pipeline. The cube is expected to be an implicant already; the
+ * get_implicant call is kept as a code-reuse boundary for the legacy
+ * branch/literal normalization that project_literals currently expects.
  *
  * The projected literals are appended to *out (a list of literals
  * whose AND is the projected cube). out is not reset.
  */
 static int32_t project_one_cube_into(model_t *mdl, term_manager_t *mngr,
+                                     arith_construct_preprocess_cache_t *construct_cache,
                                      rdiv_preprocess_cache_t *rdiv_cache,
                                      const term_t *cube_lits, uint32_t cube_size,
                                      uint32_t nelims, const term_t elim[],
                                      ivector_t *out, int32_t *extra_error) {
-  ivector_t implicant, preprocessed;
+  ivector_t implicant, construct_preprocessed, fresh_elims, preprocessed;
+  evaluator_t eval;
   proj_flag_t pflag;
   int32_t code;
+  bool eval_initialized;
 
   init_ivector(&implicant, cube_size);
+  init_ivector(&construct_preprocessed, cube_size);
+  init_ivector(&fresh_elims, 0);
   init_ivector(&preprocessed, cube_size);
+  eval_initialized = false;
 
   code = get_implicant(mdl, mngr, LIT_COLLECTOR_ALL_OPTIONS, cube_size, cube_lits, &implicant);
   if (code < 0) {
@@ -322,14 +394,30 @@ static int32_t project_one_cube_into(model_t *mdl, term_manager_t *mngr,
     goto cleanup;
   }
 
-  pflag = preprocess_rdiv_literals(rdiv_cache, implicant.size, implicant.data, &preprocessed, extra_error);
+  init_evaluator(&eval, mdl);
+  eval_initialized = true;
+
+  pflag = preprocess_arith_construct_literals(construct_cache, &eval,
+                                              implicant.size, implicant.data,
+                                              &construct_preprocessed, &fresh_elims, extra_error);
   if (pflag != PROJ_NO_ERROR) {
     code = gen_projection_error(pflag);
     goto cleanup;
   }
 
-  pflag = project_literals(mdl, mngr, preprocessed.size, preprocessed.data,
-                           nelims, elim, out, extra_error);
+  pflag = preprocess_rdiv_literals(rdiv_cache, &eval,
+                                   construct_preprocessed.size, construct_preprocessed.data,
+                                   &preprocessed, extra_error);
+  if (pflag != PROJ_NO_ERROR) {
+    code = gen_projection_error(pflag);
+    goto cleanup;
+  }
+
+  delete_evaluator(&eval);
+  eval_initialized = false;
+
+  pflag = project_literals_with_extra_elims(mdl, mngr, preprocessed.size, preprocessed.data,
+                                            nelims, elim, &fresh_elims, out, extra_error);
   if (pflag != PROJ_NO_ERROR) {
     code = gen_projection_error(pflag);
     goto cleanup;
@@ -338,7 +426,12 @@ static int32_t project_one_cube_into(model_t *mdl, term_manager_t *mngr,
   code = 0;
 
  cleanup:
+  if (eval_initialized) {
+    delete_evaluator(&eval);
+  }
   delete_ivector(&preprocessed);
+  delete_ivector(&fresh_elims);
+  delete_ivector(&construct_preprocessed);
   delete_ivector(&implicant);
   return code;
 }
@@ -489,7 +582,8 @@ static inline bool bool_node_is_false(bool_node_id_t id) {
   return id == BOOL_DAG_FALSE;
 }
 
-static void init_abs_builder(abs_builder_t *b, model_t *mdl, term_manager_t *mngr, evaluator_t *eval) {
+static void init_abs_builder(abs_builder_t *b, model_t *mdl, term_manager_t *mngr,
+                             evaluator_t *eval, uint32_t max_ite_expansions) {
   b->mngr = mngr;
   b->terms = term_manager_get_terms(mngr);
   b->eval = eval;
@@ -499,7 +593,7 @@ static void init_abs_builder(abs_builder_t *b, model_t *mdl, term_manager_t *mng
   init_int_hmap(&b->cache_signed, 0);
   init_bool_dag(&b->dag);
   b->ite_expansions = 0;
-  b->max_ite_expansions = ABS_DEFAULT_ITE_EXPANSION_LIMIT;
+  b->max_ite_expansions = max_ite_expansions;
   b->decomposed = false;
   (void) mdl;
 }
@@ -1014,13 +1108,17 @@ static bool try_build_ite_branch_terms(abs_builder_t *b, term_t t, term_t ite,
   return true;
 }
 
+static bool abs_builder_can_expand_ite(abs_builder_t *b) {
+  return b->max_ite_expansions == 0 || b->ite_expansions < b->max_ite_expansions;
+}
+
 static bool abstract_ite_in_leaf(abs_builder_t *b, term_t t, bool_node_id_t *out, abs_status_t *status) {
   term_t ite, cond, then_t, else_t;
   bool_node_id_t left, right, both;
   ivector_t child;
   abs_status_t st;
 
-  if (b->ite_expansions >= b->max_ite_expansions ||
+  if (! abs_builder_can_expand_ite(b) ||
       ! find_ite_subterm_in_term(b, unsigned_term(t), &ite)) {
     return false;
   }
@@ -1150,7 +1248,9 @@ static abs_status_t abstract_signed(abs_builder_t *b, term_t t, bool_node_id_t *
       goto cache_result;
     }
 
-    if ((kind == ITE_TERM || kind == ITE_SPECIAL) && is_boolean_term(b->terms, base)) {
+    if ((kind == ITE_TERM || kind == ITE_SPECIAL) && is_boolean_term(b->terms, base) &&
+        abs_builder_can_expand_ite(b)) {
+      b->ite_expansions ++;
       b->decomposed = true;
       st = abstract_boolean_ite(b, base, neg, out);
       if (st != ABS_OK) goto error;
@@ -1531,7 +1631,7 @@ static int32_t enumerate_implicant_cubes_with_status(model_t *mdl, term_manager_
   ivector_reset(cubes);
 
   init_evaluator(&eval, mdl);
-  init_abs_builder(&builder, mdl, mngr, &eval);
+  init_abs_builder(&builder, mdl, mngr, &eval, max_cubes);
   init_int_array_hset(&seen, 0);
   init_ivector(&selected_lits, 16);
   init_ivector(&cube, 16);
@@ -1653,6 +1753,7 @@ static term_t make_projected_cubes_term(term_manager_t *mngr, bool multiple,
 }
 
 static int32_t append_projected_cube_term(model_t *mdl, term_manager_t *mngr,
+                                          arith_construct_preprocess_cache_t *construct_cache,
                                           rdiv_preprocess_cache_t *rdiv_cache,
                                           uint32_t nelims, const term_t elim[],
                                           ivector_t *cube, int32_t *extra_error,
@@ -1663,7 +1764,8 @@ static int32_t append_projected_cube_term(model_t *mdl, term_manager_t *mngr,
   int32_t code;
 
   init_ivector(&projected, 4);
-  code = project_one_cube_into(mdl, mngr, rdiv_cache, cube->data, cube->size, nelims, elim, &projected, extra_error);
+  code = project_one_cube_into(mdl, mngr, construct_cache, rdiv_cache,
+                               cube->data, cube->size, nelims, elim, &projected, extra_error);
   if (code != 0) {
     delete_ivector(&projected);
     return code;
@@ -1700,9 +1802,11 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
                                             ivector_t *v, uint32_t cube_budget,
                                             int32_t *extra_error) {
   cube_enum_status_t enum_status;
-  ivector_t input, cubes, cube;
+  ivector_t input, input_abs, cubes, cube;
   ivector_t first_projected, cube_terms, local;
+  arith_construct_preprocess_cache_t *construct_cache;
   rdiv_preprocess_cache_t *rdiv_cache;
+  proj_flag_t pflag;
   uint32_t i;
   int32_t code;
   bool have_first, multiple;
@@ -1711,9 +1815,12 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
 
   init_ivector(&input, v->size);
   ivector_add(&input, v->data, v->size);
+  init_ivector(&input_abs, v->size);
   ivector_reset(v);
 
   code = 0;
+  construct_cache = NULL;
+  rdiv_cache = NULL;
 
   init_ivector(&cubes, 16);
   init_ivector(&cube, 16);
@@ -1724,9 +1831,17 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   multiple = false;
   needs_fallback = false;
   exhausted_sat = false;
+
+  pflag = preprocess_abs_terms(mngr, input.size, input.data, &input_abs, extra_error);
+  if (pflag != PROJ_NO_ERROR) {
+    code = gen_projection_error(pflag);
+    goto cleanup;
+  }
+
+  construct_cache = new_arith_construct_preprocess_cache(mdl, mngr);
   rdiv_cache = new_rdiv_preprocess_cache(mdl, mngr);
 
-  code = enumerate_implicant_cubes_with_status(mdl, mngr, input.size, input.data,
+  code = enumerate_implicant_cubes_with_status(mdl, mngr, input_abs.size, input_abs.data,
                                                cube_budget, &cubes, &enum_status);
   if (code != 0) {
     goto cleanup;
@@ -1736,7 +1851,8 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   for (i = 0; i < cubes.size; i++) {
     ivector_reset(&cube);
     ivector_push(&cube, cubes.data[i]);
-    code = append_projected_cube_term(mdl, mngr, rdiv_cache, nelims, elim, &cube, extra_error,
+    code = append_projected_cube_term(mdl, mngr, construct_cache, rdiv_cache,
+                                      nelims, elim, &cube, extra_error,
                                       &have_first, &multiple, &first_projected, &cube_terms);
     if (code != 0) {
       // Projection error on this cube (typically a literal contains a
@@ -1761,8 +1877,9 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
 
   if (needs_fallback) {
     ivector_reset(&local);
-    ivector_add(&local, input.data, input.size);
-    code = gen_model_by_proj_local_with_cache(mdl, mngr, nelims, elim, &local, extra_error, rdiv_cache);
+    ivector_add(&local, input_abs.data, input_abs.size);
+    code = gen_model_by_proj_local_with_cache(mdl, mngr, nelims, elim, &local, extra_error,
+                                              construct_cache, rdiv_cache);
     if (code != 0) {
       goto cleanup;
     }
@@ -1797,8 +1914,9 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     collected = mk_or_safe(mngr, cube_terms.size, cube_terms.data);
     if (collected == NULL_TERM) {
       ivector_reset(&local);
-      ivector_add(&local, input.data, input.size);
-      code = gen_model_by_proj_local_with_cache(mdl, mngr, nelims, elim, &local, extra_error, rdiv_cache);
+      ivector_add(&local, input_abs.data, input_abs.size);
+      code = gen_model_by_proj_local_with_cache(mdl, mngr, nelims, elim, &local, extra_error,
+                                                construct_cache, rdiv_cache);
       if (code == 0) {
         ivector_add(v, local.data, local.size);
       }
@@ -1808,12 +1926,14 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   }
 
  cleanup:
-  delete_rdiv_preprocess_cache(rdiv_cache);
+  if (rdiv_cache != NULL) delete_rdiv_preprocess_cache(rdiv_cache);
+  if (construct_cache != NULL) delete_arith_construct_preprocess_cache(construct_cache);
   delete_ivector(&local);
   delete_ivector(&cube_terms);
   delete_ivector(&first_projected);
   delete_ivector(&cube);
   delete_ivector(&cubes);
+  delete_ivector(&input_abs);
   delete_ivector(&input);
   return code;
 }

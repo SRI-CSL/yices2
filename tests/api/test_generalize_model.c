@@ -996,6 +996,113 @@ static void run_rdiv_case(const char *tag, term_t formula, term_t elim_var, mode
   yices_free_model(mdl);
 }
 
+static void run_arith_construct_case(const char *tag, term_t formula,
+                                     uint32_t nelims, const term_t elim[],
+                                     model_t *mdl) {
+  term_vector_t v_local, v_wide;
+
+  assert(yices_formula_true_in_model(mdl, formula) == 1);
+  run_both_modes(tag, formula, mdl, nelims, elim, &v_local, &v_wide);
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
+static void test_abs_prepass_projection(void) {
+  term_t x, y, abs_x, bound, elim[1];
+  model_t *mdl;
+
+  printf("\n=== test_abs_prepass_projection ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_abs_proj");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_abs_proj");
+
+  abs_x = yices_abs(x);
+  bound = yices_arith_lt_atom(abs_x, y);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, -2, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 5, 1) == 0);
+
+  elim[0] = x;
+  run_arith_construct_case("abs_prepass_projection", bound, 1, elim, mdl);
+}
+
+static void test_floor_ceil_projection(void) {
+  term_t x, floor_x, ceil_x, f_atom, c_atom, formula, args[2], elim[1];
+  model_t *mdl;
+
+  printf("\n=== test_floor_ceil_projection ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_floor_ceil_proj");
+
+  floor_x = yices_floor(x);
+  ceil_x = yices_ceil(x);
+  f_atom = yices_arith_eq_atom(floor_x, yices_int32(1));
+  c_atom = yices_arith_eq_atom(ceil_x, yices_int32(2));
+  args[0] = f_atom;
+  args[1] = c_atom;
+  formula = yices_and(2, args);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 3, 2) == 0);
+
+  elim[0] = x;
+  run_arith_construct_case("floor_ceil_projection", formula, 1, elim, mdl);
+}
+
+static void test_idiv_projection(void) {
+  term_t x, y, div, div_atom, y_pos, formula, args[2], elim[1];
+  model_t *mdl;
+
+  printf("\n=== test_idiv_projection ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_idiv_proj");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_idiv_proj");
+
+  div = yices_idiv(x, y);
+  div_atom = yices_arith_eq_atom(div, yices_int32(2));
+  y_pos = yices_arith_gt0_atom(y);
+  args[0] = y_pos;
+  args[1] = div_atom;
+  formula = yices_and(2, args);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 5, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 2, 1) == 0);
+
+  elim[0] = x;
+  run_arith_construct_case("idiv_projection", formula, 1, elim, mdl);
+}
+
+static void test_imod_projection(void) {
+  term_t x, y, mod, mod_atom, y_pos, formula, args[2], elim[1];
+  model_t *mdl;
+
+  printf("\n=== test_imod_projection ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_imod_proj");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_imod_proj");
+
+  mod = yices_imod(x, y);
+  mod_atom = yices_arith_eq_atom(mod, yices_int32(1));
+  y_pos = yices_arith_gt0_atom(y);
+  args[0] = y_pos;
+  args[1] = mod_atom;
+  formula = yices_and(2, args);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 5, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 2, 1) == 0);
+
+  elim[0] = x;
+  run_arith_construct_case("imod_projection", formula, 1, elim, mdl);
+}
+
 static void test_rdiv_positive_denominator(void) {
   term_t x, y, div, bound, formula, expected;
   model_t *mdl;
@@ -1142,6 +1249,10 @@ int main(void) {
   test_nia_integer_elim_substitution();
   test_nia_presburger_salvage_multi_elim();
   test_nira_integer_subst_real_projection();
+  test_abs_prepass_projection();
+  test_floor_ceil_projection();
+  test_idiv_projection();
+  test_imod_projection();
   test_rdiv_positive_denominator();
   test_rdiv_negative_denominator();
   test_rdiv_hidden_in_sum();
