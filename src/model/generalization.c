@@ -85,11 +85,11 @@
  *   cannot force the loop through all 2^N assignments before falling
  *   back to local.
  *
- *   If the cap is hit with at least one success, the result is
- *   OR(collected, local) (broader than local alone). If no cube
- *   ever projects successfully, the wide path falls back to the
- *   local cell (which carries the underlying projector error code
- *   when both paths fail for the same reason).
+ *   If the cap is hit with at least one success, the result is the
+ *   collected projected cubes. If no cube ever projects successfully,
+ *   the wide path falls back to the local cell (which carries the
+ *   underlying projector error code when both paths fail for the same
+ *   reason).
  */
 
 #include <assert.h>
@@ -1744,14 +1744,6 @@ static void bool_dag_reset_tseitin(bool_dag_t *dag) {
   }
 }
 
-static term_t make_projected_cubes_term(term_manager_t *mngr, bool multiple,
-                                        const ivector_t *first_projected, const ivector_t *cube_terms) {
-  if (! multiple) {
-    return mk_and_safe(mngr, first_projected->size, first_projected->data);
-  }
-  return mk_or_safe(mngr, cube_terms->size, cube_terms->data);
-}
-
 static int32_t append_projected_cube_term(model_t *mdl, term_manager_t *mngr,
                                           arith_construct_preprocess_cache_t *construct_cache,
                                           rdiv_preprocess_cache_t *rdiv_cache,
@@ -1810,8 +1802,7 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   uint32_t i;
   int32_t code;
   bool have_first, multiple;
-  bool needs_fallback, exhausted_sat;
-  term_t collected, local_term, result_terms[2];
+  term_t collected;
 
   init_ivector(&input, v->size);
   ivector_add(&input, v->data, v->size);
@@ -1829,8 +1820,6 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   init_ivector(&local, 8);
   have_first = false;
   multiple = false;
-  needs_fallback = false;
-  exhausted_sat = false;
 
   pflag = preprocess_abs_terms(mngr, input.size, input.data, &input_abs, extra_error);
   if (pflag != PROJ_NO_ERROR) {
@@ -1846,7 +1835,6 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   if (code != 0) {
     goto cleanup;
   }
-  exhausted_sat = enum_status.sat_exhausted;
 
   for (i = 0; i < cubes.size; i++) {
     ivector_reset(&cube);
@@ -1865,17 +1853,12 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     }
   }
 
-  // Fall back to gen_model_by_proj_local when either:
-  //   - we hit the cube budget (might be more implicants to find);
-  //   - no cube ever projected successfully (so we have nothing useful
-  //     to return on our own, and local will surface the underlying
-  //     projector error code via its own pipeline; we are not expecting
-  //     local to succeed in that case).
-  if (!exhausted_sat || !have_first) {
-    needs_fallback = true;
-  }
-
-  if (needs_fallback) {
+  // Fall back to gen_model_by_proj_local only if no cube projected
+  // successfully. In that case we have nothing useful to return on our
+  // own, and local will surface the underlying projector error code via
+  // its own pipeline; we are not expecting local to succeed for the
+  // same unsupported-cube reason.
+  if (!have_first) {
     ivector_reset(&local);
     ivector_add(&local, input_abs.data, input_abs.size);
     code = gen_model_by_proj_local_with_cache(mdl, mngr, nelims, elim, &local, extra_error,
@@ -1883,26 +1866,8 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     if (code != 0) {
       goto cleanup;
     }
-    if (! have_first) {
-      ivector_reset(v);
-      ivector_add(v, local.data, local.size);
-    } else {
-      collected = make_projected_cubes_term(mngr, multiple, &first_projected, &cube_terms);
-      local_term = mk_and_safe(mngr, local.size, local.data);
-      ivector_reset(v);
-      if (collected == NULL_TERM || local_term == NULL_TERM) {
-        ivector_add(v, local.data, local.size);
-      } else {
-        result_terms[0] = collected;
-        result_terms[1] = local_term;
-        collected = mk_or_safe(mngr, 2, result_terms);
-        if (collected == NULL_TERM) {
-          ivector_add(v, local.data, local.size);
-        } else {
-          ivector_push(v, collected);
-        }
-      }
-    }
+    ivector_reset(v);
+    ivector_add(v, local.data, local.size);
     goto cleanup;
   }
 
@@ -1976,7 +1941,9 @@ int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n
  * for projection. cube_budget == 0 means unbounded (the Boolean
  * enumeration is always finite because each iteration adds a blocker
  * clause).
- * On budget exhaustion the wide result is OR(collected, local).
+ * On budget exhaustion, if at least one cube projected successfully, the
+ * wide result is the union of the collected projected cubes. If no cube
+ * projected successfully, the wide path falls back to local projection.
  */
 int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 				uint32_t nelims, const term_t elim[], ivector_t *v,

@@ -631,9 +631,10 @@ static void test_sat_guided_budget_graceful(void) {
 
   // The public yices_generalize_model() runs with cube_budget == 0
   // (unbounded). Call the explicit-budget variant with BUDGET = 4 so
-  // we exercise the OR(collected, local) budget-exhaustion fallback:
+  // we exercise budget exhaustion with successful collected cubes:
   // up to 2^NPAIRS = 2048 implicants exist and BUDGET = 4 is far
-  // below that.
+  // below that, but the projected cubes collected so far are still a
+  // sound wide cell.
   r = yices_generalize_model_with_budget(mdl, formula, 1, elim,
                                          YICES_GEN_BY_PROJ_WIDE, BUDGET, &v_wide);
   assert(r == 0);
