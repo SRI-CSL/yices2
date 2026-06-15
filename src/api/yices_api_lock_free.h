@@ -820,6 +820,12 @@ extern int32_t _o_yices_implicant_for_formula(model_t *mdl, term_t t, term_vecto
 
 extern int32_t _o_yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
 
+extern int32_t _o_yices_implicant_cubes_for_formula(model_t *mdl, term_t t,
+						    uint32_t max_cubes, term_vector_t *v);
+
+extern int32_t _o_yices_implicant_cubes_for_formulas(model_t *mdl, uint32_t n, const term_t a[],
+						     uint32_t max_cubes, term_vector_t *v);
+
 /*
  * MODEL GENERALIZATION
  */

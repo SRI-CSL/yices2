@@ -237,6 +237,77 @@ static void proj_build_val_subst(projector_t *proj) {
   proj->val_subst = tmp;
 }
 
+/*
+ * Build val_subst for the selected variables var[0 ... n-1].
+ * This is used before arithmetic projection to substitute integer
+ * eliminands without also substituting real eliminands.
+ */
+static void proj_build_selected_val_subst(projector_t *proj, uint32_t n, const term_t *var) {
+  term_subst_t *tmp;
+  ivector_t *v;
+  uint32_t m;
+  int32_t code;
+
+  assert(proj->val_subst == NULL);
+  assert(n > 0);
+
+  v = &proj->buffer;
+  resize_ivector(v, n);
+
+  code = evaluate_term_array(proj->mdl, n, var, v->data);
+  if (code < 0) {
+    // error in evaluation
+    proj_error(proj, PROJ_ERROR_IN_EVAL, code);
+    return;
+  }
+
+  // convert v->data[0 ... n-1] to constant terms
+  m = convert_value_array(proj->mngr, proj->terms, model_get_vtbl(proj->mdl), n, v->data);
+  assert(m <= n);
+  if (m < n) {
+    // no subcode for conversion errors
+    proj_error(proj, PROJ_ERROR_IN_CONVERT, 0);
+    return;
+  }
+
+  // build the substitution: var[i] is mapped to v->data[i]
+  tmp = (term_subst_t *) safe_malloc(sizeof(term_subst_t));
+  init_term_subst(tmp, proj->mngr, n, var, v->data);
+  proj->val_subst = tmp;
+}
+
+
+static bool term_array_contains(uint32_t n, const term_t *a, term_t x) {
+  uint32_t i;
+
+  for (i=0; i<n; i++) {
+    if (a[i] == x) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+static bool ivector_contains_term(const ivector_t *v, term_t x) {
+  uint32_t i, n;
+
+  n = v->size;
+  for (i=0; i<n; i++) {
+    if (v->data[i] == x) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+static void ivector_push_term_once(ivector_t *v, term_t x) {
+  if (!ivector_contains_term(v, x)) {
+    ivector_push(v, x);
+  }
+}
+
 
 /*
  * Delete: free memory
@@ -350,6 +421,7 @@ static void proj_add_pprod_vars(projector_t *proj, pprod_t *p) {
   term_t var;
 
   proj->is_nonlinear = true;
+  proj->is_presburger = false;
 
   n = p->len;
   i = 0;
@@ -528,6 +600,432 @@ static void proj_elim_by_substitution(projector_t *proj) {
  * ARITHMETIC
  */
 
+static void proj_subst_vector(projector_t *proj, ivector_t *v);
+static void proj_elim_by_model_value(projector_t *proj);
+static void proj_process_presburger_literals(projector_t *proj);
+
+/*
+ * Check whether any real arithmetic variable still needs arithmetic
+ * projection.
+ */
+static bool proj_has_real_evar(projector_t *proj) {
+  term_table_t *terms;
+  uint32_t i, n;
+
+  terms = proj->terms;
+  n = proj->num_evars;
+  for (i=0; i<n; i++) {
+    if (is_real_term(terms, proj->evars[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+static bool proj_has_integer_evar(projector_t *proj) {
+  term_table_t *terms;
+  uint32_t i, n;
+
+  terms = proj->terms;
+  n = proj->num_evars;
+  for (i=0; i<n; i++) {
+    if (is_integer_term(terms, proj->evars[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+/*
+ * Substitute var[0 ... nvars-1] by their model values.
+ * The substituted variables are also removed from proj->evars.
+ */
+static void proj_subst_evar_array(projector_t *proj, uint32_t nvars, const term_t *var) {
+  term_t x;
+  uint32_t i, j, n;
+
+  if (nvars == 0) {
+    return;
+  }
+
+  proj_build_selected_val_subst(proj, nvars, var);
+
+  if (proj->flag == PROJ_NO_ERROR) {
+    proj_subst_vector(proj, &proj->gen_literals);
+  }
+  if (proj->flag == PROJ_NO_ERROR) {
+    proj_subst_vector(proj, &proj->arith_literals);
+  }
+  proj_delete_val_subst(proj);
+
+  if (proj->flag != PROJ_NO_ERROR) {
+    return;
+  }
+
+  n = proj->num_evars;
+  j = 0;
+  for (i=0; i<n; i++) {
+    x = proj->evars[i];
+    if (!term_array_contains(nvars, var, x)) {
+      proj->evars[j] = x;
+      j ++;
+    }
+  }
+  proj->num_evars = j;
+}
+
+
+static void proj_collect_evars_by_type(projector_t *proj, ivector_t *v, bool integers) {
+  term_table_t *terms;
+  term_t x;
+  uint32_t i, n;
+
+  terms = proj->terms;
+  n = proj->num_evars;
+  for (i=0; i<n; i++) {
+    x = proj->evars[i];
+    if (integers ? is_integer_term(terms, x) : is_real_term(terms, x)) {
+      ivector_push(v, x);
+    }
+  }
+}
+
+
+/*
+ * Substitute integer eliminands by their model values before using the
+ * real-arithmetic projection machinery.
+ */
+static void proj_subst_integer_evars(projector_t *proj) {
+  ivector_t int_evars;
+
+  init_ivector(&int_evars, 0);
+  proj_collect_evars_by_type(proj, &int_evars, true);
+  proj_subst_evar_array(proj, int_evars.size, int_evars.data);
+  delete_ivector(&int_evars);
+}
+
+
+static void proj_init_route_copy(projector_t *dst, projector_t *src) {
+  init_projector(dst, src->mdl, src->mngr, src->num_evars, src->evars);
+  ivector_copy(&dst->gen_literals, src->gen_literals.data, src->gen_literals.size);
+  ivector_copy(&dst->arith_literals, src->arith_literals.data, src->arith_literals.size);
+  ivector_copy(&dst->arith_vars, src->arith_vars.data, src->arith_vars.size);
+  dst->is_presburger = src->is_presburger;
+  dst->is_nonlinear = src->is_nonlinear;
+}
+
+
+static void proj_reset_arith_var_collection(projector_t *proj) {
+  proj_delete_avars_to_keep(proj);
+  ivector_reset(&proj->arith_vars);
+}
+
+
+/*
+ * Reclassify the current arithmetic literals structurally.
+ *
+ * This intentionally reuses proj_add_arith_literal/proj_add_arith_term rather
+ * than relying on is_presburger_literal alone: the latter is a shallow
+ * integer-type test and does not reject residual power products.
+ */
+static void proj_reclassify_arith_literals(projector_t *proj) {
+  ivector_t lits;
+  uint32_t i, n;
+  term_t t;
+
+  init_ivector(&lits, proj->arith_literals.size);
+  ivector_copy(&lits, proj->arith_literals.data, proj->arith_literals.size);
+  ivector_reset(&proj->arith_literals);
+  proj_reset_arith_var_collection(proj);
+  proj->is_presburger = true;
+  proj->is_nonlinear = false;
+
+  n = lits.size;
+  for (i=0; i<n; i++) {
+    t = lits.data[i];
+    if (t == true_term) {
+      continue;
+    }
+    if (t == false_term) {
+      proj_error(proj, PROJ_ERROR_IN_SUBST, t);
+      break;
+    }
+    if (is_arithmetic_literal(proj->terms, t)) {
+      if (proj->is_presburger && !is_presburger_literal(proj->terms, t)) {
+        proj->is_presburger = false;
+      }
+      proj_add_arith_literal(proj, t);
+    } else {
+      ivector_push(&proj->gen_literals, t);
+    }
+    if (proj->flag != PROJ_NO_ERROR) {
+      break;
+    }
+  }
+
+  delete_ivector(&lits);
+}
+
+
+static bool proj_evar_member(projector_t *proj, term_t x) {
+  uint32_t i, n;
+
+  n = proj->num_evars;
+  for (i=0; i<n; i++) {
+    if (proj->evars[i] == x) {
+      return true;
+    }
+  }
+  return false;
+}
+
+
+static void proj_collect_pprod_int_evars_in_term(projector_t *proj, term_t t, ivector_t *v);
+
+static void proj_collect_pprod_int_evars_in_poly(projector_t *proj, polynomial_t *p, ivector_t *v) {
+  uint32_t i, n;
+
+  n = p->nterms;
+  i = 0;
+  if (i < n && p->mono[i].var == const_idx) {
+    i ++;
+  }
+  while (i < n) {
+    proj_collect_pprod_int_evars_in_term(proj, p->mono[i].var, v);
+    i ++;
+  }
+}
+
+
+static void proj_collect_pprod_int_evars_in_pprod(projector_t *proj, pprod_t *p, ivector_t *v) {
+  term_table_t *terms;
+  uint32_t i, n;
+  term_t x;
+
+  terms = proj->terms;
+  n = p->len;
+  for (i=0; i<n; i++) {
+    x = p->prod[i].var;
+    if (is_integer_term(terms, x) && proj_evar_member(proj, x)) {
+      ivector_push_term_once(v, x);
+    }
+    proj_collect_pprod_int_evars_in_term(proj, x, v);
+  }
+}
+
+
+static void proj_collect_pprod_int_evars_in_term(projector_t *proj, term_t t, ivector_t *v) {
+  switch (term_kind(proj->terms, t)) {
+  case ARITH_POLY:
+    proj_collect_pprod_int_evars_in_poly(proj, poly_term_desc(proj->terms, t), v);
+    break;
+
+  case POWER_PRODUCT:
+    proj_collect_pprod_int_evars_in_pprod(proj, pprod_term_desc(proj->terms, t), v);
+    break;
+
+  default:
+    break;
+  }
+}
+
+
+static void proj_collect_pprod_int_evars(projector_t *proj, ivector_t *v) {
+  composite_term_t *eq;
+  uint32_t i, n;
+  term_t t;
+
+  n = proj->arith_literals.size;
+  for (i=0; i<n; i++) {
+    t = proj->arith_literals.data[i];
+    switch (term_kind(proj->terms, t)) {
+    case ARITH_EQ_ATOM:
+    case ARITH_GE_ATOM:
+      proj_collect_pprod_int_evars_in_term(proj, arith_atom_arg(proj->terms, t), v);
+      break;
+
+    case ARITH_BINEQ_ATOM:
+      eq = arith_bineq_atom_desc(proj->terms, t);
+      assert(eq->arity == 2);
+      proj_collect_pprod_int_evars_in_term(proj, eq->arg[0], v);
+      proj_collect_pprod_int_evars_in_term(proj, eq->arg[1], v);
+      break;
+
+    default:
+      break;
+    }
+  }
+}
+
+
+static term_t proj_choose_integer_evar(projector_t *proj, ivector_t *priority) {
+  term_table_t *terms;
+  uint32_t i, n;
+  term_t x;
+
+  terms = proj->terms;
+  n = priority->size;
+  for (i=0; i<n; i++) {
+    x = priority->data[i];
+    if (proj_evar_member(proj, x) && is_integer_term(terms, x)) {
+      return x;
+    }
+  }
+
+  n = proj->num_evars;
+  for (i=0; i<n; i++) {
+    x = proj->evars[i];
+    if (is_integer_term(terms, x)) {
+      return x;
+    }
+  }
+
+  return NULL_TERM;
+}
+
+
+static bool proj_route_result(projector_t *route, ivector_t *result) {
+  if (route->flag == PROJ_NO_ERROR && route->num_evars > 0) {
+    proj_elim_by_model_value(route);
+  }
+  if (route->flag != PROJ_NO_ERROR) {
+    return false;
+  }
+  ivector_add(result, route->gen_literals.data, route->gen_literals.size);
+  ivector_add(result, route->arith_literals.data, route->arith_literals.size);
+  return true;
+}
+
+
+static bool proj_run_presburger_salvage(projector_t *proj, ivector_t *result) {
+  ivector_t real_evars, priority;
+  term_t x;
+
+  init_ivector(&real_evars, 0);
+  proj_collect_evars_by_type(proj, &real_evars, false);
+  proj_subst_evar_array(proj, real_evars.size, real_evars.data);
+  delete_ivector(&real_evars);
+  if (proj->flag != PROJ_NO_ERROR) {
+    return false;
+  }
+
+  proj_reclassify_arith_literals(proj);
+  if (proj->flag != PROJ_NO_ERROR) {
+    return false;
+  }
+
+  init_ivector(&priority, 0);
+  proj_collect_pprod_int_evars(proj, &priority);
+  while (!proj->is_presburger && proj_has_integer_evar(proj)) {
+    x = proj_choose_integer_evar(proj, &priority);
+    if (x == NULL_TERM) {
+      break;
+    }
+    proj_subst_evar_array(proj, 1, &x);
+    if (proj->flag != PROJ_NO_ERROR) {
+      delete_ivector(&priority);
+      return false;
+    }
+    proj_reclassify_arith_literals(proj);
+    if (proj->flag != PROJ_NO_ERROR) {
+      delete_ivector(&priority);
+      return false;
+    }
+  }
+  delete_ivector(&priority);
+
+  if (proj->is_presburger && proj->arith_literals.size > 0 && proj_has_integer_evar(proj)) {
+    proj_process_presburger_literals(proj);
+    if (proj->flag != PROJ_NO_ERROR) {
+      return false;
+    }
+  }
+
+  return proj_route_result(proj, result);
+}
+
+
+static void proj_commit_route_result(projector_t *proj, ivector_t *result) {
+  ivector_reset(&proj->gen_literals);
+  ivector_reset(&proj->arith_literals);
+  ivector_add(&proj->arith_literals, result->data, result->size);
+  proj->num_evars = 0;
+}
+
+
+static bool proj_make_route_term(projector_t *proj, ivector_t *result, term_t *out) {
+  if (result->size == 0) {
+    *out = true_term;
+    return true;
+  }
+  *out = mk_and_safe(proj->mngr, result->size, result->data);
+  return *out != NULL_TERM;
+}
+
+
+static void proj_factor_common_route_terms(ivector_t *left, ivector_t *right,
+                                           ivector_t *common, ivector_t *left_only, ivector_t *right_only) {
+  uint32_t i, n;
+  term_t t;
+
+  n = left->size;
+  for (i=0; i<n; i++) {
+    t = left->data[i];
+    if (ivector_contains_term(right, t)) {
+      ivector_push_term_once(common, t);
+    } else {
+      ivector_push(left_only, t);
+    }
+  }
+
+  n = right->size;
+  for (i=0; i<n; i++) {
+    t = right->data[i];
+    if (!ivector_contains_term(common, t)) {
+      ivector_push(right_only, t);
+    }
+  }
+}
+
+
+static void proj_commit_route_or(projector_t *proj, ivector_t *left, ivector_t *right) {
+  ivector_t common, left_only, right_only;
+  term_t route_terms[2];
+  term_t t;
+
+  init_ivector(&common, 0);
+  init_ivector(&left_only, 0);
+  init_ivector(&right_only, 0);
+  proj_factor_common_route_terms(left, right, &common, &left_only, &right_only);
+
+  if (!proj_make_route_term(proj, &left_only, &route_terms[0]) ||
+      !proj_make_route_term(proj, &right_only, &route_terms[1])) {
+    proj_error(proj, PROJ_ERROR_IN_SUBST, 0);
+    goto done;
+  }
+
+  t = mk_or_safe(proj->mngr, 2, route_terms);
+  if (t == NULL_TERM) {
+    proj_error(proj, PROJ_ERROR_IN_SUBST, 0);
+    goto done;
+  }
+
+  ivector_reset(&proj->gen_literals);
+  ivector_reset(&proj->arith_literals);
+  ivector_add(&proj->arith_literals, common.data, common.size);
+  if (t != true_term) {
+    ivector_push(&proj->arith_literals, t);
+  }
+  proj->num_evars = 0;
+
+ done:
+  delete_ivector(&common);
+  delete_ivector(&left_only);
+  delete_ivector(&right_only);
+}
+
 /*
  * Add a variable x to the internal arith_projector
  */
@@ -555,7 +1053,7 @@ static void proj_push_presburger_var(projector_t *proj, term_t x, bool to_elim) 
 }
 
 
-static void proj_process_arith_literals(projector_t *proj) {
+static void proj_process_real_arith_literals(projector_t *proj) {
   arith_projector_t *aproj;
   term_table_t *terms;
   uint32_t i, j, n;
@@ -566,6 +1064,17 @@ static void proj_process_arith_literals(projector_t *proj) {
   printf("[1]  --> Process arith_literals\n");
   fflush(stdout);
 #endif
+
+  proj_subst_integer_evars(proj);
+  if (proj->flag != PROJ_NO_ERROR) {
+    return;
+  }
+  if (proj->arith_literals.size == 0) {
+    return;
+  }
+  if (! proj_has_real_evar(proj)) {
+    return;
+  }
 
 #ifdef HAVE_MCSAT
   // check if there are any variables assigned to an algebraic number in the model
@@ -614,15 +1123,15 @@ static void proj_process_arith_literals(projector_t *proj) {
   proj_build_arith_proj(proj);
 
   /*
-   * Pass all arithmetic variables in proj->evars to the arithmetic projector
-   * and remove them from proj->evars.
+   * Pass all real arithmetic variables in proj->evars to the arithmetic
+   * projector and remove them from proj->evars.
    */
   terms = proj->terms;
   n = proj->num_evars;
   j = 0;
   for (i=0; i<n; i++) {
     x = proj->evars[i];
-    if (is_arithmetic_term(terms, x)) {
+    if (is_real_term(terms, x)) {
       proj_push_arith_var(proj, x, true);
     } else {
       proj->evars[j] = x;
@@ -758,6 +1267,68 @@ static void proj_process_presburger_literals(projector_t *proj) {
 
  done:
   proj_delete_presburger_proj(proj);
+}
+
+
+static void proj_process_arith_literals(projector_t *proj) {
+  projector_t pres_route, real_route;
+  ivector_t int_evars, real_evars, pres_result, real_result;
+  bool have_ints, have_reals, pres_ok, real_ok;
+
+  init_ivector(&int_evars, 0);
+  init_ivector(&real_evars, 0);
+  proj_collect_evars_by_type(proj, &int_evars, true);
+  proj_collect_evars_by_type(proj, &real_evars, false);
+  have_ints = int_evars.size > 0;
+  have_reals = real_evars.size > 0;
+  delete_ivector(&int_evars);
+  delete_ivector(&real_evars);
+
+  if (!have_ints) {
+    proj_process_real_arith_literals(proj);
+    return;
+  }
+
+  if (!have_reals) {
+    init_ivector(&pres_result, 0);
+    proj_init_route_copy(&pres_route, proj);
+    pres_ok = proj_run_presburger_salvage(&pres_route, &pres_result);
+    delete_projector(&pres_route);
+    if (pres_ok) {
+      proj_commit_route_result(proj, &pres_result);
+      delete_ivector(&pres_result);
+      return;
+    }
+    delete_ivector(&pres_result);
+
+    proj_process_real_arith_literals(proj);
+    return;
+  }
+
+  init_ivector(&pres_result, 0);
+  init_ivector(&real_result, 0);
+
+  proj_init_route_copy(&pres_route, proj);
+  pres_ok = proj_run_presburger_salvage(&pres_route, &pres_result);
+  delete_projector(&pres_route);
+
+  proj_init_route_copy(&real_route, proj);
+  proj_process_real_arith_literals(&real_route);
+  real_ok = proj_route_result(&real_route, &real_result);
+  delete_projector(&real_route);
+
+  if (pres_ok && real_ok) {
+    proj_commit_route_or(proj, &pres_result, &real_result);
+  } else if (pres_ok) {
+    proj_commit_route_result(proj, &pres_result);
+  } else if (real_ok) {
+    proj_commit_route_result(proj, &real_result);
+  } else {
+    proj_process_real_arith_literals(proj);
+  }
+
+  delete_ivector(&pres_result);
+  delete_ivector(&real_result);
 }
 
 
