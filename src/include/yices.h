@@ -4883,9 +4883,9 @@ __YICES_DLLSPEC__ extern int32_t yices_generalize_model_array(model_t *mdl, uint
  * - cube_budget caps the number of distinct normalized cubes attempted
  *   for projection inside the wide enumeration loop. Duplicate
  *   normalized cubes, if any, are skipped. When the cap is hit with at
- *   least one successful projection, the result is OR(collected,
- *   local-fallback); otherwise the wide path falls back to the local
- *   pipeline alone to obtain a meaningful error code.
+ *   least one successful projection, the result is the union of the
+ *   collected projected cubes; otherwise the wide path falls back to the
+ *   local pipeline alone to obtain a meaningful error code.
  * - cube_budget = 0 means unbounded (the Boolean enumeration is always
  *   finite -- each iteration adds a blocker clause).
  *
