@@ -4729,6 +4729,33 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formula(model_t *mdl, term_
 __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
 
 
+/*
+ * Variant: enumerate several implicant cubes for formula t in mdl.
+ * - the Boolean abstraction is searched with strict false-first
+ *   decisions and superset blockers, so returned cubes are built from
+ *   subset-minimal satisfying sets of abstraction literals.
+ * - max_cubes is the maximum number of distinct cubes to return.
+ * - max_cubes = 0 means no explicit cap.
+ *
+ * If the return code is 0, then v contains one term per cube. Each term
+ * is a conjunction of literals true in mdl and implies t. If the return
+ * code is -1, v is empty and the error report is as for
+ * yices_implicant_for_formula.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_implicant_cubes_for_formula(model_t *mdl, term_t t,
+                                                                   uint32_t max_cubes,
+                                                                   term_vector_t *v);
+
+
+/*
+ * Same thing for a conjunction of formulas a[0] ... a[n-1].
+ */
+__YICES_DLLSPEC__ extern int32_t yices_implicant_cubes_for_formulas(model_t *mdl, uint32_t n,
+                                                                    const term_t a[],
+                                                                    uint32_t max_cubes,
+                                                                    term_vector_t *v);
+
+
 
 /*
  * MODEL GENERALIZATION
@@ -4853,12 +4880,12 @@ __YICES_DLLSPEC__ extern int32_t yices_generalize_model_array(model_t *mdl, uint
  * YICES_GEN_BY_PROJ, and YICES_GEN_DEFAULT.
  *
  * For YICES_GEN_BY_PROJ_WIDE:
- * - cube_budget caps the number of SAT iterations (extracted cubes,
- *   whether or not the per-cube projection succeeds) inside the wide
- *   enumeration loop. When the cap is hit with at least one successful
- *   projection, the result is OR(collected, local-fallback); otherwise
- *   the wide path falls back to the local pipeline alone to obtain a
- *   meaningful error code.
+ * - cube_budget caps the number of distinct normalized cubes attempted
+ *   for projection inside the wide enumeration loop. Duplicate
+ *   normalized cubes, if any, are skipped. When the cap is hit with at
+ *   least one successful projection, the result is OR(collected,
+ *   local-fallback); otherwise the wide path falls back to the local
+ *   pipeline alone to obtain a meaningful error code.
  * - cube_budget = 0 means unbounded (the Boolean enumeration is always
  *   finite -- each iteration adds a blocker clause).
  *
