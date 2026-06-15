@@ -1058,6 +1058,11 @@ static void test_idiv_projection(void) {
   model_t *mdl;
 
   printf("\n=== test_idiv_projection ===\n");
+  if (! yices_has_mcsat()) {
+    printf("  -> skipped: nonlinear arithmetic projection support not available\n");
+    return;
+  }
+
   x = yices_new_uninterpreted_term(yices_real_type());
   yices_set_term_name(x, "x_idiv_proj");
   y = yices_new_uninterpreted_term(yices_real_type());
@@ -1083,6 +1088,11 @@ static void test_imod_projection(void) {
   model_t *mdl;
 
   printf("\n=== test_imod_projection ===\n");
+  if (! yices_has_mcsat()) {
+    printf("  -> skipped: nonlinear arithmetic projection support not available\n");
+    return;
+  }
+
   x = yices_new_uninterpreted_term(yices_real_type());
   yices_set_term_name(x, "x_imod_proj");
   y = yices_new_uninterpreted_term(yices_real_type());
@@ -1150,6 +1160,11 @@ static void test_rdiv_hidden_in_sum(void) {
   model_t *mdl;
 
   printf("\n=== test_rdiv_hidden_in_sum ===\n");
+  if (! yices_has_mcsat()) {
+    printf("  -> skipped: nonlinear arithmetic projection support not available\n");
+    return;
+  }
+
   x = yices_new_uninterpreted_term(yices_real_type());
   yices_set_term_name(x, "x_rdiv_sum");
   a = yices_new_uninterpreted_term(yices_real_type());
