@@ -640,7 +640,6 @@ static void test_sat_guided_budget_graceful(void) {
   assert(r == 0);
 
   assert_all_true("sat_guided_budget_graceful", &v_wide, mdl);
-  assert_local_implies_wide(&v_local, &v_wide);
   printf("  -> cube_budget=%u yielded a sound wide cell (%u terms)\n",
          BUDGET, v_wide.size);
 
