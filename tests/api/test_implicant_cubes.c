@@ -148,11 +148,43 @@ static void test_arithmetic_ite_condition_free_cube(void) {
   yices_free_model(mdl);
 }
 
+static void test_forced_last_cube_exhausts(void) {
+  type_t bool_type;
+  term_t a, b, target, model_formula;
+  model_t *mdl;
+  term_vector_t cubes;
+
+  printf("\n=== test_forced_last_cube_exhausts ===\n");
+  fflush(stdout);
+
+  bool_type = yices_bool_type();
+  a = yices_new_uninterpreted_term(bool_type);
+  b = yices_new_uninterpreted_term(bool_type);
+  yices_set_term_name(a, "forced_a");
+  yices_set_term_name(b, "forced_b");
+
+  target = yices_or2(a, b);
+  model_formula = yices_and2(a, yices_not(b));
+  mdl = model_for("QF_UF", model_formula);
+
+  yices_init_term_vector(&cubes);
+  assert(yices_implicant_cubes_for_formula(mdl, target, 0, &cubes) == 0);
+  printf("cubes: %u\n", cubes.size);
+  yices_pp_term_array(stdout, cubes.size, cubes.data, 120, 10, 0, 1);
+
+  assert(cubes.size == 1);
+  assert_cube_contract("QF_UF", mdl, target, cubes.data[0]);
+
+  yices_delete_term_vector(&cubes);
+  yices_free_model(mdl);
+}
+
 int main(void) {
   yices_init();
 
   test_boolean_subset_minimal_cubes();
   test_arithmetic_ite_condition_free_cube();
+  test_forced_last_cube_exhausts();
 
   yices_exit();
   return 0;

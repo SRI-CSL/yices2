@@ -82,14 +82,11 @@
  *   forbids at least one assignment of the abstraction). The cap
  *   deliberately counts attempts rather than successful projections so
  *   that an input whose every implicant uses an unsupported literal
- *   cannot force the loop through all 2^N assignments before falling
- *   back to local.
+ *   cannot force the loop through all 2^N assignments.
  *
  *   If the cap is hit with at least one success, the result is the
- *   collected projected cubes. If no cube ever projects successfully,
- *   the wide path falls back to the local cell (which carries the
- *   underlying projector error code when both paths fail for the same
- *   reason).
+ *   collected projected cubes. If no cube projects successfully, the
+ *   wide path falls back to the local cell.
  */
 
 #include <assert.h>
@@ -1410,6 +1407,11 @@ static literal_t core_clausify_node(bool_dag_t *dag, smt_core_t *core, bool_node
 static smt_status_t bool_core_solve_negative(smt_core_t *core) {
   literal_t l;
 
+  // A blocker can simplify to the empty clause. start_search clears this flag.
+  if (core->inconsistent) {
+    return YICES_STATUS_UNSAT;
+  }
+
   start_search(core, 0, NULL);
   smt_process(core);
   while (smt_status(core) == YICES_STATUS_SEARCHING) {
@@ -1514,36 +1516,23 @@ static void collect_selected_literals(abs_builder_t *b, smt_core_t *core, ivecto
   }
 }
 
-static void add_superset_blocker(ivector_t *blocker_lits, ivector_t *blocker_starts,
-                                 const ivector_t *selected_lits) {
+static void add_superset_blocker_to_core(smt_core_t *core, const ivector_t *selected_lits) {
+  ivector_t clause;
   uint32_t i, n;
 
   n = selected_lits->size;
-  ivector_push(blocker_starts, blocker_lits->size);
+  init_ivector(&clause, n);
   for (i = 0; i < n; i++) {
-    ivector_push(blocker_lits, not(selected_lits->data[i]));
+    ivector_push(&clause, not(selected_lits->data[i]));
   }
+  core_add_clause(core, clause.size, clause.data);
+  delete_ivector(&clause);
 }
 
-static void add_stored_blockers_to_core(smt_core_t *core, const ivector_t *blocker_lits,
-                                        const ivector_t *blocker_starts) {
-  uint32_t i, n, start, end;
-
-  n = blocker_starts->size;
-  for (i = 0; i < n; i++) {
-    start = blocker_starts->data[i];
-    end = (i + 1 < n) ? blocker_starts->data[i + 1] : blocker_lits->size;
-    core_add_clause(core, end - start, blocker_lits->data + start);
-  }
-}
-
-static smt_status_t solve_abstraction_with_blockers(abs_builder_t *builder, bool_node_id_t root,
-                                                    const ivector_t *blocker_lits,
-                                                    const ivector_t *blocker_starts,
-                                                    smt_core_t *core) {
+static void init_abstraction_core(abs_builder_t *builder, bool_node_id_t root, smt_core_t *core) {
   literal_t root_lit;
 
-  init_smt_core(core, builder->bvar_to_lit.size + builder->dag.size + blocker_lits->size + 8,
+  init_smt_core(core, builder->bvar_to_lit.size + builder->dag.size + 8,
                 NULL, &gen_bool_ctrl, &gen_bool_smt, SMT_MODE_BASIC);
   smt_core_set_bool_only(core);
   set_randomness(core, 0.0f);
@@ -1552,9 +1541,6 @@ static smt_status_t solve_abstraction_with_blockers(abs_builder_t *builder, bool
   bool_dag_reset_tseitin(&builder->dag);
   root_lit = core_clausify_node(&builder->dag, core, root);
   core_add_unit_clause(core, root_lit);
-  add_stored_blockers_to_core(core, blocker_lits, blocker_starts);
-
-  return bool_core_solve_negative(core);
 }
 
 typedef struct cube_enum_status_s {
@@ -1621,7 +1607,7 @@ static int32_t enumerate_implicant_cubes_with_status(model_t *mdl, term_manager_
   abs_builder_t builder;
   smt_core_t core;
   int_array_hset_t seen;
-  ivector_t selected_lits, cube, blocker_lits, blocker_starts;
+  ivector_t selected_lits, cube;
   bool_node_id_t root;
   smt_status_t core_status;
   int32_t code;
@@ -1635,8 +1621,6 @@ static int32_t enumerate_implicant_cubes_with_status(model_t *mdl, term_manager_
   init_int_array_hset(&seen, 0);
   init_ivector(&selected_lits, 16);
   init_ivector(&cube, 16);
-  init_ivector(&blocker_lits, 16);
-  init_ivector(&blocker_starts, 16);
   builder_inited = true;
   seen_inited = true;
   core_inited = false;
@@ -1673,23 +1657,21 @@ static int32_t enumerate_implicant_cubes_with_status(model_t *mdl, term_manager_
     goto cleanup;
   }
 
+  init_abstraction_core(&builder, root, &core);
+  core_inited = true;
+
   for (;;) {
     if (max_cubes != 0 && cubes->size >= max_cubes) {
       status->budget_exhausted = true;
       break;
     }
 
-    core_status = solve_abstraction_with_blockers(&builder, root, &blocker_lits, &blocker_starts, &core);
-    core_inited = true;
+    core_status = bool_core_solve_negative(&core);
     if (core_status == YICES_STATUS_UNSAT) {
       status->sat_exhausted = true;
-      delete_smt_core(&core);
-      core_inited = false;
       break;
     }
     if (core_status != YICES_STATUS_SAT) {
-      delete_smt_core(&core);
-      core_inited = false;
       code = GEN_EVAL_INTERNAL_ERROR;
       goto cleanup;
     }
@@ -1698,8 +1680,6 @@ static int32_t enumerate_implicant_cubes_with_status(model_t *mdl, term_manager_
 #ifndef NDEBUG
     assert_selected_satisfies_root(&builder, root, &selected_lits);
 #endif
-    delete_smt_core(&core);
-    core_inited = false;
 
     code = add_normalized_implicant_cube(mdl, mngr, cube.size, cube.data, &seen, cubes, &added);
     if (code != 0) {
@@ -1714,12 +1694,15 @@ static int32_t enumerate_implicant_cubes_with_status(model_t *mdl, term_manager_
       break;
     }
 
-    add_superset_blocker(&blocker_lits, &blocker_starts, &selected_lits);
+    smt_clear(&core);
+    add_superset_blocker_to_core(&core, &selected_lits);
+    if (core.inconsistent) {
+      status->sat_exhausted = true;
+      break;
+    }
   }
 
  cleanup:
-  delete_ivector(&blocker_starts);
-  delete_ivector(&blocker_lits);
   delete_ivector(&cube);
   delete_ivector(&selected_lits);
   if (core_inited) delete_smt_core(&core);
@@ -1853,12 +1836,9 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
     }
   }
 
-  // Fall back to gen_model_by_proj_local only if no cube projected
-  // successfully. In that case we have nothing useful to return on our
-  // own, and local will surface the underlying projector error code via
-  // its own pipeline; we are not expecting local to succeed for the
-  // same unsupported-cube reason.
   if (!have_first) {
+    // If no cube projected successfully, local will surface the underlying
+    // projector error code via its own path.
     ivector_reset(&local);
     ivector_add(&local, input_abs.data, input_abs.size);
     code = gen_model_by_proj_local_with_cache(mdl, mngr, nelims, elim, &local, extra_error,
