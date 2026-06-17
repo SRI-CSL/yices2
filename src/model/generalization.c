@@ -868,20 +868,17 @@ static bool find_ite_subterm_in_term(abs_builder_t *b, term_t t, term_t *ite) {
 
 static term_t replace_ite_subterm(abs_builder_t *b, term_t t, term_t from, term_t to, bool *ok);
 
-static term_t replace_ite_subterm_in_children(abs_builder_t *b, composite_term_t *d, term_t from, term_t to, bool *ok) {
-  term_t *a;
+static bool replace_ite_subterm_in_children(abs_builder_t *b, composite_term_t *d, term_t from, term_t to, bool *ok, term_t a[]) {
   uint32_t i, n;
 
   n = d->arity;
-  a = (term_t *) safe_malloc(n * sizeof(term_t));
   for (i = 0; i < n; i++) {
     a[i] = replace_ite_subterm(b, d->arg[i], from, to, ok);
     if (! *ok || a[i] == NULL_TERM) {
-      safe_free(a);
-      return NULL_TERM;
+      return false;
     }
   }
-  return (term_t)(intptr_t) a;
+  return true;
 }
 
 static term_t replace_ite_subterm_in_pprod(abs_builder_t *b, pprod_t *p, term_t from, term_t to, bool *ok) {
@@ -974,8 +971,11 @@ static term_t replace_ite_subterm(abs_builder_t *b, term_t t, term_t from, term_
   case ITE_TERM:
   case ITE_SPECIAL:
     d = ite_term_desc(b->terms, base);
-    a = (term_t *)(intptr_t) replace_ite_subterm_in_children(b, d, from, to, ok);
-    if (! *ok) return NULL_TERM;
+    a = (term_t *) safe_malloc(d->arity * sizeof(term_t));
+    if (! replace_ite_subterm_in_children(b, d, from, to, ok, a)) {
+      safe_free(a);
+      return NULL_TERM;
+    }
     result = mk_ite(b->mngr, a[0], a[1], a[2], term_type(b->terms, base));
     safe_free(a);
     break;
@@ -990,72 +990,99 @@ static term_t replace_ite_subterm(abs_builder_t *b, term_t t, term_t from, term_
 
   case EQ_TERM:
     d = eq_term_desc(b->terms, base);
-    a = (term_t *)(intptr_t) replace_ite_subterm_in_children(b, d, from, to, ok);
-    if (! *ok) return NULL_TERM;
+    a = (term_t *) safe_malloc(d->arity * sizeof(term_t));
+    if (! replace_ite_subterm_in_children(b, d, from, to, ok, a)) {
+      safe_free(a);
+      return NULL_TERM;
+    }
     result = mk_eq(b->mngr, a[0], a[1]);
     safe_free(a);
     break;
 
   case DISTINCT_TERM:
     d = distinct_term_desc(b->terms, base);
-    a = (term_t *)(intptr_t) replace_ite_subterm_in_children(b, d, from, to, ok);
-    if (! *ok) return NULL_TERM;
+    a = (term_t *) safe_malloc(d->arity * sizeof(term_t));
+    if (! replace_ite_subterm_in_children(b, d, from, to, ok, a)) {
+      safe_free(a);
+      return NULL_TERM;
+    }
     result = mk_distinct(b->mngr, d->arity, a);
     safe_free(a);
     break;
 
   case OR_TERM:
     d = or_term_desc(b->terms, base);
-    a = (term_t *)(intptr_t) replace_ite_subterm_in_children(b, d, from, to, ok);
-    if (! *ok) return NULL_TERM;
+    a = (term_t *) safe_malloc(d->arity * sizeof(term_t));
+    if (! replace_ite_subterm_in_children(b, d, from, to, ok, a)) {
+      safe_free(a);
+      return NULL_TERM;
+    }
     result = mk_or_safe(b->mngr, d->arity, a);
     safe_free(a);
     break;
 
   case XOR_TERM:
     d = xor_term_desc(b->terms, base);
-    a = (term_t *)(intptr_t) replace_ite_subterm_in_children(b, d, from, to, ok);
-    if (! *ok) return NULL_TERM;
+    a = (term_t *) safe_malloc(d->arity * sizeof(term_t));
+    if (! replace_ite_subterm_in_children(b, d, from, to, ok, a)) {
+      safe_free(a);
+      return NULL_TERM;
+    }
     result = mk_xor_safe(b->mngr, d->arity, a);
     safe_free(a);
     break;
 
   case ARITH_BINEQ_ATOM:
     d = arith_bineq_atom_desc(b->terms, base);
-    a = (term_t *)(intptr_t) replace_ite_subterm_in_children(b, d, from, to, ok);
-    if (! *ok) return NULL_TERM;
+    a = (term_t *) safe_malloc(d->arity * sizeof(term_t));
+    if (! replace_ite_subterm_in_children(b, d, from, to, ok, a)) {
+      safe_free(a);
+      return NULL_TERM;
+    }
     result = mk_arith_eq(b->mngr, a[0], a[1]);
     safe_free(a);
     break;
 
   case ARITH_RDIV:
     d = arith_rdiv_term_desc(b->terms, base);
-    a = (term_t *)(intptr_t) replace_ite_subterm_in_children(b, d, from, to, ok);
-    if (! *ok) return NULL_TERM;
+    a = (term_t *) safe_malloc(d->arity * sizeof(term_t));
+    if (! replace_ite_subterm_in_children(b, d, from, to, ok, a)) {
+      safe_free(a);
+      return NULL_TERM;
+    }
     result = mk_arith_rdiv(b->mngr, a[0], a[1]);
     safe_free(a);
     break;
 
   case ARITH_IDIV:
     d = arith_idiv_term_desc(b->terms, base);
-    a = (term_t *)(intptr_t) replace_ite_subterm_in_children(b, d, from, to, ok);
-    if (! *ok) return NULL_TERM;
+    a = (term_t *) safe_malloc(d->arity * sizeof(term_t));
+    if (! replace_ite_subterm_in_children(b, d, from, to, ok, a)) {
+      safe_free(a);
+      return NULL_TERM;
+    }
     result = mk_arith_idiv(b->mngr, a[0], a[1]);
     safe_free(a);
     break;
 
   case ARITH_MOD:
     d = arith_mod_term_desc(b->terms, base);
-    a = (term_t *)(intptr_t) replace_ite_subterm_in_children(b, d, from, to, ok);
-    if (! *ok) return NULL_TERM;
+    a = (term_t *) safe_malloc(d->arity * sizeof(term_t));
+    if (! replace_ite_subterm_in_children(b, d, from, to, ok, a)) {
+      safe_free(a);
+      return NULL_TERM;
+    }
     result = mk_arith_mod(b->mngr, a[0], a[1]);
     safe_free(a);
     break;
 
   case BV_EQ_ATOM:
     d = bveq_atom_desc(b->terms, base);
-    a = (term_t *)(intptr_t) replace_ite_subterm_in_children(b, d, from, to, ok);
-    if (! *ok) return NULL_TERM;
+    a = (term_t *) safe_malloc(d->arity * sizeof(term_t));
+    if (! replace_ite_subterm_in_children(b, d, from, to, ok, a)) {
+      safe_free(a);
+      return NULL_TERM;
+    }
     result = mk_bveq(b->mngr, a[0], a[1]);
     safe_free(a);
     break;

@@ -1247,6 +1247,40 @@ static void test_rdiv_ite_dead_branch_denominator(void) {
   run_rdiv_case("rdiv_ite_dead_branch_denominator", formula, x, mdl);
 }
 
+static void test_rdiv_ite_denominator_subterm(void) {
+  term_t x, y, z, c, denom, div, bound, args[4], formula;
+  term_t expected;
+  model_t *mdl;
+
+  printf("\n=== test_rdiv_ite_denominator_subterm ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_rdiv_ite_denom");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_rdiv_ite_denom");
+  z = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(z, "z_rdiv_ite_denom");
+  c = yices_new_uninterpreted_term(yices_bool_type());
+  yices_set_term_name(c, "c_rdiv_ite_denom");
+
+  denom = yices_ite(c, y, z);
+  div = yices_division(x, denom);
+  bound = yices_arith_lt_atom(div, yices_int32(3));
+  expected = yices_arith_gt0_atom(y);
+
+  args[0] = c;
+  args[1] = expected;
+  args[2] = yices_arith_eq0_atom(z);
+  args[3] = bound;
+  formula = yices_and(4, args);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 0, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 1, 1) == 0);
+  assert(yices_model_set_rational32(mdl, z, 0, 1) == 0);
+  assert(yices_model_set_bool(mdl, c, 1) == 0);
+  run_rdiv_case("rdiv_ite_denominator_subterm", formula, x, mdl);
+}
+
 
 int main(void) {
   yices_init();
@@ -1275,6 +1309,7 @@ int main(void) {
   test_rdiv_hidden_in_product();
 #endif
   test_rdiv_ite_dead_branch_denominator();
+  test_rdiv_ite_denominator_subterm();
 
   yices_exit();
   printf("\nALL TESTS PASSED\n");
