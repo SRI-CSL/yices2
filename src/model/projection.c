@@ -194,6 +194,26 @@ static void proj_build_presburger_proj(projector_t *proj) {
 }
 
 
+static bool proj_get_rational_value(projector_t *proj, term_t x, rational_t **q) {
+  value_table_t *vtbl;
+  value_t v;
+
+  vtbl = model_get_vtbl(proj->mdl);
+  v = model_get_term_value(proj->mdl, x);
+  if (v < 0) {
+    proj_error(proj, PROJ_ERROR_IN_EVAL, v);
+    return false;
+  }
+  if (! object_is_rational(vtbl, v)) {
+    proj_error(proj, PROJ_ERROR_IN_CONVERT, 0);
+    return false;
+  }
+
+  *q = vtbl_rational(vtbl, v);
+  return true;
+}
+
+
 /*
  * Allocate and initialize val_subst:
  * - scan all variables in proj->evars
@@ -1031,25 +1051,23 @@ static void proj_commit_route_or(projector_t *proj, ivector_t *left, ivector_t *
  */
 static void proj_push_arith_var(projector_t *proj, term_t x, bool to_elim) {
   rational_t *q;
-  value_t v;
 
   assert(proj->arith_proj != NULL);
 
-  v = model_get_term_value(proj->mdl, x);
-  q = vtbl_rational(model_get_vtbl(proj->mdl), v);
-  aproj_add_var(proj->arith_proj, x, to_elim, q);
+  if (proj_get_rational_value(proj, x, &q)) {
+    aproj_add_var(proj->arith_proj, x, to_elim, q);
+  }
 }
 
 
 static void proj_push_presburger_var(projector_t *proj, term_t x, bool to_elim) {
   rational_t *q;
-  value_t v;
 
   assert(proj->presburger != NULL);
 
-  v = model_get_term_value(proj->mdl, x);
-  q = vtbl_rational(model_get_vtbl(proj->mdl), v);
-  presburger_add_var(proj->presburger, x, to_elim, q);
+  if (proj_get_rational_value(proj, x, &q)) {
+    presburger_add_var(proj->presburger, x, to_elim, q);
+  }
 }
 
 
@@ -1082,6 +1100,10 @@ static void proj_process_real_arith_literals(projector_t *proj) {
   for (i = 0; !proj->is_nonlinear && i < proj->num_evars; ++ i) {
     x = proj->evars[i];
     value_t v = model_get_term_value(proj->mdl, x);
+    if (v < 0) {
+      proj_error(proj, PROJ_ERROR_IN_EVAL, v);
+      return;
+    }
     if (object_is_algebraic(&proj->mdl->vtbl, v)) {
       proj->is_nonlinear = true;
     }
@@ -1089,6 +1111,10 @@ static void proj_process_real_arith_literals(projector_t *proj) {
   for (i = 0; !proj->is_nonlinear && i < proj->arith_vars.size; ++ i) {
     x = proj->arith_vars.data[i];
     value_t v = model_get_term_value(proj->mdl, x);
+    if (v < 0) {
+      proj_error(proj, PROJ_ERROR_IN_EVAL, v);
+      return;
+    }
     if (object_is_algebraic(&proj->mdl->vtbl, v)) {
       proj->is_nonlinear = true;
     }
@@ -1133,6 +1159,9 @@ static void proj_process_real_arith_literals(projector_t *proj) {
     x = proj->evars[i];
     if (is_real_term(terms, x)) {
       proj_push_arith_var(proj, x, true);
+      if (proj->flag != PROJ_NO_ERROR) {
+        goto done;
+      }
     } else {
       proj->evars[j] = x;
       j ++;
@@ -1146,6 +1175,9 @@ static void proj_process_real_arith_literals(projector_t *proj) {
     x = proj->arith_vars.data[i];
     assert(is_arithmetic_term(terms, x));
     proj_push_arith_var(proj, x, false);
+    if (proj->flag != PROJ_NO_ERROR) {
+      goto done;
+    }
   }
 
   // Process the arithmetic literals
@@ -1214,6 +1246,9 @@ static void proj_process_presburger_literals(projector_t *proj) {
     x = proj->evars[i];
     if (is_integer_term(terms, x)) {
       proj_push_presburger_var(proj, x, true);
+      if (proj->flag != PROJ_NO_ERROR) {
+        goto done;
+      }
     } else {
       proj->evars[j] = x;
       j ++;
@@ -1227,6 +1262,9 @@ static void proj_process_presburger_literals(projector_t *proj) {
     x = proj->arith_vars.data[i];
     assert(is_arithmetic_term(terms, x));
     proj_push_presburger_var(proj, x, false);
+    if (proj->flag != PROJ_NO_ERROR) {
+      goto done;
+    }
   }
 
   // Process the presburger literals
