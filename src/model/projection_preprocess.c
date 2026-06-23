@@ -853,6 +853,8 @@ static term_t fresh_int_aux(construct_preproc_t *p, const rational_t *value) {
 
   assert(q_is_integer(value));
 
+  // Yices terms are append-only: deleting this cache later removes only the
+  // temporary model mapping, not the fresh term itself.
   aux = new_uninterpreted_term(p->terms, int_type(p->terms->types));
   if (aux == NULL_TERM) {
     return NULL_TERM;
@@ -1590,6 +1592,9 @@ static proj_flag_t model_sign_and_guard_for(model_t *mdl, term_manager_t *mngr, 
     }
   }
 
+  // If t is nonlinear, the sign guard may also be nonlinear. That is
+  // intentional: projection may skip this cube in non-MCSAT builds,
+  // but the guarded rewrite remains sound for cubes that can project.
   if (sgn > 0) {
     *sign = RDIV_SIGN_POS;
     *guard = (term_kind(terms, t) == ARITH_CONSTANT) ? true_term : mk_arith_term_gt0(mngr, t);

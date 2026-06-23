@@ -1356,6 +1356,8 @@ static th_ctrl_interface_t gen_bool_ctrl = {
 };
 
 static th_smt_interface_t gen_bool_smt = {
+  // The core is always put in bool-only mode before search. These theory-SMT
+  // hooks must therefore be unreachable for this enumeration-only solver.
   NULL, NULL, NULL, NULL, NULL,
 };
 
@@ -1853,6 +1855,9 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   if (code < 0) {
     goto cleanup;
   }
+  // The enumerator returns the number of encoded cubes on success. A
+  // model-true formula always has at least one implicant cube, possibly
+  // the empty cube represented by an empty stream.
   assert(code > 0);
   num_cubes = (uint32_t) code;
 

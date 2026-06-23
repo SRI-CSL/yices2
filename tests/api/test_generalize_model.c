@@ -983,6 +983,61 @@ static void test_nira_integer_subst_real_projection(void) {
   yices_free_model(mdl);
 }
 
+static void test_mixed_route_or_preserves_presburger(void) {
+  term_t x, i, rvar;
+  term_t even_def, r_pos, formula, model_formula;
+  term_t admits_other_even, rejects_odd;
+  term_t elim[2];
+  model_t *mdl;
+  term_vector_t v_local, v_wide;
+
+  printf("\n=== test_mixed_route_or_preserves_presburger ===\n");
+  x = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(x, "x_route_or");
+  i = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(i, "i_route_or");
+  rvar = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(rvar, "r_route_or");
+
+  even_def = yices_arith_eq_atom(x, yices_mul(yices_int32(2), i));
+  r_pos = yices_arith_gt0_atom(rvar);
+  formula = yices_and2(even_def, r_pos);
+  model_formula = yices_and(3, (term_t[]) {
+      formula,
+      yices_arith_eq_atom(x, yices_int32(4)),
+      yices_arith_eq_atom(i, yices_int32(2)),
+  });
+  model_formula = yices_and2(model_formula, yices_arith_eq_atom(rvar, yices_int32(1)));
+  mdl = check_and_get_model_for_logic(model_formula, "QF_LIRA", false);
+
+  elim[0] = i;
+  elim[1] = rvar;
+  run_both_modes("mixed_route_or_preserves_presburger", formula, mdl, 2, elim,
+                 &v_local, &v_wide);
+
+  admits_other_even = yices_arith_eq_atom(x, yices_int32(6));
+  rejects_odd = yices_arith_eq_atom(x, yices_int32(3));
+
+  assert_generalization_with_term_status("mixed_route_or_preserves_presburger/local-admits",
+                                         &v_local, admits_other_even, "QF_LIRA", false,
+                                         YICES_STATUS_SAT);
+  assert_generalization_with_term_status("mixed_route_or_preserves_presburger/wide-admits",
+                                         &v_wide, admits_other_even, "QF_LIRA", false,
+                                         YICES_STATUS_SAT);
+  assert_generalization_with_term_status("mixed_route_or_preserves_presburger/local-rejects",
+                                         &v_local, rejects_odd, "QF_LIRA", false,
+                                         YICES_STATUS_UNSAT);
+  assert_generalization_with_term_status("mixed_route_or_preserves_presburger/wide-rejects",
+                                         &v_wide, rejects_odd, "QF_LIRA", false,
+                                         YICES_STATUS_UNSAT);
+
+  printf("  -> route OR preserves the Presburger evenness cell\n");
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
 static void run_rdiv_case(const char *tag, term_t formula, term_t elim_var, model_t *mdl) {
   term_t elim[1];
   term_vector_t v_local, v_wide;
@@ -1298,6 +1353,7 @@ int main(void) {
   test_nia_integer_elim_substitution();
   test_nia_presburger_salvage_multi_elim();
   test_nira_integer_subst_real_projection();
+  test_mixed_route_or_preserves_presburger();
   test_abs_prepass_projection();
   test_floor_ceil_projection();
   test_idiv_projection();
