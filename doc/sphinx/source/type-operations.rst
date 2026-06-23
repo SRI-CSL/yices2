@@ -94,6 +94,8 @@ Type Constructors
 
      -- error code: :c:enum:`INVALID_FFSIZE`
 
+   Since Yices 2.8.0.
+
    **Note**
 
    This function is not declared unless you include :file:`gmp.h`

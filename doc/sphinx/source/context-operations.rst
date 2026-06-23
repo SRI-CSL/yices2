@@ -1135,6 +1135,10 @@ yices_set_config). This model interpolant is constructed by calling
 
      -- error code: :c:enum:`MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED`
 
+   - If one of the terms *t[i]* has a type that MCSAT cannot decide on:
+
+     -- error code: :c:enum:`MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED`
+
    - If the context does not have the MCSAT solver enabled:
 
      -- error code: :c:enum:`CTX_OPERATION_NOT_SUPPORTED`
@@ -1207,6 +1211,10 @@ yices_set_config). This model interpolant is constructed by calling
    - If one of the terms *t[i]* is not an uninterpreted:
 
      -- error code: :c:enum:`MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED`
+
+   - If one of the terms *t[i]* has a type that MCSAT cannot decide on:
+
+     -- error code: :c:enum:`MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED`
 
    - If the context does not have the MCSAT solver enabled:
 

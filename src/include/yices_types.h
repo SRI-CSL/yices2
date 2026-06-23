@@ -282,14 +282,13 @@ typedef struct yval_vector_s {
  *                             literal implicant of F at the model and
  *                             projects that flat conjunction; produces a
  *                             sign-invariant cell of the chosen implicant.
- *   YICES_GEN_BY_PROJ_WIDE -- SAT-guided wide projection (Since 2.7.0):
- *                             enumerates model-true Boolean implicants of
- *                             F over a polarity-aware abstraction and
- *                             unions their per-cube projections. Wider
- *                             output than YICES_GEN_BY_PROJ when F has
- *                             Boolean structure the model satisfies in
- *                             more than one way. Accepts a cube_budget
- *                             through yices_generalize_model_with_budget.
+ *   YICES_GEN_BY_PROJ_WIDE -- wide projection (since 2.8.0): projects
+ *                             several model-true implicant cubes and returns
+ *                             the union of the projected cubes. This can
+ *                             produce broader results than YICES_GEN_BY_PROJ
+ *                             on formulas that admit several relevant
+ *                             implicant cubes. Accepts a cube_budget through
+ *                             yices_generalize_model_with_budget.
  *
  * The default (YICES_GEN_DEFAULT) selects the algorithm based on the
  * variables to eliminate: substitution for discrete variables and the
@@ -300,7 +299,7 @@ typedef enum yices_gen_mode {
   YICES_GEN_DEFAULT,
   YICES_GEN_BY_SUBST,
   YICES_GEN_BY_PROJ,        // legacy: implicant-then-project (sign-invariant cell of one chosen implicant)
-  YICES_GEN_BY_PROJ_WIDE,   // SAT-guided wide projection (since 2.7.0)
+  YICES_GEN_BY_PROJ_WIDE,   // wide projection (since 2.8.0)
 } yices_gen_mode_t;
 
 
@@ -497,7 +496,7 @@ typedef enum error_code {
    */
   MCSAT_ERROR_UNSUPPORTED_THEORY = 1000,
   MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED = 1001,
-  MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED = 1002,
+  MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED = 1002, // since 2.8.0
 
   /*
    * Input/output and system errors

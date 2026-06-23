@@ -487,6 +487,8 @@ These functions are useful for creating custom models or modifying existing ones
    This function is not declared unless you include :file:`gmp.h`
    before :file:`yices.h` in your code.
 
+   Since Yices 2.8.0.
+
 
 .. c:function:: int32_t yices_model_set_algebraic_number(model_t *model, term_t var, const lp_algebraic_number_t *val)
 
@@ -829,6 +831,8 @@ These functions are useful for creating custom models or modifying existing ones
 
      -- error code: :c:enum:`TYPE_MISMATCH`
 
+   Since Yices 2.8.0.
+
 .. c:function:: int32_t yices_model_set_tuple(model_t *model, term_t var, uint32_t n, const yval_t elem[])
 
    Assign a tuple value built from *elem* to an uninterpreted symbol in *model*.
@@ -861,6 +865,8 @@ These functions are useful for creating custom models or modifying existing ones
 
      -- error code: :c:enum:`TYPE_MISMATCH`
 
+   Since Yices 2.8.0.
+
 .. c:function:: int32_t yices_model_make_mapping(model_t *model, uint32_t arity, const yval_t args[], const yval_t *value, yval_t *mapping)
 
    Build a mapping value [*args[0]* ... *args[arity-1]* -> *value*] in *model*.
@@ -889,6 +895,8 @@ These functions are useful for creating custom models or modifying existing ones
    - If one input descriptor is invalid for *model*:
 
      -- error code: :c:enum:`TYPE_MISMATCH`
+
+   Since Yices 2.8.0.
 
 .. c:function:: int32_t yices_model_make_function(model_t *model, type_t fun_type, uint32_t n, const yval_t mappings[], const yval_t *def, yval_t *fun)
 
@@ -926,6 +934,8 @@ These functions are useful for creating custom models or modifying existing ones
 
      -- error code: :c:enum:`TYPE_MISMATCH`
 
+   Since Yices 2.8.0.
+
 .. c:function:: int32_t yices_model_set_function(model_t *model, term_t var, uint32_t n, const yval_t mappings[], const yval_t *def)
 
    Assign a function value built from *mappings* and *def* to an uninterpreted symbol in *model*.
@@ -958,6 +968,8 @@ These functions are useful for creating custom models or modifying existing ones
    - If *var* does not have function type or *mappings*/*def* are invalid:
 
      -- error code: :c:enum:`TYPE_MISMATCH`
+
+   Since Yices 2.8.0.
 
 Example (compile/run checked)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -1191,6 +1203,8 @@ Atomic Values
 
    This function is not declared unless you include :file:`gmp.h`
    before :file:`yices.h` in your code.
+
+   Since Yices 2.8.0.
 
 
 .. c:function:: int32_t yices_get_algebraic_number_value(model_t *mdl, term_t t, lp_algebraic_number_t *a)
@@ -1703,6 +1717,8 @@ the children of non-leaf nodes.
    This function is not declared unless you include :file:`gmp.h`
    before :file:`yices.h` in your code.
 
+   Since Yices 2.8.0.
+
 
 .. c:function:: int32_t yices_val_get_algebraic_number(model_t *mdl, const yval_t *v, lp_algebraic_number_t *a)
 
@@ -1983,6 +1999,9 @@ Implicants
 
    - the conjunction (a\ |_1| |and| |...| |and| a\ |_n|) implies *t*
 
+   No literal returned in *v* contains an if-then-else term, even if *t*
+   does.
+
    The implicant is returned in vector *v*, which must be initialized by :c:func:`yices_init_term_vector`:
 
    - *v->size* stores the number of literals in the implicant (i.e., *n*).
@@ -2024,6 +2043,39 @@ Implicants
    has returns 0 if the implicant can be constructed or -1 otherwise. It has the same behavior and reports
    the same errors as :c:func:`yices_implicant_for_formula`.
 
+.. c:function:: int32_t yices_implicant_cubes_for_formula(model_t *mdl, term_t t, uint32_t max_cubes, term_vector_t *v)
+
+   Enumerates several implicant cubes for formula *t*.
+
+   The parameter *max_cubes* is the maximum number of distinct cubes to
+   return. If *max_cubes* is 0, there is no explicit cap. Larger values of
+   *max_cubes* make this function more expensive.
+
+   If the function succeeds, it returns a value *k >= 1*. Then *v* contains
+   the literals of *k* cubes, separated by *k-1* occurrences of
+   :c:macro:`NULL_TERM`. There is no trailing :c:macro:`NULL_TERM`.
+   For example, two cubes { *a*, *b* } and { *c* } are returned as
+   *a*, *b*, :c:macro:`NULL_TERM`, *c*.
+
+   Each returned cube is true in *mdl* and implies *t*. If *max_cubes* is 1,
+   the result has the same flat literal-vector shape as
+   :c:func:`yices_implicant_for_formula`.
+
+   As for :c:func:`yices_implicant_for_formula`, no returned cube literal
+   contains an if-then-else term, even if the input formula does.
+
+   If there's an error, the function returns -1 and resets *v* to the empty
+   vector. The error report is as for :c:func:`yices_implicant_for_formula`.
+
+   Since Yices 2.8.0.
+
+.. c:function:: int32_t yices_implicant_cubes_for_formulas(model_t *mdl, uint32_t n, const term_t a[], uint32_t max_cubes, term_vector_t *v)
+
+   Enumerates several implicant cubes for a conjunction of formulas.
+
+   This function is the same as :c:func:`yices_implicant_cubes_for_formula`,
+   but the input formula is the conjunction of *a[0]* |and| ... |and| *a[n-1]*.
+
 
 Model Generalization
 --------------------
@@ -2043,8 +2095,13 @@ Yices supports two generalization methods:
 
   - **Generalization by projection:** This first computes an implicant of formula *F(X, Y)*
     then eliminates the *Y* variables from this implicant by projection. The projection is
-    a cheap form of quantifier elimination. It is a hybrid a Fourier-Motzkin elimination
+    a cheap form of quantifier elimination. It is a hybrid of Fourier-Motzkin elimination
     and virtual term substitution.
+
+  - **Wide generalization by projection:** This projects several model-true
+    implicant cubes and returns the union of the projected cubes. This may
+    produce a broader generalization than the legacy projection mode when the
+    formula admits several relevant implicant cubes.
 
 The two generalization functions take a parameter that specifies the generalization method.
 This parameter takes a value of type :c:type:`yices_gen_mode_t`:
@@ -2053,11 +2110,14 @@ This parameter takes a value of type :c:type:`yices_gen_mode_t`:
 
   - :c:enum:`YICES_GEN_BY_PROJ` selects generalization by projection;
 
+  - :c:enum:`YICES_GEN_BY_PROJ_WIDE` selects wide generalization by projection;
+
   - :c:enum:`YICES_GEN_DEFAULT` automatically chooses the
     generalization method based on the type of variables to
     eliminate. If any variable to eliminate is an arithmetic variable,
-    then generalization by projection is used. Otherwise, the default
-    is generalization by substitution.
+    then the legacy projection mode :c:enum:`YICES_GEN_BY_PROJ` is used.
+    Otherwise, the default is generalization by substitution. The wide
+    projection mode is never selected implicitly.
 
 .. c:function:: int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[], yices_gen_mode_t mode, term_vector_t *v)
 
@@ -2091,6 +2151,14 @@ This parameter takes a value of type :c:type:`yices_gen_mode_t`:
 
    If *mode* is :c:enum:`YICES_GEN_BY_PROJ` then every formula in *v* is guaranteed to be a literal.
 
+   If *mode* is :c:enum:`YICES_GEN_BY_PROJ_WIDE`, the shape of *v* depends
+   on the number of projected cubes. If there is a single projected cube,
+   *v* is filled with the projected literals exactly as in
+   :c:enum:`YICES_GEN_BY_PROJ`. If there are multiple projected cubes, *v*
+   contains a single element that is a disjunction of
+   literal-conjunctions. In all cases, the conjunction of the terms in *v*
+   is the generalization.
+
    The function returns 0 if the generalization succeeds or -1 if there's an error.
 
 .. c:function:: int32_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[], yices_gen_mode_t mode, term_vector_t *v)
@@ -2115,3 +2183,33 @@ This parameter takes a value of type :c:type:`yices_gen_mode_t`:
 
    This function is equivalent to calling :c:func:`yices_generalize_model` with
    argument (*a[0]* |and| |...| |and| *a[n-1]*).
+
+.. c:function:: int32_t yices_generalize_model_with_budget(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[], yices_gen_mode_t mode, uint32_t cube_budget, term_vector_t *v)
+
+   Model generalization for a single formula, with an explicit cube budget.
+
+   This is the same as :c:func:`yices_generalize_model`, except that
+   *cube_budget* controls :c:enum:`YICES_GEN_BY_PROJ_WIDE`. The budget is
+   ignored for :c:enum:`YICES_GEN_BY_SUBST`, :c:enum:`YICES_GEN_BY_PROJ`, and
+   :c:enum:`YICES_GEN_DEFAULT`.
+
+   For :c:enum:`YICES_GEN_BY_PROJ_WIDE`, *cube_budget* caps the number of
+   distinct normalized cubes attempted for projection inside the wide
+   enumeration loop. Duplicate normalized cubes, if any, are skipped. When
+   the cap is hit with at least one successful projection, the result is the
+   union of the collected projected cubes. If no cube has successfully
+   projected, the wide path falls back to the local projection pipeline to
+   obtain a meaningful error code. Smaller budgets may produce coarser
+   generalizations; larger budgets make the call more expensive.
+
+   If *cube_budget* is 0, there is no explicit cap.
+
+   Since Yices 2.8.0.
+
+.. c:function:: int32_t yices_generalize_model_array_with_budget(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[], yices_gen_mode_t mode, uint32_t cube_budget, term_vector_t *v)
+
+   Model generalization for an array of formulas, with an explicit cube budget.
+
+   This function is equivalent to calling
+   :c:func:`yices_generalize_model_with_budget` with argument
+   (*a[0]* |and| |...| |and| *a[n-1]*).

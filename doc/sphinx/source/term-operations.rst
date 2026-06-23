@@ -1212,6 +1212,8 @@ Finite-Field Terms
 
      -- error code: :c:enum:`INVALID_FFSIZE`
 
+   Since Yices 2.8.0.
+
 .. c:function:: term_t yices_ff_add(term_t t1, term_t t2)
 
    Constructs the sum *(+ t1 t2)* over a finite field.
@@ -1263,6 +1265,8 @@ Finite-Field Terms
 All arguments to the above operators must be finite-field terms. For
 binary and n-ary operators, all argument terms must have the same
 finite-field type.
+
+These finite-field operators and atoms are available since Yices 2.8.0.
 
 **Error report**
 
@@ -2994,6 +2998,8 @@ a valid term.
    To make sure that this function is declared, you must include :file:`gmp.h` before
    :file:`yices.h` in your code (see :c:func:`yices_mpz`).
 
+   Since Yices 2.8.0.
+
 
 .. c:function:: int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term)
 
@@ -3048,6 +3054,8 @@ a valid term.
 
    To make sure that this function is declared, you must include :file:`gmp.h` before
    :file:`yices.h` in your code (see :c:func:`yices_mpz`).
+
+   Since Yices 2.8.0.
 
 .. c:function:: int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term)
 

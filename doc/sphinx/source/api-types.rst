@@ -640,7 +640,8 @@ Models
      typedef enum yices_gen_mode {
        YICES_GEN_DEFAULT,
        YICES_GEN_BY_SUBST,
-       YICES_GEN_BY_PROJ
+       YICES_GEN_BY_PROJ,
+       YICES_GEN_BY_PROJ_WIDE
      } yices_gen_mode_t;
 
    .. c:enum:: YICES_GEN_DEFAULT
@@ -655,8 +656,19 @@ Models
 
    .. c:enum:: YICES_GEN_BY_PROJ
 
-      Generalization by projection. This is a hybrid of Fourier-Motzkin elimination
-      and a model-based variant of virtual term substitution.
+      Generalization by projection. This computes one literal implicant of the
+      formula at the model, then projects that flat conjunction. Projection is
+      a hybrid of Fourier-Motzkin elimination and a model-based variant of
+      virtual term substitution.
+
+   .. c:enum:: YICES_GEN_BY_PROJ_WIDE
+
+      Wide generalization by projection. This projects several model-true
+      implicant cubes and returns the union of the projected cubes. This mode
+      is selected explicitly and accepts a cube budget through
+      :c:func:`yices_generalize_model_with_budget`.
+
+      Since Yices 2.8.0.
 
    See :c:func:`yices_generalize_model` for more details. 
       
@@ -1145,6 +1157,12 @@ Error Reports
       A formula asserted in the MCSAT solver is not in a theory that this
       solver can process.
 
+   .. c:enum:: MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED
+
+      An assumption term has a type that MCSAT cannot decide on.
+
+      Since Yices 2.8.0.
+
    .. c:enum:: OUTPUT_ERROR
 
       Error when attempting to write to a stream. This error can be reported
@@ -1192,4 +1210,3 @@ Error Reports
    - the field *badval* is set when an incorrect integer argument is provided
 
    - the other fields are set by terms and type constructors
-
