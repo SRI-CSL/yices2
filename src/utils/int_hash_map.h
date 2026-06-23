@@ -38,14 +38,6 @@ typedef struct int_hmap_pair_s {
   int32_t val;
 } int_hmap_pair_t;
 
-/*
- * Markers for empty/deleted pairs
- */
-enum {
-  DELETED_KEY = -2,
-  EMPTY_KEY = -1,
-};
-
 typedef struct int_hmap_s {
   int_hmap_pair_t *data;
   uint32_t size; // must be a power of 2

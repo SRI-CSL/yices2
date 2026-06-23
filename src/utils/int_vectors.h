@@ -146,7 +146,6 @@ static inline void ivector_shrink(ivector_t *v, uint32_t n) {
   v->size = n;
 }
 
-
 /*
  * Remove duplicates in an integer vector
  * Side effect: sort v in increasing order

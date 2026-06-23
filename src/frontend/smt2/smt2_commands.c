@@ -5461,6 +5461,10 @@ static bool yices_get_option(smt2_globals_t *g, yices_param_t p) {
     print_string_value(ematchmode2string[g->ef_client.ef_parameters.ematch_term_mode]);
     break;
 
+  case PARAM_MCSAT_L2O:
+    print_boolean_value(g->mcsat_options.l2o);
+    break;
+
   case PARAM_MCSAT_NA_BOUND:
     print_boolean_value(g->mcsat_options.na_bound);
     break;
@@ -6235,6 +6239,16 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
     }
     break;
 
+  case PARAM_MCSAT_L2O:
+    if (param_val_to_bool(param, val, &tt, &reason)) {
+      g->mcsat_options.l2o = tt;
+      context = g->ctx;
+      if (context != NULL) {
+        context->mcsat_options.l2o = tt;
+      }
+    }
+    break;
+
   case PARAM_MCSAT_NA_BOUND:
     if (param_val_to_bool(param, val, &tt, &reason)) {
       g->mcsat_options.na_bound = tt;
@@ -6559,6 +6573,11 @@ void smt2_set_logic(const char *name) {
   }
 
 
+
+  // if logic is QF_NIA, enable l2o
+  if (code == QF_NIA && !__smt2_globals.mcsat_options.l2o) {
+    __smt2_globals.mcsat_options.l2o = true;
+  }
 
   smt2_lexer_activate_logic(code);
   __smt2_globals.logic_code = code;
