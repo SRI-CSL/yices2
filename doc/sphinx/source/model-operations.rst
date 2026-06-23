@@ -64,6 +64,16 @@ Model Construction
    state. Future operations on *ctx* (including deleting or resetting
    *ctx*) do not change the model.
 
+.. c:function:: model_t* yices_new_model(void)
+
+   Builds an empty model.
+
+   This function constructs a model with no term assignments and returns a
+   pointer to it. The model must be deleted when it is no longer used by
+   calling :c:func:`yices_free_model`.
+
+   Since Yices 2.6.4.
+
 
 .. c:function:: model_t* yices_model_from_map(uint32_t n, const term_t var[], const term_t map[])
 
@@ -2076,6 +2086,8 @@ Implicants
    This function is the same as :c:func:`yices_implicant_cubes_for_formula`,
    but the input formula is the conjunction of *a[0]* |and| ... |and| *a[n-1]*.
 
+   Since Yices 2.8.0.
+
 
 Model Generalization
 --------------------
@@ -2213,3 +2225,5 @@ This parameter takes a value of type :c:type:`yices_gen_mode_t`:
    This function is equivalent to calling
    :c:func:`yices_generalize_model_with_budget` with argument
    (*a[0]* |and| |...| |and| *a[n-1]*).
+
+   Since Yices 2.8.0.

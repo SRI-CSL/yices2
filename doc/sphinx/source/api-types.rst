@@ -110,6 +110,7 @@ Yices Terms
       // atomic terms
       YICES_BOOL_CONSTANT,
       YICES_ARITH_CONSTANT,
+      YICES_FF_CONSTANT,
       YICES_BV_CONSTANT,
       YICES_SCALAR_CONSTANT,
       YICES_VARIABLE,
@@ -153,6 +154,7 @@ Yices Terms
       // sums
       YICES_BV_SUM,
       YICES_ARITH_SUM,
+      YICES_FF_SUM,
       // products
       YICES_POWER_PRODUCT
     } term_constructor_t;
@@ -170,6 +172,12 @@ Yices Terms
    .. c:enum:: YICES_ARITH_CONSTANT
 
       Rational constants
+
+   .. c:enum:: YICES_FF_CONSTANT
+
+      Finite-field constants
+
+      Since Yices 2.8.0.
 
    .. c:enum:: YICES_BV_CONSTANT
 
@@ -356,6 +364,14 @@ Yices Terms
       As in :c:enum:`YICES_BV_SUM`, the term *t*\ |_0| may be :c:macro:`NULL_TERM` to
       encode a constant term.
 
+   .. c:enum:: YICES_FF_SUM
+
+      Sum of the form *a*\ |_0| *t*\ |_0| + |...| + *a*\ |_n| *t*\ |_n| where
+      the coefficients are finite-field constants and the non-constant terms
+      are finite-field terms.
+
+      Since Yices 2.8.0.
+
    .. c:enum:: YICES_POWER_PRODUCT
 
 
@@ -512,6 +528,7 @@ Models
 	YVAL_BOOL,
 	YVAL_RATIONAL,
 	YVAL_ALGEBRAIC,
+	YVAL_FINITEFIELD,
 	YVAL_BV,
 	YVAL_SCALAR,
 	YVAL_TUPLE,
@@ -537,6 +554,12 @@ Models
 
       Algebraic numbers
 
+   .. c:enum:: YVAL_FINITEFIELD
+
+      Finite-field constants
+
+      Since Yices 2.8.0.
+
    .. c:enum:: YVAL_BV
 
       Bitvector constants
@@ -559,8 +582,9 @@ Models
 
    The tags :c:enum:`YVAL_UNKNOWN`, :c:enum:`YVAL_BOOL`,
    :c:enum:`YVAL_RATIONAL`, :c:enum:`YVAL_BV`,
-   :c:enum:`YVAL_ALGEBRAIC` and :c:enum:`YVAL_SCALAR` are attached to
-   leaf nodes in the DAG. The non-leaf nodes have tags
+   :c:enum:`YVAL_ALGEBRAIC`, :c:enum:`YVAL_FINITEFIELD`, and
+   :c:enum:`YVAL_SCALAR` are attached to leaf nodes in the DAG. The
+   non-leaf nodes have tags
    :c:enum:`YVAL_TUPLE`, :c:enum:`YVAL_FUNCTION`, and
    :c:enum:`YVAL_MAPPING`.
 
@@ -810,6 +834,13 @@ Error Reports
       `Yices manual <https://yices.csl.sri.com/papers/manual.pdf>`_
       explains what this means.
 
+   .. c:enum:: INCOMPATIBLE_FFSIZES
+
+      Error in finite-field operations that require terms over the same
+      finite field.
+
+      Since Yices 2.8.0.
+
    .. c:enum:: DUPLICATE_VARIABLE
 
       Error in quantifier or lambda term constructors: the same
@@ -826,6 +857,12 @@ Error Reports
    .. c:enum:: BVTYPE_REQUIRED
 
       Bad type parameter: a bitvector type is expected.
+
+   .. c:enum:: INVALID_FFSIZE
+
+      Bad finite-field size: the field order is not positive and prime.
+
+      Since Yices 2.8.0.
 
    .. c:enum:: BAD_TERM_DECREF
 
@@ -896,6 +933,22 @@ Error Reports
    .. c:enum:: TYPE_REQUIRED
 
       Error in a definition or declaration: a type is expected.
+
+   .. c:enum:: INVALID_MACRO
+
+      Invalid type macro.
+
+   .. c:enum:: TOO_MANY_MACRO_PARAMS
+
+      Too many type macro parameters.
+
+   .. c:enum:: TYPE_VAR_REQUIRED
+
+      Bad type argument: a type variable is expected.
+
+   .. c:enum:: DUPLICATE_TYPE_VAR
+
+      A type macro contains duplicate type variables.
 
    .. c:enum:: NON_CONSTANT_DIVISOR
 
@@ -1156,6 +1209,10 @@ Error Reports
 
       A formula asserted in the MCSAT solver is not in a theory that this
       solver can process.
+
+   .. c:enum:: MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED
+
+      An assumption is not an uninterpreted term supported by MCSAT.
 
    .. c:enum:: MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED
 

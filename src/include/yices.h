@@ -2585,6 +2585,7 @@ __YICES_DLLSPEC__ extern term_t yices_term_child(term_t t, int32_t i);
  * - otherwise, the children are stored in *v:
  *    v->size = number of children
  *    v->data[0 ... v->size-1] = the children
+ *   and the function returns 0.
  *
  * The vector->size is equal to yices_term_num_children(t).
  * The children are stored in the same order as given by yices_term_child:
