@@ -13150,12 +13150,12 @@ int32_t _o_yices_implicant_cubes_for_formula(model_t *mdl, term_t t,
                                              uint32_t max_cubes, term_vector_t *v) {
   int32_t code;
 
+  v->size = 0;
   if (! check_good_term(__yices_globals.manager, t) ||
       ! check_boolean_term(__yices_globals.manager, t)) {
     return -1;
   }
 
-  v->size = 0;
   code = get_implicant_cubes(mdl, __yices_globals.manager, 1, &t, max_cubes, (ivector_t *) v);
   if (code < 0) {
     report_gen_error(code, 0);
@@ -13163,7 +13163,7 @@ int32_t _o_yices_implicant_cubes_for_formula(model_t *mdl, term_t t,
     return -1;
   }
 
-  return 0;
+  return code;
 }
 
 /*
@@ -13178,12 +13178,12 @@ int32_t _o_yices_implicant_cubes_for_formulas(model_t *mdl, uint32_t n, const te
                                               uint32_t max_cubes, term_vector_t *v) {
   int32_t code;
 
+  v->size = 0;
   if (! check_good_terms(__yices_globals.manager, n, a) ||
       ! check_boolean_args(__yices_globals.manager, n, a)) {
     return -1;
   }
 
-  v->size = 0;
   code = get_implicant_cubes(mdl, __yices_globals.manager, n, a, max_cubes, (ivector_t *) v);
   if (code < 0) {
     report_gen_error(code, 0);
@@ -13191,7 +13191,7 @@ int32_t _o_yices_implicant_cubes_for_formulas(model_t *mdl, uint32_t n, const te
     return -1;
   }
 
-  return 0;
+  return code;
 }
 
 

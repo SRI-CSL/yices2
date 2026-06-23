@@ -153,6 +153,8 @@ extern int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint3
 extern int32_t gen_model_by_projection_local(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 					     uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error);
 
+// Add a NULL_TERM-separated stream of cube literals to cubes.
+// Return the number of cubes on success or a negative error code on failure.
 extern int32_t get_implicant_cubes(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
                                    uint32_t max_cubes, ivector_t *cubes);
 

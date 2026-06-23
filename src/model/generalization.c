@@ -1587,9 +1587,8 @@ static void init_cube_enum_status(cube_enum_status_t *status) {
 static int32_t add_normalized_implicant_cube(model_t *mdl, term_manager_t *mngr,
                                              uint32_t n, const term_t a[],
                                              int_array_hset_t *seen,
-                                             ivector_t *cubes, bool *added) {
+                                             ivector_t *cube_stream, bool *added) {
   ivector_t implicant;
-  term_t cube_term;
   int32_t code;
 
   *added = false;
@@ -1603,12 +1602,10 @@ static int32_t add_normalized_implicant_cube(model_t *mdl, term_manager_t *mngr,
   normalize_literal_vector(&implicant);
   if (int_array_hset_find(seen, implicant.size, implicant.data) == NULL) {
     int_array_hset_get(seen, implicant.size, implicant.data);
-    cube_term = mk_and_safe(mngr, implicant.size, implicant.data);
-    if (cube_term == NULL_TERM) {
-      delete_ivector(&implicant);
-      return GEN_EVAL_INTERNAL_ERROR;
+    if (cube_stream->size > 0) {
+      ivector_push(cube_stream, NULL_TERM);
     }
-    ivector_push(cubes, cube_term);
+    ivector_add(cube_stream, implicant.data, implicant.size);
     *added = true;
   }
 
@@ -1619,16 +1616,16 @@ static int32_t add_normalized_implicant_cube(model_t *mdl, term_manager_t *mngr,
 static int32_t add_local_implicant_cube(model_t *mdl, term_manager_t *mngr,
                                         uint32_t n, const term_t f[],
                                         int_array_hset_t *seen,
-                                        ivector_t *cubes) {
+                                        ivector_t *cube_stream) {
   bool added;
 
-  return add_normalized_implicant_cube(mdl, mngr, n, f, seen, cubes, &added);
+  return add_normalized_implicant_cube(mdl, mngr, n, f, seen, cube_stream, &added);
 }
 
 static int32_t enumerate_implicant_cubes_with_status(model_t *mdl, term_manager_t *mngr,
                                                      uint32_t n, const term_t f[],
                                                      uint32_t max_cubes,
-                                                     ivector_t *cubes,
+                                                     ivector_t *cube_stream,
                                                      cube_enum_status_t *status) {
   evaluator_t eval;
   abs_builder_t builder;
@@ -1638,10 +1635,11 @@ static int32_t enumerate_implicant_cubes_with_status(model_t *mdl, term_manager_
   bool_node_id_t root;
   smt_status_t core_status;
   int32_t code;
+  uint32_t num_cubes;
   bool builder_inited, core_inited, seen_inited, added;
 
   init_cube_enum_status(status);
-  ivector_reset(cubes);
+  ivector_reset(cube_stream);
 
   init_evaluator(&eval, mdl);
   init_abs_builder(&builder, mdl, mngr, &eval, max_cubes);
@@ -1652,16 +1650,20 @@ static int32_t enumerate_implicant_cubes_with_status(model_t *mdl, term_manager_
   seen_inited = true;
   core_inited = false;
   code = 0;
+  num_cubes = 0;
 
   if (n == 0) {
-    ivector_push(cubes, true_term);
+    num_cubes = 1;
     status->sat_exhausted = true;
     goto cleanup;
   }
 
   if (abstract_formula_array(&builder, n, f, &root) != ABS_OK) {
     status->used_local_fallback = true;
-    code = add_local_implicant_cube(mdl, mngr, n, f, &seen, cubes);
+    code = add_local_implicant_cube(mdl, mngr, n, f, &seen, cube_stream);
+    if (code == 0) {
+      num_cubes = 1;
+    }
     status->sat_exhausted = true;
     goto cleanup;
   }
@@ -1672,14 +1674,17 @@ static int32_t enumerate_implicant_cubes_with_status(model_t *mdl, term_manager_
   }
 
   if (bool_node_is_true(root)) {
-    ivector_push(cubes, true_term);
+    num_cubes = 1;
     status->sat_exhausted = true;
     goto cleanup;
   }
 
   if (! builder.decomposed) {
     status->used_local_fallback = true;
-    code = add_local_implicant_cube(mdl, mngr, n, f, &seen, cubes);
+    code = add_local_implicant_cube(mdl, mngr, n, f, &seen, cube_stream);
+    if (code == 0) {
+      num_cubes = 1;
+    }
     status->sat_exhausted = true;
     goto cleanup;
   }
@@ -1688,7 +1693,7 @@ static int32_t enumerate_implicant_cubes_with_status(model_t *mdl, term_manager_
   core_inited = true;
 
   for (;;) {
-    if (max_cubes != 0 && cubes->size >= max_cubes) {
+    if (max_cubes != 0 && num_cubes >= max_cubes) {
       status->budget_exhausted = true;
       break;
     }
@@ -1708,11 +1713,13 @@ static int32_t enumerate_implicant_cubes_with_status(model_t *mdl, term_manager_
     assert_selected_satisfies_root(&builder, root, &selected_lits);
 #endif
 
-    code = add_normalized_implicant_cube(mdl, mngr, cube.size, cube.data, &seen, cubes, &added);
+    code = add_normalized_implicant_cube(mdl, mngr, cube.size, cube.data, &seen, cube_stream, &added);
     if (code != 0) {
       goto cleanup;
     }
-    if (! added) {
+    if (added) {
+      num_cubes ++;
+    } else {
       status->saw_duplicate = true;
     }
 
@@ -1736,7 +1743,7 @@ static int32_t enumerate_implicant_cubes_with_status(model_t *mdl, term_manager_
   if (seen_inited) delete_int_array_hset(&seen);
   if (builder_inited) delete_abs_builder(&builder);
   delete_evaluator(&eval);
-  return code;
+  return code < 0 ? code : (int32_t) num_cubes;
 }
 
 int32_t get_implicant_cubes(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
@@ -1758,7 +1765,8 @@ static int32_t append_projected_cube_term(model_t *mdl, term_manager_t *mngr,
                                           arith_construct_preprocess_cache_t *construct_cache,
                                           rdiv_preprocess_cache_t *rdiv_cache,
                                           uint32_t nelims, const term_t elim[],
-                                          ivector_t *cube, int32_t *extra_error,
+                                          const term_t *cube_lits, uint32_t cube_size,
+                                          int32_t *extra_error,
                                           bool *have_first, bool *multiple,
                                           ivector_t *first_projected, ivector_t *cube_terms) {
   ivector_t projected;
@@ -1767,7 +1775,7 @@ static int32_t append_projected_cube_term(model_t *mdl, term_manager_t *mngr,
 
   init_ivector(&projected, 4);
   code = project_one_cube_into(mdl, mngr, construct_cache, rdiv_cache,
-                               cube->data, cube->size, nelims, elim, &projected, extra_error);
+                               cube_lits, cube_size, nelims, elim, &projected, extra_error);
   if (code != 0) {
     delete_ivector(&projected);
     return code;
@@ -1804,15 +1812,16 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
                                             ivector_t *v, uint32_t cube_budget,
                                             int32_t *extra_error) {
   cube_enum_status_t enum_status;
-  ivector_t input, input_abs, cubes, cube;
+  ivector_t input, input_abs, cubes;
   ivector_t first_projected, cube_terms, local;
   arith_construct_preprocess_cache_t *construct_cache;
   rdiv_preprocess_cache_t *rdiv_cache;
   proj_flag_t pflag;
-  uint32_t i;
+  uint32_t i, start, num_cubes, cube_index;
   int32_t code;
   bool have_first, multiple;
   term_t collected;
+  const term_t *cube_lits;
 
   init_ivector(&input, v->size);
   ivector_add(&input, v->data, v->size);
@@ -1824,7 +1833,6 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   rdiv_cache = NULL;
 
   init_ivector(&cubes, 16);
-  init_ivector(&cube, 16);
   init_ivector(&first_projected, 8);
   init_ivector(&cube_terms, 8);
   init_ivector(&local, 8);
@@ -1842,26 +1850,35 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
 
   code = enumerate_implicant_cubes_with_status(mdl, mngr, input_abs.size, input_abs.data,
                                                cube_budget, &cubes, &enum_status);
-  if (code != 0) {
+  if (code < 0) {
     goto cleanup;
   }
+  assert(code > 0);
+  num_cubes = (uint32_t) code;
 
-  for (i = 0; i < cubes.size; i++) {
-    ivector_reset(&cube);
-    ivector_push(&cube, cubes.data[i]);
-    code = append_projected_cube_term(mdl, mngr, construct_cache, rdiv_cache,
-                                      nelims, elim, &cube, extra_error,
-                                      &have_first, &multiple, &first_projected, &cube_terms);
-    if (code != 0) {
-      // Projection error on this cube (typically a literal contains a
-      // term-kind the projector doesn't support, e.g. in non-MCSAT
-      // builds a non-linear arithmetic term -> PROJ_ERROR_NON_LINEAR,
-      // or a function application -> PROJ_ERROR_UNSUPPORTED_ARITH_TERM).
-      // Drop this cube and try other implicants of F: a different
-      // SAT-guided choice may avoid the offending literal entirely.
-      code = 0;
+  start = 0;
+  cube_index = 0;
+  for (i = 0; i <= cubes.size && cube_index < num_cubes; i++) {
+    if (i == cubes.size || cubes.data[i] == NULL_TERM) {
+      cube_lits = start < i ? cubes.data + start : NULL;
+      code = append_projected_cube_term(mdl, mngr, construct_cache, rdiv_cache,
+                                        nelims, elim, cube_lits, i - start,
+                                        extra_error, &have_first, &multiple,
+                                        &first_projected, &cube_terms);
+      if (code != 0) {
+        // Projection error on this cube (typically a literal contains a
+        // term-kind the projector doesn't support, e.g. in non-MCSAT
+        // builds a non-linear arithmetic term -> PROJ_ERROR_NON_LINEAR,
+        // or a function application -> PROJ_ERROR_UNSUPPORTED_ARITH_TERM).
+        // Drop this cube and try other implicants of F: a different
+        // SAT-guided choice may avoid the offending literal entirely.
+        code = 0;
+      }
+      start = i + 1;
+      cube_index ++;
     }
   }
+  assert(cube_index == num_cubes);
 
   if (!have_first) {
     // If no cube projected successfully, local will surface the underlying
@@ -1903,7 +1920,6 @@ static int32_t gen_model_by_proj_sat_guided(model_t *mdl, term_manager_t *mngr,
   delete_ivector(&local);
   delete_ivector(&cube_terms);
   delete_ivector(&first_projected);
-  delete_ivector(&cube);
   delete_ivector(&cubes);
   delete_ivector(&input_abs);
   delete_ivector(&input);
