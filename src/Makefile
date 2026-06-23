@@ -293,6 +293,7 @@ core_src_c := \
 	utils/int_hash_classes.c \
 	utils/int_hash_map2.c \
 	utils/int_hash_map.c \
+	utils/int_hash_mmap.c \
 	utils/int_hash_sets.c \
 	utils/int_hash_tables.c \
 	utils/int_heap2.c \
@@ -397,6 +398,10 @@ mcsat_src_c := \
 	mcsat/bv/explain/full_bv_trivial.c \
 	mcsat/watch_list_manager.c \
 	mcsat/preprocessor.c \
+	mcsat/l2o/l2o.c \
+	mcsat/l2o/l2o_cost_fx.c \
+	mcsat/l2o/evaluator.c \
+	mcsat/l2o/hill_climbing.c \
 	mcsat/options.c
 
 
