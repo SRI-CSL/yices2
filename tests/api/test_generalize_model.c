@@ -24,21 +24,23 @@
 #include <yices.h>
 
 
-/*
- * Helper: build a fresh QF_LRA context. The model-generalization
- * API itself is solver-independent; the simplex backend suffices
- * for these LRA tests.
- */
-static context_t *new_lra_context(void) {
+static context_t *new_context_for_logic(const char *logic, bool use_mcsat) {
   ctx_config_t *config;
   context_t *ctx;
   int32_t ok;
 
   config = yices_new_config();
-  ok = yices_default_config_for_logic(config, "QF_LRA");
+  ok = yices_default_config_for_logic(config, logic);
   if (ok != 0) {
     yices_print_error(stderr);
     assert(0);
+  }
+  if (use_mcsat) {
+    ok = yices_set_config(config, "solver-type", "mcsat");
+    if (ok != 0) {
+      yices_print_error(stderr);
+      assert(0);
+    }
   }
   ctx = yices_new_context(config);
   if (ctx == NULL) {
@@ -50,16 +52,27 @@ static context_t *new_lra_context(void) {
 }
 
 /*
+ * Helper: build a fresh QF_LRA context. The model-generalization
+ * API itself is solver-independent; the simplex backend suffices
+ * for these LRA tests.
+ */
+static context_t *new_lra_context(void) {
+  return new_context_for_logic("QF_LRA", false);
+}
+
+/*
  * Build a model satisfying `formula` (in QF_LRA).
  * Asserts test failure if `formula` is unsat.
  */
-static model_t *check_and_get_model(term_t formula) {
+static model_t *check_and_get_model_for_logic(term_t formula,
+                                              const char *logic,
+                                              bool use_mcsat) {
   context_t *ctx;
   smt_status_t status;
   model_t *m;
   int32_t ok;
 
-  ctx = new_lra_context();
+  ctx = new_context_for_logic(logic, use_mcsat);
   ok = yices_assert_formula(ctx, formula);
   assert(ok == 0);
   status = yices_check_context(ctx, NULL);
@@ -68,6 +81,10 @@ static model_t *check_and_get_model(term_t formula) {
   assert(m != NULL);
   yices_free_context(ctx);
   return m;
+}
+
+static model_t *check_and_get_model(term_t formula) {
+  return check_and_get_model_for_logic(formula, "QF_LRA", false);
 }
 
 /*
@@ -190,6 +207,43 @@ static void assert_generalization_implies_term(const char *tag, term_vector_t *v
     yices_pp_term_array(stderr, v->size, v->data, 100, 10, 0, 1);
     fprintf(stderr, "expected:\n");
     yices_pp_term(stderr, expected, 100, 1, 0);
+    assert(0);
+  }
+  yices_free_context(ctx);
+}
+
+static void assert_generalization_with_term_status(const char *tag,
+                                                   term_vector_t *v,
+                                                   term_t extra,
+                                                   const char *logic,
+                                                   bool use_mcsat,
+                                                   smt_status_t expected) {
+  context_t *ctx;
+  smt_status_t status;
+  term_t g, witness;
+  int32_t ok;
+
+  g = yices_and(v->size, v->data);
+  assert(g >= 0);
+  witness = yices_and2(g, extra);
+  assert(witness >= 0);
+
+  ctx = new_context_for_logic(logic, use_mcsat);
+  ok = yices_assert_formula(ctx, witness);
+  if (ok != 0) {
+    fprintf(stderr, "[%s] failed to assert witness:\n", tag);
+    yices_pp_term(stderr, witness, 100, 10, 0);
+    yices_print_error(stderr);
+    assert(0);
+  }
+  status = yices_check_context(ctx, NULL);
+  if (status != expected) {
+    fprintf(stderr, "[%s] unexpected status: got %d, expected %d\n",
+            tag, status, expected);
+    fprintf(stderr, "generalization:\n");
+    yices_pp_term_array(stderr, v->size, v->data, 100, 10, 0, 1);
+    fprintf(stderr, "extra constraint:\n");
+    yices_pp_term(stderr, extra, 100, 1, 0);
     assert(0);
   }
   yices_free_context(ctx);
@@ -577,15 +631,15 @@ static void test_sat_guided_budget_graceful(void) {
 
   // The public yices_generalize_model() runs with cube_budget == 0
   // (unbounded). Call the explicit-budget variant with BUDGET = 4 so
-  // we exercise the OR(collected, local) budget-exhaustion fallback:
+  // we exercise budget exhaustion with successful collected cubes:
   // up to 2^NPAIRS = 2048 implicants exist and BUDGET = 4 is far
-  // below that.
+  // below that, but the projected cubes collected so far are still a
+  // sound wide cell.
   r = yices_generalize_model_with_budget(mdl, formula, 1, elim,
                                          YICES_GEN_BY_PROJ_WIDE, BUDGET, &v_wide);
   assert(r == 0);
 
   assert_all_true("sat_guided_budget_graceful", &v_wide, mdl);
-  assert_local_implies_wide(&v_local, &v_wide);
   printf("  -> cube_budget=%u yielded a sound wide cell (%u terms)\n",
          BUDGET, v_wide.size);
 
@@ -670,6 +724,618 @@ static void test_sat_guided_polarity(void) {
   yices_free_model(mdl);
 }
 
+static void test_lia_presburger_divisibility(void) {
+  term_t x, y, z;
+  term_t formula, model_formula, bad_x, g, follow_formula, follow_model_formula;
+  term_t elim[1], follow_elim[1];
+  model_t *mdl, *follow_mdl;
+  term_vector_t v_local, v_wide, v_follow;
+  int32_t r;
+
+  printf("\n=== test_lia_presburger_divisibility ===\n");
+  x = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(x, "x_lia_div");
+  y = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(y, "y_lia_div");
+
+  formula = yices_arith_eq_atom(x, yices_mul(yices_int32(2), y));
+  model_formula = yices_and2(formula, yices_arith_eq_atom(y, yices_int32(1)));
+  mdl = check_and_get_model_for_logic(model_formula, "QF_LIA", false);
+
+  elim[0] = y;
+  yices_init_term_vector(&v_local);
+  yices_init_term_vector(&v_wide);
+
+  r = yices_generalize_model(mdl, formula, 1, elim,
+                             YICES_GEN_BY_PROJ, &v_local);
+  assert(r == 0);
+  r = yices_generalize_model(mdl, formula, 1, elim,
+                             YICES_GEN_BY_PROJ_WIDE, &v_wide);
+  assert(r == 0);
+
+  assert_all_true("lia_presburger_divisibility/local", &v_local, mdl);
+  assert_all_true("lia_presburger_divisibility/wide", &v_wide, mdl);
+
+  bad_x = yices_arith_eq_atom(x, yices_int32(1));
+  assert_generalization_with_term_status("lia_presburger_divisibility/local",
+                                         &v_local, bad_x, "QF_LIA", false,
+                                         YICES_STATUS_UNSAT);
+  assert_generalization_with_term_status("lia_presburger_divisibility/wide",
+                                         &v_wide, bad_x, "QF_LIA", false,
+                                         YICES_STATUS_UNSAT);
+
+  z = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(z, "z_lia_div_follow");
+  g = yices_and(v_local.size, v_local.data);
+  assert(g >= 0);
+  follow_formula = yices_and2(g, yices_arith_eq_atom(z, yices_int32(0)));
+  follow_model_formula = yices_and2(follow_formula,
+                                    yices_arith_eq_atom(x, yices_int32(2)));
+  follow_mdl = check_and_get_model_for_logic(follow_model_formula, "QF_LIA", false);
+  follow_elim[0] = z;
+  yices_init_term_vector(&v_follow);
+  r = yices_generalize_model(follow_mdl, follow_formula, 1, follow_elim,
+                             YICES_GEN_BY_PROJ, &v_follow);
+  assert(r == 0);
+  assert_all_true("lia_presburger_divisibility/follow", &v_follow, follow_mdl);
+  assert_generalization_with_term_status("lia_presburger_divisibility/follow",
+                                         &v_follow, bad_x, "QF_LIA", false,
+                                         YICES_STATUS_UNSAT);
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_delete_term_vector(&v_follow);
+  yices_free_model(mdl);
+  yices_free_model(follow_mdl);
+}
+
+static void test_nia_integer_elim_substitution(void) {
+  term_t x, y;
+  term_t formula, model_formula, bad_x;
+  term_t elim[1];
+  model_t *mdl;
+  term_vector_t v_local, v_wide;
+  int32_t r;
+
+  printf("\n=== test_nia_integer_elim_substitution ===\n");
+  if (! yices_has_mcsat()) {
+    printf("  -> skipped: MCSAT not available\n");
+    return;
+  }
+
+  x = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(x, "x_nia_subst");
+  y = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(y, "y_nia_subst");
+
+  formula = yices_arith_eq_atom(x, yices_mul(y, y));
+  model_formula = yices_and2(formula, yices_arith_eq_atom(y, yices_int32(2)));
+  mdl = check_and_get_model_for_logic(model_formula, "QF_NIA", true);
+
+  elim[0] = y;
+  yices_init_term_vector(&v_local);
+  yices_init_term_vector(&v_wide);
+
+  r = yices_generalize_model(mdl, formula, 1, elim,
+                             YICES_GEN_BY_PROJ, &v_local);
+  assert(r == 0);
+  r = yices_generalize_model(mdl, formula, 1, elim,
+                             YICES_GEN_BY_PROJ_WIDE, &v_wide);
+  assert(r == 0);
+
+  assert_all_true("nia_integer_elim_substitution/local", &v_local, mdl);
+  assert_all_true("nia_integer_elim_substitution/wide", &v_wide, mdl);
+
+  bad_x = yices_arith_eq_atom(x, yices_int32(3));
+  assert_generalization_with_term_status("nia_integer_elim_substitution/local",
+                                         &v_local, bad_x, "QF_NIA", true,
+                                         YICES_STATUS_UNSAT);
+  assert_generalization_with_term_status("nia_integer_elim_substitution/wide",
+                                         &v_wide, bad_x, "QF_NIA", true,
+                                         YICES_STATUS_UNSAT);
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
+static void test_nia_presburger_salvage_multi_elim(void) {
+  term_t x, y, z, w;
+  term_t yz, two_w, rhs, formula, model_formula;
+  term_t admits_other_w, rejects_wrong_parity;
+  term_t elim[2];
+  model_t *mdl;
+  term_vector_t v_local, v_wide;
+  int32_t r;
+
+  printf("\n=== test_nia_presburger_salvage_multi_elim ===\n");
+  if (! yices_has_mcsat()) {
+    printf("  -> skipped: MCSAT not available\n");
+    return;
+  }
+
+  x = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(x, "x_nia_salvage");
+  y = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(y, "y_nia_salvage");
+  z = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(z, "z_nia_salvage");
+  w = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(w, "w_nia_salvage");
+
+  yz = yices_mul(y, z);
+  two_w = yices_mul(yices_int32(2), w);
+  rhs = yices_add(yz, two_w);
+  formula = yices_arith_eq_atom(x, rhs);
+  model_formula = yices_and(4, (term_t[]) {
+      formula,
+      yices_arith_eq_atom(y, yices_int32(3)),
+      yices_arith_eq_atom(z, yices_int32(1)),
+      yices_arith_eq_atom(w, yices_int32(1)),
+  });
+  mdl = check_and_get_model_for_logic(model_formula, "QF_NIA", true);
+
+  elim[0] = y;
+  elim[1] = w;
+  yices_init_term_vector(&v_local);
+  yices_init_term_vector(&v_wide);
+
+  r = yices_generalize_model(mdl, formula, 2, elim,
+                             YICES_GEN_BY_PROJ, &v_local);
+  assert(r == 0);
+  r = yices_generalize_model(mdl, formula, 2, elim,
+                             YICES_GEN_BY_PROJ_WIDE, &v_wide);
+  assert(r == 0);
+
+  assert_all_true("nia_presburger_salvage_multi_elim/local", &v_local, mdl);
+  assert_all_true("nia_presburger_salvage_multi_elim/wide", &v_wide, mdl);
+
+  // Part I's pure substitution fallback would pin w=1 and imply x=3*z+2.
+  // Salvage substitutes y=3, then Presburger-eliminates w, so it admits any
+  // x with x-3*z even. At z=1, x=7 exercises the preserved w-generalization.
+  admits_other_w = yices_and2(yices_arith_eq_atom(z, yices_int32(1)),
+                              yices_arith_eq_atom(x, yices_int32(7)));
+  assert_generalization_with_term_status("nia_presburger_salvage_multi_elim/local-admits",
+                                         &v_local, admits_other_w, "QF_LIA", false,
+                                         YICES_STATUS_SAT);
+  assert_generalization_with_term_status("nia_presburger_salvage_multi_elim/wide-admits",
+                                         &v_wide, admits_other_w, "QF_LIA", false,
+                                         YICES_STATUS_SAT);
+
+  rejects_wrong_parity = yices_and2(yices_arith_eq_atom(z, yices_int32(1)),
+                                    yices_arith_eq_atom(x, yices_int32(6)));
+  assert_generalization_with_term_status("nia_presburger_salvage_multi_elim/local-rejects",
+                                         &v_local, rejects_wrong_parity, "QF_LIA", false,
+                                         YICES_STATUS_UNSAT);
+  assert_generalization_with_term_status("nia_presburger_salvage_multi_elim/wide-rejects",
+                                         &v_wide, rejects_wrong_parity, "QF_LIA", false,
+                                         YICES_STATUS_UNSAT);
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
+static void test_nira_integer_subst_real_projection(void) {
+  term_t x, y, rvar;
+  term_t formula, model_formula, bad_x, allow_r_zero;
+  term_t elim[2];
+  model_t *mdl;
+  term_vector_t v_local, v_wide;
+  int32_t r;
+
+  printf("\n=== test_nira_integer_subst_real_projection ===\n");
+  if (! yices_has_mcsat()) {
+    printf("  -> skipped: MCSAT not available\n");
+    return;
+  }
+
+  x = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(x, "x_nira_mixed");
+  y = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(y, "y_nira_mixed");
+  rvar = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(rvar, "r_nira_mixed");
+
+  formula = yices_and2(yices_arith_eq_atom(x, yices_mul(y, y)),
+                       yices_arith_gt0_atom(rvar));
+  model_formula = yices_and(3, (term_t[]) {
+      formula,
+      yices_arith_eq_atom(y, yices_int32(2)),
+      yices_arith_eq_atom(rvar, yices_int32(1)),
+  });
+  mdl = check_and_get_model_for_logic(model_formula, "QF_NIRA", true);
+
+  elim[0] = y;
+  elim[1] = rvar;
+  yices_init_term_vector(&v_local);
+  yices_init_term_vector(&v_wide);
+
+  r = yices_generalize_model(mdl, formula, 2, elim,
+                             YICES_GEN_BY_PROJ, &v_local);
+  assert(r == 0);
+  r = yices_generalize_model(mdl, formula, 2, elim,
+                             YICES_GEN_BY_PROJ_WIDE, &v_wide);
+  assert(r == 0);
+
+  assert_all_true("nira_integer_subst_real_projection/local", &v_local, mdl);
+  assert_all_true("nira_integer_subst_real_projection/wide", &v_wide, mdl);
+
+  bad_x = yices_arith_eq_atom(x, yices_int32(3));
+  assert_generalization_with_term_status("nira_integer_subst_real_projection/local",
+                                         &v_local, bad_x, "QF_NIRA", true,
+                                         YICES_STATUS_UNSAT);
+  assert_generalization_with_term_status("nira_integer_subst_real_projection/wide",
+                                         &v_wide, bad_x, "QF_NIRA", true,
+                                         YICES_STATUS_UNSAT);
+
+  allow_r_zero = yices_and2(yices_arith_eq_atom(x, yices_int32(4)),
+                            yices_arith_eq_atom(rvar, yices_int32(0)));
+  assert_generalization_with_term_status("nira_integer_subst_real_projection/local-r-free",
+                                         &v_local, allow_r_zero, "QF_NIRA", true,
+                                         YICES_STATUS_SAT);
+  assert_generalization_with_term_status("nira_integer_subst_real_projection/wide-r-free",
+                                         &v_wide, allow_r_zero, "QF_NIRA", true,
+                                         YICES_STATUS_SAT);
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
+static void test_mixed_route_or_preserves_presburger(void) {
+  term_t x, i, rvar;
+  term_t even_def, r_pos, formula, model_formula;
+  term_t admits_other_even, rejects_odd;
+  term_t elim[2];
+  model_t *mdl;
+  term_vector_t v_local, v_wide;
+
+  printf("\n=== test_mixed_route_or_preserves_presburger ===\n");
+  x = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(x, "x_route_or");
+  i = yices_new_uninterpreted_term(yices_int_type());
+  yices_set_term_name(i, "i_route_or");
+  rvar = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(rvar, "r_route_or");
+
+  even_def = yices_arith_eq_atom(x, yices_mul(yices_int32(2), i));
+  r_pos = yices_arith_gt0_atom(rvar);
+  formula = yices_and2(even_def, r_pos);
+  model_formula = yices_and(3, (term_t[]) {
+      formula,
+      yices_arith_eq_atom(x, yices_int32(4)),
+      yices_arith_eq_atom(i, yices_int32(2)),
+  });
+  model_formula = yices_and2(model_formula, yices_arith_eq_atom(rvar, yices_int32(1)));
+  mdl = check_and_get_model_for_logic(model_formula, "QF_LIRA", false);
+
+  elim[0] = i;
+  elim[1] = rvar;
+  run_both_modes("mixed_route_or_preserves_presburger", formula, mdl, 2, elim,
+                 &v_local, &v_wide);
+
+  admits_other_even = yices_arith_eq_atom(x, yices_int32(6));
+  rejects_odd = yices_arith_eq_atom(x, yices_int32(3));
+
+  assert_generalization_with_term_status("mixed_route_or_preserves_presburger/local-admits",
+                                         &v_local, admits_other_even, "QF_LIRA", false,
+                                         YICES_STATUS_SAT);
+  assert_generalization_with_term_status("mixed_route_or_preserves_presburger/wide-admits",
+                                         &v_wide, admits_other_even, "QF_LIRA", false,
+                                         YICES_STATUS_SAT);
+  assert_generalization_with_term_status("mixed_route_or_preserves_presburger/local-rejects",
+                                         &v_local, rejects_odd, "QF_LIRA", false,
+                                         YICES_STATUS_UNSAT);
+  assert_generalization_with_term_status("mixed_route_or_preserves_presburger/wide-rejects",
+                                         &v_wide, rejects_odd, "QF_LIRA", false,
+                                         YICES_STATUS_UNSAT);
+
+  printf("  -> route OR preserves the Presburger evenness cell\n");
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
+static void run_rdiv_case(const char *tag, term_t formula, term_t elim_var, model_t *mdl) {
+  term_t elim[1];
+  term_vector_t v_local, v_wide;
+
+  assert(yices_formula_true_in_model(mdl, formula) == 1);
+  elim[0] = elim_var;
+  run_both_modes(tag, formula, mdl, 1, elim, &v_local, &v_wide);
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
+static void run_arith_construct_case(const char *tag, term_t formula,
+                                     uint32_t nelims, const term_t elim[],
+                                     model_t *mdl) {
+  term_vector_t v_local, v_wide;
+
+  assert(yices_formula_true_in_model(mdl, formula) == 1);
+  run_both_modes(tag, formula, mdl, nelims, elim, &v_local, &v_wide);
+
+  yices_delete_term_vector(&v_local);
+  yices_delete_term_vector(&v_wide);
+  yices_free_model(mdl);
+}
+
+static void test_abs_prepass_projection(void) {
+  term_t x, y, abs_x, bound, elim[1];
+  model_t *mdl;
+
+  printf("\n=== test_abs_prepass_projection ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_abs_proj");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_abs_proj");
+
+  abs_x = yices_abs(x);
+  bound = yices_arith_lt_atom(abs_x, y);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, -2, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 5, 1) == 0);
+
+  elim[0] = x;
+  run_arith_construct_case("abs_prepass_projection", bound, 1, elim, mdl);
+}
+
+static void test_floor_ceil_projection(void) {
+  term_t x, floor_x, ceil_x, f_atom, c_atom, formula, args[2], elim[1];
+  model_t *mdl;
+
+  printf("\n=== test_floor_ceil_projection ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_floor_ceil_proj");
+
+  floor_x = yices_floor(x);
+  ceil_x = yices_ceil(x);
+  f_atom = yices_arith_eq_atom(floor_x, yices_int32(1));
+  c_atom = yices_arith_eq_atom(ceil_x, yices_int32(2));
+  args[0] = f_atom;
+  args[1] = c_atom;
+  formula = yices_and(2, args);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 3, 2) == 0);
+
+  elim[0] = x;
+  run_arith_construct_case("floor_ceil_projection", formula, 1, elim, mdl);
+}
+
+static void test_idiv_projection(void) {
+  term_t x, y, div, div_atom, y_pos, formula, args[2], elim[1];
+  model_t *mdl;
+
+  printf("\n=== test_idiv_projection ===\n");
+  if (! yices_has_mcsat()) {
+    printf("  -> skipped: nonlinear arithmetic projection support not available\n");
+    return;
+  }
+
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_idiv_proj");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_idiv_proj");
+
+  div = yices_idiv(x, y);
+  div_atom = yices_arith_eq_atom(div, yices_int32(2));
+  y_pos = yices_arith_gt0_atom(y);
+  args[0] = y_pos;
+  args[1] = div_atom;
+  formula = yices_and(2, args);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 5, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 2, 1) == 0);
+
+  elim[0] = x;
+  run_arith_construct_case("idiv_projection", formula, 1, elim, mdl);
+}
+
+static void test_imod_projection(void) {
+  term_t x, y, mod, mod_atom, y_pos, formula, args[2], elim[1];
+  model_t *mdl;
+
+  printf("\n=== test_imod_projection ===\n");
+  if (! yices_has_mcsat()) {
+    printf("  -> skipped: nonlinear arithmetic projection support not available\n");
+    return;
+  }
+
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_imod_proj");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_imod_proj");
+
+  mod = yices_imod(x, y);
+  mod_atom = yices_arith_eq_atom(mod, yices_int32(1));
+  y_pos = yices_arith_gt0_atom(y);
+  args[0] = y_pos;
+  args[1] = mod_atom;
+  formula = yices_and(2, args);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 5, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 2, 1) == 0);
+
+  elim[0] = x;
+  run_arith_construct_case("imod_projection", formula, 1, elim, mdl);
+}
+
+static void test_rdiv_positive_denominator(void) {
+  term_t x, y, div, bound, formula, expected;
+  model_t *mdl;
+
+  printf("\n=== test_rdiv_positive_denominator ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_rdiv_pos");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_rdiv_pos");
+
+  div = yices_division(x, y);
+  bound = yices_arith_lt_atom(div, yices_int32(3));
+  expected = yices_arith_gt0_atom(y);
+  formula = yices_and2(expected, bound);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 0, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 1, 1) == 0);
+  run_rdiv_case("rdiv_positive_denominator", formula, x, mdl);
+}
+
+static void test_rdiv_negative_denominator(void) {
+  term_t x, y, div, bound, formula, expected;
+  model_t *mdl;
+
+  printf("\n=== test_rdiv_negative_denominator ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_rdiv_neg");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_rdiv_neg");
+
+  div = yices_division(x, y);
+  bound = yices_arith_lt_atom(div, yices_int32(3));
+  expected = yices_arith_lt0_atom(y);
+  formula = yices_and2(expected, bound);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 0, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, -1, 1) == 0);
+  run_rdiv_case("rdiv_negative_denominator", formula, x, mdl);
+}
+
+static void test_rdiv_hidden_in_sum(void) {
+  term_t x, a, y, div, sum, bound, formula, expected;
+  model_t *mdl;
+
+  printf("\n=== test_rdiv_hidden_in_sum ===\n");
+  if (! yices_has_mcsat()) {
+    printf("  -> skipped: nonlinear arithmetic projection support not available\n");
+    return;
+  }
+
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_rdiv_sum");
+  a = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(a, "a_rdiv_sum");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_rdiv_sum");
+
+  div = yices_division(a, y);
+  sum = yices_add(x, div);
+  bound = yices_arith_lt0_atom(sum);
+  expected = yices_arith_gt0_atom(y);
+  formula = yices_and2(expected, bound);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, -2, 1) == 0);
+  assert(yices_model_set_rational32(mdl, a, 1, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 1, 1) == 0);
+  run_rdiv_case("rdiv_hidden_in_sum", formula, x, mdl);
+}
+
+#ifdef HAVE_MCSAT
+static void test_rdiv_hidden_in_product(void) {
+  term_t x, a, y, div, product, bound, formula, expected;
+  model_t *mdl;
+
+  printf("\n=== test_rdiv_hidden_in_product ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_rdiv_product");
+  a = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(a, "a_rdiv_product");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_rdiv_product");
+
+  div = yices_division(a, y);
+  product = yices_mul(div, x);
+  bound = yices_arith_lt_atom(product, yices_int32(1));
+  expected = yices_arith_gt0_atom(y);
+  formula = yices_and2(expected, bound);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 0, 1) == 0);
+  assert(yices_model_set_rational32(mdl, a, 1, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 1, 1) == 0);
+  run_rdiv_case("rdiv_hidden_in_product", formula, x, mdl);
+}
+#endif
+
+static void test_rdiv_ite_dead_branch_denominator(void) {
+  term_t x, y, v, c, live_div, dead_div, ite, bound, args[4], formula;
+  term_t expected;
+  model_t *mdl;
+
+  printf("\n=== test_rdiv_ite_dead_branch_denominator ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_rdiv_ite");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_rdiv_ite");
+  v = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(v, "v_rdiv_ite_dead");
+  c = yices_new_uninterpreted_term(yices_bool_type());
+  yices_set_term_name(c, "c_rdiv_ite");
+
+  live_div = yices_division(x, y);
+  dead_div = yices_division(x, v);
+  ite = yices_ite(c, live_div, dead_div);
+  bound = yices_arith_lt_atom(ite, yices_int32(3));
+  expected = yices_arith_gt0_atom(y);
+
+  args[0] = c;
+  args[1] = expected;
+  args[2] = yices_arith_eq0_atom(v);
+  args[3] = bound;
+  formula = yices_and(4, args);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 0, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 1, 1) == 0);
+  assert(yices_model_set_rational32(mdl, v, 0, 1) == 0);
+  assert(yices_model_set_bool(mdl, c, 1) == 0);
+  run_rdiv_case("rdiv_ite_dead_branch_denominator", formula, x, mdl);
+}
+
+static void test_rdiv_ite_denominator_subterm(void) {
+  term_t x, y, z, c, denom, div, bound, args[4], formula;
+  term_t expected;
+  model_t *mdl;
+
+  printf("\n=== test_rdiv_ite_denominator_subterm ===\n");
+  x = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(x, "x_rdiv_ite_denom");
+  y = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(y, "y_rdiv_ite_denom");
+  z = yices_new_uninterpreted_term(yices_real_type());
+  yices_set_term_name(z, "z_rdiv_ite_denom");
+  c = yices_new_uninterpreted_term(yices_bool_type());
+  yices_set_term_name(c, "c_rdiv_ite_denom");
+
+  denom = yices_ite(c, y, z);
+  div = yices_division(x, denom);
+  bound = yices_arith_lt_atom(div, yices_int32(3));
+  expected = yices_arith_gt0_atom(y);
+
+  args[0] = c;
+  args[1] = expected;
+  args[2] = yices_arith_eq0_atom(z);
+  args[3] = bound;
+  formula = yices_and(4, args);
+
+  mdl = yices_new_model();
+  assert(yices_model_set_rational32(mdl, x, 0, 1) == 0);
+  assert(yices_model_set_rational32(mdl, y, 1, 1) == 0);
+  assert(yices_model_set_rational32(mdl, z, 0, 1) == 0);
+  assert(yices_model_set_bool(mdl, c, 1) == 0);
+  run_rdiv_case("rdiv_ite_denominator_subterm", formula, x, mdl);
+}
+
 
 int main(void) {
   yices_init();
@@ -683,6 +1349,23 @@ int main(void) {
   test_sat_guided_budget_graceful();
   test_shared_elimination_variable();
   test_sat_guided_polarity();
+  test_lia_presburger_divisibility();
+  test_nia_integer_elim_substitution();
+  test_nia_presburger_salvage_multi_elim();
+  test_nira_integer_subst_real_projection();
+  test_mixed_route_or_preserves_presburger();
+  test_abs_prepass_projection();
+  test_floor_ceil_projection();
+  test_idiv_projection();
+  test_imod_projection();
+  test_rdiv_positive_denominator();
+  test_rdiv_negative_denominator();
+  test_rdiv_hidden_in_sum();
+#ifdef HAVE_MCSAT
+  test_rdiv_hidden_in_product();
+#endif
+  test_rdiv_ite_dead_branch_denominator();
+  test_rdiv_ite_denominator_subterm();
 
   yices_exit();
   printf("\nALL TESTS PASSED\n");
