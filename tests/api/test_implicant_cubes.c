@@ -67,12 +67,64 @@ static void assert_cube_contract(const char *logic, model_t *mdl, term_t target,
   }
 }
 
+static uint32_t cube_stream_count(const term_vector_t *stream) {
+  uint32_t i, n;
+
+  n = 1;
+  for (i = 0; i < stream->size; i++) {
+    if (stream->data[i] == NULL_TERM) {
+      n ++;
+    }
+  }
+  return n;
+}
+
+static term_t cube_stream_term(const term_vector_t *stream, uint32_t cube_index) {
+  uint32_t i, start, end, current;
+
+  start = 0;
+  current = 0;
+  for (i = 0; i <= stream->size; i++) {
+    if (i == stream->size || stream->data[i] == NULL_TERM) {
+      if (current == cube_index) {
+        end = i;
+        return yices_and(end - start, start < end ? stream->data + start : NULL);
+      }
+      current ++;
+      start = i + 1;
+    }
+  }
+
+  assert(0);
+  return NULL_TERM;
+}
+
+static void assert_no_separator(const term_vector_t *stream) {
+  uint32_t i;
+
+  for (i = 0; i < stream->size; i++) {
+    assert(stream->data[i] != NULL_TERM);
+  }
+}
+
+static void pp_cube_stream(term_vector_t *stream) {
+  uint32_t i, n;
+  term_t cube;
+
+  n = cube_stream_count(stream);
+  for (i = 0; i < n; i++) {
+    cube = cube_stream_term(stream, i);
+    yices_pp_term(stdout, cube, 120, 10, 0);
+  }
+}
+
 static void test_boolean_subset_minimal_cubes(void) {
   type_t bool_type;
   term_t a, b, c, target, model_formula, ab, ac, args[3];
   model_t *mdl;
   term_vector_t cubes;
   uint32_t i;
+  int32_t code;
   term_t bc, not_bc, witness;
 
   printf("\n=== test_boolean_subset_minimal_cubes ===\n");
@@ -97,24 +149,36 @@ static void test_boolean_subset_minimal_cubes(void) {
   mdl = model_for("QF_UF", model_formula);
 
   yices_init_term_vector(&cubes);
-  assert(yices_implicant_cubes_for_formula(mdl, target, 0, &cubes) == 0);
-  printf("cubes: %u\n", cubes.size);
-  yices_pp_term_array(stdout, cubes.size, cubes.data, 120, 10, 0, 1);
+  code = yices_implicant_cubes_for_formula(mdl, target, 0, &cubes);
+  assert(code == 2);
+  printf("cubes: %d\n", code);
+  pp_cube_stream(&cubes);
 
-  assert(cubes.size == 2);
+  assert(cube_stream_count(&cubes) == (uint32_t) code);
+  assert(cubes.size == 5);
+  assert(cubes.data[2] == NULL_TERM);
+  assert(cubes.data[cubes.size - 1] != NULL_TERM);
   bc = yices_and2(b, c);
   not_bc = yices_not(bc);
-  for (i = 0; i < cubes.size; i++) {
-    assert_cube_contract("QF_UF", mdl, target, cubes.data[i]);
+  for (i = 0; i < (uint32_t) code; i++) {
+    term_t cube = cube_stream_term(&cubes, i);
+    assert_cube_contract("QF_UF", mdl, target, cube);
 
     /*
      * A bloated model cube {a,b,c} would imply b /\ c. The strict
      * false-first enumerator must return subset-minimal cubes instead.
      */
-    witness = yices_and2(cubes.data[i], not_bc);
+    witness = yices_and2(cube, not_bc);
     assert(witness >= 0);
     assert(check_formula("QF_UF", witness) == YICES_STATUS_SAT);
   }
+
+  yices_reset_term_vector(&cubes);
+  code = yices_implicant_cubes_for_formula(mdl, target, 1, &cubes);
+  assert(code == 1);
+  assert(cube_stream_count(&cubes) == (uint32_t) code);
+  assert_no_separator(&cubes);
+  assert_cube_contract("QF_UF", mdl, target, cube_stream_term(&cubes, 0));
 
   yices_delete_term_vector(&cubes);
   yices_free_model(mdl);
@@ -124,6 +188,7 @@ static void test_arithmetic_ite_condition_free_cube(void) {
   term_t c, ite, target, model_formula;
   model_t *mdl;
   term_vector_t cubes;
+  int32_t code;
 
   printf("\n=== test_arithmetic_ite_condition_free_cube ===\n");
   fflush(stdout);
@@ -136,13 +201,14 @@ static void test_arithmetic_ite_condition_free_cube(void) {
   mdl = model_for("QF_LRA", model_formula);
 
   yices_init_term_vector(&cubes);
-  assert(yices_implicant_cubes_for_formula(mdl, target, 0, &cubes) == 0);
-  printf("cubes: %u\n", cubes.size);
-  yices_pp_term_array(stdout, cubes.size, cubes.data, 120, 10, 0, 1);
+  code = yices_implicant_cubes_for_formula(mdl, target, 0, &cubes);
+  assert(code == 1);
+  printf("cubes: %d\n", code);
+  pp_cube_stream(&cubes);
 
-  assert(cubes.size == 1);
-  assert(cubes.data[0] == yices_true());
-  assert_cube_contract("QF_LRA", mdl, target, cubes.data[0]);
+  assert(cube_stream_count(&cubes) == (uint32_t) code);
+  assert(cubes.size == 0);
+  assert_cube_contract("QF_LRA", mdl, target, yices_true());
 
   yices_delete_term_vector(&cubes);
   yices_free_model(mdl);
@@ -153,6 +219,7 @@ static void test_forced_last_cube_exhausts(void) {
   term_t a, b, target, model_formula;
   model_t *mdl;
   term_vector_t cubes;
+  int32_t code;
 
   printf("\n=== test_forced_last_cube_exhausts ===\n");
   fflush(stdout);
@@ -168,12 +235,13 @@ static void test_forced_last_cube_exhausts(void) {
   mdl = model_for("QF_UF", model_formula);
 
   yices_init_term_vector(&cubes);
-  assert(yices_implicant_cubes_for_formula(mdl, target, 0, &cubes) == 0);
-  printf("cubes: %u\n", cubes.size);
-  yices_pp_term_array(stdout, cubes.size, cubes.data, 120, 10, 0, 1);
+  code = yices_implicant_cubes_for_formula(mdl, target, 0, &cubes);
+  assert(code == 1);
+  printf("cubes: %d\n", code);
+  pp_cube_stream(&cubes);
 
-  assert(cubes.size == 1);
-  assert_cube_contract("QF_UF", mdl, target, cubes.data[0]);
+  assert(cube_stream_count(&cubes) == (uint32_t) code);
+  assert_cube_contract("QF_UF", mdl, target, cube_stream_term(&cubes, 0));
 
   yices_delete_term_vector(&cubes);
   yices_free_model(mdl);

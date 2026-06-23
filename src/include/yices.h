@@ -4737,9 +4737,13 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
  * - max_cubes is the maximum number of distinct cubes to return.
  * - max_cubes = 0 means no explicit cap.
  *
- * If the return code is 0, then v contains one term per cube. Each term
- * is a conjunction of literals true in mdl and implies t. If the return
- * code is -1, v is empty and the error report is as for
+ * If the return code is k >= 1, then v contains the literals of k cubes,
+ * separated by k-1 occurrences of NULL_TERM. There is no trailing NULL_TERM.
+ * For example, two cubes { a, b } and { c } are returned as
+ *   a, b, NULL_TERM, c
+ * Each cube is true in mdl and implies t. If max_cubes is 1, the result
+ * has the same flat literal-vector shape as yices_implicant_for_formula.
+ * If the return code is -1, v is empty and the error report is as for
  * yices_implicant_for_formula.
  */
 __YICES_DLLSPEC__ extern int32_t yices_implicant_cubes_for_formula(model_t *mdl, term_t t,
