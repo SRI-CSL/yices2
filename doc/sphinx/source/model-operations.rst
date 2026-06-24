@@ -162,12 +162,28 @@ Model Construction
    vector *v*.
 
 
+.. c:function::  model_t* yices_new_model(void)
+
+   Creates an empty model.
+
+   Returns a pointer to a fresh model with no variable assignments.
+   Values can then be assigned using the model-construction functions
+   (e.g., :c:func:`yices_model_set_bool`, :c:func:`yices_model_set_int32`).
+
+   This function always succeeds and returns a non-NULL pointer.
+
+   The model must be deleted when no longer needed by calling
+   :c:func:`yices_free_model`.
+
+   *Since 2.6.4.*
+
 .. c:function::  void yices_free_model(model_t* mdl)
 
    Deletes a model.
 
    This function deletes model *mdl*, which must be a pointer returned
-   by either :c:func:`yices_get_model` or :c:func:`yices_model_from_map`.
+   by :c:func:`yices_get_model`, :c:func:`yices_model_from_map`, or
+   :c:func:`yices_new_model`.
 
    .. note:: If this function is not called, Yices will automatically free
              the model on a call to :c:func:`yices_exit` or :c:func:`yices_reset`.
@@ -457,7 +473,7 @@ These functions are useful for creating custom models or modifying existing ones
 
 .. c:function:: int32_t yices_model_set_ff_mpz(model_t *model, term_t var, mpz_t val)
 
-   Assign a GMP integer value to a finite-field uninterpreted term in the model.
+   Assign a GMP integer value to a finite-field uninterpreted term in the model (Since 2.7.0).
 
    **Parameters**
 
@@ -1174,7 +1190,7 @@ Atomic Values
 
 .. c:function:: int32_t yices_get_ff_value(model_t *mdl, term_t t, mpz_t val, mpz_t mod)
 
-   Value of a finite-field term.
+   Value of a finite-field term (Since 2.7.0).
 
    This function evaluates *t* in *mdl* and stores the finite-field
    value in *val* and the corresponding field modulus in *mod*.
@@ -1685,7 +1701,7 @@ the children of non-leaf nodes.
 
 .. c:function:: int32_t yices_val_get_ff(model_t *mdl, const yval_t *v, mpz_t val, mpz_t mod)
 
-   Node value as a finite-field constant.
+   Node value as a finite-field constant (Since 2.7.0).
 
    This function checks whether node *v* has tag :c:enum:`YVAL_FINITEFIELD`.
    If so, it copies the node value in *val* and the finite-field
@@ -2036,28 +2052,36 @@ the model. The formula  *G(X)* satisfies two properties:
   2) *G(X)* implies (exists *y* *F(x, y)*)
 
 
-Yices supports two generalization methods:
+Yices supports three generalization methods:
 
   - **Generalization by substitution:** This is the simplest method. It eliminates the
     variables *Y* by replacing them by their values in the model.
 
-  - **Generalization by projection:** This first computes an implicant of formula *F(X, Y)*
-    then eliminates the *Y* variables from this implicant by projection. The projection is
-    a cheap form of quantifier elimination. It is a hybrid a Fourier-Motzkin elimination
-    and virtual term substitution.
+  - **Generalization by projection** (:c:enum:`YICES_GEN_BY_PROJ`): This first computes
+    an implicant of formula *F(X, Y)* then eliminates the *Y* variables from this implicant
+    by projection. The projection is a cheap form of quantifier elimination — a hybrid of
+    Fourier-Motzkin elimination and virtual term substitution.
 
-The two generalization functions take a parameter that specifies the generalization method.
-This parameter takes a value of type :c:type:`yices_gen_mode_t`:
+  - **Wide projection** (:c:enum:`YICES_GEN_BY_PROJ_WIDE`, Since 2.8.0): A SAT-guided
+    extension of projection that walks the Boolean structure of *F(X, Y)*, enumerates
+    multiple model-true implicant cubes, and returns their union. The result is always at
+    least as broad as :c:enum:`YICES_GEN_BY_PROJ` and is often strictly broader when the
+    formula has Boolean structure that the model satisfies in more than one way.
+
+The generalization functions take a parameter of type :c:type:`yices_gen_mode_t`:
 
   - :c:enum:`YICES_GEN_BY_SUBST` selects generalization by substitution;
 
   - :c:enum:`YICES_GEN_BY_PROJ` selects generalization by projection;
 
+  - :c:enum:`YICES_GEN_BY_PROJ_WIDE` selects wide projection;
+
   - :c:enum:`YICES_GEN_DEFAULT` automatically chooses the
     generalization method based on the type of variables to
     eliminate. If any variable to eliminate is an arithmetic variable,
     then generalization by projection is used. Otherwise, the default
-    is generalization by substitution.
+    is generalization by substitution. Wide projection is never
+    selected implicitly.
 
 .. c:function:: int32_t yices_generalize_model(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[], yices_gen_mode_t mode, term_vector_t *v)
 
@@ -2115,3 +2139,95 @@ This parameter takes a value of type :c:type:`yices_gen_mode_t`:
 
    This function is equivalent to calling :c:func:`yices_generalize_model` with
    argument (*a[0]* |and| |...| |and| *a[n-1]*).
+
+.. c:function:: int32_t yices_generalize_model_with_budget(model_t *mdl, term_t t, uint32_t nelims, const term_t elim[], yices_gen_mode_t mode, uint32_t cube_budget, term_vector_t *v)
+
+   Model generalization for a single formula with an explicit cube budget.
+
+   This function is identical to :c:func:`yices_generalize_model` except for the
+   additional *cube_budget* parameter, which only applies to mode
+   :c:enum:`YICES_GEN_BY_PROJ_WIDE`.
+
+   **Parameters**
+
+   - *mdl*: model
+
+   - *t*: Boolean term that is true in *mdl*
+
+   - *nelims*: number of variables to eliminate
+
+   - *elim*: variables to eliminate
+
+   - *mode*: generalization method
+
+   - *cube_budget*: maximum number of distinct normalized cubes to attempt during
+     wide enumeration. A value of 0 means unbounded. Ignored for all modes other
+     than :c:enum:`YICES_GEN_BY_PROJ_WIDE`.
+
+   - *v*: term vector to store the result
+
+   When *cube_budget* is 0, this function behaves identically to
+   :c:func:`yices_generalize_model`.
+
+   *Since 2.8.0.*
+
+.. c:function:: int32_t yices_generalize_model_array_with_budget(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[], yices_gen_mode_t mode, uint32_t cube_budget, term_vector_t *v)
+
+   Model generalization for an array of formulas with an explicit cube budget.
+
+   This function is the array variant of
+   :c:func:`yices_generalize_model_with_budget`. It generalizes the conjunction
+   (*a[0]* |and| |...| |and| *a[n-1]*) using the given *cube_budget*.
+
+   *Since 2.8.0.*
+
+
+Implicant Cube Enumeration
+--------------------------
+
+.. c:function:: int32_t yices_implicant_cubes_for_formula(model_t *mdl, term_t t, uint32_t max_cubes, term_vector_t *v)
+
+   Enumerates multiple implicant cubes for a formula.
+
+   This function computes up to *max_cubes* distinct implicant cubes of *t* in
+   model *mdl*. The Boolean abstraction of *t* is searched with strict
+   false-first decisions and superset blockers, so returned cubes are built from
+   subset-minimal satisfying sets of abstraction literals.
+
+   **Parameters**
+
+   - *mdl*: model
+
+   - *t*: Boolean term that is true in *mdl*
+
+   - *max_cubes*: maximum number of cubes to return. A value of 0 means no explicit cap.
+
+   - *v*: term vector to store the result (must be initialized with :c:func:`yices_init_term_vector`)
+
+   **Return value and result encoding**
+
+   If the return code is *k* |geq| 1, then *v* contains the literals of *k* cubes
+   separated by *k - 1* occurrences of :c:macro:`NULL_TERM`. There is no trailing
+   :c:macro:`NULL_TERM`. For example, two cubes {*a*, *b*} and {*c*} are encoded as::
+
+      a, b, NULL_TERM, c
+
+   Each cube is true in *mdl* and implies *t*. When *max_cubes* is 1, the
+   result has the same flat literal-vector layout as
+   :c:func:`yices_implicant_for_formula`.
+
+   If the return code is -1, *v* is empty and the error report is the same as for
+   :c:func:`yices_implicant_for_formula`.
+
+   *Since 2.8.0.*
+
+.. c:function:: int32_t yices_implicant_cubes_for_formulas(model_t *mdl, uint32_t n, const term_t a[], uint32_t max_cubes, term_vector_t *v)
+
+   Enumerates multiple implicant cubes for a conjunction of formulas.
+
+   This is the array variant of :c:func:`yices_implicant_cubes_for_formula`.
+   It enumerates cubes for the conjunction (*a[0]* |and| |...| |and| *a[n-1]*).
+   The result encoding, return codes, and errors are as described for
+   :c:func:`yices_implicant_cubes_for_formula`.
+
+   *Since 2.8.0.*

@@ -112,6 +112,7 @@ Yices Terms
       YICES_ARITH_CONSTANT,
       YICES_BV_CONSTANT,
       YICES_SCALAR_CONSTANT,
+      YICES_FF_CONSTANT,
       YICES_VARIABLE,
       YICES_UNINTERPRETED_TERM,
       // composite terms
@@ -153,6 +154,7 @@ Yices Terms
       // sums
       YICES_BV_SUM,
       YICES_ARITH_SUM,
+      YICES_FF_SUM,
       // products
       YICES_POWER_PRODUCT
     } term_constructor_t;
@@ -176,8 +178,13 @@ Yices Terms
       Bitvector constants
 
    .. c:enum:: YICES_SCALAR_CONSTANT
- 
+
       Constants of uninterpreted or scalar type
+
+   .. c:enum:: YICES_FF_CONSTANT
+
+      Finite-field constants (Since 2.7.0). Also available as
+      ``YICES_ARITH_FF_CONSTANT`` (compatibility alias).
 
    .. c:enum:: YICES_VARIABLE
 
@@ -356,6 +363,19 @@ Yices Terms
       As in :c:enum:`YICES_BV_SUM`, the term *t*\ |_0| may be :c:macro:`NULL_TERM` to
       encode a constant term.
 
+   .. c:enum:: YICES_FF_SUM
+
+      Sum of the form *a*\ |_0| *t*\ |_0| + |...| + *a*\ |_n| *t*\ |_n| where
+
+        - the coefficients *a*\ |_i| are finite-field constants
+
+        - all the terms *t*\ |_i| (except possibly *t*\ |_0|) are finite-field terms
+
+      As in :c:enum:`YICES_ARITH_SUM`, the term *t*\ |_0| may be :c:macro:`NULL_TERM` to
+      encode a constant term.
+
+      (Since 2.7.0). Also available as ``YICES_ARITH_FF_SUM`` (compatibility alias).
+
    .. c:enum:: YICES_POWER_PRODUCT
 
 
@@ -514,6 +534,7 @@ Models
 	YVAL_ALGEBRAIC,
 	YVAL_BV,
 	YVAL_SCALAR,
+	YVAL_FINITEFIELD,
 	YVAL_TUPLE,
 	YVAL_FUNCTION,
 	YVAL_MAPPING
@@ -544,7 +565,11 @@ Models
    .. c:enum:: YVAL_SCALAR
 
       Constants of scalar or uninterpreted type
-    
+
+   .. c:enum:: YVAL_FINITEFIELD
+
+      Finite-field constants (Since 2.7.0).
+
    .. c:enum:: YVAL_TUPLE
 
       Tuples of constants
@@ -559,10 +584,10 @@ Models
 
    The tags :c:enum:`YVAL_UNKNOWN`, :c:enum:`YVAL_BOOL`,
    :c:enum:`YVAL_RATIONAL`, :c:enum:`YVAL_BV`,
-   :c:enum:`YVAL_ALGEBRAIC` and :c:enum:`YVAL_SCALAR` are attached to
-   leaf nodes in the DAG. The non-leaf nodes have tags
-   :c:enum:`YVAL_TUPLE`, :c:enum:`YVAL_FUNCTION`, and
-   :c:enum:`YVAL_MAPPING`.
+   :c:enum:`YVAL_ALGEBRAIC`, :c:enum:`YVAL_SCALAR`, and
+   :c:enum:`YVAL_FINITEFIELD` are attached to leaf nodes in the DAG.
+   The non-leaf nodes have tags :c:enum:`YVAL_TUPLE`,
+   :c:enum:`YVAL_FUNCTION`, and :c:enum:`YVAL_MAPPING`.
 
    The nodes with tag :c:enum:`YVAL_MAPPING` are auxiliary nodes that
    occur in the definition of functions.  In a model, all function
@@ -640,7 +665,8 @@ Models
      typedef enum yices_gen_mode {
        YICES_GEN_DEFAULT,
        YICES_GEN_BY_SUBST,
-       YICES_GEN_BY_PROJ
+       YICES_GEN_BY_PROJ,
+       YICES_GEN_BY_PROJ_WIDE
      } yices_gen_mode_t;
 
    .. c:enum:: YICES_GEN_DEFAULT
@@ -657,6 +683,16 @@ Models
 
       Generalization by projection. This is a hybrid of Fourier-Motzkin elimination
       and a model-based variant of virtual term substitution.
+
+   .. c:enum:: YICES_GEN_BY_PROJ_WIDE
+
+      SAT-guided wide projection (Since 2.8.0). Walks the Boolean structure of the
+      formula, enumerates model-true Boolean implicants against a polarity-aware
+      abstraction, projects each as a cube, and returns their union. The resulting
+      cell is always at least as broad as :c:enum:`YICES_GEN_BY_PROJ`. Recommended
+      for CEGAR-style outer loops over quantifier prefixes. Use
+      :c:func:`yices_generalize_model_with_budget` to cap the number of cubes
+      enumerated.
 
    See :c:func:`yices_generalize_model` for more details. 
       

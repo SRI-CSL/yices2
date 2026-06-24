@@ -4800,7 +4800,7 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_cubes_for_formulas(model_t *mdl
  *                                        behaviour and remains the default
  *                                        projection algorithm.
  *   mode = YICES_GEN_BY_PROJ_WIDE   ---> SAT-guided wide projection (since
- *                                        2.7.0): walks the Boolean structure
+ *                                        2.8.0): walks the Boolean structure
  *                                        of t, enumerates model-true Boolean
  *                                        implicants of t against a polarity-
  *                                        aware abstraction, projects each as
@@ -4895,7 +4895,7 @@ __YICES_DLLSPEC__ extern int32_t yices_generalize_model_array(model_t *mdl, uint
  * yices_generalize_model and yices_generalize_model_array are equivalent
  * to passing cube_budget = 0.
  *
- * Since 2.7.0.
+ * Since 2.8.0.
  */
 __YICES_DLLSPEC__ extern int32_t yices_generalize_model_with_budget(
     model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],

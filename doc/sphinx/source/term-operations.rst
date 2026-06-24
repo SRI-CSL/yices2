@@ -1191,6 +1191,8 @@ Arithmetic Terms
 Finite-Field Terms
 ------------------
 
+*All functions in this section are available since Yices 2.7.0.*
+
 .. c:function:: term_t yices_ff_const(const mpz_t val, const mpz_t mod)
 
    Finite-field constant.
@@ -2975,7 +2977,7 @@ a valid term.
 
 .. c:function:: int32_t yices_ff_const_value(term_t t, mpz_t z)
 
-   Value of a finite-field constant.
+   Value of a finite-field constant (Since 2.7.0).
 
    This function copies the value of finite-field constant *t* in the
    GMP integer *z*. The GMP integer *z* must be initialized.

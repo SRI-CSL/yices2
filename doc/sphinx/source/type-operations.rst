@@ -78,7 +78,7 @@ Type Constructors
 
 .. c:function:: type_t yices_ff_type(mpz_t order)
 
-   Constructs a finite-field type.
+   Constructs a finite-field type (Since 2.7.0).
 
    **Parameter**
 
