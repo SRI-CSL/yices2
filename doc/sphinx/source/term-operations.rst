@@ -1191,6 +1191,8 @@ Arithmetic Terms
 Finite-Field Terms
 ------------------
 
+*All functions in this section are available since Yices 2.7.0.*
+
 .. c:function:: term_t yices_ff_const(const mpz_t val, const mpz_t mod)
 
    Finite-field constant.
@@ -1211,6 +1213,8 @@ Finite-Field Terms
    - If *mod* is not prime:
 
      -- error code: :c:enum:`INVALID_FFSIZE`
+
+   Since Yices 2.8.0.
 
 .. c:function:: term_t yices_ff_add(term_t t1, term_t t2)
 
@@ -1263,6 +1267,8 @@ Finite-Field Terms
 All arguments to the above operators must be finite-field terms. For
 binary and n-ary operators, all argument terms must have the same
 finite-field type.
+
+These finite-field operators and atoms are available since Yices 2.8.0.
 
 **Error report**
 
@@ -2851,18 +2857,18 @@ a valid term.
      -- error code: :c:enum:`INVALID_TERM_OP`
 
 
-.. c:function:: term_t yices_term_children(term_t t, term_vector_t *v)
+.. c:function:: int32_t yices_term_children(term_t t, term_vector_t *v)
 
    Collect the children of a composite term.
 
    Store the children of term *t* into vector *v*. The vector must be initialized
    first by calling function :c:func:`yices_init_term_vector`.
 
-   If *t* is not valir of not a composite term, the function returns -1, sets
+   If *t* is not valid or not a composite term, the function returns -1, sets
    the error report, and leaves *v* unchanged.
 
    Otherwise, the children of *t* are stored in *v* in the same order as given
-   by :c:func:`yices_term_child`.
+   by :c:func:`yices_term_child`, and the function returns 0.
 
    - *v->size* is the number  of children of term *t*
 
@@ -2975,7 +2981,7 @@ a valid term.
 
 .. c:function:: int32_t yices_ff_const_value(term_t t, mpz_t z)
 
-   Value of a finite-field constant.
+   Value of a finite-field constant (Since 2.7.0).
 
    This function copies the value of finite-field constant *t* in the
    GMP integer *z*. The GMP integer *z* must be initialized.
@@ -2993,6 +2999,8 @@ a valid term.
 
    To make sure that this function is declared, you must include :file:`gmp.h` before
    :file:`yices.h` in your code (see :c:func:`yices_mpz`).
+
+   Since Yices 2.8.0.
 
 
 .. c:function:: int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term)
@@ -3048,6 +3056,8 @@ a valid term.
 
    To make sure that this function is declared, you must include :file:`gmp.h` before
    :file:`yices.h` in your code (see :c:func:`yices_mpz`).
+
+   Since Yices 2.8.0.
 
 .. c:function:: int32_t yices_bvsum_component(term_t t, int32_t i, int32_t val[], term_t *term)
 

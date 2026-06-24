@@ -110,8 +110,10 @@ Yices Terms
       // atomic terms
       YICES_BOOL_CONSTANT,
       YICES_ARITH_CONSTANT,
+      YICES_FF_CONSTANT,
       YICES_BV_CONSTANT,
       YICES_SCALAR_CONSTANT,
+      YICES_FF_CONSTANT,
       YICES_VARIABLE,
       YICES_UNINTERPRETED_TERM,
       // composite terms
@@ -153,6 +155,7 @@ Yices Terms
       // sums
       YICES_BV_SUM,
       YICES_ARITH_SUM,
+      YICES_FF_SUM,
       // products
       YICES_POWER_PRODUCT
     } term_constructor_t;
@@ -171,13 +174,24 @@ Yices Terms
 
       Rational constants
 
+   .. c:enum:: YICES_FF_CONSTANT
+
+      Finite-field constants
+
+      Since Yices 2.8.0.
+
    .. c:enum:: YICES_BV_CONSTANT
 
       Bitvector constants
 
    .. c:enum:: YICES_SCALAR_CONSTANT
- 
+
       Constants of uninterpreted or scalar type
+
+   .. c:enum:: YICES_FF_CONSTANT
+
+      Finite-field constants (Since 2.7.0). Also available as
+      ``YICES_ARITH_FF_CONSTANT`` (compatibility alias).
 
    .. c:enum:: YICES_VARIABLE
 
@@ -356,6 +370,19 @@ Yices Terms
       As in :c:enum:`YICES_BV_SUM`, the term *t*\ |_0| may be :c:macro:`NULL_TERM` to
       encode a constant term.
 
+   .. c:enum:: YICES_FF_SUM
+
+      Sum of the form *a*\ |_0| *t*\ |_0| + |...| + *a*\ |_n| *t*\ |_n| where
+
+        - the coefficients *a*\ |_i| are finite-field constants
+
+        - all the terms *t*\ |_i| (except possibly *t*\ |_0|) are finite-field terms
+
+      As in :c:enum:`YICES_ARITH_SUM`, the term *t*\ |_0| may be :c:macro:`NULL_TERM` to
+      encode a constant term.
+
+      (Since 2.7.0). Also available as ``YICES_ARITH_FF_SUM`` (compatibility alias).
+
    .. c:enum:: YICES_POWER_PRODUCT
 
 
@@ -512,8 +539,10 @@ Models
 	YVAL_BOOL,
 	YVAL_RATIONAL,
 	YVAL_ALGEBRAIC,
+	YVAL_FINITEFIELD,
 	YVAL_BV,
 	YVAL_SCALAR,
+	YVAL_FINITEFIELD,
 	YVAL_TUPLE,
 	YVAL_FUNCTION,
 	YVAL_MAPPING
@@ -537,6 +566,12 @@ Models
 
       Algebraic numbers
 
+   .. c:enum:: YVAL_FINITEFIELD
+
+      Finite-field constants
+
+      Since Yices 2.8.0.
+
    .. c:enum:: YVAL_BV
 
       Bitvector constants
@@ -544,7 +579,11 @@ Models
    .. c:enum:: YVAL_SCALAR
 
       Constants of scalar or uninterpreted type
-    
+
+   .. c:enum:: YVAL_FINITEFIELD
+
+      Finite-field constants (Since 2.7.0).
+
    .. c:enum:: YVAL_TUPLE
 
       Tuples of constants
@@ -559,10 +598,10 @@ Models
 
    The tags :c:enum:`YVAL_UNKNOWN`, :c:enum:`YVAL_BOOL`,
    :c:enum:`YVAL_RATIONAL`, :c:enum:`YVAL_BV`,
-   :c:enum:`YVAL_ALGEBRAIC` and :c:enum:`YVAL_SCALAR` are attached to
-   leaf nodes in the DAG. The non-leaf nodes have tags
-   :c:enum:`YVAL_TUPLE`, :c:enum:`YVAL_FUNCTION`, and
-   :c:enum:`YVAL_MAPPING`.
+   :c:enum:`YVAL_ALGEBRAIC`, :c:enum:`YVAL_SCALAR`, and
+   :c:enum:`YVAL_FINITEFIELD` are attached to leaf nodes in the DAG.
+   The non-leaf nodes have tags :c:enum:`YVAL_TUPLE`,
+   :c:enum:`YVAL_FUNCTION`, and :c:enum:`YVAL_MAPPING`.
 
    The nodes with tag :c:enum:`YVAL_MAPPING` are auxiliary nodes that
    occur in the definition of functions.  In a model, all function
@@ -640,7 +679,8 @@ Models
      typedef enum yices_gen_mode {
        YICES_GEN_DEFAULT,
        YICES_GEN_BY_SUBST,
-       YICES_GEN_BY_PROJ
+       YICES_GEN_BY_PROJ,
+       YICES_GEN_BY_PROJ_WIDE
      } yices_gen_mode_t;
 
    .. c:enum:: YICES_GEN_DEFAULT
@@ -655,8 +695,29 @@ Models
 
    .. c:enum:: YICES_GEN_BY_PROJ
 
-      Generalization by projection. This is a hybrid of Fourier-Motzkin elimination
-      and a model-based variant of virtual term substitution.
+      Generalization by projection. This computes one literal implicant of the
+      formula at the model, then projects that flat conjunction. Projection is
+      a hybrid of Fourier-Motzkin elimination and a model-based variant of
+      virtual term substitution.
+
+   .. c:enum:: YICES_GEN_BY_PROJ_WIDE
+
+      Wide generalization by projection. This projects several model-true
+      implicant cubes and returns the union of the projected cubes. This mode
+      is selected explicitly and accepts a cube budget through
+      :c:func:`yices_generalize_model_with_budget`.
+
+      Since Yices 2.8.0.
+
+   .. c:enum:: YICES_GEN_BY_PROJ_WIDE
+
+      SAT-guided wide projection (Since 2.8.0). Walks the Boolean structure of the
+      formula, enumerates model-true Boolean implicants against a polarity-aware
+      abstraction, projects each as a cube, and returns their union. The resulting
+      cell is always at least as broad as :c:enum:`YICES_GEN_BY_PROJ`. Recommended
+      for CEGAR-style outer loops over quantifier prefixes. Use
+      :c:func:`yices_generalize_model_with_budget` to cap the number of cubes
+      enumerated.
 
    See :c:func:`yices_generalize_model` for more details. 
       
@@ -798,6 +859,13 @@ Error Reports
       `Yices manual <https://yices.csl.sri.com/papers/manual.pdf>`_
       explains what this means.
 
+   .. c:enum:: INCOMPATIBLE_FFSIZES
+
+      Error in finite-field operations that require terms over the same
+      finite field.
+
+      Since Yices 2.8.0.
+
    .. c:enum:: DUPLICATE_VARIABLE
 
       Error in quantifier or lambda term constructors: the same
@@ -814,6 +882,12 @@ Error Reports
    .. c:enum:: BVTYPE_REQUIRED
 
       Bad type parameter: a bitvector type is expected.
+
+   .. c:enum:: INVALID_FFSIZE
+
+      Bad finite-field size: the field order is not positive and prime.
+
+      Since Yices 2.8.0.
 
    .. c:enum:: BAD_TERM_DECREF
 
@@ -884,6 +958,22 @@ Error Reports
    .. c:enum:: TYPE_REQUIRED
 
       Error in a definition or declaration: a type is expected.
+
+   .. c:enum:: INVALID_MACRO
+
+      Invalid type macro.
+
+   .. c:enum:: TOO_MANY_MACRO_PARAMS
+
+      Too many type macro parameters.
+
+   .. c:enum:: TYPE_VAR_REQUIRED
+
+      Bad type argument: a type variable is expected.
+
+   .. c:enum:: DUPLICATE_TYPE_VAR
+
+      A type macro contains duplicate type variables.
 
    .. c:enum:: NON_CONSTANT_DIVISOR
 
@@ -1145,6 +1235,16 @@ Error Reports
       A formula asserted in the MCSAT solver is not in a theory that this
       solver can process.
 
+   .. c:enum:: MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED
+
+      An assumption is not an uninterpreted term supported by MCSAT.
+
+   .. c:enum:: MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED
+
+      An assumption term has a type that MCSAT cannot decide on.
+
+      Since Yices 2.8.0.
+
    .. c:enum:: OUTPUT_ERROR
 
       Error when attempting to write to a stream. This error can be reported
@@ -1192,4 +1292,3 @@ Error Reports
    - the field *badval* is set when an incorrect integer argument is provided
 
    - the other fields are set by terms and type constructors
-

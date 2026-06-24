@@ -1131,9 +1131,15 @@ yices_set_config). This model interpolant is constructed by calling
 
    **Error report**
 
-   - If one of the terms *t[i]* is not an uninterpreted:
+   - If one of the terms *t[i]* is not an uninterpreted term:
 
      -- error code: :c:enum:`MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED`
+
+   - If one of the terms *t[i]* has a type that MCSAT cannot decide on
+     (i.e., not Bool, Int, Real, scalar, BitVector, or a tuple whose
+     recursively flattened leaves all have one of these types):
+
+     -- error code: :c:enum:`MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED`
 
    - If the context does not have the MCSAT solver enabled:
 
@@ -1204,9 +1210,15 @@ yices_set_config). This model interpolant is constructed by calling
 
    **Error report**
 
-   - If one of the terms *t[i]* is not an uninterpreted:
+   - If one of the terms *t[i]* is not an uninterpreted term:
 
      -- error code: :c:enum:`MCSAT_ERROR_ASSUMPTION_TERM_NOT_SUPPORTED`
+
+   - If one of the terms *t[i]* has a type that MCSAT cannot decide on
+     (i.e., not Bool, Int, Real, scalar, BitVector, or a tuple whose
+     recursively flattened leaves all have one of these types):
+
+     -- error code: :c:enum:`MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED`
 
    - If the context does not have the MCSAT solver enabled:
 
