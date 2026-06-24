@@ -364,6 +364,8 @@ __YICES_DLLSPEC__ extern type_t yices_bv_type(uint32_t size);
  * If order <= 0, the error report is set by check_positive_mpz.
  * If order is not prime, the error report is set to
  *   code = INVALID_FFSIZE
+ *
+ * Since 2.8.0.
  */
 __YICES_DLLSPEC__ extern type_t yices_ff_type(mpz_t order);
 #endif
@@ -1376,6 +1378,8 @@ __YICES_DLLSPEC__ extern term_t yices_ceil(term_t t);
  *   code = POS_INT_REQUIRED
  * if mod is not prime
  *   code = INVALID_FFSIZE
+ *
+ * Since 2.8.0.
  */
 __YICES_DLLSPEC__ extern term_t yices_ff_const(const mpz_t val, const mpz_t mod);
 #endif
@@ -1393,6 +1397,8 @@ __YICES_DLLSPEC__ extern term_t yices_ff_const(const mpz_t val, const mpz_t mod)
  *   code = ARITHTERM_REQUIRED
  * if argument types are incompatible
  *   code = INCOMPATIBLE_FFSIZES
+ *
+ * Since 2.8.0.
  */
 __YICES_DLLSPEC__ extern term_t yices_ff_add(term_t t1, term_t t2);
 __YICES_DLLSPEC__ extern term_t yices_ff_sub(term_t t1, term_t t2);
@@ -1405,6 +1411,8 @@ __YICES_DLLSPEC__ extern term_t yices_ff_product(uint32_t n, const term_t t[]);
 
 /*
  * FINITE-FIELD ATOMS
+ *
+ * Since 2.8.0.
  */
 __YICES_DLLSPEC__ extern term_t yices_ff_eq_atom(term_t t1, term_t t2);
 __YICES_DLLSPEC__ extern term_t yices_ff_neq_atom(term_t t1, term_t t2);
@@ -2577,6 +2585,7 @@ __YICES_DLLSPEC__ extern term_t yices_term_child(term_t t, int32_t i);
  * - otherwise, the children are stored in *v:
  *    v->size = number of children
  *    v->data[0 ... v->size-1] = the children
+ *   and the function returns 0.
  *
  * The vector->size is equal to yices_term_num_children(t).
  * The children are stored in the same order as given by yices_term_child:
@@ -2632,6 +2641,9 @@ __YICES_DLLSPEC__ extern int32_t yices_bv_const_value(term_t t, int32_t val[]);
 __YICES_DLLSPEC__ extern int32_t yices_scalar_const_value(term_t t, int32_t *val);
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_rational_const_value(term_t t, mpq_t q);
+/*
+ * Since 2.8.0.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_ff_const_value(term_t t, mpz_t z);
 #endif
 
@@ -2654,6 +2666,9 @@ __YICES_DLLSPEC__ extern int32_t yices_ff_const_value(term_t t, mpz_t z);
  */
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term);
+/*
+ * Since 2.8.0.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_ffsum_component(term_t t, int32_t i, mpz_t coeff, term_t *term);
 #endif
 
@@ -3835,6 +3850,9 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_rational64(model_t *model, term
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_model_set_mpz(model_t *model, term_t var, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_model_set_mpq(model_t *model, term_t var, mpq_t val);
+/*
+ * Since 2.8.0.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_ff_mpz(model_t *model, term_t var, mpz_t val);
 #endif
 
@@ -4206,6 +4224,9 @@ __YICES_DLLSPEC__ extern int32_t yices_get_double_value(model_t *mdl, term_t t, 
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val);
+/*
+ * Since 2.8.0.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_get_ff_value(model_t *mdl, term_t t, mpz_t val, mpz_t mod);
 #endif
 
@@ -4455,6 +4476,9 @@ __YICES_DLLSPEC__ extern int32_t yices_val_get_double(model_t *mdl, const yval_t
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val);
+/*
+ * Since 2.8.0.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_val_get_ff(model_t *mdl, const yval_t *v, mpz_t val, mpz_t mod);
 #endif
 
@@ -4678,6 +4702,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_term_array_support(model_t *mdl, ui
  *    1) a[i] is a literal (atom or negation of an atom)
  *    2) a[i] is true in mdl
  *    3) the conjunction a[0] /\ ... /\ a[n-1] implies t
+ * - no literal a[i] contains an if-then-else term, even if t does.
  *
  * The implicant is returned in vector v, which must be initialized by
  * yices_init_term_vector:
@@ -4730,11 +4755,9 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
 
 /*
  * Variant: enumerate several implicant cubes for formula t in mdl.
- * - the Boolean abstraction is searched with strict false-first
- *   decisions and superset blockers, so returned cubes are built from
- *   subset-minimal satisfying sets of abstraction literals.
  * - max_cubes is the maximum number of distinct cubes to return.
  * - max_cubes = 0 means no explicit cap.
+ * - larger values of max_cubes make this function more expensive.
  *
  * If the return code is k >= 1, then v contains the literals of k cubes,
  * separated by k-1 occurrences of NULL_TERM. There is no trailing NULL_TERM.
@@ -4742,8 +4765,12 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
  *   a, b, NULL_TERM, c
  * Each cube is true in mdl and implies t. If max_cubes is 1, the result
  * has the same flat literal-vector shape as yices_implicant_for_formula.
+ * As for yices_implicant_for_formula, no returned cube literal contains
+ * an if-then-else term, even if t does.
  * If the return code is -1, v is empty and the error report is as for
  * yices_implicant_for_formula.
+ *
+ * Since 2.8.0.
  */
 __YICES_DLLSPEC__ extern int32_t yices_implicant_cubes_for_formula(model_t *mdl, term_t t,
                                                                    uint32_t max_cubes,
@@ -4849,12 +4876,11 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_cubes_for_formulas(model_t *mdl
  * Shape of the returned formulas:
  * - For YICES_GEN_BY_PROJ (and YICES_GEN_DEFAULT), every element of v
  *   is a literal (the conjunction of literals is the generalization).
- * - For YICES_GEN_BY_PROJ_WIDE, the shape depends on whether the
- *   Boolean walk decomposes the input into multiple cubes:
- *     * If the walk produces a single cube (which is always the case
- *       for purely conjunctive input), v is filled with the projected
- *       literals exactly as in YICES_GEN_BY_PROJ.
- *     * If the walk produces multiple cubes, v contains a single
+ * - For YICES_GEN_BY_PROJ_WIDE, the shape depends on the number of
+ *   projected cubes:
+ *     * If there is a single projected cube, v is filled with the
+ *       projected literals exactly as in YICES_GEN_BY_PROJ.
+ *     * If there are multiple projected cubes, v contains a single
  *       element which is a disjunction of literal-conjunctions.
  *   In all cases, the conjunction of v[0...v->size-1] is the
  *   generalization G(X).
@@ -4889,8 +4915,9 @@ __YICES_DLLSPEC__ extern int32_t yices_generalize_model_array(model_t *mdl, uint
  *   least one successful projection, the result is the union of the
  *   collected projected cubes; otherwise the wide path falls back to the
  *   local pipeline alone to obtain a meaningful error code.
- * - cube_budget = 0 means unbounded (the Boolean enumeration is always
- *   finite -- each iteration adds a blocker clause).
+ *   Smaller budgets may produce coarser generalizations; larger budgets
+ *   make the call more expensive.
+ * - cube_budget = 0 means no explicit cap.
  *
  * yices_generalize_model and yices_generalize_model_array are equivalent
  * to passing cube_budget = 0.
@@ -5207,7 +5234,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_yval(model_t *model, term_t var
  *
  * Returns 0 on success, -1 on error (sets error code).
  *
- * Since 2.7.0
+ * Since 2.8.0
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_make_tuple(model_t *model, uint32_t n, const yval_t elem[], yval_t *tuple);
 
@@ -5220,7 +5247,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_make_tuple(model_t *model, uint32_t
  *
  * Returns 0 on success, -1 on error (sets error code).
  *
- * Since 2.7.0
+ * Since 2.8.0
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_tuple(model_t *model, term_t var, uint32_t n, const yval_t elem[]);
 
@@ -5230,7 +5257,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_tuple(model_t *model, term_t va
  *
  * Returns 0 on success, -1 on error (sets error code).
  *
- * Since 2.7.0
+ * Since 2.8.0
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_make_mapping(model_t *model, uint32_t arity, const yval_t args[], const yval_t *value, yval_t *mapping);
 
@@ -5243,7 +5270,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_make_mapping(model_t *model, uint32
  *
  * Returns 0 on success, -1 on error (sets error code).
  *
- * Since 2.7.0
+ * Since 2.8.0
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_make_function(model_t *model, type_t fun_type, uint32_t n, const yval_t mappings[], const yval_t *def, yval_t *fun);
 
@@ -5254,7 +5281,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_make_function(model_t *model, type_
  *
  * Returns 0 on success, -1 on error (sets error code).
  *
- * Since 2.7.0
+ * Since 2.8.0
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_function(model_t *model, term_t var, uint32_t n, const yval_t mappings[], const yval_t *def);
 
