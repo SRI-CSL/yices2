@@ -1951,13 +1951,17 @@ static value_t bv_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
  *   then we store the mapping [t --> u] in the model's
  *   alias map.
  */
-static void build_term_value(context_t *ctx, model_t *model, term_t t) {
+static void build_term_value(context_t *ctx, model_t *model, term_t t, mcsat_satellite_t *mcsat_model) {
   value_table_t *vtbl;
   term_t r;
   uint32_t polarity;
   int32_t x;
   type_t tau;
   value_t v;
+
+  if (mcsat_model != NULL && model_find_term_value(model, t) != null_value) {
+    return;
+  }
 
   /*
    * Get the root of t in the substitution table
@@ -1997,7 +2001,14 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
 
       case INT_TYPE:
       case REAL_TYPE:
-        v = arith_value(ctx, vtbl, code2thvar(x));
+        if (mcsat_model != NULL) {
+          if (!mcsat_satellite_term_value(mcsat_model, model, r, &v)) {
+            assert(false && "MCSAT supplement has no value for an arithmetic model term");
+            v = vtbl_mk_unknown(vtbl);
+          }
+        } else {
+          v = arith_value(ctx, vtbl, code2thvar(x));
+        }
         break;
 
       case BITVECTOR_TYPE:
@@ -2067,19 +2078,33 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
  */
 void build_model(model_t *model, context_t *ctx) {
   term_table_t *terms;
+  mcsat_satellite_t *mcsat_model;
   uint32_t i, n;
   term_t t;
+  bool use_mcsat_arith_model;
 
   assert(smt_status(ctx->core) == YICES_STATUS_SAT ||
          smt_status(ctx->core) == YICES_STATUS_UNKNOWN ||
          (context_has_mcsat(ctx) && mcsat_status(ctx->mcsat) == YICES_STATUS_SAT));
 
+  ctx->arith_model_built = false;
+  use_mcsat_arith_model = ctx->mcsat_supplement &&
+    context_has_egraph(ctx) && ctx->egraph->th[ETYPE_MCSAT] != NULL;
+  mcsat_model = NULL;
+  if (use_mcsat_arith_model) {
+    mcsat_model = (mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT];
+    if (!mcsat_satellite_prepare_model(mcsat_model, model)) {
+      assert(false && "supplemental MCSAT failed to rebuild a SAT model");
+    }
+  }
+
   /*
    * First build assignments in the satellite solvers
    * and get the val_in_model functions for the egraph
    */
-  if (context_has_arith_solver(ctx)) {
+  if (!use_mcsat_arith_model && context_has_arith_solver(ctx)) {
     ctx->arith.build_model(ctx->arith_solver);
+    ctx->arith_model_built = true;
   }
   if (context_has_bv_solver(ctx)) {
     ctx->bv.build_model(ctx->bv_solver);
@@ -2089,7 +2114,11 @@ void build_model(model_t *model, context_t *ctx) {
    * Construct the egraph model
    */
   if (context_has_egraph(ctx)) {
-    egraph_build_model(ctx->egraph, model_get_vtbl(model));
+    if (use_mcsat_arith_model) {
+      egraph_build_model_with_arith_provider(ctx->egraph, model, mcsat_model, mcsat_satellite_arith_value_in_model);
+    } else {
+      egraph_build_model(ctx->egraph, model_get_vtbl(model));
+    }
   }
 
   /*
@@ -2106,17 +2135,13 @@ void build_model(model_t *model, context_t *ctx) {
     if (good_term_idx(terms, i)) {
       t = pos_occ(i);
       if (term_kind(terms, t) == UNINTERPRETED_TERM) {
-        build_term_value(ctx, model, t);
+        build_term_value(ctx, model, t, mcsat_model);
       }
     }
   }
 
-  /*
-   * Supplemental MCSAT values are an overlay: apply them after the regular
-   * CDCL(T) model is fully built so nonlinear/FF values are not overwritten.
-   */
-  if (ctx->mcsat_supplement && context_has_egraph(ctx) && ctx->egraph->th[ETYPE_MCSAT] != NULL) {
-    mcsat_satellite_build_model((mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT], model);
+  if (mcsat_model != NULL) {
+    mcsat_satellite_export_model(mcsat_model, model);
   }
 }
 
@@ -2125,8 +2150,9 @@ void build_model(model_t *model, context_t *ctx) {
  * Cleanup solver models
  */
 void clean_solver_models(context_t *ctx) {
-  if (context_has_arith_solver(ctx)) {
+  if (ctx->arith_model_built) {
     ctx->arith.free_model(ctx->arith_solver);
+    ctx->arith_model_built = false;
   }
   if (context_has_bv_solver(ctx)) {
     ctx->bv.free_model(ctx->bv_solver);

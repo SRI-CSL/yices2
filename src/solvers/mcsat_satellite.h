@@ -77,9 +77,20 @@ extern void mcsat_satellite_set_unsat_model_interpolant(mcsat_satellite_t *sat, 
 extern term_t mcsat_satellite_compute_unsat_model_interpolant(mcsat_satellite_t *sat, const param_t *params, uint32_t n, const term_t *a);
 
 /*
- * Overlay model values from the supplementary MCSAT context.
+ * Build/export model values from the supplementary MCSAT context.
+ * prepare_model solves the internal MCSAT context under the current completed
+ * cube and exports exact MCSAT values into model. export_model is currently a
+ * no-op hook kept to make the model-build phases explicit.
  */
+extern bool mcsat_satellite_prepare_model(mcsat_satellite_t *sat, model_t *model);
+extern void mcsat_satellite_export_model(mcsat_satellite_t *sat, model_t *model);
 extern void mcsat_satellite_build_model(mcsat_satellite_t *sat, model_t *model);
+
+/*
+ * Return a value from the MCSAT-prepared model without querying simplex.
+ */
+extern bool mcsat_satellite_term_value(mcsat_satellite_t *sat, model_t *model, term_t t, value_t *v);
+extern bool mcsat_satellite_arith_value_in_model(void *aux, thvar_t x, model_t *model, value_t *v);
 
 /*
  * Trace + GC support.

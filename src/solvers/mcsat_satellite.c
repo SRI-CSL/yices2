@@ -20,6 +20,7 @@
 #include "api/yices_mutex.h"
 #include "context/context.h"
 #include "model/models.h"
+#include "model/model_queries.h"
 #include "solvers/egraph/composites.h"
 #include "solvers/egraph/egraph.h"
 #include "solvers/mcsat_satellite.h"
@@ -1182,14 +1183,15 @@ done:
   return result;
 }
 
-void mcsat_satellite_build_model(mcsat_satellite_t *sat, model_t *model) {
+bool mcsat_satellite_prepare_model(mcsat_satellite_t *sat, model_t *model) {
   model_t mdl;
   smt_status_t status;
   uint32_t i;
   value_t vtrue;
+  bool ok;
 
   if (sat->internal_error < 0) {
-    return;
+    return false;
   }
 
   /*
@@ -1210,12 +1212,59 @@ void mcsat_satellite_build_model(mcsat_satellite_t *sat, model_t *model) {
   mcsat_clear(sat->mctx.mcsat);
   mcsat_solve(sat->mctx.mcsat, &sat->params, &mdl, sat->assumptions.size, (const term_t *) sat->assumptions.data);
   status = mcsat_status(sat->mctx.mcsat);
+  ok = false;
   if (status == YICES_STATUS_SAT) {
     mcsat_build_model(sat->mctx.mcsat, model);
+    ok = true;
   }
   mcsat_satellite_release_mutex();
 
   delete_model(&mdl);
+
+  return ok;
+}
+
+void mcsat_satellite_export_model(mcsat_satellite_t *sat, model_t *model) {
+  (void) sat;
+  (void) model;
+}
+
+void mcsat_satellite_build_model(mcsat_satellite_t *sat, model_t *model) {
+  if (mcsat_satellite_prepare_model(sat, model)) {
+    mcsat_satellite_export_model(sat, model);
+  }
+}
+
+bool mcsat_satellite_term_value(mcsat_satellite_t *sat, model_t *model, term_t t, value_t *v) {
+  value_t value;
+
+  (void) sat;
+
+  value = model_get_term_value(model, t);
+  if (value >= 0 && !object_is_unknown(model_get_vtbl(model), value)) {
+    *v = value;
+    return true;
+  }
+
+  return false;
+}
+
+bool mcsat_satellite_arith_value_in_model(void *aux, thvar_t x, model_t *model, value_t *v) {
+  mcsat_satellite_t *sat;
+  int_hmap_pair_t *p;
+
+  sat = (mcsat_satellite_t *) aux;
+  if (x == null_thvar) {
+    return false;
+  }
+
+  p = int_hmap_find(&sat->arith_var_to_term, x);
+  if (p == NULL) {
+    assert(false && "MCSAT supplement has no source term for arithmetic model variable");
+    return false;
+  }
+
+  return mcsat_satellite_term_value(sat, model, p->val, v);
 }
 
 void mcsat_satellite_gc_mark(mcsat_satellite_t *sat) {

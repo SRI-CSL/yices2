@@ -6331,6 +6331,7 @@ static void init_solvers(context_t *ctx) {
   ctx->fun_solver = NULL;
   ctx->quant_solver = NULL;
   ctx->mcsat_supplement = false;
+  ctx->arith_model_built = false;
 
   // Create egraph first, then satellite solvers
   if (solvers & EGRPH) {
@@ -6678,6 +6679,7 @@ void context_invalidate_unsat_core_cache(context_t *ctx) {
  */
 void reset_context(context_t *ctx) {
   ctx->base_level = 0;
+  ctx->arith_model_built = false;
   context_reset_sat_delegate_stats(ctx);
   context_invalidate_unsat_core_cache(ctx);
   context_sat_delegate_state_cleanup(ctx);
@@ -7435,6 +7437,7 @@ void context_cleanup(context_t *ctx) {
  */
 void context_clear(context_t *ctx) {
   assert(context_supports_multichecks(ctx));
+  ctx->arith_model_built = false;
   context_invalidate_unsat_core_cache(ctx);
   if (ctx->mcsat == NULL) {
     smt_clear(ctx->core);

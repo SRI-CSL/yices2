@@ -246,6 +246,7 @@
 #include "model/concrete_values.h"
 #include "model/fresh_value_maker.h"
 #include "model/fun_maps.h"
+#include "model/models.h"
 #include "solvers/cdcl/smt_core.h"
 #include "solvers/egraph/egraph_base_types.h"
 #include "utils/arena.h"
@@ -1141,6 +1142,13 @@ typedef struct th_egraph_interface_s {
 typedef thvar_t (*make_arith_var_fun_t)(void *solver, bool is_int);
 typedef bool (*arith_val_fun_t)(void *arith_solver, thvar_t x, rational_t *v);
 
+/*
+ * Optional model-construction override for arithmetic values.
+ * This is used by supplemental exact solvers that must provide arithmetic
+ * values as concrete model objects (for example algebraic values from MCSAT).
+ */
+typedef bool (*egraph_arith_model_value_fun_t)(void *aux, thvar_t x, model_t *model, value_t *v);
+
 typedef struct arith_egraph_interface_s {
   make_arith_var_fun_t  create_arith_var;
   arith_val_fun_t       value_in_model;
@@ -1247,6 +1255,9 @@ typedef struct egraph_model_s {
   ivector_t rank_ctr;
   rational_t arith_buffer;
   bvconstant_t bv_buffer;
+  model_t *model;
+  void *arith_model_aux;
+  egraph_arith_model_value_fun_t arith_model_value;
 } egraph_model_t;
 
 

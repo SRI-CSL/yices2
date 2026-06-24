@@ -628,6 +628,15 @@ static inline void egraph_reset_app_partition(egraph_t *egraph) {
  */
 extern void egraph_build_model(egraph_t *egraph, value_table_t *vtbl);
 
+/*
+ * Build a model using provider for arithmetic class values.
+ * - provider is used only while this function runs
+ * - the regular egraph_build_model path is unchanged when provider is NULL
+ */
+extern void egraph_build_model_with_arith_provider(egraph_t *egraph, model_t *model,
+                                                   void *provider_aux,
+                                                   egraph_arith_model_value_fun_t provider);
+
 
 /*
  * Return the value of term occurrence t in the egraph model

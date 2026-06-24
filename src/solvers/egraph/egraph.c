@@ -941,6 +941,9 @@ static void init_egraph_model(egraph_model_t *mdl) {
   init_ivector(&mdl->rank_ctr, 0);
   q_init(&mdl->arith_buffer);
   init_bvconstant(&mdl->bv_buffer);
+  mdl->model = NULL;
+  mdl->arith_model_aux = NULL;
+  mdl->arith_model_value = NULL;
 }
 
 
@@ -964,6 +967,9 @@ static void delete_egraph_model(egraph_model_t *mdl) {
   delete_ivector(&mdl->rank_ctr);
   q_clear(&mdl->arith_buffer);
   delete_bvconstant(&mdl->bv_buffer);
+  mdl->model = NULL;
+  mdl->arith_model_aux = NULL;
+  mdl->arith_model_value = NULL;
 }
 
 
@@ -986,6 +992,9 @@ static void reset_egraph_model(egraph_model_t *mdl) {
   ivector_reset(&mdl->root_classes);
   ivector_reset(&mdl->rank_ctr);
   q_clear(&mdl->arith_buffer);
+  mdl->model = NULL;
+  mdl->arith_model_aux = NULL;
+  mdl->arith_model_value = NULL;
 }
 
 
@@ -7706,7 +7715,12 @@ static value_t egraph_value_of_arith_class(egraph_t *egraph, value_table_t *vtbl
   assert(egraph_class_type(egraph, c) == ETYPE_INT || egraph_class_type(egraph, c) == ETYPE_REAL);
 
   x = egraph_class_thvar(egraph, c);
-  if (x == null_thvar) {
+  if (egraph->mdl.arith_model_value != NULL) {
+    assert(egraph->mdl.model != NULL);
+    if (!egraph->mdl.arith_model_value(egraph->mdl.arith_model_aux, x, egraph->mdl.model, &v)) {
+      v = vtbl_mk_unknown(vtbl);
+    }
+  } else if (x == null_thvar) {
     // there's no arithmetic solver
     assert(egraph->arith_smt == NULL);
     v = make_fresh_integer(egraph->mdl.fval_maker);
@@ -8191,6 +8205,22 @@ void egraph_build_model(egraph_t *egraph, value_table_t *vtbl) {
 
   // assign a value to all root classes
   egraph_model_for_root_classes(egraph, vtbl);
+}
+
+void egraph_build_model_with_arith_provider(egraph_t *egraph, model_t *model,
+                                            void *provider_aux,
+                                            egraph_arith_model_value_fun_t provider) {
+  assert(model != NULL && provider != NULL);
+
+  egraph->mdl.model = model;
+  egraph->mdl.arith_model_aux = provider_aux;
+  egraph->mdl.arith_model_value = provider;
+
+  egraph_build_model(egraph, model_get_vtbl(model));
+
+  egraph->mdl.model = NULL;
+  egraph->mdl.arith_model_aux = NULL;
+  egraph->mdl.arith_model_value = NULL;
 }
 
 

@@ -757,6 +757,9 @@ struct context_s {
   // true when the supplemental MCSAT satellite is configured in CDCL(T) mode
   bool mcsat_supplement;
 
+  // true iff the arithmetic solver's public model was built and must be freed
+  bool arith_model_built;
+
   // Phase-2 simplex relaxation for MCSAT-owned arithmetic atoms
   int_hmap_t *mcsat_relax_abstractions;      // original arithmetic term -> fresh internal arithmetic term
   int_hset_t *mcsat_relax_abstraction_terms; // fresh internal arithmetic terms above

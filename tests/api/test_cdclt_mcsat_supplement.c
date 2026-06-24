@@ -410,6 +410,45 @@ static void test_simplex_relaxation_phase2(void) {
   yices_free_context(ctx);
 }
 
+static void test_mcsat_model_values_drive_egraph_model(void) {
+  context_t *ctx;
+  type_t real_type, f_type;
+  term_t x, f, xx, fx, eq4, feq7;
+  smt_status_t stat;
+  model_t *mdl;
+  int64_t num;
+  uint64_t den;
+
+  ctx = make_cdclt_context("QF_UFLRA");
+  real_type = yices_real_type();
+  f_type = yices_function_type1(real_type, real_type);
+  check(f_type != NULL_TYPE, "building real->real type failed");
+
+  x = yices_new_uninterpreted_term(real_type);
+  f = yices_new_uninterpreted_term(f_type);
+  xx = yices_mul(x, x);
+  fx = yices_application1(f, x);
+  eq4 = yices_arith_eq_atom(xx, yices_rational32(4, 1));
+  feq7 = yices_arith_eq_atom(fx, yices_rational32(7, 1));
+
+  check_code(yices_assert_formula(ctx, eq4), "assert x*x=4 failed in model-provider test");
+  check_code(yices_assert_formula(ctx, feq7), "assert f(x)=7 failed in model-provider test");
+  stat = yices_check_context(ctx, NULL);
+  check_status(stat, YICES_STATUS_SAT, "expected SAT for x*x=4 and f(x)=7");
+
+  mdl = yices_get_model(ctx, 1);
+  check(mdl != NULL, "get_model failed in model-provider test");
+  check(yices_formula_true_in_model(mdl, eq4) == 1, "model must satisfy x*x=4");
+  check(yices_formula_true_in_model(mdl, feq7) == 1, "function model must be keyed by MCSAT's x value");
+  check_code(yices_get_rational64_value(mdl, x, &num, &den), "model must define x from MCSAT");
+  check(den == 1 && (num == 2 || num == -2), "expected MCSAT value x = +/-2");
+  check_code(yices_get_rational64_value(mdl, fx, &num, &den), "model must define f(x)");
+  check(den == 1 && num == 7, "expected model value f(x) = 7");
+  yices_free_model(mdl);
+
+  yices_free_context(ctx);
+}
+
 static void test_division_by_zero_remains_error(void) {
   context_t *ctx;
   term_t r, z, div, f;
@@ -494,6 +533,7 @@ int main(void) {
   test_ff_sat_unsat_model_and_assumption_core();
   test_nla_assumption_core();
   test_simplex_relaxation_phase2();
+  test_mcsat_model_values_drive_egraph_model();
   test_division_by_zero_remains_error();
   test_disabling_required_supplement_is_invalid();
   test_reset_reassert_supplement();
