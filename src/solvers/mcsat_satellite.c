@@ -1260,7 +1260,13 @@ bool mcsat_satellite_arith_value_in_model(void *aux, thvar_t x, model_t *model, 
 
   p = int_hmap_find(&sat->arith_var_to_term, x);
   if (p == NULL) {
-    assert(false && "MCSAT supplement has no source term for arithmetic model variable");
+    /*
+     * Some arithmetic classes belong to relaxation-only proxy variables (or
+     * other E-graph-internal arithmetic terms) that are intentionally not
+     * registered with the exact MCSAT satellite.  They have no user-visible
+     * source term whose value should be provided by MCSAT, so let the E-graph
+     * assign an unknown value for the class.
+     */
     return false;
   }
 
