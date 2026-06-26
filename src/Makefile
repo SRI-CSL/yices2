@@ -161,6 +161,7 @@ core_src_c := \
 	model/models.c \
 	model/presburger.c \
 	model/projection.c \
+	model/projection_preprocess.c \
 	model/term_to_val.c \
 	model/val_to_term.c \
 	mt/yices_locks.c \
@@ -198,6 +199,7 @@ core_src_c := \
 	solvers/egraph/egraph_explanations.c \
 	solvers/egraph/egraph_utils.c \
 	solvers/egraph/theory_explanations.c \
+	solvers/mcsat_satellite.c \
 	solvers/floyd_warshall/dl_vartable.c \
 	solvers/floyd_warshall/idl_floyd_warshall.c \
 	solvers/floyd_warshall/rdl_floyd_warshall.c \
@@ -292,6 +294,7 @@ core_src_c := \
 	utils/int_hash_classes.c \
 	utils/int_hash_map2.c \
 	utils/int_hash_map.c \
+	utils/int_hash_mmap.c \
 	utils/int_hash_sets.c \
 	utils/int_hash_tables.c \
 	utils/int_heap2.c \
@@ -396,6 +399,10 @@ mcsat_src_c := \
 	mcsat/bv/explain/full_bv_trivial.c \
 	mcsat/watch_list_manager.c \
 	mcsat/preprocessor.c \
+	mcsat/l2o/l2o.c \
+	mcsat/l2o/l2o_cost_fx.c \
+	mcsat/l2o/evaluator.c \
+	mcsat/l2o/hill_climbing.c \
 	mcsat/options.c
 
 

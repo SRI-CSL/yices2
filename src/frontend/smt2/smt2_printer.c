@@ -756,14 +756,25 @@ static void smt2_pp_update_definition(smt2_pp_t *printer, value_table_t *table, 
 /*
  * Print a definition in the SMT2 style.
  * - this prints (define-fun name () tau value)
+ *
+ * If array_const is true, the value is rendered as a 0-arity constant
+ * using store / (as const tau) regardless of the value's internal
+ * representation as a function or update. This matches the SMT-LIB
+ * model format for symbols declared via the Array sort.
  */
-void smt2_pp_def(smt2_pp_t *printer, value_table_t *table, const char *name, type_t tau, value_t c) {
+void smt2_pp_def(smt2_pp_t *printer, value_table_t *table, const char *name,
+                 type_t tau, value_t c, bool array_const) {
   type_table_t *types;
 
   types = table->type_table;
   pp_open_block(&printer->pp, PP_OPEN_SMT2_DEF);
   smt2_pp_symbol(printer, name);
-  if (object_is_function(table, c)) {
+  if (array_const) {
+    // (define-fun name () (Array K V) <store/const value>)
+    pp_string(&printer->pp, "()");
+    smt2_pp_type(printer, types, tau);
+    smt2_pp_object_in_def(printer, table, tau, c);
+  } else if (object_is_function(table, c)) {
     smt2_pp_function_params(printer, types, tau);
     smt2_pp_function_definition(printer, table, tau, c);
   } else if (object_is_update(table, c)) {

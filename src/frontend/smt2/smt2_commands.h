@@ -47,6 +47,7 @@
 #include <stdint.h>
 #include <stdio.h>
 
+#include "utils/int_hash_map.h"
 #include "utils/int_vectors.h"
 #include "utils/ptr_vectors.h"
 #include "utils/string_hash_map.h"
@@ -354,6 +355,7 @@ typedef struct smt2_globals_s {
 
   // mcsat
   bool mcsat;                      // set to true to use the mcsat solver
+  bool force_dpllt;                // force cdcl(t) architecture
   mcsat_options_t mcsat_options;   // options for the mcsat solver
   ivector_t var_order;             // order in which mcsat needs to assign variables
   
@@ -430,6 +432,15 @@ typedef struct smt2_globals_s {
   // terms whose value we may need to print.
   pvector_t model_term_names;
 
+  // Map term_id -> 1 for term ids that were declared as SMT-LIB array
+  // constants (i.e., via (declare-fun s () (Array K V)) or
+  // (declare-const s (Array K V))). We record this here because once
+  // the term/type are interned, Yices' type system no longer
+  // distinguishes Array K V from a unary function. Used by
+  // print_smt2_model to emit (define-fun s () (Array K V) (store ...))
+  // instead of the function form (define-fun s ((x!0 K)) V (ite ...)).
+  int_hmap_t array_const_terms;
+
   // data structures for unsat cores/unsat assumptions
   // allocated on demand
   assumptions_and_core_t *unsat_core;
@@ -489,6 +500,12 @@ extern void init_mt2(bool benchmark, uint32_t timeout, uint32_t nthreads, bool p
  * - must not be called before init_smt2
  */
 extern void smt2_enable_mcsat(void);
+
+/*
+ * Force CDCL(T) architecture in SMT2 frontend
+ * - must not be called before init_smt2
+ */
+extern void smt2_force_dpllt(void);
 
 /*
  * Force verbosity level to k

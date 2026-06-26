@@ -76,7 +76,7 @@ static context_t *new_qfbv_pushpop_context(void) {
   return ctx;
 }
 
-static context_t *new_qfbv_pushpop_context_with_delegate(const char *delegate, const char *selector_frames) {
+static context_t *new_qfbv_pushpop_context_with_delegate(const char *delegate, const char *incremental_mode) {
   ctx_config_t *config;
   context_t *ctx;
 
@@ -86,8 +86,8 @@ static context_t *new_qfbv_pushpop_context_with_delegate(const char *delegate, c
   assert(yices_default_config_for_logic(config, "QF_BV") == 0);
   assert(yices_set_config(config, "mode", "push-pop") == 0);
   assert(yices_set_config(config, "sat-delegate", delegate) == 0);
-  if (selector_frames != NULL) {
-    assert(yices_set_config(config, "sat-delegate-selector-frames", selector_frames) == 0);
+  if (incremental_mode != NULL) {
+    assert(yices_set_config(config, "sat-delegate-incremental-mode", incremental_mode) == 0);
   }
 
   ctx = yices_new_context(config);
@@ -105,6 +105,42 @@ static param_t *new_delegate_params(const char *delegate) {
   assert(yices_set_param(params, "delegate", delegate) == 0);
 
   return params;
+}
+
+static void check_incremental_mode_config_validation(void) {
+  ctx_config_t *config;
+  context_t *ctx;
+
+  config = yices_new_config();
+  assert(config != NULL);
+  assert(yices_default_config_for_logic(config, "QF_BV") == 0);
+  assert(yices_set_config(config, "mode", "one-shot") == 0);
+  assert(yices_set_config(config, "sat-delegate", "y2sat") == 0);
+  assert(yices_set_config(config, "sat-delegate-incremental-mode", "append") == 0);
+  ctx = yices_new_context(config);
+  assert(ctx == NULL);
+  assert(yices_error_code() == CTX_OPERATION_NOT_SUPPORTED);
+  yices_clear_error();
+  yices_free_config(config);
+
+  config = yices_new_config();
+  assert(config != NULL);
+  assert(yices_default_config_for_logic(config, "QF_BV") == 0);
+  assert(yices_set_config(config, "mode", "push-pop") == 0);
+  assert(yices_set_config(config, "sat-delegate", "y2sat") == 0);
+  assert(yices_set_config(config, "sat-delegate-incremental-mode", "selector-frames") == 0);
+  ctx = yices_new_context(config);
+  assert(ctx == NULL);
+  assert(yices_error_code() == CTX_OPERATION_NOT_SUPPORTED);
+  yices_clear_error();
+  yices_free_config(config);
+
+  config = yices_new_config();
+  assert(config != NULL);
+  assert(yices_set_config(config, "sat-delegate-selector-frames", "true") == -1);
+  assert(yices_error_code() == CTX_UNKNOWN_PARAMETER);
+  yices_clear_error();
+  yices_free_config(config);
 }
 
 static void check_sat_case(const char *delegate) {
@@ -389,7 +425,7 @@ static void check_config_delegate_case(const char *delegate) {
   x = yices_new_uninterpreted_term(bv8);
   f = yices_bveq_atom(yices_bvadd(x, yices_bvconst_uint32(8, 1)), yices_bvconst_uint32(8, 2));
 
-  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "true");
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, NULL);
   assert(yices_assert_formula(ctx, f) == 0);
 
   expect_status(ctx, NULL, YICES_STATUS_SAT);
@@ -408,7 +444,7 @@ static void check_config_delegate_rebuild_case(const char *delegate) {
   xeq0 = yices_bveq_atom(x, yices_bvconst_uint32(8, 0));
   xeq1 = yices_bveq_atom(x, yices_bvconst_uint32(8, 1));
 
-  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "false");
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "rebuild");
   assert(yices_assert_formula(ctx, xeq0) == 0);
   expect_status(ctx, NULL, YICES_STATUS_SAT);
 
@@ -434,7 +470,7 @@ static void check_assumptions_delegate_case(const char *delegate) {
   f = yices_bveq_atom(x, yices_bvconst_uint32(8, 0));
   a = yices_bveq_atom(x, yices_bvconst_uint32(8, 1));
 
-  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "true");
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, NULL);
   assert(yices_assert_formula(ctx, f) == 0);
 
   stat = yices_check_context_with_assumptions(ctx, NULL, 1, &a);
@@ -471,7 +507,7 @@ static void check_selector_frames_growing_vars_case(const char *delegate) {
   yneq0 = yices_not(yices_bveq_atom(y, yices_bvconst_uint32(8, 0)));
   zneq0 = yices_not(yices_bveq_atom(z, yices_bvconst_uint32(8, 0)));
 
-  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "true");
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "selector-frames");
 
   assert(yices_assert_formula(ctx, xeq0) == 0);
   expect_status(ctx, NULL, YICES_STATUS_SAT);
@@ -511,7 +547,7 @@ static void check_selector_frames_assumptions_case(const char *delegate) {
   xeq1 = yices_bveq_atom(x, yices_bvconst_uint32(8, 1));
   yeq1 = yices_bveq_atom(y, yices_bvconst_uint32(8, 1));
 
-  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "true");
+  ctx = new_qfbv_pushpop_context_with_delegate(delegate, "selector-frames");
 
   assert(yices_assert_formula(ctx, xeq0) == 0);
   expect_status(ctx, NULL, YICES_STATUS_SAT);
@@ -542,6 +578,7 @@ int main(void) {
   yices_init();
 
   assert(yices_has_delegate("y2sat"));
+  check_incremental_mode_config_validation();
 
   for (i=0; i<sizeof(delegates)/sizeof(delegates[0]); i++) {
     if (yices_has_delegate(delegates[i])) {

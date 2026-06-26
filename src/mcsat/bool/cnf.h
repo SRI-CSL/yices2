@@ -19,6 +19,8 @@
 #ifndef CNF_H_
 #define CNF_H_
 
+#include <stdbool.h>
+
 #include "mcsat/plugin.h"
 #include "mcsat/variable_db.h"
 #include "mcsat/bool/clause_db.h"
@@ -45,6 +47,19 @@ typedef struct {
   /** Current variable being converted */
   variable_t variable;
 
+  /**
+   * Per-instance progress index for cnf_gc_mark across iterations of one
+   * mcsat_gc cycle. Reset to 0 when the cycle starts (gc_vars->level == 0)
+   * and otherwise advances across the for-each-plugin marking rounds.
+   *
+   * Was previously a function-local `static uint32_t` in cnf_gc_mark, which
+   * meant the index was shared across all live cnf_t instances. With one
+   * cnf_t per bool_plugin per context, that made the marking indices race
+   * across contexts under thread-safe builds and could in principle skip
+   * variables when two contexts' GC cycles interleaved (issue #616).
+   */
+  uint32_t gc_mark_index;
+
 } cnf_t;
 
 
@@ -67,6 +82,12 @@ mcsat_literal_t cnf_convert(cnf_t* cnf, term_t t, ivector_t* t_clauses);
  * be added to the given vector.
  */
 void cnf_convert_lemma(cnf_t* cnf, const ivector_t* lemma, ivector_t* clauses);
+
+/**
+ * Gets all converted clauses of a given variable if the variable was converted.
+ * If the variable was converted, clauses contains all clause_refs and true is returned.
+ */
+bool cnf_get_clauses(cnf_t* cnf, variable_t var, ivector_t* clauses);
 
 /**
  * Mark all the clauses that are definitions for the variables in gc_vars.

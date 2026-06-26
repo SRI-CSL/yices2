@@ -31,6 +31,7 @@
 #include <stdbool.h>
 #include <signal.h>
 #include <errno.h>
+#include <string.h>
 #include <unistd.h>
 #include <inttypes.h>
 
@@ -108,11 +109,13 @@ static char *dimacsfile;
 
 // mcsat options
 static bool mcsat;
+static bool force_dpllt;
 static double mcsat_rand_dec_freq;
 static int32_t mcsat_rand_dec_seed;
 static bool mcsat_na_mgcd;
 static bool mcsat_na_nlsat;
 static bool mcsat_na_bound;
+static bool mcsat_l2o;
 static int32_t mcsat_na_bound_min;
 static int32_t mcsat_na_bound_max;
 static int32_t mcsat_bv_var_size;
@@ -165,11 +168,13 @@ typedef enum optid {
   delegate_opt,            // use an external sat solver
   dimacs_opt,              // bitblast then export to DIMACS
   mcsat_opt,               // enable mcsat
+  dpllt_opt,               // force CDCL(T)
   mcsat_rand_dec_freq_opt, // random decision frequency when making a decision in mcsat
   mcsat_rand_dec_seed_opt, // seed for random decisions 
   mcsat_na_mgcd_opt,      // use the mgcd instead psc in projection
   mcsat_na_nlsat_opt,     // use the nlsat projection instead of brown single-cell
   mcsat_na_bound_opt,     // search by increasing bound
+  mcsat_l2o_opt,          // enable l2o mode
   mcsat_na_bound_min_opt, // set initial bound
   mcsat_na_bound_max_opt, // set maximal bound
   mcsat_bv_var_size_opt,   // set size of bitvector variables
@@ -217,11 +222,13 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "delegate", '\0', MANDATORY_STRING, delegate_opt },
   { "dimacs", '\0', MANDATORY_STRING, dimacs_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
+  { "dpllt", '\0', FLAG_OPTION, dpllt_opt },
   { "mcsat-rand-dec-freq", '\0', MANDATORY_FLOAT, mcsat_rand_dec_freq_opt },
   { "mcsat-rand-dec-seed", '\0', MANDATORY_INT, mcsat_rand_dec_seed_opt },
   { "mcsat-na-mgcd", '\0', FLAG_OPTION, mcsat_na_mgcd_opt },
   { "mcsat-na-nlsat", '\0', FLAG_OPTION, mcsat_na_nlsat_opt },
   { "mcsat-na-bound", '\0', FLAG_OPTION, mcsat_na_bound_opt },
+  { "mcsat-l2o", '\0', FLAG_OPTION, mcsat_l2o_opt },
   { "mcsat-na-bound-min", '\0', MANDATORY_INT, mcsat_na_bound_min_opt },
   { "mcsat-na-bound-max", '\0', MANDATORY_INT, mcsat_na_bound_max_opt },
   { "mcsat-bv-var-size", '\0', MANDATORY_INT, mcsat_bv_var_size_opt },
@@ -284,7 +291,9 @@ static void print_help(const char *progname) {
          "    --bvconst-in-decimal      Display bit-vector constants as decimal numbers (default = false)\n"
          "    --delegate=<satsolver>    Use an external SAT solver (can be cadical, cryptominisat, kissat, or y2sat)\n"
          "    --dimacs=<filename>       Bitblast and export to a file (in DIMACS format)\n"
-         "    --mcsat                   Use the MCSat solver\n"
+         "    --mcsat                   Force MCSAT as top-level architecture\n"
+         "    --dpllt                   Force CDCL(T) as top-level architecture\n"
+         "                              (mutually exclusive with --mcsat)\n"
          "    --mcsat-help              Show the MCSat options\n"
          "    --ef-help                 Show the EF options\n"
 	 "    --nthreads=<number of threads>  Specify the number of threads (default = 0 = main thread only)\n"
@@ -303,6 +312,7 @@ static void print_mcsat_help(const char *progname) {
          "    --mcsat-na-mgcd          Use model-based GCD instead of PSC for projection\n"
          "    --mcsat-na-nlsat         Use NLSAT projection instead of Brown's single-cell construction\n"
          "    --mcsat-na-bound         Search by increasing the bound on variable magnitude\n"
+         "    --mcsat-l2o              Enable L2O mcsat value selection heuristic\n"
          "    --mcsat-na-bound-min=<B> Set initial lower bound\n"
          "    --mcsat-na-bound-max=<B> Set maximal bound for search\n"
          "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search\n"
@@ -400,11 +410,13 @@ static void parse_command_line(int argc, char *argv[]) {
   dimacsfile = NULL;
 
   mcsat = false;
+  force_dpllt = false;
   mcsat_rand_dec_freq = -1;
   mcsat_rand_dec_seed = -1;
   mcsat_na_mgcd = false;
   mcsat_na_nlsat = false;
   mcsat_na_bound = false;
+  mcsat_l2o = false;
   mcsat_na_bound_min = -1;
   mcsat_na_bound_max = -1;
   mcsat_bv_var_size = -1;
@@ -560,6 +572,10 @@ static void parse_command_line(int argc, char *argv[]) {
         mcsat  = true;
         break;
 
+      case dpllt_opt:
+        force_dpllt = true;
+        break;
+
       case mcsat_rand_dec_freq_opt:
         if (! yices_has_mcsat()) goto no_mcsat;
         if (! validate_double_option(&parser, &elem, 0.0, false, 1.0, false)) goto bad_usage;
@@ -585,6 +601,11 @@ static void parse_command_line(int argc, char *argv[]) {
       case mcsat_na_bound_opt:
         if (! yices_has_mcsat()) goto no_mcsat;
         mcsat_na_bound = true;
+        break;
+
+      case mcsat_l2o_opt:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        mcsat_l2o = true;
         break;
 
       case mcsat_na_bound_min_opt:
@@ -724,6 +745,12 @@ static void parse_command_line(int argc, char *argv[]) {
   }
 
  done:
+  if (force_dpllt && mcsat) {
+    fprintf(stderr, "%s: options --dpllt and --mcsat are mutually exclusive\n", parser.command_name);
+    code = YICES_EXIT_USAGE;
+    goto exit;
+  }
+
   if (incremental && dimacsfile != NULL) {
     fprintf(stderr, "%s: export to DIMACS is not supported in incremental mode\n", parser.command_name);
     code = YICES_EXIT_USAGE;
@@ -805,6 +832,10 @@ static void setup_options_mcsat(void) {
 
   if (mcsat_na_bound) {
     smt2_set_option(":yices-mcsat-na-bound", aval_true);
+  }
+
+  if (mcsat_l2o) {
+    smt2_set_option(":yices-mcsat-l2o", aval_true);
   }
 
   if (mcsat_na_bound_min >= 0) {
@@ -1147,6 +1178,7 @@ int main(int argc, char *argv[]) {
 
   yices_init();
   init_mt2(!incremental, timeout, nthreads, interactive);
+  if (force_dpllt) smt2_force_dpllt();
   if (smt2_model_format) smt2_force_smt2_model_format();
   if (bvdecimal) smt2_force_bvdecimal_format();
   if (dimacsfile != NULL && delegate == NULL) smt2_export_to_dimacs(dimacsfile);

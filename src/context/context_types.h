@@ -43,8 +43,10 @@
 #include "terms/conditionals.h"
 #include "terms/int_rational_hash_maps.h"
 #include "terms/poly_buffer.h"
+#include "terms/term_manager.h"
 #include "terms/terms.h"
 #include "utils/int_bv_sets.h"
+#include "utils/int_hash_map.h"
 #include "utils/int_hash_sets.h"
 #include "utils/int_queues.h"
 #include "utils/int_stack.h"
@@ -624,9 +626,17 @@ typedef struct dl_data_s {
   uint32_t num_eqs;
 } dl_data_t;
 
-
-
-
+typedef struct sat_delegate_stats_s {
+  uint32_t rebuild_checks;
+  uint32_t append_checks;
+  uint32_t selector_frame_checks;
+  uint32_t delegate_initializations;
+  uint32_t delegate_reinitializations;
+  uint32_t selector_variables;
+  uint32_t selector_assumptions;
+  uint32_t selector_retirements;
+  uint32_t post_check_clause_forwards;
+} sat_delegate_stats_t;
 
 /**************
  *  CONTEXT   *
@@ -638,7 +648,8 @@ struct context_s {
   context_arch_t arch;
   smt_logic_t logic;
   sat_delegate_t sat_delegate;
-  bool sat_delegate_selector_frames;
+  sat_delegate_incremental_mode_t sat_delegate_incremental_mode;
+  bool sat_delegate_incremental_mode_set;
 
   // theories flag
   uint32_t theories;
@@ -648,7 +659,7 @@ struct context_s {
 
   // base_level == number of calls to push
   uint32_t base_level;
-  uint64_t mutation_count;
+  sat_delegate_stats_t sat_delegate_stats;
 
   // core and theory solvers
   smt_core_t *core;
@@ -698,8 +709,8 @@ struct context_s {
   assumption_stack_t assumptions;
   // cached unsat core (NULL if cache is invalid)
   ivector_t *unsat_core_cache;
-  // delegate runtime state (allocated lazily)
-  void *delegate_state;
+  // persistent SAT delegate runtime state (allocated lazily)
+  void *sat_delegate_state;
 
   // optional components: allocated if needed
   pseudo_subst_t *subst;
@@ -742,6 +753,17 @@ struct context_s {
 
   // flag for enabling adding quant instances
   bool en_quant;
+
+  // true when the supplemental MCSAT satellite is configured in CDCL(T) mode
+  bool mcsat_supplement;
+
+  // true iff the arithmetic solver's public model was built and must be freed
+  bool arith_model_built;
+
+  // Phase-2 simplex relaxation for MCSAT-owned arithmetic atoms
+  int_hmap_t *mcsat_relax_abstractions;      // original arithmetic term -> fresh internal arithmetic term
+  int_hset_t *mcsat_relax_abstraction_terms; // fresh internal arithmetic terms above
+  term_manager_t *mcsat_relax_manager;       // allocated lazily
 };
 
 
@@ -802,7 +824,7 @@ enum {
 /*
  * NUM_INTERNALIZATION_ERRORS: must be (1 + number of negative codes)
  */
-#define NUM_INTERNALIZATION_ERRORS 24
+#define NUM_INTERNALIZATION_ERRORS 25
 
 
 

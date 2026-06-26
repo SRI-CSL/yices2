@@ -24,6 +24,7 @@ void cnf_construct(cnf_t* cnf, plugin_context_t* ctx, clause_db_t* clause_db) {
   cnf->clause_db = clause_db;
   cnf->ctx = ctx;
   cnf->variable = variable_null;
+  cnf->gc_mark_index = 0;
   int_lset_construct(&cnf->converted);
 }
 
@@ -31,23 +32,23 @@ void cnf_destruct(cnf_t* cnf) {
   int_lset_destruct(&cnf->converted);
 }
 
-static
+static inline
 bool cnf_is_converted(const cnf_t* cnf, variable_t var) {
   return int_lset_has_list(&cnf->converted, var);
 }
 
-static
+static inline
 void cnf_begin(cnf_t* cnf, variable_t var) {
   assert(!cnf_is_converted(cnf, var));
   cnf->variable = var;
 }
 
-static
+static inline
 void cnf_end(cnf_t* cnf) {
   cnf->variable = variable_null;
 }
 
-static
+static inline
 void cnf_remove(cnf_t* cnf, variable_t var) {
   int_lset_remove(&cnf->converted, var);
 }
@@ -388,21 +389,45 @@ void cnf_convert_lemma(cnf_t* cnf, const ivector_t* lemma, ivector_t* clauses) {
   safe_free(or_literals);
 }
 
-void cnf_gc_mark(cnf_t* cnf, gc_info_t* gc_clauses, const gc_info_t* gc_vars) {
-  static uint32_t i;
+bool cnf_get_clauses(cnf_t* cnf, variable_t var, ivector_t* clauses) {
+  int_lset_iterator_t it;
+  clause_ref_t clause_ref;
 
+  if (!cnf_is_converted(cnf, var)) {
+    return false;
+  }
+
+  assert(clauses);
+  int_lset_iterator_construct(&it, &cnf->converted, var);
+  while (!int_lset_iterator_done(&it)) {
+    clause_ref = *int_lset_iterator_get(&it);
+    assert(clause_db_is_clause(cnf->clause_db, clause_ref, true));
+    ivector_push(clauses, clause_ref);
+    int_lset_iterator_next_and_keep(&it);
+  }
+  int_lset_iterator_destruct(&it);
+
+  return true;
+}
+
+void cnf_gc_mark(cnf_t* cnf, gc_info_t* gc_clauses, const gc_info_t* gc_vars) {
+  /* Per-cnf-instance progress index across the iterations of one mcsat_gc
+   * cycle. Used to be a function-local `static`, which (a) made the index
+   * shared across all cnf_t instances and (b) was a thread-safety concern
+   * under --enable-thread-safety. See cnf_t::gc_mark_index for details and
+   * issue #616. */
   variable_t var;
   clause_ref_t clause_ref;
   int_lset_iterator_t it;
 
   // If first time at gc, reset the index
   if (gc_vars->level == 0) {
-    i = 0;
+    cnf->gc_mark_index = 0;
   }
 
   // CNF marks only the clauses that are definitions of the variables to keep
-  for (; i < gc_vars->marked.size; ++ i) {
-    var = gc_vars->marked.data[i];
+  for (; cnf->gc_mark_index < gc_vars->marked.size; ++ cnf->gc_mark_index) {
+    var = gc_vars->marked.data[cnf->gc_mark_index];
     if (trace_enabled(cnf->ctx->tracer, "mcsat::gc")) {
       ctx_trace_term(cnf->ctx, variable_db_get_term(cnf->ctx->var_db, var));
     }

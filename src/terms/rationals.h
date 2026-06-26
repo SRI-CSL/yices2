@@ -181,6 +181,7 @@ extern void q_set_int32(rational_t *r, int32_t num, uint32_t den);
 extern void q_set_int64(rational_t *r, int64_t num, uint64_t den);
 extern void q_set32(rational_t *r, int32_t num);
 extern void q_set64(rational_t *r, int64_t num);
+extern void q_set_double(rational_t *r, double d);
 
 extern void q_set_mpq(rational_t *r, const mpq_t q);
 extern void q_set_mpz(rational_t *r, const mpz_t z);
@@ -588,15 +589,6 @@ extern double q_get_double(rational_t *r);
 /*
  * Set from floating point numbers
  */
-static inline void q_set_double(rational_t *r, double val) {
-  q_clear(r);
-  mpq_t q;
-  mpq_init(q);
-  mpq_set_d(q, val);
-  q_set_mpq(r, q);
-  mpq_clear(q);
-}
-
 static inline void q_set_float(rational_t *r, float val) {
   q_set_double(r, (double)val);
 }

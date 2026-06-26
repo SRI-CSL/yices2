@@ -1,0 +1,2 @@
+sat
+((define-fun a () A (store ((as const A) 2) 0 1)))

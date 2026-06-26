@@ -28,6 +28,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "context/context.h"
 #include "context/internalization_codes.h"
@@ -35,6 +36,7 @@
 #include "mcsat/solver.h"
 #include "solvers/bv/dimacs_printer.h"
 #include "solvers/cdcl/delegate.h"
+#include "solvers/mcsat_satellite.h"
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
 #include "terms/term_explorer.h"
@@ -42,6 +44,7 @@
 #include "terms/term_substitution.h"
 #include "utils/int_hash_map.h"
 #include "utils/int_hash_sets.h"
+#include "utils/memalloc.h"
 
 #include "api/yices_globals.h"
 #include "api/yices_api_lock_free.h"
@@ -525,6 +528,10 @@ static void context_set_search_parameters(context_t *ctx, const param_t *params)
     egraph_set_max_interface_eqs(egraph, params->max_interface_eqs);
   }
 
+  if (ctx->mcsat_supplement && egraph != NULL && egraph->th[ETYPE_MCSAT] != NULL) {
+    mcsat_satellite_set_search_parameters((mcsat_satellite_t *) egraph->th[ETYPE_MCSAT], params);
+  }
+
   /*
    * Set simplex parameters
    */
@@ -555,8 +562,22 @@ static void context_set_search_parameters(context_t *ctx, const param_t *params)
 }
 
 static smt_status_t _o_call_mcsat_solver(context_t *ctx, const param_t *params) {
+  smt_status_t stat;
+
   mcsat_solve(ctx->mcsat, params, NULL, 0, NULL);
-  return mcsat_status(ctx->mcsat);
+  stat = mcsat_status(ctx->mcsat);
+
+  /*
+   * For plain UNSAT results (without explicit model assumptions), keep the
+   * interpolant API usable by providing the canonical false interpolant.
+   */
+  if (stat == YICES_STATUS_UNSAT &&
+      context_supports_model_interpolation(ctx) &&
+      mcsat_get_unsat_model_interpolant(ctx->mcsat) == NULL_TERM) {
+    mcsat_set_unsat_result_from_labeled_interpolant(ctx->mcsat, false_term, 0, NULL, NULL);
+  }
+
+  return stat;
 }
 
 static smt_status_t call_mcsat_solver(context_t *ctx, const param_t *params) {
@@ -571,6 +592,7 @@ static smt_status_t call_mcsat_solver(context_t *ctx, const param_t *params) {
 smt_status_t check_context(context_t *ctx, const param_t *params) {
   smt_core_t *core;
   smt_status_t stat;
+  mcsat_satellite_t *sat;
 
   if (params == NULL) {
     params = get_default_params();
@@ -589,6 +611,19 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
     stat = smt_status(core);
   }
 
+  sat = NULL;
+  if (ctx->mcsat_supplement &&
+      ctx->egraph != NULL &&
+      ctx->egraph->th[ETYPE_MCSAT] != NULL) {
+    sat = (mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT];
+  }
+  if (stat == YICES_STATUS_UNSAT &&
+      sat != NULL &&
+      context_supports_model_interpolation(ctx) &&
+      mcsat_satellite_get_unsat_model_interpolant(sat) == NULL_TERM) {
+    mcsat_satellite_set_unsat_model_interpolant(sat, false_term);
+  }
+
   return stat;
 }
 
@@ -600,6 +635,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
 smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const literal_t *a) {
   smt_core_t *core;
   smt_status_t stat;
+  mcsat_satellite_t *sat;
 
   assert(ctx->mcsat == NULL);
 
@@ -615,25 +651,60 @@ smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *param
     stat = smt_status(core);
   }
 
+  sat = NULL;
+  if (ctx->mcsat_supplement &&
+      ctx->egraph != NULL &&
+      ctx->egraph->th[ETYPE_MCSAT] != NULL) {
+    sat = (mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT];
+  }
+  if (stat == YICES_STATUS_UNSAT &&
+      sat != NULL &&
+      context_supports_model_interpolation(ctx) &&
+      mcsat_satellite_get_unsat_model_interpolant(sat) == NULL_TERM) {
+    mcsat_satellite_set_unsat_model_interpolant(sat, false_term);
+  }
+
   return stat;
 }
 
-typedef struct delegate_state_s {
+typedef struct sat_delegate_state_s {
   delegate_t delegate;
   sat_delegate_t mode;
+  sat_delegate_incremental_mode_t exec_mode;
   bool live;
-  uint64_t synced_mutation;
+  bool stale;
+  bool true_forwarded;
+  bool checked_once;
   uint32_t delegate_nvars;
-  bvar_t next_selector_var;
-  literal_t active_selector;
+  uint32_t size;
+  bvar_t *act_var;
+  uint32_t *fwd_units;
+  uint32_t *fwd_bins;
+  uint32_t *fwd_clauses;
   ivector_t assumptions;
   ivector_t failed;
-} delegate_state_t;
+} sat_delegate_state_t;
 
-void context_delegate_state_cleanup(context_t *ctx) {
-  delegate_state_t *st;
+void context_reset_sat_delegate_stats(context_t *ctx) {
+  ctx->sat_delegate_stats.rebuild_checks = 0;
+  ctx->sat_delegate_stats.append_checks = 0;
+  ctx->sat_delegate_stats.selector_frame_checks = 0;
+  ctx->sat_delegate_stats.delegate_initializations = 0;
+  ctx->sat_delegate_stats.delegate_reinitializations = 0;
+  ctx->sat_delegate_stats.selector_variables = 0;
+  ctx->sat_delegate_stats.selector_assumptions = 0;
+  ctx->sat_delegate_stats.selector_retirements = 0;
+  ctx->sat_delegate_stats.post_check_clause_forwards = 0;
+}
 
-  st = (delegate_state_t *) ctx->delegate_state;
+void context_get_sat_delegate_stats(const context_t *ctx, sat_delegate_stats_t *stats) {
+  *stats = ctx->sat_delegate_stats;
+}
+
+void context_sat_delegate_state_cleanup(context_t *ctx) {
+  sat_delegate_state_t *st;
+
+  st = (sat_delegate_state_t *) ctx->sat_delegate_state;
   if (st == NULL) {
     return;
   }
@@ -642,29 +713,77 @@ void context_delegate_state_cleanup(context_t *ctx) {
     delete_delegate(&st->delegate);
     st->live = false;
   }
+  safe_free(st->act_var);
+  safe_free(st->fwd_units);
+  safe_free(st->fwd_bins);
+  safe_free(st->fwd_clauses);
   delete_ivector(&st->assumptions);
   delete_ivector(&st->failed);
   safe_free(st);
-  ctx->delegate_state = NULL;
+  ctx->sat_delegate_state = NULL;
 }
 
-static delegate_state_t *context_get_delegate_state(context_t *ctx) {
-  delegate_state_t *st;
+static sat_delegate_state_t *context_get_sat_delegate_state(context_t *ctx) {
+  sat_delegate_state_t *st;
 
-  st = (delegate_state_t *) ctx->delegate_state;
+  st = (sat_delegate_state_t *) ctx->sat_delegate_state;
   if (st == NULL) {
-    st = (delegate_state_t *) safe_malloc(sizeof(delegate_state_t));
+    st = (sat_delegate_state_t *) safe_malloc(sizeof(sat_delegate_state_t));
     st->mode = SAT_DELEGATE_NONE;
+    st->exec_mode = SAT_DELEGATE_MODE_REBUILD;
     st->live = false;
-    st->synced_mutation = 0;
+    st->stale = false;
+    st->true_forwarded = false;
+    st->checked_once = false;
     st->delegate_nvars = 0;
-    st->next_selector_var = 0;
-    st->active_selector = true_literal;
+    st->size = 0;
+    st->act_var = NULL;
+    st->fwd_units = NULL;
+    st->fwd_bins = NULL;
+    st->fwd_clauses = NULL;
     init_ivector(&st->assumptions, 0);
     init_ivector(&st->failed, 0);
-    ctx->delegate_state = st;
+    ctx->sat_delegate_state = st;
   }
   return st;
+}
+
+static void sat_delegate_state_reset_cursors(sat_delegate_state_t *st) {
+  uint32_t i;
+
+  st->true_forwarded = false;
+  for (i=0; i<st->size; i++) {
+    st->act_var[i] = 0;
+    st->fwd_units[i] = 0;
+    st->fwd_bins[i] = 0;
+    st->fwd_clauses[i] = 0;
+  }
+}
+
+static void sat_delegate_state_grow(sat_delegate_state_t *st, uint32_t min_size) {
+  uint32_t old_size, new_size, i;
+
+  if (st->size > min_size) {
+    return;
+  }
+
+  old_size = st->size;
+  new_size = old_size == 0 ? 8 : old_size;
+  while (new_size <= min_size) {
+    new_size <<= 1;
+  }
+
+  st->act_var = (bvar_t *) safe_realloc(st->act_var, new_size * sizeof(bvar_t));
+  st->fwd_units = (uint32_t *) safe_realloc(st->fwd_units, new_size * sizeof(uint32_t));
+  st->fwd_bins = (uint32_t *) safe_realloc(st->fwd_bins, new_size * sizeof(uint32_t));
+  st->fwd_clauses = (uint32_t *) safe_realloc(st->fwd_clauses, new_size * sizeof(uint32_t));
+  for (i=old_size; i<new_size; i++) {
+    st->act_var[i] = 0;
+    st->fwd_units[i] = 0;
+    st->fwd_bins[i] = 0;
+    st->fwd_clauses[i] = 0;
+  }
+  st->size = new_size;
 }
 
 static void context_import_delegate_model(smt_core_t *core, delegate_t *d) {
@@ -689,7 +808,7 @@ static void set_delegate_assumption_state(smt_core_t *core, uint32_t n, const li
   core->has_assumptions = true;
   core->num_assumptions = n;
   core->assumption_index = n;
-  core->assumptions = assumptions;
+  core->assumptions = NULL;
   core->bad_assumption = null_literal;
 
   if (stat == YICES_STATUS_UNSAT && failed != NULL && failed->size > 0) {
@@ -697,32 +816,122 @@ static void set_delegate_assumption_state(smt_core_t *core, uint32_t n, const li
   }
 }
 
-static bool context_prepare_incremental_delegate(context_t *ctx, delegate_state_t *st, const char *sat_solver,
-                                                 uint32_t verbosity) {
+static void delegate_add_clause_with_guard(delegate_t *delegate, const clause_t *c, literal_t guard) {
+  uint32_t i;
+  literal_t l;
+
+  ivector_reset(&delegate->buffer);
+  if (guard != true_literal) {
+    ivector_push(&delegate->buffer, guard);
+  }
+  i = 0;
+  l = c->cl[0];
+  while (l >= 0) {
+    ivector_push(&delegate->buffer, l);
+    i ++;
+    l = c->cl[i];
+  }
+  delegate->add_clause(delegate->solver, delegate->buffer.size, delegate->buffer.data);
+}
+
+static void delegate_forward_clause_range(sat_delegate_state_t *st, smt_core_t *core, sat_delegate_stats_t *stats,
+                                          uint32_t level,
+                                          uint32_t end_units, uint32_t end_bins, uint32_t end_clauses,
+                                          literal_t guard) {
+  uint32_t i;
+  bool forwarded;
+
+  if (!st->true_forwarded) {
+    st->delegate.add_unit_clause(st->delegate.solver, true_literal);
+    st->true_forwarded = true;
+  }
+
+  forwarded = (core->inconsistent && st->fwd_units[level] == 0 && st->fwd_bins[level] == 0 && st->fwd_clauses[level] == 0) ||
+              st->fwd_units[level] < end_units ||
+              st->fwd_bins[level] < end_bins ||
+              st->fwd_clauses[level] < end_clauses;
+  if (st->checked_once && forwarded) {
+    stats->post_check_clause_forwards ++;
+  }
+
+  if (core->inconsistent && st->fwd_units[level] == 0 && st->fwd_bins[level] == 0 && st->fwd_clauses[level] == 0) {
+    if (guard == true_literal) {
+      st->delegate.add_empty_clause(st->delegate.solver);
+    } else {
+      st->delegate.add_unit_clause(st->delegate.solver, guard);
+    }
+  }
+
+  for (i=st->fwd_units[level]; i<end_units; i++) {
+    if (guard == true_literal) {
+      st->delegate.add_unit_clause(st->delegate.solver, core->stack.lit[i]);
+    } else {
+      st->delegate.add_binary_clause(st->delegate.solver, guard, core->stack.lit[i]);
+    }
+  }
+  st->fwd_units[level] = end_units;
+
+  for (i=st->fwd_bins[level]; i<end_bins; i += 2) {
+    if (guard == true_literal) {
+      st->delegate.add_binary_clause(st->delegate.solver, core->binary_clauses.data[i], core->binary_clauses.data[i+1]);
+    } else {
+      st->delegate.add_ternary_clause(st->delegate.solver, guard, core->binary_clauses.data[i], core->binary_clauses.data[i+1]);
+    }
+  }
+  st->fwd_bins[level] = end_bins;
+
+  if (level == 0 && st->fwd_clauses[level] > end_clauses) {
+    st->fwd_clauses[level] = end_clauses;
+  }
+  for (i=st->fwd_clauses[level]; i<end_clauses; i++) {
+    delegate_add_clause_with_guard(&st->delegate, core->problem_clauses[i], guard);
+  }
+  st->fwd_clauses[level] = end_clauses;
+}
+
+static void sat_delegate_state_close(sat_delegate_state_t *st) {
+  if (st->live) {
+    delete_delegate(&st->delegate);
+    st->live = false;
+  }
+  st->mode = SAT_DELEGATE_NONE;
+  st->exec_mode = SAT_DELEGATE_MODE_REBUILD;
+  st->stale = false;
+  st->checked_once = false;
+  st->delegate_nvars = 0;
+  sat_delegate_state_reset_cursors(st);
+}
+
+static bool context_prepare_append_delegate(context_t *ctx, sat_delegate_state_t *st, const char *sat_solver,
+                                            uint32_t verbosity) {
   smt_core_t *core;
   uint32_t nvars;
-  literal_t guard;
   uint32_t nnew;
 
   core = ctx->core;
   nvars = num_vars(core);
 
-  if (st->live && st->mode != ctx->sat_delegate) {
-    delete_delegate(&st->delegate);
-    st->live = false;
+  if (st->live && (st->mode != ctx->sat_delegate || st->exec_mode != SAT_DELEGATE_MODE_APPEND)) {
+    sat_delegate_state_close(st);
   }
 
-  if (!st->live) {
-    if (!init_delegate(&st->delegate, sat_solver, nvars)) {
+  if (!st->live || st->stale) {
+    if (st->live) {
+      ctx->sat_delegate_stats.delegate_reinitializations ++;
+      sat_delegate_state_close(st);
+    }
+    sat_delegate_state_grow(st, 0);
+    if (!init_delegate_incremental(&st->delegate, sat_solver, nvars)) {
       return false;
     }
+    ctx->sat_delegate_stats.delegate_initializations ++;
     delegate_set_verbosity(&st->delegate, verbosity);
     st->mode = ctx->sat_delegate;
-    st->synced_mutation = 0;
+    st->exec_mode = SAT_DELEGATE_MODE_APPEND;
+    st->stale = false;
     st->delegate_nvars = nvars;
-    st->next_selector_var = nvars;
-    st->active_selector = true_literal;
     st->live = true;
+    sat_delegate_state_reset_cursors(st);
   }
 
   if (st->delegate_nvars < nvars) {
@@ -731,30 +940,110 @@ static bool context_prepare_incremental_delegate(context_t *ctx, delegate_state_
     st->delegate_nvars = nvars;
   }
 
-  if (st->synced_mutation != ctx->mutation_count) {
-    if (st->next_selector_var < st->delegate_nvars) {
-      st->next_selector_var = st->delegate_nvars;
+  sat_delegate_state_grow(st, 0);
+  delegate_forward_clause_range(st, core, &ctx->sat_delegate_stats, 0, core->nb_unit_clauses,
+                                (uint32_t) core->binary_clauses.size,
+                                (uint32_t) get_cv_size(core->problem_clauses),
+                                true_literal);
+
+  return true;
+}
+
+static bool context_prepare_selector_delegate(context_t *ctx, sat_delegate_state_t *st, const char *sat_solver,
+                                              uint32_t verbosity) {
+  smt_core_t *core;
+  uint32_t d, k, nvars, nnew;
+  uint32_t end_units, end_bins, end_clauses;
+  trail_t *trail_data;
+  literal_t guard;
+
+  core = ctx->core;
+  nvars = num_vars(core);
+  d = smt_base_level(core);
+  trail_data = core->trail_stack.data;
+
+  if (st->live && (st->mode != ctx->sat_delegate || st->exec_mode != SAT_DELEGATE_MODE_SELECTOR_FRAMES)) {
+    sat_delegate_state_close(st);
+  }
+
+  if (!st->live) {
+    sat_delegate_state_grow(st, d);
+    if (!init_delegate_incremental(&st->delegate, sat_solver, nvars)) {
+      return false;
     }
-    if (st->next_selector_var >= st->delegate_nvars) {
-      nnew = st->next_selector_var - st->delegate_nvars + 1;
-      delegate_add_vars(&st->delegate, nnew);
-      st->delegate_nvars += nnew;
+    ctx->sat_delegate_stats.delegate_initializations ++;
+    delegate_set_verbosity(&st->delegate, verbosity);
+    st->mode = ctx->sat_delegate;
+    st->exec_mode = SAT_DELEGATE_MODE_SELECTOR_FRAMES;
+    st->stale = false;
+    st->delegate_nvars = nvars;
+    st->live = true;
+    sat_delegate_state_reset_cursors(st);
+  }
+
+  if (st->delegate_nvars < nvars) {
+    nnew = nvars - st->delegate_nvars;
+    delegate_add_vars(&st->delegate, nnew);
+    st->delegate_nvars = nvars;
+  }
+
+  sat_delegate_state_grow(st, d);
+  for (k=1; k<=d; k++) {
+    if (st->act_var[k] == 0) {
+      /*
+       * Selectors must live in the SMT core's variable namespace too:
+       * otherwise a later bit-blasted assertion could reuse the same bvar.
+       */
+      do {
+        st->act_var[k] = create_boolean_variable(core);
+      } while (st->act_var[k] < st->delegate_nvars);
+      delegate_add_vars(&st->delegate, st->act_var[k] + 1 - st->delegate_nvars);
+      delegate_freeze_literal(&st->delegate, pos_lit(st->act_var[k]));
+      ctx->sat_delegate_stats.selector_variables ++;
+      st->delegate_nvars = st->act_var[k] + 1;
+      st->fwd_units[k] = trail_data[k-1].nunits;
+      st->fwd_bins[k] = trail_data[k-1].nbins;
+      st->fwd_clauses[k] = trail_data[k-1].nclauses;
     }
-    guard = neg_lit(st->next_selector_var);
-    add_problem_clauses_to_delegate(&st->delegate, core, guard);
-    st->active_selector = pos_lit(st->next_selector_var);
-    st->next_selector_var ++;
-    st->synced_mutation = ctx->mutation_count;
+  }
+
+  for (k=0; k<=d; k++) {
+    guard = (k == 0) ? true_literal : neg_lit(st->act_var[k]);
+    end_units = (k < d) ? trail_data[k].nunits : core->nb_unit_clauses;
+    end_bins = (k < d) ? trail_data[k].nbins : (uint32_t) core->binary_clauses.size;
+    end_clauses = (k < d) ? trail_data[k].nclauses : (uint32_t) get_cv_size(core->problem_clauses);
+    delegate_forward_clause_range(st, core, &ctx->sat_delegate_stats, k, end_units, end_bins, end_clauses, guard);
   }
 
   return true;
 }
 
-smt_status_t check_with_incremental_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity,
-                                             uint32_t n, const literal_t *assumptions, ivector_t *failed) {
+void context_sat_delegate_state_pop(context_t *ctx, uint32_t level) {
+  sat_delegate_state_t *st;
+
+  st = (sat_delegate_state_t *) ctx->sat_delegate_state;
+  if (st == NULL || !st->live) {
+    return;
+  }
+
+  if (st->exec_mode == SAT_DELEGATE_MODE_APPEND) {
+    st->stale = true;
+  } else if (st->exec_mode == SAT_DELEGATE_MODE_SELECTOR_FRAMES) {
+    if (level < st->size && st->act_var[level] != 0) {
+      delegate_melt_literal(&st->delegate, pos_lit(st->act_var[level]));
+      st->delegate.add_unit_clause(st->delegate.solver, neg_lit(st->act_var[level]));
+      ctx->sat_delegate_stats.selector_retirements ++;
+      st->act_var[level] = 0;
+    }
+  }
+}
+
+static smt_status_t check_with_persistent_delegate(context_t *ctx, const char *sat_solver, uint32_t verbosity,
+                                                   sat_delegate_incremental_mode_t exec_mode,
+                                                   uint32_t n, const literal_t *assumptions, ivector_t *failed) {
   smt_status_t stat;
   smt_core_t *core;
-  delegate_state_t *st;
+  sat_delegate_state_t *st;
   ivector_t visible_failed;
   uint32_t i;
 
@@ -781,16 +1070,34 @@ smt_status_t check_with_incremental_delegate(context_t *ctx, const char *sat_sol
     return stat;
   }
 
-  st = context_get_delegate_state(ctx);
-  if (!context_prepare_incremental_delegate(ctx, st, sat_solver, verbosity)) {
+  st = context_get_sat_delegate_state(ctx);
+  if (exec_mode == SAT_DELEGATE_MODE_APPEND) {
+    if (!context_prepare_append_delegate(ctx, st, sat_solver, verbosity)) {
+      return YICES_STATUS_UNKNOWN;
+    }
+  } else {
+    assert(exec_mode == SAT_DELEGATE_MODE_SELECTOR_FRAMES);
+    if (!context_prepare_selector_delegate(ctx, st, sat_solver, verbosity)) {
+      return YICES_STATUS_UNKNOWN;
+    }
+  }
+
+  if (n > 0 && !delegate_supports_assumptions(&st->delegate)) {
     return YICES_STATUS_UNKNOWN;
   }
 
   init_ivector(&visible_failed, 0);
   ivector_reset(&st->assumptions);
   ivector_reset(&st->failed);
-  if (st->active_selector != true_literal) {
-    ivector_push(&st->assumptions, st->active_selector);
+  if (exec_mode == SAT_DELEGATE_MODE_SELECTOR_FRAMES) {
+    uint32_t k, d;
+    d = smt_base_level(core);
+    for (k=1; k<=d; k++) {
+      if (k < st->size && st->act_var[k] != 0) {
+        ivector_push(&st->assumptions, pos_lit(st->act_var[k]));
+        ctx->sat_delegate_stats.selector_assumptions ++;
+      }
+    }
   }
   for (i=0; i<n; i++) {
     ivector_push(&st->assumptions, assumptions[i]);
@@ -804,8 +1111,12 @@ smt_status_t check_with_incremental_delegate(context_t *ctx, const char *sat_sol
     if (stat == YICES_STATUS_UNSAT) {
       for (i=0; i<st->failed.size; i++) {
         literal_t l = st->failed.data[i];
-        if (l != st->active_selector) {
-          ivector_push(&visible_failed, l);
+        uint32_t j;
+        for (j=0; j<n; j++) {
+          if (l == assumptions[j]) {
+            ivector_push(&visible_failed, l);
+            break;
+          }
         }
       }
       if (failed != NULL) {
@@ -822,9 +1133,41 @@ smt_status_t check_with_incremental_delegate(context_t *ctx, const char *sat_sol
   if (stat == YICES_STATUS_SAT) {
     context_import_delegate_model(core, &st->delegate);
   }
+  st->checked_once = true;
 
   delete_ivector(&visible_failed);
   return stat;
+}
+
+static smt_status_t check_with_delegate_assumptions(context_t *ctx, const char *sat_solver, uint32_t verbosity,
+                                                    uint32_t n, const literal_t *assumptions, ivector_t *failed);
+
+smt_status_t check_with_sat_delegate(context_t *ctx, const char *sat_solver,
+                                     sat_delegate_incremental_mode_t mode,
+                                     uint32_t verbosity, uint32_t n,
+                                     const literal_t *assumptions, ivector_t *failed) {
+  switch (mode) {
+  case SAT_DELEGATE_MODE_REBUILD:
+    ctx->sat_delegate_stats.rebuild_checks ++;
+    if (n == 0) {
+      return check_with_delegate(ctx, sat_solver, verbosity);
+    } else {
+      return check_with_delegate_assumptions(ctx, sat_solver, verbosity, n, assumptions, failed);
+    }
+
+  case SAT_DELEGATE_MODE_APPEND:
+    ctx->sat_delegate_stats.append_checks ++;
+    return check_with_persistent_delegate(ctx, sat_solver, verbosity, SAT_DELEGATE_MODE_APPEND,
+                                          n, assumptions, failed);
+
+  case SAT_DELEGATE_MODE_SELECTOR_FRAMES:
+    ctx->sat_delegate_stats.selector_frame_checks ++;
+    return check_with_persistent_delegate(ctx, sat_solver, verbosity, SAT_DELEGATE_MODE_SELECTOR_FRAMES,
+                                          n, assumptions, failed);
+
+  default:
+    return YICES_STATUS_UNKNOWN;
+  }
 }
 
 /*
@@ -947,9 +1290,6 @@ static void cache_failed_assumptions_core(context_t *ctx, uint32_t n, const term
   delete_ivector(&core_terms);
 }
 
-static smt_status_t check_with_delegate_assumptions(context_t *ctx, const char *sat_solver, uint32_t verbosity,
-                                                    uint32_t n, const literal_t *assumptions, ivector_t *failed);
-
 /*
  * MCSAT variant of check_context_with_term_assumptions.
  * Caller must hold __yices_globals.lock.
@@ -1042,6 +1382,79 @@ static smt_status_t check_context_with_term_assumptions_mcsat(context_t *ctx, co
 }
 
 /*
+ * Supplemental-MCSAT variant for term assumptions in CDCL(T) mode.
+ * We encode assumptions via fresh labels b_i with implications (b_i => a_i),
+ * then solve under assumptions b_i = true.
+ *
+ * Labels are kept in the context (no push/pop) so the regular context status
+ * and multicheck protocol remain unchanged.
+ */
+static smt_status_t _o_check_context_with_term_assumptions_supplement(context_t *ctx, const param_t *params, uint32_t n, const term_t *a, int32_t *error) {
+  smt_status_t stat;
+  ivector_t assumptions;
+  term_t interpolant;
+  uint32_t i;
+  literal_t l;
+  mcsat_satellite_t *sat;
+
+  init_ivector(&assumptions, n);
+
+  stat = YICES_STATUS_IDLE;
+  interpolant = NULL_TERM;
+  sat = NULL;
+
+  if (ctx->mcsat_supplement &&
+      ctx->egraph != NULL &&
+      ctx->egraph->th[ETYPE_MCSAT] != NULL) {
+    sat = (mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT];
+  }
+
+  for (i=0; i<n; i++) {
+    l = context_add_assumption(ctx, a[i]);
+    if (l < 0) {
+      if (error != NULL) {
+        *error = l;
+      }
+      stat = YICES_STATUS_ERROR;
+      break;
+    }
+
+    ivector_push(&assumptions, l);
+  }
+
+  if (stat != YICES_STATUS_ERROR) {
+    stat = check_context_with_assumptions(ctx, params, assumptions.size, (const literal_t *) assumptions.data);
+    if (stat == YICES_STATUS_UNSAT) {
+      if (sat != NULL) {
+        interpolant = mcsat_satellite_compute_unsat_model_interpolant(sat, params, n, a);
+      }
+      if (interpolant == NULL_TERM && context_supports_model_interpolation(ctx)) {
+        interpolant = context_get_unsat_model_interpolant(ctx);
+      }
+      if (interpolant == NULL_TERM && context_supports_model_interpolation(ctx)) {
+        interpolant = false_term;
+      }
+    }
+  }
+
+  if (stat == YICES_STATUS_UNSAT && interpolant != NULL_TERM && sat != NULL) {
+    mcsat_satellite_set_unsat_model_interpolant(sat, interpolant);
+  }
+
+  delete_ivector(&assumptions);
+
+  return stat;
+}
+
+static smt_status_t check_context_with_term_assumptions_supplement(context_t *ctx, const param_t *params, uint32_t n, const term_t *a, int32_t *error) {
+  /*
+   * Do not MT_PROTECT the whole CDCL(T) search here.  The supplemental MCSAT
+   * satellite serializes only its embedded MCSAT/term-construction calls.
+   */
+  return _o_check_context_with_term_assumptions_supplement(ctx, params, n, a, error);
+}
+
+/*
  * Check under assumptions given as terms.
  * - if MCSAT is enabled, this uses temporary labels + model interpolation.
  * - otherwise terms are converted to literals and handled by the CDCL(T) path.
@@ -1061,8 +1474,12 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
   context_invalidate_unsat_core_cache(ctx);
 
   if (ctx->mcsat == NULL) {
+    if (ctx->mcsat_supplement) {
+      return check_context_with_term_assumptions_supplement(ctx, params, n, a, error);
+    }
     smt_status_t stat;
     sat_delegate_t mode;
+    sat_delegate_incremental_mode_t exec_mode;
     bool one_shot;
     const char *delegate;
     bool unknown;
@@ -1108,7 +1525,7 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
       return YICES_STATUS_ERROR;
     }
 
-    if (!incremental_delegate(delegate)) {
+    if (!delegate_supports_assumptions_name(delegate)) {
       if (error != NULL) {
         *error = CTX_OPERATION_NOT_SUPPORTED;
       }
@@ -1117,11 +1534,18 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
     }
 
     init_ivector(&failed, 0);
-    if (one_shot || !ctx->sat_delegate_selector_frames) {
-      stat = check_with_delegate_assumptions(ctx, delegate, 0, n, assumptions.data, &failed);
-    } else {
-      stat = check_with_incremental_delegate(ctx, delegate, 0, n, assumptions.data, &failed);
+    if (!effective_sat_delegate_incremental_mode(mode, ctx->sat_delegate_incremental_mode,
+                                                ctx->sat_delegate_incremental_mode_set,
+                                                ctx->mode == CTX_MODE_ONECHECK,
+                                                one_shot, &exec_mode)) {
+      if (error != NULL) {
+        *error = CTX_OPERATION_NOT_SUPPORTED;
+      }
+      delete_ivector(&failed);
+      delete_ivector(&assumptions);
+      return YICES_STATUS_ERROR;
     }
+    stat = check_with_sat_delegate(ctx, delegate, exec_mode, 0, n, assumptions.data, &failed);
     if (stat == YICES_STATUS_UNSAT) {
       cache_failed_assumptions_core(ctx, n, a, &assumptions, &failed);
     }
@@ -1152,6 +1576,13 @@ smt_status_t check_context_with_model(context_t *ctx, const param_t *params, mod
     //    if (n > 0 && stat == STATUS_UNSAT && context_supports_multichecks(ctx)) {
     //      context_clear(ctx);
     //    }
+  }
+
+  if (stat == YICES_STATUS_UNSAT && n == 0 &&
+      context_supports_model_interpolation(ctx) &&
+      mcsat_get_unsat_model_interpolant(ctx->mcsat) == NULL_TERM) {
+    // With no model assumptions, false is the canonical interpolant.
+    mcsat_set_unsat_result_from_labeled_interpolant(ctx->mcsat, false_term, 0, NULL, NULL);
   }
 
   return stat;
@@ -1247,6 +1678,7 @@ smt_status_t check_with_delegate(context_t *ctx, const char *sat_solver, uint32_
       } else {
 	// call the delegate
 	init_delegate(&delegate, sat_solver, num_vars(core));
+	ctx->sat_delegate_stats.delegate_initializations ++;
 	delegate_set_verbosity(&delegate, verbosity);
 
 	stat = solve_with_delegate(&delegate, core);
@@ -1297,6 +1729,7 @@ static smt_status_t check_with_delegate_assumptions(context_t *ctx, const char *
   if (!init_delegate(&delegate, sat_solver, num_vars(core))) {
     return YICES_STATUS_UNKNOWN;
   }
+  ctx->sat_delegate_stats.delegate_initializations ++;
   delegate_set_verbosity(&delegate, verbosity);
 
   stat = solve_with_delegate_assumptions(&delegate, core, n, assumptions, failed);
@@ -1518,13 +1951,17 @@ static value_t bv_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
  *   then we store the mapping [t --> u] in the model's
  *   alias map.
  */
-static void build_term_value(context_t *ctx, model_t *model, term_t t) {
+static void build_term_value(context_t *ctx, model_t *model, term_t t, mcsat_satellite_t *mcsat_model) {
   value_table_t *vtbl;
   term_t r;
   uint32_t polarity;
   int32_t x;
   type_t tau;
   value_t v;
+
+  if (mcsat_model != NULL && model_find_term_value(model, t) != null_value) {
+    return;
+  }
 
   /*
    * Get the root of t in the substitution table
@@ -1564,7 +2001,14 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
 
       case INT_TYPE:
       case REAL_TYPE:
-        v = arith_value(ctx, vtbl, code2thvar(x));
+        if (mcsat_model != NULL) {
+          if (!mcsat_satellite_term_value(mcsat_model, model, r, &v)) {
+            assert(false && "MCSAT supplement has no value for an arithmetic model term");
+            v = vtbl_mk_unknown(vtbl);
+          }
+        } else {
+          v = arith_value(ctx, vtbl, code2thvar(x));
+        }
         break;
 
       case BITVECTOR_TYPE:
@@ -1634,17 +2078,33 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
  */
 void build_model(model_t *model, context_t *ctx) {
   term_table_t *terms;
+  mcsat_satellite_t *mcsat_model;
   uint32_t i, n;
   term_t t;
+  bool use_mcsat_arith_model;
 
-  assert(smt_status(ctx->core) == YICES_STATUS_SAT || smt_status(ctx->core) == YICES_STATUS_UNKNOWN || mcsat_status(ctx->mcsat) == YICES_STATUS_SAT);
+  assert(smt_status(ctx->core) == YICES_STATUS_SAT ||
+         smt_status(ctx->core) == YICES_STATUS_UNKNOWN ||
+         (context_has_mcsat(ctx) && mcsat_status(ctx->mcsat) == YICES_STATUS_SAT));
+
+  ctx->arith_model_built = false;
+  use_mcsat_arith_model = ctx->mcsat_supplement &&
+    context_has_egraph(ctx) && ctx->egraph->th[ETYPE_MCSAT] != NULL;
+  mcsat_model = NULL;
+  if (use_mcsat_arith_model) {
+    mcsat_model = (mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT];
+    if (!mcsat_satellite_prepare_model(mcsat_model, model)) {
+      assert(false && "supplemental MCSAT failed to rebuild a SAT model");
+    }
+  }
 
   /*
    * First build assignments in the satellite solvers
    * and get the val_in_model functions for the egraph
    */
-  if (context_has_arith_solver(ctx)) {
+  if (!use_mcsat_arith_model && context_has_arith_solver(ctx)) {
     ctx->arith.build_model(ctx->arith_solver);
+    ctx->arith_model_built = true;
   }
   if (context_has_bv_solver(ctx)) {
     ctx->bv.build_model(ctx->bv_solver);
@@ -1654,7 +2114,11 @@ void build_model(model_t *model, context_t *ctx) {
    * Construct the egraph model
    */
   if (context_has_egraph(ctx)) {
-    egraph_build_model(ctx->egraph, model_get_vtbl(model));
+    if (use_mcsat_arith_model) {
+      egraph_build_model_with_arith_provider(ctx->egraph, model, mcsat_model, mcsat_satellite_arith_value_in_model);
+    } else {
+      egraph_build_model(ctx->egraph, model_get_vtbl(model));
+    }
   }
 
   /*
@@ -1671,9 +2135,13 @@ void build_model(model_t *model, context_t *ctx) {
     if (good_term_idx(terms, i)) {
       t = pos_occ(i);
       if (term_kind(terms, t) == UNINTERPRETED_TERM) {
-        build_term_value(ctx, model, t);
+        build_term_value(ctx, model, t, mcsat_model);
       }
     }
+  }
+
+  if (mcsat_model != NULL) {
+    mcsat_satellite_export_model(mcsat_model, model);
   }
 }
 
@@ -1682,8 +2150,9 @@ void build_model(model_t *model, context_t *ctx) {
  * Cleanup solver models
  */
 void clean_solver_models(context_t *ctx) {
-  if (context_has_arith_solver(ctx)) {
+  if (ctx->arith_model_built) {
     ctx->arith.free_model(ctx->arith_solver);
+    ctx->arith_model_built = false;
   }
   if (context_has_bv_solver(ctx)) {
     ctx->bv.free_model(ctx->bv_solver);
@@ -1805,6 +2274,19 @@ void context_build_unsat_core(context_t *ctx, ivector_t *v) {
  * MODEL INTERPOLANT
  */
 term_t context_get_unsat_model_interpolant(context_t *ctx) {
-  assert(ctx->mcsat != NULL);
-  return mcsat_get_unsat_model_interpolant(ctx->mcsat);
+  if (ctx->mcsat != NULL) {
+    return mcsat_get_unsat_model_interpolant(ctx->mcsat);
+  }
+
+  if (ctx->mcsat_supplement && ctx->egraph != NULL && ctx->egraph->th[ETYPE_MCSAT] != NULL) {
+    return mcsat_satellite_get_unsat_model_interpolant((mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT]);
+  }
+
+  if (context_supports_model_interpolation(ctx) &&
+      ctx->core != NULL &&
+      smt_status(ctx->core) == YICES_STATUS_UNSAT) {
+    return false_term;
+  }
+
+  return NULL_TERM;
 }

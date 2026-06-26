@@ -364,6 +364,8 @@ __YICES_DLLSPEC__ extern type_t yices_bv_type(uint32_t size);
  * If order <= 0, the error report is set by check_positive_mpz.
  * If order is not prime, the error report is set to
  *   code = INVALID_FFSIZE
+ *
+ * Since 2.8.0.
  */
 __YICES_DLLSPEC__ extern type_t yices_ff_type(mpz_t order);
 #endif
@@ -1376,6 +1378,8 @@ __YICES_DLLSPEC__ extern term_t yices_ceil(term_t t);
  *   code = POS_INT_REQUIRED
  * if mod is not prime
  *   code = INVALID_FFSIZE
+ *
+ * Since 2.8.0.
  */
 __YICES_DLLSPEC__ extern term_t yices_ff_const(const mpz_t val, const mpz_t mod);
 #endif
@@ -1393,6 +1397,8 @@ __YICES_DLLSPEC__ extern term_t yices_ff_const(const mpz_t val, const mpz_t mod)
  *   code = ARITHTERM_REQUIRED
  * if argument types are incompatible
  *   code = INCOMPATIBLE_FFSIZES
+ *
+ * Since 2.8.0.
  */
 __YICES_DLLSPEC__ extern term_t yices_ff_add(term_t t1, term_t t2);
 __YICES_DLLSPEC__ extern term_t yices_ff_sub(term_t t1, term_t t2);
@@ -1405,6 +1411,8 @@ __YICES_DLLSPEC__ extern term_t yices_ff_product(uint32_t n, const term_t t[]);
 
 /*
  * FINITE-FIELD ATOMS
+ *
+ * Since 2.8.0.
  */
 __YICES_DLLSPEC__ extern term_t yices_ff_eq_atom(term_t t1, term_t t2);
 __YICES_DLLSPEC__ extern term_t yices_ff_neq_atom(term_t t1, term_t t2);
@@ -2577,6 +2585,7 @@ __YICES_DLLSPEC__ extern term_t yices_term_child(term_t t, int32_t i);
  * - otherwise, the children are stored in *v:
  *    v->size = number of children
  *    v->data[0 ... v->size-1] = the children
+ *   and the function returns 0.
  *
  * The vector->size is equal to yices_term_num_children(t).
  * The children are stored in the same order as given by yices_term_child:
@@ -2632,6 +2641,9 @@ __YICES_DLLSPEC__ extern int32_t yices_bv_const_value(term_t t, int32_t val[]);
 __YICES_DLLSPEC__ extern int32_t yices_scalar_const_value(term_t t, int32_t *val);
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_rational_const_value(term_t t, mpq_t q);
+/*
+ * Since 2.8.0.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_ff_const_value(term_t t, mpz_t z);
 #endif
 
@@ -2654,6 +2666,9 @@ __YICES_DLLSPEC__ extern int32_t yices_ff_const_value(term_t t, mpz_t z);
  */
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_sum_component(term_t t, int32_t i, mpq_t coeff, term_t *term);
+/*
+ * Since 2.8.0.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_ffsum_component(term_t t, int32_t i, mpz_t coeff, term_t *term);
 #endif
 
@@ -2966,10 +2981,9 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  *                         | "cryptominisat"| use CryptoMiniSat for QF_BV contexts
  *                         | "kissat"       | use Kissat for QF_BV contexts
  *   ----------------------------------------------------------------------------------------
- *    "sat-delegate-selector-frames"        | "false" | rebuild delegate clauses after each
- *                                          |         | context mutation (default)
- *                                          | "true"  | keep an incremental delegate live
- *                                          |         | using selector-guarded frames
+ *    "sat-delegate-incremental-mode"       | "rebuild"         | build a fresh delegate at every check
+ *                                          | "append"          | keep a live delegate and append new clauses
+ *                                          | "selector-frames" | guard pushed frames with activation literals
  *
  * The SAT delegate options have an effect only for QF_BV contexts. When a
  * delegate is selected, Yices bit-blasts the bit-vector assertions to CNF as
@@ -2977,19 +2991,21 @@ __YICES_DLLSPEC__ extern void yices_free_config(ctx_config_t *config);
  * the internal Yices CDCL SAT solver.
  *
  * Delegate capability matrix:
- *   y2sat         : always available; rebuilt on each incremental check
- *   cadical       : optional (build flag); incremental, supports check-with-
- *                   assumptions and unsat-core extraction from assumptions
- *   cryptominisat : optional (build flag); incremental, supports check-with-
- *                   assumptions and unsat-core extraction from assumptions
- *   kissat        : optional (build flag); rebuilt on each incremental check
+ *   y2sat         : always available; supports rebuild and append modes; no
+ *                   check-with-assumptions support
+ *   cadical       : optional (build flag); supports rebuild, append, selector-
+ *                   frames, check-with-assumptions, and unsat-core extraction
+ *                   from assumptions
+ *   cryptominisat : optional (build flag); supports rebuild, append, selector-
+ *                   frames, check-with-assumptions, and unsat-core extraction
+ *                   from assumptions
+ *   kissat        : optional (build flag); supports rebuild mode only
  *
- * "sat-delegate-selector-frames" controls how push/pop is realised against an
- * incremental delegate: "false" rebuilds the delegate from the current bit-
- * blasted problem on every mutation (simpler, loses the delegate's learned
- * clauses), "true" keeps the delegate live across checks with selector-guarded
- * frames (preserves learned clauses). The option is ignored for non-incremental
- * delegates.
+ * If "sat-delegate-incremental-mode" is not set explicitly, Yices picks a
+ * default from the delegate and context mode: all delegates use "rebuild" in
+ * one-shot contexts; y2sat uses "append" in reusable contexts; CaDiCaL and
+ * CryptoMiniSat use "selector-frames" in reusable contexts; Kissat always uses
+ * "rebuild". Explicit unsupported combinations are rejected.
  *
  * yices_has_delegate() reports whether a particular delegate name is included
  * in the current Yices build.
@@ -3644,10 +3660,11 @@ __YICES_DLLSPEC__ extern void yices_default_params_for_context(const context_t *
  * "delegate" is "none" (the default), the context's configured delegate is
  * used.
  *
- * In incremental contexts, non-incremental delegates (y2sat and Kissat) are
- * rebuilt from the current bit-blasted problem on each check. CaDiCaL and
- * CryptoMiniSat support incremental delegate checks (see "sat-delegate-
- * selector-frames" in yices_set_config). The "delegate" parameter is ignored
+ * In reusable QF_BV contexts, the context's configured delegate may keep
+ * persistent state according to "sat-delegate-incremental-mode" in
+ * yices_set_config. If a per-check "delegate" override differs from the
+ * context's configured delegate, it is treated as a one-shot delegate check and
+ * does not alter that persistent state. The "delegate" parameter is ignored
  * for any logic other than QF_BV.
  *
  * Return -1 if there's an error, 0 otherwise.
@@ -3833,6 +3850,9 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_rational64(model_t *model, term
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_model_set_mpz(model_t *model, term_t var, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_model_set_mpq(model_t *model, term_t var, mpq_t val);
+/*
+ * Since 2.8.0.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_ff_mpz(model_t *model, term_t var, mpz_t val);
 #endif
 
@@ -4204,6 +4224,9 @@ __YICES_DLLSPEC__ extern int32_t yices_get_double_value(model_t *mdl, term_t t, 
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_get_mpz_value(model_t *mdl, term_t t, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_get_mpq_value(model_t *mdl, term_t t, mpq_t val);
+/*
+ * Since 2.8.0.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_get_ff_value(model_t *mdl, term_t t, mpz_t val, mpz_t mod);
 #endif
 
@@ -4453,6 +4476,9 @@ __YICES_DLLSPEC__ extern int32_t yices_val_get_double(model_t *mdl, const yval_t
 #ifdef __GMP_H__
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpz(model_t *mdl, const yval_t *v, mpz_t val);
 __YICES_DLLSPEC__ extern int32_t yices_val_get_mpq(model_t *mdl, const yval_t *v, mpq_t val);
+/*
+ * Since 2.8.0.
+ */
 __YICES_DLLSPEC__ extern int32_t yices_val_get_ff(model_t *mdl, const yval_t *v, mpz_t val, mpz_t mod);
 #endif
 
@@ -4676,6 +4702,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_term_array_support(model_t *mdl, ui
  *    1) a[i] is a literal (atom or negation of an atom)
  *    2) a[i] is true in mdl
  *    3) the conjunction a[0] /\ ... /\ a[n-1] implies t
+ * - no literal a[i] contains an if-then-else term, even if t does.
  *
  * The implicant is returned in vector v, which must be initialized by
  * yices_init_term_vector:
@@ -4726,6 +4753,39 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formula(model_t *mdl, term_
 __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint32_t n, const term_t a[], term_vector_t *v);
 
 
+/*
+ * Variant: enumerate several implicant cubes for formula t in mdl.
+ * - max_cubes is the maximum number of distinct cubes to return.
+ * - max_cubes = 0 means no explicit cap.
+ * - larger values of max_cubes make this function more expensive.
+ *
+ * If the return code is k >= 1, then v contains the literals of k cubes,
+ * separated by k-1 occurrences of NULL_TERM. There is no trailing NULL_TERM.
+ * For example, two cubes { a, b } and { c } are returned as
+ *   a, b, NULL_TERM, c
+ * Each cube is true in mdl and implies t. If max_cubes is 1, the result
+ * has the same flat literal-vector shape as yices_implicant_for_formula.
+ * As for yices_implicant_for_formula, no returned cube literal contains
+ * an if-then-else term, even if t does.
+ * If the return code is -1, v is empty and the error report is as for
+ * yices_implicant_for_formula.
+ *
+ * Since 2.8.0.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_implicant_cubes_for_formula(model_t *mdl, term_t t,
+                                                                   uint32_t max_cubes,
+                                                                   term_vector_t *v);
+
+
+/*
+ * Same thing for a conjunction of formulas a[0] ... a[n-1].
+ */
+__YICES_DLLSPEC__ extern int32_t yices_implicant_cubes_for_formulas(model_t *mdl, uint32_t n,
+                                                                    const term_t a[],
+                                                                    uint32_t max_cubes,
+                                                                    term_vector_t *v);
+
+
 
 /*
  * MODEL GENERALIZATION
@@ -4758,12 +4818,45 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
  * In the functions below, the generalization method can be selected
  * by setting parameter mode to one of the following values:
  *
- *   mode = YICES_GEN_BY_SUBST  ---> generalize by substitution
- *   mode = YICES_GEN_BY_PROJ   ---> projection
- *   mode = YICES_GEN_DEFAULT   ---> automatically choose the mode
- *                                   depending on the variables to eliminate
+ *   mode = YICES_GEN_BY_SUBST       ---> generalize by substitution
+ *   mode = YICES_GEN_BY_PROJ        ---> legacy projection (sign-invariant
+ *                                        cell): builds one literal implicant
+ *                                        of t at the model and projects it.
+ *                                        Cheaper per call, narrower output.
+ *                                        This is the historical Yices
+ *                                        behaviour and remains the default
+ *                                        projection algorithm.
+ *   mode = YICES_GEN_BY_PROJ_WIDE   ---> SAT-guided wide projection (since
+ *                                        2.8.0): walks the Boolean structure
+ *                                        of t, enumerates model-true Boolean
+ *                                        implicants of t against a polarity-
+ *                                        aware abstraction, projects each as
+ *                                        a cube, and unions the results. The
+ *                                        cell is always at least as broad as
+ *                                        YICES_GEN_BY_PROJ; it is strictly
+ *                                        broader on many inputs where t has
+ *                                        Boolean structure the model satisfies
+ *                                        in more than one way (but not on
+ *                                        every such input: when distinct
+ *                                        Boolean implicants project to
+ *                                        equivalent theory cells, the cell
+ *                                        does not widen). Recommended for
+ *                                        CEGAR-style outer loops over
+ *                                        quantifier prefixes.
+ *                                        See yices_generalize_model_with_budget
+ *                                        for the cube_budget knob.
+ *   mode = YICES_GEN_DEFAULT        ---> automatically choose the mode
+ *                                        depending on the variables to
+ *                                        eliminate: substitution for
+ *                                        discrete variables and the legacy
+ *                                        YICES_GEN_BY_PROJ for real
+ *                                        variables. The wide algorithm is
+ *                                        never selected implicitly.
  *
- * Any value other than these is interpreted the same as YICES_GEN_DEFAULT
+ * Any value other than these is interpreted the same as YICES_GEN_DEFAULT.
+ *
+ * All projection modes preserve the contract: G(X) is true at the model
+ * and implies (EXISTS to_eliminate. t).
  */
 
 /*
@@ -4780,7 +4873,17 @@ __YICES_DLLSPEC__ extern int32_t yices_implicant_for_formulas(model_t *mdl, uint
  *    v->size = number of formulas returned
  *    v->data[0] ....  v->data[v->size-1] = the formulas themselves.
  *
- * If mode = YICES_GEN_BY_PROJ, then every element of v is guaranteed to be a literal
+ * Shape of the returned formulas:
+ * - For YICES_GEN_BY_PROJ (and YICES_GEN_DEFAULT), every element of v
+ *   is a literal (the conjunction of literals is the generalization).
+ * - For YICES_GEN_BY_PROJ_WIDE, the shape depends on the number of
+ *   projected cubes:
+ *     * If there is a single projected cube, v is filled with the
+ *       projected literals exactly as in YICES_GEN_BY_PROJ.
+ *     * If there are multiple projected cubes, v contains a single
+ *       element which is a disjunction of literal-conjunctions.
+ *   In all cases, the conjunction of v[0...v->size-1] is the
+ *   generalization G(X).
  *
  * Important: t must be true in mdl, otherwise, the returned data may be garbage.
  *
@@ -4797,6 +4900,38 @@ __YICES_DLLSPEC__ extern int32_t yices_generalize_model(model_t *mdl, term_t t, 
  */
 __YICES_DLLSPEC__ extern int32_t yices_generalize_model_array(model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims, const term_t elim[],
                                                               yices_gen_mode_t mode, term_vector_t *v);
+
+
+/*
+ * Same as yices_generalize_model and yices_generalize_model_array but with
+ * an explicit cube_budget. The budget only applies to mode =
+ * YICES_GEN_BY_PROJ_WIDE; it is ignored for YICES_GEN_BY_SUBST,
+ * YICES_GEN_BY_PROJ, and YICES_GEN_DEFAULT.
+ *
+ * For YICES_GEN_BY_PROJ_WIDE:
+ * - cube_budget caps the number of distinct normalized cubes attempted
+ *   for projection inside the wide enumeration loop. Duplicate
+ *   normalized cubes, if any, are skipped. When the cap is hit with at
+ *   least one successful projection, the result is the union of the
+ *   collected projected cubes; otherwise the wide path falls back to the
+ *   local pipeline alone to obtain a meaningful error code.
+ *   Smaller budgets may produce coarser generalizations; larger budgets
+ *   make the call more expensive.
+ * - cube_budget = 0 means no explicit cap.
+ *
+ * yices_generalize_model and yices_generalize_model_array are equivalent
+ * to passing cube_budget = 0.
+ *
+ * Since 2.8.0.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_generalize_model_with_budget(
+    model_t *mdl, term_t t, uint32_t nelims, const term_t elim[],
+    yices_gen_mode_t mode, uint32_t cube_budget, term_vector_t *v);
+
+__YICES_DLLSPEC__ extern int32_t yices_generalize_model_array_with_budget(
+    model_t *mdl, uint32_t n, const term_t a[], uint32_t nelims,
+    const term_t elim[], yices_gen_mode_t mode, uint32_t cube_budget,
+    term_vector_t *v);
 
 
 
@@ -5099,7 +5234,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_yval(model_t *model, term_t var
  *
  * Returns 0 on success, -1 on error (sets error code).
  *
- * Since 2.7.0
+ * Since 2.8.0
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_make_tuple(model_t *model, uint32_t n, const yval_t elem[], yval_t *tuple);
 
@@ -5112,7 +5247,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_make_tuple(model_t *model, uint32_t
  *
  * Returns 0 on success, -1 on error (sets error code).
  *
- * Since 2.7.0
+ * Since 2.8.0
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_tuple(model_t *model, term_t var, uint32_t n, const yval_t elem[]);
 
@@ -5122,7 +5257,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_tuple(model_t *model, term_t va
  *
  * Returns 0 on success, -1 on error (sets error code).
  *
- * Since 2.7.0
+ * Since 2.8.0
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_make_mapping(model_t *model, uint32_t arity, const yval_t args[], const yval_t *value, yval_t *mapping);
 
@@ -5135,7 +5270,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_make_mapping(model_t *model, uint32
  *
  * Returns 0 on success, -1 on error (sets error code).
  *
- * Since 2.7.0
+ * Since 2.8.0
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_make_function(model_t *model, type_t fun_type, uint32_t n, const yval_t mappings[], const yval_t *def, yval_t *fun);
 
@@ -5146,7 +5281,7 @@ __YICES_DLLSPEC__ extern int32_t yices_model_make_function(model_t *model, type_
  *
  * Returns 0 on success, -1 on error (sets error code).
  *
- * Since 2.7.0
+ * Since 2.8.0
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_function(model_t *model, term_t var, uint32_t n, const yval_t mappings[], const yval_t *def);
 

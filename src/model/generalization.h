@@ -33,6 +33,24 @@
  * NOTE: we could use model-based projection in both cases, but
  * experiments with the exists/forall solver seem to show that
  * substitution works better for Boolean and bitvector variables.
+ *
+ * Two projection variants are exposed:
+ *
+ * - "wide" (exposed via YICES_GEN_BY_PROJ_WIDE; opt-in, not the
+ *   public default): walks the Boolean structure of F(x, y) and
+ *   unions per-disjunct projections. G(x) is always at least as
+ *   broad as the sign-invariant cell of one chosen implicant, and
+ *   strictly broader on many inputs where F has model-satisfied
+ *   Boolean structure (when distinct Boolean implicants project to
+ *   distinct theory cells; coincidentally equivalent projections do
+ *   not widen the cell, by design). Wider output on average, but
+ *   slightly more expensive per call. Recommended for CEGAR-style
+ *   outer loops over quantifier prefixes (exists/forall, QSMA, etc.).
+ *
+ * - "local": the legacy pipeline. Computes a single implicant of F
+ *   at the model (one literal per disjunct), then projects that flat
+ *   conjunction. Cheaper per call but commits to one disjunct, so the
+ *   resulting cell is narrower whenever F has Boolean structure.
  */
 
 #ifndef __GENERALIZATION_H
@@ -96,22 +114,53 @@ enum {
  *   the result formulas are added to v)
  * - extra_error: to help diagnose errors if something breaks.
  *
- * There are two main variants for generalization by substitution or by projection
- * - the generic form: generalize_model applies generalization by projection
- *   if some variables to eliminate are arithmetic variables. It uses
- *   generalization by substitution otherwise.
+ * There are several variants:
+ * - gen_model_by_substitution:
+ *   replace every elim[i] by its value in the model.
+ * - gen_model_by_projection:
+ *   "wide" projection (opt-in: exposed via YICES_GEN_BY_PROJ_WIDE;
+ *   neither YICES_GEN_BY_PROJ nor YICES_GEN_DEFAULT select it
+ *   implicitly). Builds a literal-leaf Boolean abstraction of f[],
+ *   enumerates model-true subset-minimal Boolean implicants with a
+ *   strict false-first Boolean core and superset blockers, projects each
+ *   implicant via Loos-Weispfenning / Cooper / arith_proj, and unions
+ *   the results at the term level. The cube_budget argument caps the
+ *   number of distinct normalized cubes attempted for projection; pass
+ *   0 for unbounded (the underlying Boolean enumeration is always
+ *   finite).
+ * - gen_model_by_projection_local:
+ *   legacy projection. Builds a single literal implicant of f[] at the
+ *   model and projects that flat conjunction. This is the algorithm Yices
+ *   has used historically.
+ * - generalize_model:
+ *   the generic form (the public default, YICES_GEN_DEFAULT). Applies
+ *   substitution for discrete variables and the legacy projection
+ *   (gen_model_by_projection_local) for real variables. Callers who
+ *   want the SAT-guided wide projection in the real-var pass must
+ *   call gen_model_by_projection directly (or use the public
+ *   YICES_GEN_BY_PROJ_WIDE mode).
  *
- * If gen_model_by_projection or generalize_model fail and return GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM,
- * then *extra_error stores the term_kind of the bad terms that caused projection to fail (see projection.h).
+ * If a projection-based call fails and returns GEN_PROJ_ERROR_UNSUPPORTED_ARITH_TERM,
+ * *extra_error stores the term_kind of the bad terms (see projection.h).
  */
 extern int32_t gen_model_by_substitution(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
 					 uint32_t nelims, const term_t elim[], ivector_t *v);
 
 extern int32_t gen_model_by_projection(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
-				       uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error);
+				       uint32_t nelims, const term_t elim[], ivector_t *v,
+				       uint32_t cube_budget, int32_t *extra_error);
+
+extern int32_t gen_model_by_projection_local(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
+					     uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error);
+
+// Add a NULL_TERM-separated stream of cube literals to cubes.
+// Return the number of cubes on success or a negative error code on failure.
+extern int32_t get_implicant_cubes(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
+                                   uint32_t max_cubes, ivector_t *cubes);
 
 extern int32_t generalize_model(model_t *mdl, term_manager_t *mngr, uint32_t n, const term_t f[],
-				uint32_t nelims, const term_t elim[], ivector_t *v, int32_t *extra_error);
+				uint32_t nelims, const term_t elim[], ivector_t *v,
+				int32_t *extra_error);
 
 
 

@@ -46,6 +46,17 @@ typedef enum {
 #define NUM_BRANCHING_MODES 6
 
 /*
+ * Supplementary MCSAT check mode (for CDCL(T) mode)
+ */
+typedef enum {
+  MCSAT_SUPPLEMENT_CHECK_BOTH,
+  MCSAT_SUPPLEMENT_CHECK_FINAL_ONLY,
+} mcsat_supplement_check_t;
+
+// keep in sync with mcsat_supplement_check_modes in search_parameters.c
+#define NUM_MCSAT_SUPPLEMENT_CHECK_MODES 2
+
+/*
  * Optional SAT delegate for QF_BV solving.
  */
 typedef enum {
@@ -59,11 +70,32 @@ typedef enum {
 #define NUM_SAT_DELEGATES 5
 
 /*
+ * Execution mode for QF_BV SAT delegates.
+ */
+typedef enum {
+  SAT_DELEGATE_MODE_REBUILD,
+  SAT_DELEGATE_MODE_APPEND,
+  SAT_DELEGATE_MODE_SELECTOR_FRAMES,
+} sat_delegate_incremental_mode_t;
+
+#define NUM_SAT_DELEGATE_INCREMENTAL_MODES 3
+
+/*
  * SAT delegate helpers.
  */
 extern const char *sat_delegate_name(sat_delegate_t mode);
 extern int32_t parse_sat_delegate(const char *value, sat_delegate_t *v);
 extern sat_delegate_t effective_sat_delegate_mode(sat_delegate_t config_delegate, const param_t *params, bool *one_shot);
+extern const char *sat_delegate_incremental_mode_name(sat_delegate_incremental_mode_t mode);
+extern int32_t parse_sat_delegate_incremental_mode(const char *value, sat_delegate_incremental_mode_t *v);
+extern sat_delegate_incremental_mode_t sat_delegate_default_incremental_mode(sat_delegate_t delegate, bool one_check);
+extern bool sat_delegate_incremental_mode_supported(sat_delegate_t delegate, sat_delegate_incremental_mode_t mode);
+extern bool effective_sat_delegate_incremental_mode(sat_delegate_t delegate,
+                                                    sat_delegate_incremental_mode_t config_mode,
+                                                    bool config_mode_set,
+                                                    bool one_check_context,
+                                                    bool one_shot_delegate,
+                                                    sat_delegate_incremental_mode_t *mode);
 
 
 struct param_s {
@@ -190,6 +222,13 @@ struct param_s {
    */
   uint32_t max_update_conflicts;
   uint32_t max_extensionality;
+
+  /*
+   * Supplementary MCSAT checks in CDCL(T)
+   * - BOTH: run in propagate and final_check
+   * - FINAL_ONLY: run in final_check only
+   */
+  mcsat_supplement_check_t mcsat_supplement_check;
 
 };
 
