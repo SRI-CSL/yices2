@@ -1768,6 +1768,19 @@ static inline special_term_t *ite_special_desc(const term_table_t *table, term_t
 
 
 
+/*
+ * Composite term handling
+ *
+ * get_composite returns a uniform composite_term_t view of t for kind. For the
+ * genuinely composite kinds the pointer is owned by the term table; for the
+ * "non-composite" atoms (ARITH_EQ/GE/FF_EQ/FLOOR/CEIL/ABS and BIT) it points
+ * into a per-thread scratch buffer that is overwritten by the next
+ * get_composite() call on such a term. Callers must therefore consume the
+ * result before calling get_composite() again and must not hold two such
+ * descriptors at once.
+ */
+
+composite_term_t* get_composite(term_table_t* terms, term_kind_t kind, term_t t);
 
 
 /*

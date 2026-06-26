@@ -3,11 +3,13 @@
 Tests in this directory are expected to pass in both solver modes:
 
 - `--mcsat`
-- the default SMT2 solver path (currently DPLL(T))
+- `--dpllt`
 
 The regression harness runs each SMT2 test in this directory twice, once per
-mode. Do not put solver-selection flags such as `--mcsat` or `--dpllt` in
-`.options` files here; the harness controls the solver mode automatically.
+mode, passing `--mcsat` and `--dpllt` explicitly (not the default path, which
+may be heuristically routed to either solver depending on logic). Do not put
+solver-selection flags such as `--mcsat` or `--dpllt` in `.options` files
+here; the harness injects them automatically.
 
 Most tests should use one shared `.gold` file. If a temporary solver limitation
 intentionally gives different output in the two modes, add solver-specific

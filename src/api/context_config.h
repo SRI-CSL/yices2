@@ -99,17 +99,20 @@ typedef enum solver_code {
 struct ctx_config_s {
   context_mode_t        mode;
   context_solver_type_t solver_type;
+  bool                  solver_type_set;
   smt_logic_t           logic;
   solver_code_t         uf_config;
   solver_code_t         array_config;
   solver_code_t         bv_config;
   solver_code_t         arith_config;
   arith_fragment_t      arith_fragment;
+  bool                  mcsat_supplement;
   bool                  model_interpolation;
   sat_delegate_t        sat_delegate;
   sat_delegate_incremental_mode_t sat_delegate_incremental_mode;
   bool                  sat_delegate_incremental_mode_set;
   char*                 trace_tags;
+  bool                  mcsat_supplement_set;
 };
 
 
@@ -149,7 +152,7 @@ extern int32_t config_set_logic(ctx_config_t *config, const char *logic);
  *
  * This can't be used to set config->logic: key must be one of "mode",
  * "arith-fragment", "uf-solver", "array-solver", "bv-solver",
- * "arith-solver" or "trace".
+ * "arith-solver", "mcsat-supplement", or "trace".
  *
  * Return code:
  *   -1 if the key is not recognized
@@ -188,7 +191,7 @@ extern int32_t config_set_field(ctx_config_t *config, const char *key, const cha
  *   0 if the config is valid and supported
  */
 extern int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_arch_t *arch,
-                             context_mode_t *mode, bool *iflag, bool *qflag);
+                             context_mode_t *mode, bool *iflag, bool *qflag, bool *mcsat_supplement);
 
 
 

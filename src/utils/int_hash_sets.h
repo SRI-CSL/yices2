@@ -46,6 +46,9 @@ typedef struct int_hset_s {
   uint32_t nelems;
   bool z_flag;
   uint32_t resize_threshold;
+#ifndef NDEBUG
+  bool is_closed;
+#endif
 } int_hset_t;
 
 

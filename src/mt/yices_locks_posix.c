@@ -60,6 +60,23 @@ int32_t create_yices_lock(yices_lock_t* lock){
   return 0;
 }
 
+int32_t create_yices_recursive_lock(yices_lock_t* lock){
+  pthread_mutexattr_t mta;
+
+  check_thread_api(pthread_mutexattr_init(&mta),
+		   "create_yices_recursive_lock: pthread_mutexattr_init");
+  check_thread_api(pthread_mutexattr_settype(&mta,
+					     PTHREAD_MUTEX_RECURSIVE),
+		   "create_yices_recursive_lock: pthread_mutextattr_settype");
+
+  check_thread_api(pthread_mutex_init(lock, &mta),
+		   "create_yices_recursive_lock: pthread_mutex_init");
+  check_thread_api(pthread_mutexattr_destroy(&mta),
+		   "create_yices_recursive_lock: pthread_mutexattr_destroy");
+
+  return 0;
+}
+
 int32_t try_yices_lock(yices_lock_t* lock){
   int32_t retcode = pthread_mutex_trylock(lock);
   if(retcode){

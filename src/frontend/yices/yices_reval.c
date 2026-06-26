@@ -1392,6 +1392,12 @@ static void show_param(yices_param_t p, uint32_t n) {
     show_pos32_param(param2string[p], parameters.max_extensionality, n);
     break;
 
+  case PARAM_MCSAT_SUPPLEMENT_CHECK:
+    show_string_param(param2string[p],
+                      parameters.mcsat_supplement_check == MCSAT_SUPPLEMENT_CHECK_BOTH ?
+                      "both" : "final-only", n);
+    break;
+
   case PARAM_EF_FLATTEN_IFF:
     show_bool_param(param2string[p], ef_client_globals.ef_parameters.flatten_iff, n);
     break;
@@ -1872,6 +1878,12 @@ static void yices_setparam_cmd(const char *param, const param_val_t *val) {
   case PARAM_MAX_EXTENSIONALITY:
     if (param_val_to_pos32(param, val, &n, &reason)) {
       parameters.max_extensionality = n;
+      print_ok();
+    }
+    break;
+
+  case PARAM_MCSAT_SUPPLEMENT_CHECK:
+    if (param_val_to_mcsat_supplement_check(param, val, &parameters.mcsat_supplement_check, &reason)) {
       print_ok();
     }
     break;
@@ -4103,4 +4115,3 @@ int yices_main(int argc, char *argv[]) {
 
   return exit_code;
 }
-

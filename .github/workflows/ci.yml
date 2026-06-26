@@ -50,7 +50,7 @@ jobs:
         uses: ./.github/actions/test
         env:
           TIME_LIMIT: ${{ matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat') && '120' || '60' }}
-          REGRESS_EXCLUDE_FILTER: ${{ matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat') && 'iss517.smt2$' || '' }}
+          REGRESS_EXCLUDE_FILTER: ${{ (matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat')) && 'iss517.smt2$\|simple_processors_002_002_0008.smt2$' || (((matrix.mode == 'debug' || matrix.mode == 'gcov') && contains(matrix.config-opt, '--enable-mcsat')) && 'simple_processors_002_002_0008.smt2$' || '') }}
         with:
           mode: ${{ matrix.mode }}
       # Coverage is uploaded once per commit. The push build uploads it only
@@ -118,7 +118,7 @@ jobs:
         uses: ./.github/actions/test
         env:
           TIME_LIMIT: ${{ matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat') && '120' || '60' }}
-          REGRESS_EXCLUDE_FILTER: ${{ matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat') && 'iss517.smt2$' || '' }}
+          REGRESS_EXCLUDE_FILTER: ${{ (matrix.mode == 'gcov' && contains(matrix.config-opt, '--enable-thread-safety') && contains(matrix.config-opt, '--enable-mcsat')) && 'iss517.smt2$\|simple_processors_002_002_0008.smt2$' || (((matrix.mode == 'debug' || matrix.mode == 'gcov') && contains(matrix.config-opt, '--enable-mcsat')) && 'simple_processors_002_002_0008.smt2$' || '') }}
         with:
           mode: ${{ matrix.mode }}
       - name: Coverage

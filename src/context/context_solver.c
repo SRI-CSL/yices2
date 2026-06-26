@@ -37,6 +37,7 @@
 #include "mcsat/solver.h"
 #include "solvers/bv/dimacs_printer.h"
 #include "solvers/cdcl/delegate.h"
+#include "solvers/mcsat_satellite.h"
 #include "solvers/funs/fun_solver.h"
 #include "solvers/simplex/simplex.h"
 #include "terms/term_explorer.h"
@@ -512,6 +513,10 @@ static void context_set_search_parameters(context_t *ctx, const param_t *params)
     egraph_set_max_interface_eqs(egraph, params->max_interface_eqs);
   }
 
+  if (ctx->mcsat_supplement && egraph != NULL && egraph->th[ETYPE_MCSAT] != NULL) {
+    mcsat_satellite_set_search_parameters((mcsat_satellite_t *) egraph->th[ETYPE_MCSAT], params);
+  }
+
   /*
    * Set simplex parameters
    */
@@ -542,8 +547,22 @@ static void context_set_search_parameters(context_t *ctx, const param_t *params)
 }
 
 static smt_status_t _o_call_mcsat_solver(context_t *ctx, const param_t *params) {
+  smt_status_t stat;
+
   mcsat_solve(ctx->mcsat, params, NULL, 0, NULL);
-  return mcsat_status(ctx->mcsat);
+  stat = mcsat_status(ctx->mcsat);
+
+  /*
+   * For plain UNSAT results (without explicit model assumptions), keep the
+   * interpolant API usable by providing the canonical false interpolant.
+   */
+  if (stat == YICES_STATUS_UNSAT &&
+      context_supports_model_interpolation(ctx) &&
+      mcsat_get_unsat_model_interpolant(ctx->mcsat) == NULL_TERM) {
+    mcsat_set_unsat_result_from_labeled_interpolant(ctx->mcsat, false_term, 0, NULL, NULL);
+  }
+
+  return stat;
 }
 
 static smt_status_t call_mcsat_solver(context_t *ctx, const param_t *params) {
@@ -558,6 +577,7 @@ static smt_status_t call_mcsat_solver(context_t *ctx, const param_t *params) {
 smt_status_t check_context(context_t *ctx, const param_t *params) {
   smt_core_t *core;
   smt_status_t stat;
+  mcsat_satellite_t *sat;
 
   if (params == NULL) {
     params = get_default_params();
@@ -576,6 +596,19 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
     stat = smt_status(core);
   }
 
+  sat = NULL;
+  if (ctx->mcsat_supplement &&
+      ctx->egraph != NULL &&
+      ctx->egraph->th[ETYPE_MCSAT] != NULL) {
+    sat = (mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT];
+  }
+  if (stat == YICES_STATUS_UNSAT &&
+      sat != NULL &&
+      context_supports_model_interpolation(ctx) &&
+      mcsat_satellite_get_unsat_model_interpolant(sat) == NULL_TERM) {
+    mcsat_satellite_set_unsat_model_interpolant(sat, false_term);
+  }
+
   return stat;
 }
 
@@ -587,6 +620,7 @@ smt_status_t check_context(context_t *ctx, const param_t *params) {
 smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *params, uint32_t n, const literal_t *a) {
   smt_core_t *core;
   smt_status_t stat;
+  mcsat_satellite_t *sat;
 
   assert(ctx->mcsat == NULL);
 
@@ -600,6 +634,19 @@ smt_status_t check_context_with_assumptions(context_t *ctx, const param_t *param
     context_set_search_parameters(ctx, params);
     solve(core, params, n, a);
     stat = smt_status(core);
+  }
+
+  sat = NULL;
+  if (ctx->mcsat_supplement &&
+      ctx->egraph != NULL &&
+      ctx->egraph->th[ETYPE_MCSAT] != NULL) {
+    sat = (mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT];
+  }
+  if (stat == YICES_STATUS_UNSAT &&
+      sat != NULL &&
+      context_supports_model_interpolation(ctx) &&
+      mcsat_satellite_get_unsat_model_interpolant(sat) == NULL_TERM) {
+    mcsat_satellite_set_unsat_model_interpolant(sat, false_term);
   }
 
   return stat;
@@ -1320,6 +1367,79 @@ static smt_status_t check_context_with_term_assumptions_mcsat(context_t *ctx, co
 }
 
 /*
+ * Supplemental-MCSAT variant for term assumptions in CDCL(T) mode.
+ * We encode assumptions via fresh labels b_i with implications (b_i => a_i),
+ * then solve under assumptions b_i = true.
+ *
+ * Labels are kept in the context (no push/pop) so the regular context status
+ * and multicheck protocol remain unchanged.
+ */
+static smt_status_t _o_check_context_with_term_assumptions_supplement(context_t *ctx, const param_t *params, uint32_t n, const term_t *a, int32_t *error) {
+  smt_status_t stat;
+  ivector_t assumptions;
+  term_t interpolant;
+  uint32_t i;
+  literal_t l;
+  mcsat_satellite_t *sat;
+
+  init_ivector(&assumptions, n);
+
+  stat = YICES_STATUS_IDLE;
+  interpolant = NULL_TERM;
+  sat = NULL;
+
+  if (ctx->mcsat_supplement &&
+      ctx->egraph != NULL &&
+      ctx->egraph->th[ETYPE_MCSAT] != NULL) {
+    sat = (mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT];
+  }
+
+  for (i=0; i<n; i++) {
+    l = context_add_assumption(ctx, a[i]);
+    if (l < 0) {
+      if (error != NULL) {
+        *error = l;
+      }
+      stat = YICES_STATUS_ERROR;
+      break;
+    }
+
+    ivector_push(&assumptions, l);
+  }
+
+  if (stat != YICES_STATUS_ERROR) {
+    stat = check_context_with_assumptions(ctx, params, assumptions.size, (const literal_t *) assumptions.data);
+    if (stat == YICES_STATUS_UNSAT) {
+      if (sat != NULL) {
+        interpolant = mcsat_satellite_compute_unsat_model_interpolant(sat, params, n, a);
+      }
+      if (interpolant == NULL_TERM && context_supports_model_interpolation(ctx)) {
+        interpolant = context_get_unsat_model_interpolant(ctx);
+      }
+      if (interpolant == NULL_TERM && context_supports_model_interpolation(ctx)) {
+        interpolant = false_term;
+      }
+    }
+  }
+
+  if (stat == YICES_STATUS_UNSAT && interpolant != NULL_TERM && sat != NULL) {
+    mcsat_satellite_set_unsat_model_interpolant(sat, interpolant);
+  }
+
+  delete_ivector(&assumptions);
+
+  return stat;
+}
+
+static smt_status_t check_context_with_term_assumptions_supplement(context_t *ctx, const param_t *params, uint32_t n, const term_t *a, int32_t *error) {
+  /*
+   * Do not MT_PROTECT the whole CDCL(T) search here.  The supplemental MCSAT
+   * satellite serializes only its embedded MCSAT/term-construction calls.
+   */
+  return _o_check_context_with_term_assumptions_supplement(ctx, params, n, a, error);
+}
+
+/*
  * Check under assumptions given as terms.
  * - if MCSAT is enabled, this uses temporary labels + model interpolation.
  * - otherwise terms are converted to literals and handled by the CDCL(T) path.
@@ -1339,6 +1459,9 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
   context_invalidate_unsat_core_cache(ctx);
 
   if (ctx->mcsat == NULL) {
+    if (ctx->mcsat_supplement) {
+      return check_context_with_term_assumptions_supplement(ctx, params, n, a, error);
+    }
     smt_status_t stat;
     sat_delegate_t mode;
     sat_delegate_incremental_mode_t exec_mode;
@@ -1438,6 +1561,13 @@ smt_status_t check_context_with_model(context_t *ctx, const param_t *params, mod
     //    if (n > 0 && stat == STATUS_UNSAT && context_supports_multichecks(ctx)) {
     //      context_clear(ctx);
     //    }
+  }
+
+  if (stat == YICES_STATUS_UNSAT && n == 0 &&
+      context_supports_model_interpolation(ctx) &&
+      mcsat_get_unsat_model_interpolant(ctx->mcsat) == NULL_TERM) {
+    // With no model assumptions, false is the canonical interpolant.
+    mcsat_set_unsat_result_from_labeled_interpolant(ctx->mcsat, false_term, 0, NULL, NULL);
   }
 
   return stat;
@@ -1806,13 +1936,17 @@ static value_t bv_value(context_t *ctx, value_table_t *vtbl, thvar_t x) {
  *   then we store the mapping [t --> u] in the model's
  *   alias map.
  */
-static void build_term_value(context_t *ctx, model_t *model, term_t t) {
+static void build_term_value(context_t *ctx, model_t *model, term_t t, mcsat_satellite_t *mcsat_model) {
   value_table_t *vtbl;
   term_t r;
   uint32_t polarity;
   int32_t x;
   type_t tau;
   value_t v;
+
+  if (mcsat_model != NULL && model_find_term_value(model, t) != null_value) {
+    return;
+  }
 
   /*
    * Get the root of t in the substitution table
@@ -1852,7 +1986,14 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
 
       case INT_TYPE:
       case REAL_TYPE:
-        v = arith_value(ctx, vtbl, code2thvar(x));
+        if (mcsat_model != NULL) {
+          if (!mcsat_satellite_term_value(mcsat_model, model, r, &v)) {
+            assert(false && "MCSAT supplement has no value for an arithmetic model term");
+            v = vtbl_mk_unknown(vtbl);
+          }
+        } else {
+          v = arith_value(ctx, vtbl, code2thvar(x));
+        }
         break;
 
       case BITVECTOR_TYPE:
@@ -1922,17 +2063,33 @@ static void build_term_value(context_t *ctx, model_t *model, term_t t) {
  */
 void build_model(model_t *model, context_t *ctx) {
   term_table_t *terms;
+  mcsat_satellite_t *mcsat_model;
   uint32_t i, n;
   term_t t;
+  bool use_mcsat_arith_model;
 
-  assert(smt_status(ctx->core) == YICES_STATUS_SAT || smt_status(ctx->core) == YICES_STATUS_UNKNOWN || mcsat_status(ctx->mcsat) == YICES_STATUS_SAT);
+  assert(smt_status(ctx->core) == YICES_STATUS_SAT ||
+         smt_status(ctx->core) == YICES_STATUS_UNKNOWN ||
+         (context_has_mcsat(ctx) && mcsat_status(ctx->mcsat) == YICES_STATUS_SAT));
+
+  ctx->arith_model_built = false;
+  use_mcsat_arith_model = ctx->mcsat_supplement &&
+    context_has_egraph(ctx) && ctx->egraph->th[ETYPE_MCSAT] != NULL;
+  mcsat_model = NULL;
+  if (use_mcsat_arith_model) {
+    mcsat_model = (mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT];
+    if (!mcsat_satellite_prepare_model(mcsat_model, model)) {
+      assert(false && "supplemental MCSAT failed to rebuild a SAT model");
+    }
+  }
 
   /*
    * First build assignments in the satellite solvers
    * and get the val_in_model functions for the egraph
    */
-  if (context_has_arith_solver(ctx)) {
+  if (!use_mcsat_arith_model && context_has_arith_solver(ctx)) {
     ctx->arith.build_model(ctx->arith_solver);
+    ctx->arith_model_built = true;
   }
   if (context_has_bv_solver(ctx)) {
     ctx->bv.build_model(ctx->bv_solver);
@@ -1942,7 +2099,11 @@ void build_model(model_t *model, context_t *ctx) {
    * Construct the egraph model
    */
   if (context_has_egraph(ctx)) {
-    egraph_build_model(ctx->egraph, model_get_vtbl(model));
+    if (use_mcsat_arith_model) {
+      egraph_build_model_with_arith_provider(ctx->egraph, model, mcsat_model, mcsat_satellite_arith_value_in_model);
+    } else {
+      egraph_build_model(ctx->egraph, model_get_vtbl(model));
+    }
   }
 
   /*
@@ -1959,9 +2120,13 @@ void build_model(model_t *model, context_t *ctx) {
     if (good_term_idx(terms, i)) {
       t = pos_occ(i);
       if (term_kind(terms, t) == UNINTERPRETED_TERM) {
-        build_term_value(ctx, model, t);
+        build_term_value(ctx, model, t, mcsat_model);
       }
     }
+  }
+
+  if (mcsat_model != NULL) {
+    mcsat_satellite_export_model(mcsat_model, model);
   }
 }
 
@@ -1970,8 +2135,9 @@ void build_model(model_t *model, context_t *ctx) {
  * Cleanup solver models
  */
 void clean_solver_models(context_t *ctx) {
-  if (context_has_arith_solver(ctx)) {
+  if (ctx->arith_model_built) {
     ctx->arith.free_model(ctx->arith_solver);
+    ctx->arith_model_built = false;
   }
   if (context_has_bv_solver(ctx)) {
     ctx->bv.free_model(ctx->bv_solver);
@@ -2093,6 +2259,19 @@ void context_build_unsat_core(context_t *ctx, ivector_t *v) {
  * MODEL INTERPOLANT
  */
 term_t context_get_unsat_model_interpolant(context_t *ctx) {
-  assert(ctx->mcsat != NULL);
-  return mcsat_get_unsat_model_interpolant(ctx->mcsat);
+  if (ctx->mcsat != NULL) {
+    return mcsat_get_unsat_model_interpolant(ctx->mcsat);
+  }
+
+  if (ctx->mcsat_supplement && ctx->egraph != NULL && ctx->egraph->th[ETYPE_MCSAT] != NULL) {
+    return mcsat_satellite_get_unsat_model_interpolant((mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT]);
+  }
+
+  if (context_supports_model_interpolation(ctx) &&
+      ctx->core != NULL &&
+      smt_status(ctx->core) == YICES_STATUS_UNSAT) {
+    return false_term;
+  }
+
+  return NULL_TERM;
 }

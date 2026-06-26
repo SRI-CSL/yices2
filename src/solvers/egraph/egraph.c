@@ -941,6 +941,9 @@ static void init_egraph_model(egraph_model_t *mdl) {
   init_ivector(&mdl->rank_ctr, 0);
   q_init(&mdl->arith_buffer);
   init_bvconstant(&mdl->bv_buffer);
+  mdl->model = NULL;
+  mdl->arith_model_aux = NULL;
+  mdl->arith_model_value = NULL;
 }
 
 
@@ -964,6 +967,9 @@ static void delete_egraph_model(egraph_model_t *mdl) {
   delete_ivector(&mdl->rank_ctr);
   q_clear(&mdl->arith_buffer);
   delete_bvconstant(&mdl->bv_buffer);
+  mdl->model = NULL;
+  mdl->arith_model_aux = NULL;
+  mdl->arith_model_value = NULL;
 }
 
 
@@ -986,6 +992,9 @@ static void reset_egraph_model(egraph_model_t *mdl) {
   ivector_reset(&mdl->root_classes);
   ivector_reset(&mdl->rank_ctr);
   q_clear(&mdl->arith_buffer);
+  mdl->model = NULL;
+  mdl->arith_model_aux = NULL;
+  mdl->arith_model_value = NULL;
 }
 
 
@@ -3630,10 +3639,23 @@ static void create_ackermann_lemma(egraph_t *egraph, composite_t *c1, composite_
  *   visible in the egraph).
  */
 static void propagate_satellite_equality(egraph_t *egraph, etype_t i, thvar_t v1, thvar_t v2, int32_t id) {
+  arith_observer_t *obs;
+  uint32_t j, n;
+
   assert(i < NUM_SATELLITES && egraph->eg[i] != NULL);
 
   // call the merge function for theory i
   egraph->eg[i]->assert_equality(egraph->th[i], v1, v2, id);
+
+  if (i == ETYPE_INT || i == ETYPE_REAL) {
+    n = egraph->num_arith_observers;
+    for (j=0; j<n; j++) {
+      obs = egraph->arith_observer + j;
+      if (obs->interface->assert_equality != NULL) {
+        obs->interface->assert_equality(obs->solver, v1, v2, id);
+      }
+    }
+  }
 }
 
 
@@ -3641,8 +3663,21 @@ static void propagate_satellite_equality(egraph_t *egraph, etype_t i, thvar_t v1
  * Propagate disequality between v1 and v2 in theory i
  */
 static void propagate_satellite_disequality(egraph_t *egraph, etype_t i, thvar_t v1, thvar_t v2, composite_t *hint) {
+  arith_observer_t *obs;
+  uint32_t j, n;
+
   assert(i < NUM_SATELLITES && egraph->eg[i] != NULL);
   egraph->eg[i]->assert_disequality(egraph->th[i], v1, v2, hint);
+
+  if (i == ETYPE_INT || i == ETYPE_REAL) {
+    n = egraph->num_arith_observers;
+    for (j=0; j<n; j++) {
+      obs = egraph->arith_observer + j;
+      if (obs->interface->assert_disequality != NULL) {
+        obs->interface->assert_disequality(obs->solver, v1, v2, hint);
+      }
+    }
+  }
 }
 
 
@@ -3654,8 +3689,23 @@ static void propagate_satellite_disequality(egraph_t *egraph, etype_t i, thvar_t
  *   and each a[i] is a theory variable attached to the class of some term t_j
  */
 static void propagate_satellite_distinct(egraph_t *egraph, etype_t i, uint32_t n, thvar_t *a, composite_t *hint) {
+  arith_observer_t *obs;
+  uint32_t j, m;
+
   assert(i < NUM_SATELLITES && egraph->eg[i] != NULL);
   egraph->eg[i]->assert_distinct(egraph->th[i], n, a, hint);
+
+  if (i == ETYPE_INT || i == ETYPE_REAL) {
+    m = egraph->num_arith_observers;
+    for (j=0; j<m; j++) {
+      obs = egraph->arith_observer + j;
+      if (obs->interface->assert_distinct != NULL) {
+        // Arithmetic observers are notification-only: conflicts must be
+        // reported by their propagate/final_check callbacks, not here.
+        (void) obs->interface->assert_distinct(obs->solver, n, a, hint);
+      }
+    }
+  }
 }
 
 
@@ -6107,6 +6157,18 @@ static fcheck_code_t baseline_final_check(egraph_t *egraph) {
     }
   }
 
+  if (egraph->ctrl[ETYPE_MCSAT] != NULL) {
+    // supplementary mcsat solver
+    c = egraph->ctrl[ETYPE_MCSAT]->final_check(egraph->th[ETYPE_MCSAT]);
+    if (c != FCHECK_SAT) {
+#if TRACE_FCHECK
+      printf("---> exit at supplementary mcsat final check\n");
+      fflush(stdout);
+#endif
+      return c;
+    }
+  }
+
 
   // i = number of interface equalities generated
   // max_eq = bound on number of interface equalities
@@ -6212,6 +6274,17 @@ static fcheck_code_t experimental_final_check(egraph_t *egraph) {
     if (c != FCHECK_SAT) {
 #if TRACE_FCHECK
       printf("---> exit at bv final check\n");
+      fflush(stdout);
+#endif
+      return c;
+    }
+  }
+
+  if (egraph->ctrl[ETYPE_MCSAT] != NULL) {
+    c = egraph->ctrl[ETYPE_MCSAT]->final_check(egraph->th[ETYPE_MCSAT]);
+    if (c != FCHECK_SAT) {
+#if TRACE_FCHECK
+      printf("---> exit at supplementary mcsat final check\n");
       fflush(stdout);
 #endif
       return c;
@@ -6448,6 +6521,11 @@ bool egraph_assert_atom(egraph_t *egraph, void *atom, literal_t l) {
 
   case BV_ATM_TAG:
     resu = egraph->bv_smt->assert_atom(egraph->th[ETYPE_BV], untag_atom(atom), l);
+    break;
+
+  case MCSAT_ATM_TAG:
+    assert(egraph->mcsat_smt != NULL);
+    resu = egraph->mcsat_smt->assert_atom(egraph->th[ETYPE_MCSAT], untag_atom(atom), l);
     break;
   }
 
@@ -6711,6 +6789,11 @@ void egraph_expand_explanation(egraph_t *egraph, literal_t l, void *expl, ivecto
   case BV_ATM_TAG:
     egraph->bv_smt->expand_explanation(egraph->th[ETYPE_BV], l, expl, v);
     break;
+
+  case MCSAT_ATM_TAG:
+    assert(egraph->mcsat_smt != NULL);
+    egraph->mcsat_smt->expand_explanation(egraph->th[ETYPE_MCSAT], l, expl, v);
+    break;
   }
 }
 
@@ -6769,6 +6852,10 @@ static literal_t egraph_select_polarity(egraph_t *egraph, void *atom, literal_t 
 
   case BV_ATM_TAG:
     return egraph->bv_smt->select_polarity(egraph->th[ETYPE_BV], untag_atom(atom), l);
+
+  case MCSAT_ATM_TAG:
+    assert(egraph->mcsat_smt != NULL);
+    return egraph->mcsat_smt->select_polarity(egraph->th[ETYPE_MCSAT], untag_atom(atom), l);
 
   case EGRAPH_ATM_TAG:
   default:
@@ -6907,10 +6994,14 @@ void init_egraph(egraph_t *egraph, type_table_t *ttbl) {
   }
   egraph->arith_smt = NULL;
   egraph->bv_smt = NULL;
+  egraph->mcsat_smt = NULL;
   egraph->arith_eg = NULL;
   egraph->bv_eg = NULL;
   egraph->fun_eg = NULL;
   egraph->quant_eg = NULL;
+  egraph->arith_observer = NULL;
+  egraph->num_arith_observers = 0;
+  egraph->arith_observer_size = 0;
 
   // model-construction object
   init_egraph_model(&egraph->mdl);
@@ -6955,6 +7046,107 @@ void egraph_attach_bvsolver(egraph_t *egraph, void *solver, th_ctrl_interface_t 
   egraph->eg[ETYPE_BV] = eg;
   egraph->bv_smt = smt;
   egraph->bv_eg = bv_eg;
+}
+
+
+/*
+ * Attach supplementary mcsat solver
+ */
+void egraph_attach_mcsat_solver(egraph_t *egraph, void *solver, th_ctrl_interface_t *ctrl,
+                                th_smt_interface_t *smt, th_egraph_interface_t *eg) {
+  etype_t id;
+
+  assert(egraph->ctrl[ETYPE_MCSAT] == NULL && egraph->mcsat_smt == NULL);
+
+  id = ETYPE_MCSAT;
+  egraph->th[id] = solver;
+  egraph->ctrl[id] = ctrl;
+  egraph->eg[id] = eg;
+  egraph->mcsat_smt = smt;
+}
+
+/*
+ * Detach supplementary mcsat solver
+ */
+void egraph_detach_mcsat_solver(egraph_t *egraph) {
+  etype_t id;
+
+  id = ETYPE_MCSAT;
+  egraph->th[id] = NULL;
+  egraph->ctrl[id] = NULL;
+  egraph->eg[id] = NULL;
+  egraph->mcsat_smt = NULL;
+}
+
+static void egraph_extend_arith_observers(egraph_t *egraph) {
+  uint32_t n;
+
+  assert(egraph->num_arith_observers == egraph->arith_observer_size);
+  n = egraph->arith_observer_size + 1;
+  n += n >> 1;
+  egraph->arith_observer = (arith_observer_t *) safe_realloc(egraph->arith_observer, n * sizeof(arith_observer_t));
+  egraph->arith_observer_size = n;
+}
+
+void egraph_attach_arith_observer(egraph_t *egraph, void *solver,
+                                  arith_observer_interface_t *interface) {
+  arith_observer_t *obs;
+
+  assert(interface != NULL);
+  if (egraph->num_arith_observers == egraph->arith_observer_size) {
+    egraph_extend_arith_observers(egraph);
+  }
+
+  obs = egraph->arith_observer + egraph->num_arith_observers;
+  obs->solver = solver;
+  obs->interface = interface;
+  egraph->num_arith_observers ++;
+}
+
+void egraph_detach_arith_observer(egraph_t *egraph, void *solver) {
+  uint32_t i, n;
+
+  n = egraph->num_arith_observers;
+  for (i=0; i<n; i++) {
+    if (egraph->arith_observer[i].solver == solver) {
+      n --;
+      egraph->arith_observer[i] = egraph->arith_observer[n];
+      egraph->num_arith_observers = n;
+      return;
+    }
+  }
+}
+
+int32_t egraph_arith_observer_register_atom(egraph_t *egraph, term_t atom, literal_t l) {
+  arith_observer_t *obs;
+  int32_t code;
+  uint32_t i, n;
+
+  n = egraph->num_arith_observers;
+  for (i=0; i<n; i++) {
+    obs = egraph->arith_observer + i;
+    if (obs->interface->register_atom != NULL) {
+      code = obs->interface->register_atom(obs->solver, atom, l);
+      if (code < 0) {
+        return code;
+      }
+    }
+  }
+
+  return 0;
+}
+
+void egraph_arith_observer_register_arith_term(egraph_t *egraph, thvar_t x, term_t t) {
+  arith_observer_t *obs;
+  uint32_t i, n;
+
+  n = egraph->num_arith_observers;
+  for (i=0; i<n; i++) {
+    obs = egraph->arith_observer + i;
+    if (obs->interface->register_arith_term != NULL) {
+      obs->interface->register_arith_term(obs->solver, x, t);
+    }
+  }
 }
 
 
@@ -7024,6 +7216,11 @@ void egraph_attach_core(egraph_t *egraph, smt_core_t *core) {
  * Delete everything
  */
 void delete_egraph(egraph_t *egraph) {
+  safe_free(egraph->arith_observer);
+  egraph->arith_observer = NULL;
+  egraph->num_arith_observers = 0;
+  egraph->arith_observer_size = 0;
+
   delete_egraph_model(&egraph->mdl);
   if (egraph->app_partition != NULL) {
     delete_ptr_partition(egraph->app_partition);
@@ -7518,7 +7715,12 @@ static value_t egraph_value_of_arith_class(egraph_t *egraph, value_table_t *vtbl
   assert(egraph_class_type(egraph, c) == ETYPE_INT || egraph_class_type(egraph, c) == ETYPE_REAL);
 
   x = egraph_class_thvar(egraph, c);
-  if (x == null_thvar) {
+  if (egraph->mdl.arith_model_value != NULL) {
+    assert(egraph->mdl.model != NULL);
+    if (!egraph->mdl.arith_model_value(egraph->mdl.arith_model_aux, x, egraph->mdl.model, &v)) {
+      v = vtbl_mk_unknown(vtbl);
+    }
+  } else if (x == null_thvar) {
     // there's no arithmetic solver
     assert(egraph->arith_smt == NULL);
     v = make_fresh_integer(egraph->mdl.fval_maker);
@@ -8003,6 +8205,22 @@ void egraph_build_model(egraph_t *egraph, value_table_t *vtbl) {
 
   // assign a value to all root classes
   egraph_model_for_root_classes(egraph, vtbl);
+}
+
+void egraph_build_model_with_arith_provider(egraph_t *egraph, model_t *model,
+                                            void *provider_aux,
+                                            egraph_arith_model_value_fun_t provider) {
+  assert(model != NULL && provider != NULL);
+
+  egraph->mdl.model = model;
+  egraph->mdl.arith_model_aux = provider_aux;
+  egraph->mdl.arith_model_value = provider;
+
+  egraph_build_model(egraph, model_get_vtbl(model));
+
+  egraph->mdl.model = NULL;
+  egraph->mdl.arith_model_aux = NULL;
+  egraph->mdl.arith_model_value = NULL;
 }
 
 

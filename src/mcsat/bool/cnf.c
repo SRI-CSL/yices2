@@ -32,23 +32,23 @@ void cnf_destruct(cnf_t* cnf) {
   int_lset_destruct(&cnf->converted);
 }
 
-static
+static inline
 bool cnf_is_converted(const cnf_t* cnf, variable_t var) {
   return int_lset_has_list(&cnf->converted, var);
 }
 
-static
+static inline
 void cnf_begin(cnf_t* cnf, variable_t var) {
   assert(!cnf_is_converted(cnf, var));
   cnf->variable = var;
 }
 
-static
+static inline
 void cnf_end(cnf_t* cnf) {
   cnf->variable = variable_null;
 }
 
-static
+static inline
 void cnf_remove(cnf_t* cnf, variable_t var) {
   int_lset_remove(&cnf->converted, var);
 }
@@ -387,6 +387,27 @@ void cnf_convert_lemma(cnf_t* cnf, const ivector_t* lemma, ivector_t* clauses) {
   cnf_add_clause(cnf, or_literals, lemma->size, clauses, or_tag);
 
   safe_free(or_literals);
+}
+
+bool cnf_get_clauses(cnf_t* cnf, variable_t var, ivector_t* clauses) {
+  int_lset_iterator_t it;
+  clause_ref_t clause_ref;
+
+  if (!cnf_is_converted(cnf, var)) {
+    return false;
+  }
+
+  assert(clauses);
+  int_lset_iterator_construct(&it, &cnf->converted, var);
+  while (!int_lset_iterator_done(&it)) {
+    clause_ref = *int_lset_iterator_get(&it);
+    assert(clause_db_is_clause(cnf->clause_db, clause_ref, true));
+    ivector_push(clauses, clause_ref);
+    int_lset_iterator_next_and_keep(&it);
+  }
+  int_lset_iterator_destruct(&it);
+
+  return true;
 }
 
 void cnf_gc_mark(cnf_t* cnf, gc_info_t* gc_clauses, const gc_info_t* gc_vars) {

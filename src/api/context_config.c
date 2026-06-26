@@ -90,6 +90,7 @@ typedef enum ctx_config_key {
   CTX_CONFIG_KEY_ARRAY_SOLVER,
   CTX_CONFIG_KEY_BV_SOLVER,
   CTX_CONFIG_KEY_ARITH_SOLVER,
+  CTX_CONFIG_KEY_MCSAT_SUPPLEMENT,
   CTX_CONFIG_KEY_MODEL_INTERPOLATION,
   CTX_CONFIG_KEY_SAT_DELEGATE,
   CTX_CONFIG_KEY_SAT_DELEGATE_INCREMENTAL_MODE,
@@ -103,6 +104,7 @@ static const char *const config_key_names[NUM_CONFIG_KEYS] = {
   "arith-solver",
   "array-solver",
   "bv-solver",
+  "mcsat-supplement",
   "mode",
   "model-interpolation",
   "sat-delegate",
@@ -117,6 +119,7 @@ static const int32_t config_key[NUM_CONFIG_KEYS] = {
   CTX_CONFIG_KEY_ARITH_SOLVER,
   CTX_CONFIG_KEY_ARRAY_SOLVER,
   CTX_CONFIG_KEY_BV_SOLVER,
+  CTX_CONFIG_KEY_MCSAT_SUPPLEMENT,
   CTX_CONFIG_KEY_MODE,
   CTX_CONFIG_KEY_MODEL_INTERPOLATION,
   CTX_CONFIG_KEY_SAT_DELEGATE,
@@ -258,17 +261,20 @@ static const bool fragment2iflag[NUM_ARITH_FRAGMENTS+1] = {
 static const ctx_config_t default_config = {
   CTX_MODE_PUSHPOP,       // mode
   CTX_SOLVER_TYPE_DPLLT,  // DPLLT solver
+  false,                  // solver type set by user
   SMT_UNKNOWN,            // logic
   CTX_CONFIG_DEFAULT,     // uf
   CTX_CONFIG_DEFAULT,     // array
   CTX_CONFIG_DEFAULT,     // bv
   CTX_CONFIG_DEFAULT,     // arith
   ARITH_LIRA,             // fragment
+  false,                  // mcsat supplement
   false,                  // model interpolation
   SAT_DELEGATE_NONE,      // sat delegate
   SAT_DELEGATE_MODE_REBUILD, // sat delegate incremental mode (unused unless explicitly set)
   false,                  // sat delegate incremental mode set by user
   NULL,                   // trace tags
+  false,                  // mcsat supplement set by user
 };
 
 
@@ -385,6 +391,7 @@ int32_t config_set_field(ctx_config_t *config, const char *key, const char *valu
       r = -2;
     } else {
       config->solver_type = v;
+      config->solver_type_set = true;
     }
     break;
 
@@ -420,6 +427,14 @@ int32_t config_set_field(ctx_config_t *config, const char *key, const char *valu
     } else {
       assert(0 <= v && v <= NUM_SOLVER_CODES);
       config->arith_config = v;
+    }
+    break;
+  case CTX_CONFIG_KEY_MCSAT_SUPPLEMENT:
+    v = parse_as_boolean(value, &config->mcsat_supplement);
+    if (v < 0) {
+      r = -2;
+    } else {
+      config->mcsat_supplement_set = true;
     }
     break;
   case CTX_CONFIG_KEY_MODEL_INTERPOLATION:
@@ -604,6 +619,46 @@ static bool arch_is_supported(context_arch_t a) {
 #endif
 }
 
+/*
+ * Check whether architecture a has an E-graph coordinator.
+ */
+static bool arch_has_egraph(context_arch_t a) {
+  switch (a) {
+  case CTX_ARCH_EG:
+  case CTX_ARCH_EGFUN:
+  case CTX_ARCH_EGSPLX:
+  case CTX_ARCH_EGBV:
+  case CTX_ARCH_EGFUNSPLX:
+  case CTX_ARCH_EGFUNBV:
+  case CTX_ARCH_EGSPLXBV:
+  case CTX_ARCH_EGFUNSPLXBV:
+    return true;
+  default:
+    return false;
+  }
+}
+
+/*
+ * CDCL(T) architecture to use when a logic's default backend is MCSAT
+ * but the configuration requests a DPLL(T) top-level solver.
+ */
+static inline context_arch_t mcsat_supplement_arch_for_logic(smt_logic_t logic) {
+  (void) logic;
+  return CTX_ARCH_EGFUNSPLXBV;
+}
+
+static bool mcsat_supplement_is_supported(void) {
+#if HAVE_MCSAT
+  return true;
+#else
+  return false;
+#endif
+}
+
+static bool logic_supported_by_mcsat_config(smt_logic_t code) {
+  return code == SMT_ALL || !logic_has_quantifiers(code);
+}
+
 
 /*
  * Check whether config is valid (and supported by this version of Yices)
@@ -619,11 +674,12 @@ static bool arch_is_supported(context_arch_t a) {
  *  -2 if the config is valid but not currently supported
  *  -3 if the solver combination is valid but does not support the specified mode
  */
-int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_arch_t *arch, context_mode_t *mode, bool *iflag, bool *qflag) {
+int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_arch_t *arch, context_mode_t *mode, bool *iflag, bool *qflag, bool *mcsat_supplement) {
   smt_logic_t logic_code;
   int32_t a, r;
 
   r = 0; // default return code
+  *mcsat_supplement = false;
 
   logic_code = config->logic;
   if (logic_code != SMT_UNKNOWN) {
@@ -655,7 +711,26 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
       }
     }
 
-    a = logic2arch[logic_code];
+    if (config->solver_type_set && config->solver_type == CTX_SOLVER_TYPE_MCSAT) {
+      if (!arch_is_supported(CTX_ARCH_MCSAT) || !logic_supported_by_mcsat_config(logic_code)) {
+        r = -2;
+        goto done;
+      }
+      a = CTX_ARCH_MCSAT;
+    } else {
+      a = logic2arch[logic_code];
+    }
+
+    if (config->solver_type_set && config->solver_type == CTX_SOLVER_TYPE_DPLLT && a == CTX_ARCH_MCSAT) {
+      if (config->mcsat_supplement_set && !config->mcsat_supplement) {
+        r = -1;
+        goto done;
+      }
+      a = mcsat_supplement_arch_for_logic(logic_code);
+      *mcsat_supplement = true;
+    } else if (config->mcsat_supplement) {
+      *mcsat_supplement = true;
+    }
     if (a < 0 || !arch_is_supported(a)) {
       // not supported
       r = -2;
@@ -668,7 +743,11 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
       *mode = config->mode;
     }
 
-  } else if (config->solver_type == CTX_SOLVER_TYPE_MCSAT) {
+  } else if (config->solver_type_set && config->solver_type == CTX_SOLVER_TYPE_MCSAT) {
+    if (config->mcsat_supplement) {
+      r = -1;
+      goto done;
+    }
     if (arch_is_supported(CTX_ARCH_MCSAT)) {
       /*
        * MCSAT solver/no logic specified
@@ -699,6 +778,7 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
       a = arch_add_bv(a);
     }
     a = arch_add_arith(a, config->arith_config);
+    *mcsat_supplement = config->mcsat_supplement;
 
     // a is either -1 or an architecture code
     if (a < 0) {
@@ -713,6 +793,14 @@ int32_t decode_config(const ctx_config_t *config, smt_logic_t *logic, context_ar
     } else {
       // mode is not supported by the solvers
       r = -3;
+    }
+  }
+
+  if (r == 0 && *mcsat_supplement) {
+    if (!mcsat_supplement_is_supported()) {
+      r = -2;
+    } else if (*arch == CTX_ARCH_MCSAT || !arch_has_egraph(*arch)) {
+      r = -1;
     }
   }
 

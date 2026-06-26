@@ -192,3 +192,11 @@ uint32_t int_queue_size(const int_queue_t *q) {
     return (q->capacity - q->head) + q->tail;
   }
 }
+
+void int_queue_swap(int_queue_t *q1, int_queue_t *q2) {
+  int_queue_t aux;
+
+  aux = *q1;
+  *q1 = *q2;
+  *q2 = aux;
+}
