@@ -194,7 +194,7 @@ strip_solver_mode_flags() {
 
 if [ "$binary" = yices_smt2 ] && [[ "$test_file" == *"/both/"* ]]; then
   options=$(strip_solver_mode_flags "$options")
-  test_string="$test_file [ $options --mcsat ] [ $options ]"
+  test_string="$test_file [ $options --mcsat ] [ $options --dpllt ]"
   gold_mcsat=$gold
   gold_dpllt=$gold
 
@@ -215,7 +215,7 @@ if [ "$binary" = yices_smt2 ] && [[ "$test_file" == *"/both/"* ]]; then
   diff_mcsat=$(diff -w "$outfile" "$gold_mcsat")
   diff_status_mcsat=$?
 
-  run_solver_once "$options" "$outfile2" "$timefile2"
+  run_solver_once "$options --dpllt" "$outfile2" "$timefile2"
   status_dpllt=$?
   runtime_dpllt=$(cat "$timefile2")
   diff_dpllt=$(diff -w "$outfile2" "$gold_dpllt")
@@ -240,7 +240,7 @@ if [ "$binary" = yices_smt2 ] && [[ "$test_file" == *"/both/"* ]]; then
       DIFF+="$diff_mcsat"$'\n'
     fi
     if [ $status_dpllt -ne 0 ] || [ $diff_status_dpllt -ne 0 ]; then
-      DIFF+="--- dpllt (default) ---"$'\n'
+      DIFF+="--- dpllt (--dpllt) ---"$'\n'
       if [ $status_dpllt -ne 0 ]; then
         DIFF+="exit status: $status_dpllt"$'\n'
       fi

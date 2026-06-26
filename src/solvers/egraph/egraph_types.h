@@ -246,6 +246,7 @@
 #include "model/concrete_values.h"
 #include "model/fresh_value_maker.h"
 #include "model/fun_maps.h"
+#include "model/models.h"
 #include "solvers/cdcl/smt_core.h"
 #include "solvers/egraph/egraph_base_types.h"
 #include "utils/arena.h"
@@ -1141,10 +1142,39 @@ typedef struct th_egraph_interface_s {
 typedef thvar_t (*make_arith_var_fun_t)(void *solver, bool is_int);
 typedef bool (*arith_val_fun_t)(void *arith_solver, thvar_t x, rational_t *v);
 
+/*
+ * Optional model-construction override for arithmetic values.
+ * This is used by supplemental exact solvers that must provide arithmetic
+ * values as concrete model objects (for example algebraic values from MCSAT).
+ */
+typedef bool (*egraph_arith_model_value_fun_t)(void *aux, thvar_t x, model_t *model, value_t *v);
+
 typedef struct arith_egraph_interface_s {
   make_arith_var_fun_t  create_arith_var;
   arith_val_fun_t       value_in_model;
 } arith_egraph_interface_t;
+
+/*
+ * ARITHMETIC OBSERVER INTERFACE
+ *
+ * Supplemental arithmetic-capable solvers can observe arithmetic atoms and
+ * arrangement facts without owning the primary arithmetic solver slot.
+ */
+typedef int32_t (*arith_observer_atom_fun_t)(void *solver, term_t atom, literal_t l);
+typedef void (*arith_observer_term_fun_t)(void *solver, thvar_t x, term_t t);
+
+typedef struct arith_observer_interface_s {
+  arith_observer_atom_fun_t register_atom;
+  arith_observer_term_fun_t register_arith_term;
+  assert_eq_fun_t           assert_equality;
+  assert_diseq_fun_t        assert_disequality;
+  assert_distinct_fun_t     assert_distinct;
+} arith_observer_interface_t;
+
+typedef struct arith_observer_s {
+  void *solver;
+  arith_observer_interface_t *interface;
+} arith_observer_t;
 
 
 
@@ -1225,6 +1255,9 @@ typedef struct egraph_model_s {
   ivector_t rank_ctr;
   rational_t arith_buffer;
   bvconstant_t bv_buffer;
+  model_t *model;
+  void *arith_model_aux;
+  egraph_arith_model_value_fun_t arith_model_value;
 } egraph_model_t;
 
 
@@ -1466,6 +1499,7 @@ struct egraph_s {
    * Theory specific descriptors
    * - arith_smt:   core interface for arith solver
    * - bv_smt:      core interface for bitvector solver
+   * - mcsat_smt:   core interface for supplementary mcsat solver
    * - arith_eg: egraph interface for arith solver
    * - bv_eg:    egraph interface for the bitvector solver
    * - fun_eg:   egraph interface for the array/function solver
@@ -1477,11 +1511,16 @@ struct egraph_s {
 
   th_smt_interface_t *arith_smt;
   th_smt_interface_t *bv_smt;
+  th_smt_interface_t *mcsat_smt;
 
   arith_egraph_interface_t *arith_eg;
   bv_egraph_interface_t  *bv_eg;
   fun_egraph_interface_t *fun_eg;
   quant_egraph_interface_t *quant_eg;
+
+  arith_observer_t *arith_observer;
+  uint32_t num_arith_observers;
+  uint32_t arith_observer_size;
 
 
   /*
