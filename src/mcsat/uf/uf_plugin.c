@@ -31,6 +31,7 @@
 #include "utils/ptr_array_sort2.h"
 #include "utils/int_hash_sets.h"
 #include "utils/ptr_vectors.h"
+#include "utils/refcount_strings.h"
 
 #include "model/fresh_value_maker.h"
 #include "model/models.h"
@@ -54,6 +55,9 @@ typedef struct {
   uint32_t arity;
   uf_fun_diseq_source_t source;
   term_t guard;
+  term_t* diff_terms;
+  term_t lhs_app;
+  term_t rhs_app;
 } uf_fun_diseq_t;
 
 
@@ -113,8 +117,101 @@ typedef struct {
 
 static void uf_plugin_free_fun_diseq_entries_from(uf_plugin_t* uf, uint32_t old_size) {
   while (uf->fun_diseq_entries.size > old_size) {
-    safe_free(pvector_pop2(&uf->fun_diseq_entries));
+    uf_fun_diseq_t* entry = pvector_pop2(&uf->fun_diseq_entries);
+    safe_free(entry->diff_terms);
+    safe_free(entry);
   }
+}
+
+static bool uf_plugin_is_first_order_function_type(type_table_t* types, type_t tau) {
+  uint32_t i, n;
+
+  if (type_kind(types, tau) != FUNCTION_TYPE ||
+      type_kind(types, function_type_range(types, tau)) == FUNCTION_TYPE) {
+    return false;
+  }
+
+  n = function_type_arity(types, tau);
+  for (i = 0; i < n; ++ i) {
+    if (type_kind(types, function_type_domain(types, tau, i)) == FUNCTION_TYPE) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static void uf_plugin_order_fun_pair(term_t* lhs, term_t* rhs) {
+  term_t tmp;
+
+  if (*rhs < *lhs) {
+    tmp = *lhs;
+    *lhs = *rhs;
+    *rhs = tmp;
+  }
+}
+
+static uf_fun_diseq_t* uf_plugin_find_fun_diseq_entry(uf_plugin_t* uf, term_t lhs, term_t rhs) {
+  uint32_t i;
+
+  uf_plugin_order_fun_pair(&lhs, &rhs);
+
+  for (i = 0; i < uf->fun_diseq_entries.size; ++ i) {
+    uf_fun_diseq_t* entry = uf->fun_diseq_entries.data[i];
+    if (entry->lhs == lhs && entry->rhs == rhs) {
+      return entry;
+    }
+  }
+
+  return NULL;
+}
+
+uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, term_t rhs,
+                                                uf_fun_diseq_source_t source, term_t guard) {
+  term_table_t* terms = uf->ctx->terms;
+  type_table_t* types = uf->ctx->types;
+  type_t tau;
+  uint32_t i, arity;
+  uf_fun_diseq_t* entry;
+
+  if (lhs == rhs) {
+    return NULL;
+  }
+
+  uf_plugin_order_fun_pair(&lhs, &rhs);
+  entry = uf_plugin_find_fun_diseq_entry(uf, lhs, rhs);
+  if (entry != NULL) {
+    return entry;
+  }
+
+  tau = term_type(terms, lhs);
+  assert(tau == term_type(terms, rhs));
+  assert(uf_plugin_is_first_order_function_type(types, tau));
+
+  arity = function_type_arity(types, tau);
+  entry = safe_malloc(sizeof(uf_fun_diseq_t));
+  entry->lhs = lhs;
+  entry->rhs = rhs;
+  entry->type = tau;
+  entry->arity = arity;
+  entry->source = source;
+  entry->guard = guard;
+  entry->diff_terms = safe_malloc(arity * sizeof(term_t));
+
+  for (i = 0; i < arity; ++ i) {
+    type_t sigma = function_type_domain(types, tau, i);
+    char name[64];
+
+    entry->diff_terms[i] = new_uninterpreted_term(terms, sigma);
+    snprintf(name, sizeof(name), "mcsat_diff_%"PRIu32"_%"PRIu32, uf->fun_diseq_entries.size, i);
+    set_term_name(terms, entry->diff_terms[i], clone_string(name));
+  }
+
+  entry->lhs_app = app_term(terms, lhs, arity, entry->diff_terms);
+  entry->rhs_app = app_term(terms, rhs, arity, entry->diff_terms);
+
+  pvector_push(&uf->fun_diseq_entries, entry);
+  return entry;
 }
 
 static bool uf_plugin_term_has_function_id(const uf_plugin_t* uf, term_t t, int32_t* id) {
@@ -124,7 +221,7 @@ static bool uf_plugin_term_has_function_id(const uf_plugin_t* uf, term_t t, int3
   variable_t v;
   const mcsat_value_t* value;
 
-  if (t == NULL_TERM || term_type_kind(terms, t) != FUNCTION_TYPE) {
+  if (t == NULL_TERM || !uf_plugin_is_first_order_function_type(uf->ctx->types, term_type(terms, t))) {
     return false;
   }
 
