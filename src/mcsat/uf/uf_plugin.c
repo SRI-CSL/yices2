@@ -810,9 +810,16 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     if (term_kind(terms, t_desc->arg[0]) == UPDATE_TERM) {
       composite_term_t* update_desc = update_term_desc(terms, t_desc->arg[0]);
       if (t_desc->arity == update_desc->arity - 1) {
+        uint32_t i;
         term_t r = app_term(terms, update_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
         uf->ctx->register_term(uf->ctx, r);
         weq_graph_add_select_term(&uf->weq_graph, r);
+        for (i = 1; i < t_desc->arity; ++ i) {
+          term_t eq = _o_yices_eq(t_desc->arg[i], update_desc->arg[i]);
+          if (eq != true_term && eq != false_term) {
+            uf->ctx->register_term(uf->ctx, unsigned_term(eq));
+          }
+        }
       }
     }
     break;
