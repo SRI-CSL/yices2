@@ -42,6 +42,7 @@
 
 #define DECIDE_FUNCTION_VALUE_START UINT32_MAX/64
 #define UF_FUN_DISEQ_WITNESS_CAP UINT32_MAX
+#define UF_FUN_CARDINALITY_CLIQUE_TERM_CAP 64
 
 
 typedef enum {
@@ -433,6 +434,126 @@ static bool uf_plugin_fun_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_di
   }
 }
 
+static term_t uf_plugin_fun_diseq_literal(uf_plugin_t* uf, const uf_fun_diseq_t* entry) {
+  term_t diseq;
+
+  if (entry->source == UF_FUN_DISEQ_EXPLICIT && entry->guard != NULL_TERM) {
+    return opposite_term(entry->guard);
+  }
+
+  diseq = _o_yices_neq(entry->lhs, entry->rhs);
+  uf->ctx->register_term(uf->ctx, unsigned_term(diseq));
+  return diseq;
+}
+
+static bool ivector_contains_term(const ivector_t* v, term_t t) {
+  uint32_t i;
+
+  for (i = 0; i < v->size; ++ i) {
+    if (v->data[i] == t) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static void ivector_push_unique_term(ivector_t* v, term_t t) {
+  if (!ivector_contains_term(v, t)) {
+    ivector_push(v, t);
+  }
+}
+
+static bool uf_plugin_active_fun_diseq_entry(uf_plugin_t* uf, term_t lhs, term_t rhs,
+                                             uf_fun_diseq_t** entry_out) {
+  uf_fun_diseq_t* entry;
+
+  entry = uf_plugin_find_fun_diseq_entry(uf, lhs, rhs);
+  if (entry != NULL && uf_plugin_fun_diseq_entry_is_active(uf, entry)) {
+    *entry_out = entry;
+    return true;
+  }
+
+  return false;
+}
+
+static bool uf_plugin_check_fun_cardinality_conflict(uf_plugin_t* uf) {
+  type_table_t* types = uf->ctx->types;
+  ivector_t seen_types;
+  ivector_t terms;
+  uint32_t i, j, k;
+  bool conflict_found = false;
+
+  init_ivector(&seen_types, 0);
+  init_ivector(&terms, 0);
+
+  for (i = 0; i < uf->fun_diseq_entries.size && !conflict_found; ++ i) {
+    uf_fun_diseq_t* entry = uf->fun_diseq_entries.data[i];
+    type_t tau = entry->type;
+    uint32_t card;
+    bool clique;
+
+    if (!uf_plugin_fun_diseq_entry_is_active(uf, entry) ||
+        ivector_contains_term(&seen_types, tau)) {
+      continue;
+    }
+    ivector_push(&seen_types, tau);
+
+    if (!is_finite_type(types, tau) || !type_card_is_exact(types, tau)) {
+      continue;
+    }
+
+    card = type_card(types, tau);
+    if (card >= UF_FUN_CARDINALITY_CLIQUE_TERM_CAP) {
+      continue;
+    }
+
+    ivector_reset(&terms);
+    for (j = i; j < uf->fun_diseq_entries.size; ++ j) {
+      uf_fun_diseq_t* same_type_entry = uf->fun_diseq_entries.data[j];
+      if (same_type_entry->type == tau &&
+          uf_plugin_fun_diseq_entry_is_active(uf, same_type_entry)) {
+        ivector_push_unique_term(&terms, same_type_entry->lhs);
+        ivector_push_unique_term(&terms, same_type_entry->rhs);
+        if (terms.size > UF_FUN_CARDINALITY_CLIQUE_TERM_CAP) {
+          break;
+        }
+      }
+    }
+
+    if (terms.size <= card || terms.size > UF_FUN_CARDINALITY_CLIQUE_TERM_CAP) {
+      continue;
+    }
+
+    clique = true;
+    ivector_reset(&uf->conflict);
+    for (j = 0; j < terms.size && clique; ++ j) {
+      for (k = j + 1; k < terms.size; ++ k) {
+        uf_fun_diseq_t* pair_entry;
+        if (!uf_plugin_active_fun_diseq_entry(uf, terms.data[j], terms.data[k], &pair_entry)) {
+          clique = false;
+          break;
+        }
+        ivector_push(&uf->conflict, uf_plugin_fun_diseq_literal(uf, pair_entry));
+      }
+    }
+
+    if (clique) {
+      ivector_remove_duplicates(&uf->conflict);
+      conflict_found = uf->conflict.size > 0;
+    } else {
+      ivector_reset(&uf->conflict);
+    }
+  }
+
+  if (!conflict_found) {
+    ivector_reset(&uf->conflict);
+  }
+  delete_ivector(&terms);
+  delete_ivector(&seen_types);
+  return conflict_found;
+}
+
 static bool uf_plugin_terms_are_equal_in_branch(uf_plugin_t* uf, term_t lhs, term_t rhs) {
   term_t eq;
   type_t lhs_type;
@@ -496,12 +617,7 @@ static bool uf_plugin_check_fun_extensionality_conflict(uf_plugin_t* uf) {
       continue;
     }
 
-    if (entry->source == UF_FUN_DISEQ_EXPLICIT && entry->guard != NULL_TERM) {
-      diseq = opposite_term(entry->guard);
-    } else {
-      diseq = _o_yices_neq(entry->lhs, entry->rhs);
-      uf->ctx->register_term(uf->ctx, unsigned_term(diseq));
-    }
+    diseq = uf_plugin_fun_diseq_literal(uf, entry);
     witness_eq = _o_yices_eq(entry->lhs_app, entry->rhs_app);
     if (witness_eq != true_term) {
       uf->ctx->register_term(uf->ctx, witness_eq);
@@ -850,6 +966,13 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     // Construct the conflict
     eq_graph_get_conflict(&uf->eq_graph, &uf->conflict, NULL, &uf->tmp);
     uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
+    statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
+    return;
+  }
+
+  if (uf_plugin_check_fun_cardinality_conflict(uf)) {
+    prop->conflict(prop);
+    (*uf->stats.conflicts) ++;
     statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
     return;
   }
