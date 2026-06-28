@@ -41,6 +41,7 @@
 
 
 #define DECIDE_FUNCTION_VALUE_START UINT32_MAX/64
+#define UF_FUN_DISEQ_WITNESS_CAP UINT32_MAX
 
 
 typedef enum {
@@ -103,6 +104,9 @@ typedef struct {
 
   struct {
     statistic_int_t* egraph_terms;
+    statistic_int_t* fun_diseq_explicit;
+    statistic_int_t* fun_diseq_distinct_id;
+    statistic_int_t* fun_diseq_witnesses;
     statistic_int_t* propagations;
     statistic_int_t* conflicts;
     statistic_avg_t* avg_conflict_size;
@@ -225,6 +229,17 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
   entry->rhs_app = app_term(terms, rhs, arity, entry->diff_terms);
 
   uf_plugin_register_diff_witness_terms(uf, entry);
+  (*uf->stats.fun_diseq_witnesses) += arity;
+  switch (source) {
+  case UF_FUN_DISEQ_EXPLICIT:
+    (*uf->stats.fun_diseq_explicit) ++;
+    break;
+  case UF_FUN_DISEQ_DISTINCT_ID:
+    (*uf->stats.fun_diseq_distinct_id) ++;
+    break;
+  default:
+    assert(false);
+  }
 
   pvector_push(&uf->fun_diseq_entries, entry);
   return entry;
@@ -297,6 +312,52 @@ static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
   return added;
 }
 
+static bool uf_plugin_add_distinct_id_fun_diseq_witnesses(uf_plugin_t* uf) {
+  bool added = false;
+  uint32_t i, j, n;
+
+  n = uf->active_fun_terms.size;
+  for (i = 0; i < n; ++ i) {
+    term_t lhs = uf->active_fun_terms.data[i];
+    type_t lhs_type = uf->active_fun_types.data[i];
+    int32_t lhs_id = uf->active_fun_ids.data[i];
+
+    for (j = i + 1; j < n; ++ j) {
+      term_t rhs = uf->active_fun_terms.data[j];
+
+      if (lhs_type != (type_t) uf->active_fun_types.data[j] ||
+          lhs_id == uf->active_fun_ids.data[j]) {
+        continue;
+      }
+
+      if (uf_plugin_find_fun_diseq_entry(uf, lhs, rhs) == NULL &&
+          uf->fun_diseq_entries.size < UF_FUN_DISEQ_WITNESS_CAP &&
+          uf_plugin_ensure_diff_witnesses(uf, lhs, rhs, UF_FUN_DISEQ_DISTINCT_ID, NULL_TERM) != NULL) {
+        added = true;
+      }
+    }
+  }
+
+  return added;
+}
+
+static bool uf_plugin_can_create_distinct_id_witnesses(uf_plugin_t* uf, term_t t) {
+  term_table_t* terms = uf->ctx->terms;
+  type_t tau = term_type(terms, t);
+  uint32_t i, needed;
+
+  needed = 0;
+  for (i = 0; i < uf->active_fun_terms.size; ++ i) {
+    if (tau == (type_t) uf->active_fun_types.data[i] &&
+        uf->active_fun_terms.data[i] != t &&
+        uf_plugin_find_fun_diseq_entry(uf, t, uf->active_fun_terms.data[i]) == NULL) {
+      ++ needed;
+    }
+  }
+
+  return needed <= UF_FUN_DISEQ_WITNESS_CAP - uf->fun_diseq_entries.size;
+}
+
 static void uf_plugin_rebuild_active_fun_ids(uf_plugin_t* uf) {
   variable_db_t* var_db = uf->ctx->var_db;
   uint32_t i, n;
@@ -325,6 +386,9 @@ void uf_plugin_stats_init(uf_plugin_t* uf) {
   uf->stats.propagations = statistics_new_int(uf->ctx->stats, "mcsat::uf::propagations");
   uf->stats.conflicts = statistics_new_int(uf->ctx->stats, "mcsat::uf::conflicts");
   uf->stats.egraph_terms = statistics_new_int(uf->ctx->stats, "mcsat::uf::egraph_terms");
+  uf->stats.fun_diseq_explicit = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_explicit");
+  uf->stats.fun_diseq_distinct_id = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_distinct_id");
+  uf->stats.fun_diseq_witnesses = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_witnesses");
   uf->stats.avg_conflict_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_conflict_size");
   uf->stats.avg_explanation_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_explanation_size");
 }
@@ -603,7 +667,9 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   uf_plugin_rebuild_active_fun_ids(uf);
   uf_plugin_process_eq_graph_propagations(uf, prop);
   uf_plugin_rebuild_active_fun_ids(uf);
-  if (uf_plugin_add_explicit_fun_diseq_witnesses(uf)) {
+  bool added_fun_diseq_witnesses = uf_plugin_add_explicit_fun_diseq_witnesses(uf);
+  added_fun_diseq_witnesses = uf_plugin_add_distinct_id_fun_diseq_witnesses(uf) || added_fun_diseq_witnesses;
+  if (added_fun_diseq_witnesses) {
     eq_graph_propagate_trail(&uf->eq_graph);
     uf_plugin_process_eq_graph_propagations(uf, prop);
     uf_plugin_rebuild_active_fun_ids(uf);
@@ -765,6 +831,7 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
     } else {
       /* we pick different values for different functions. Equal
 	 functions get equal values via equality propagation. */
+      bool use_fresh_function_value = uf_plugin_can_create_distinct_id_witnesses(uf, x_term);
       if (forbidden.size > 0) {
         int32_t max_forbidden_val = 0;
         const mcsat_value_t* v = forbidden.data[forbidden.size - 1];
@@ -779,11 +846,13 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
         picked_value = DECIDE_FUNCTION_VALUE_START;
       }
 
-      while (int_hset_member(&uf->fun_used_values, picked_value)) {
+      while (use_fresh_function_value && int_hset_member(&uf->fun_used_values, picked_value)) {
         picked_value += 1;
       }
       // save the used value
-      int_hset_add(&uf->fun_used_values, picked_value);
+      if (use_fresh_function_value) {
+        int_hset_add(&uf->fun_used_values, picked_value);
+      }
     }
   } else {
     assert(x_cached_value->type == VALUE_RATIONAL);
