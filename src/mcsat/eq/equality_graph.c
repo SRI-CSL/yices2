@@ -1741,20 +1741,37 @@ path_terms_t eq_graph_explain_edge(const eq_graph_t* eq, const eq_edge_t* e, ive
   }
   case REASON_IS_CONGRUENCE: {
     // Get the reasons of the arguments
-    // We are guaranteed that these are top-level function nodes
     const eq_node_id_t* u_c = eq_graph_get_children(eq, e->u);
     const eq_node_id_t* v_c = eq_graph_get_children(eq, e->v);
-    while (*u_c != eq_node_null) {
-      assert(*v_c != eq_node_null);
-      if (*u_c != *v_c) {
-        assert(eq_graph_get_node_const(eq, *u_c)->type == EQ_NODE_TERM);
-        assert(eq_graph_get_node_const(eq, *v_c)->type == EQ_NODE_TERM);
-        eq_graph_explain(eq, *u_c, *v_c, reasons_data, reasons_type, terms_used);
+
+    if (u_c != NULL && v_c != NULL) {
+      while (*u_c != eq_node_null) {
+        assert(*v_c != eq_node_null);
+        if (*u_c != *v_c) {
+          assert(eq_graph_get_node_const(eq, *u_c)->type == EQ_NODE_TERM);
+          assert(eq_graph_get_node_const(eq, *v_c)->type == EQ_NODE_TERM);
+          eq_graph_explain(eq, *u_c, *v_c, reasons_data, reasons_type, terms_used);
+        }
+        u_c ++;
+        v_c ++;
       }
-      u_c ++;
-      v_c ++;
+      assert (*v_c == eq_node_null);
+    } else {
+      assert(u->type == EQ_NODE_PAIR || u->type == EQ_NODE_EQ_PAIR);
+      assert(v->type == EQ_NODE_PAIR || v->type == EQ_NODE_EQ_PAIR);
+
+      eq_node_id_t u1 = eq->pair_list.data[u->index];
+      eq_node_id_t u2 = eq->pair_list.data[u->index + 1];
+      eq_node_id_t v1 = eq->pair_list.data[v->index];
+      eq_node_id_t v2 = eq->pair_list.data[v->index + 1];
+
+      if (u1 != v1) {
+        eq_graph_explain(eq, u1, v1, reasons_data, reasons_type, terms_used);
+      }
+      if (u2 != v2) {
+        eq_graph_explain(eq, u2, v2, reasons_data, reasons_type, terms_used);
+      }
     }
-    assert (*v_c == eq_node_null);
     // First last stay null, these are both non-terms
     break;
   }

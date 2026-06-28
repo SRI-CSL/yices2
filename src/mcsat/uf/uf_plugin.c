@@ -96,6 +96,12 @@ typedef struct {
   /** Scoped committed function disequalities */
   pvector_t fun_diseq_entries;
 
+  /** Internal diff witness terms */
+  int_hset_t diff_witness_terms;
+
+  /** Equality atoms whose disequality literal was generated as a witness lemma. */
+  int_hset_t generated_witness_eqs;
+
   /** Trail prefix already scanned for explicit function disequalities */
   uint32_t fun_diseq_trail_scan_index;
 
@@ -124,6 +130,7 @@ typedef struct {
 
 } uf_plugin_t;
 
+static void uf_plugin_bump_terms_and_reset(uf_plugin_t* uf, int_mset_t* to_bump);
 
 static void uf_plugin_free_fun_diseq_entries_from(uf_plugin_t* uf, uint32_t old_size) {
   while (uf->fun_diseq_entries.size > old_size) {
@@ -217,13 +224,13 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
     entry->diff_terms[i] = new_uninterpreted_term(terms, sigma);
     snprintf(name, sizeof(name), "mcsat_diff_%"PRIu32"_%"PRIu32, uf->fun_diseq_entries.size, i);
     set_term_name(terms, entry->diff_terms[i], clone_string(name));
+    int_hset_add(&uf->diff_witness_terms, entry->diff_terms[i]);
   }
 
   entry->lhs_app = app_term(terms, lhs, arity, entry->diff_terms);
   entry->rhs_app = app_term(terms, rhs, arity, entry->diff_terms);
 
   uf_plugin_register_diff_witness_terms(uf, entry);
-  (*uf->stats.fun_diseq_witnesses) += arity;
   switch (source) {
   case UF_FUN_DISEQ_EXPLICIT:
     (*uf->stats.fun_diseq_explicit) ++;
@@ -236,6 +243,18 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
   }
 
   pvector_push(&uf->fun_diseq_entries, entry);
+  (*uf->stats.fun_diseq_witnesses) += arity;
+
+  if (uf->fun_diseq_entries.size < UF_FUN_DISEQ_WITNESS_CAP) {
+    type_t range = function_type_range(types, tau);
+    if (uf_plugin_supports_diff_witness_type(types, range) &&
+        uf_plugin_find_fun_diseq_entry(uf, entry->lhs_app, entry->rhs_app) == NULL) {
+      term_t child_guard = _o_yices_eq(entry->lhs_app, entry->rhs_app);
+      uf_plugin_ensure_diff_witnesses(uf, entry->lhs_app, entry->rhs_app,
+                                      UF_FUN_DISEQ_EXPLICIT, child_guard);
+    }
+  }
+
   return entry;
 }
 
@@ -283,6 +302,11 @@ static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
     term_t lhs, rhs;
     type_t tau;
 
+    if (uf->fun_diseq_entries.size >= UF_FUN_DISEQ_WITNESS_CAP) {
+      n = i;
+      break;
+    }
+
     if (t == NULL_TERM) {
       continue;
     }
@@ -301,6 +325,9 @@ static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
     rhs = eq->arg[1];
     tau = term_type(terms, lhs);
     if (tau != term_type(terms, rhs) ||
+        int_hset_member(&uf->generated_witness_eqs, t) ||
+        int_hset_member(&uf->diff_witness_terms, lhs) ||
+        int_hset_member(&uf->diff_witness_terms, rhs) ||
         !uf_plugin_supports_diff_witness_type(uf->ctx->types, tau)) {
       continue;
     }
@@ -316,36 +343,8 @@ static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
 }
 
 static bool uf_plugin_add_distinct_id_fun_diseq_witnesses(uf_plugin_t* uf) {
-  bool added = false;
-  uint32_t i, j, n;
-
-  n = uf->active_fun_terms.size;
-  for (i = 0; i < n; ++ i) {
-    term_t lhs = uf->active_fun_terms.data[i];
-    type_t lhs_type = uf->active_fun_types.data[i];
-    int32_t lhs_id = uf->active_fun_ids.data[i];
-
-    if (!uf_plugin_supports_diff_witness_type(uf->ctx->types, lhs_type)) {
-      continue;
-    }
-
-    for (j = i + 1; j < n; ++ j) {
-      term_t rhs = uf->active_fun_terms.data[j];
-
-      if (lhs_type != (type_t) uf->active_fun_types.data[j] ||
-          lhs_id == uf->active_fun_ids.data[j]) {
-        continue;
-      }
-
-      if (uf_plugin_find_fun_diseq_entry(uf, lhs, rhs) == NULL &&
-          uf->fun_diseq_entries.size < UF_FUN_DISEQ_WITNESS_CAP &&
-          uf_plugin_ensure_diff_witnesses(uf, lhs, rhs, UF_FUN_DISEQ_DISTINCT_ID, NULL_TERM) != NULL) {
-        added = true;
-      }
-    }
-  }
-
-  return added;
+  (void) uf;
+  return false;
 }
 
 static bool uf_plugin_can_create_distinct_id_witnesses(uf_plugin_t* uf, term_t t) {
@@ -357,10 +356,16 @@ static bool uf_plugin_can_create_distinct_id_witnesses(uf_plugin_t* uf, term_t t
     return true;
   }
 
+  if (uf->fun_diseq_entries.size >= UF_FUN_DISEQ_WITNESS_CAP) {
+    return false;
+  }
+
   needed = 0;
   for (i = 0; i < uf->active_fun_terms.size; ++ i) {
     if (tau == (type_t) uf->active_fun_types.data[i] &&
         uf->active_fun_terms.data[i] != t &&
+        !int_hset_member(&uf->diff_witness_terms, t) &&
+        !int_hset_member(&uf->diff_witness_terms, uf->active_fun_terms.data[i]) &&
         uf_plugin_find_fun_diseq_entry(uf, t, uf->active_fun_terms.data[i]) == NULL) {
       ++ needed;
     }
@@ -407,22 +412,58 @@ static bool uf_plugin_has_incompatible_fun_id_merge(uf_plugin_t* uf) {
 
 static bool uf_plugin_bool_term_is_false(uf_plugin_t* uf, term_t t) {
   variable_t v;
+  bool value;
 
-  v = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
-  return v != variable_null &&
-    trail_has_value(uf->ctx->trail, v) &&
-    trail_get_value(uf->ctx->trail, v)->type == VALUE_BOOLEAN &&
-    !trail_get_value(uf->ctx->trail, v)->b;
+  if (t == NULL_TERM) {
+    return false;
+  }
+  if (t == false_term) {
+    return true;
+  }
+  if (t == true_term) {
+    return false;
+  }
+
+  v = variable_db_get_variable_if_exists(uf->ctx->var_db, unsigned_term(t));
+  if (v == variable_null ||
+      !trail_has_value(uf->ctx->trail, v) ||
+      trail_get_value(uf->ctx->trail, v)->type != VALUE_BOOLEAN) {
+    return false;
+  }
+
+  value = trail_get_value(uf->ctx->trail, v)->b;
+  if (is_neg_term(t)) {
+    value = !value;
+  }
+  return !value;
 }
 
 static bool uf_plugin_bool_term_is_true(uf_plugin_t* uf, term_t t) {
   variable_t v;
+  bool value;
 
-  v = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
-  return v != variable_null &&
-    trail_has_value(uf->ctx->trail, v) &&
-    trail_get_value(uf->ctx->trail, v)->type == VALUE_BOOLEAN &&
-    trail_get_value(uf->ctx->trail, v)->b;
+  if (t == NULL_TERM) {
+    return false;
+  }
+  if (t == true_term) {
+    return true;
+  }
+  if (t == false_term) {
+    return false;
+  }
+
+  v = variable_db_get_variable_if_exists(uf->ctx->var_db, unsigned_term(t));
+  if (v == variable_null ||
+      !trail_has_value(uf->ctx->trail, v) ||
+      trail_get_value(uf->ctx->trail, v)->type != VALUE_BOOLEAN) {
+    return false;
+  }
+
+  value = trail_get_value(uf->ctx->trail, v)->b;
+  if (is_neg_term(t)) {
+    value = !value;
+  }
+  return value;
 }
 
 static bool uf_plugin_fun_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_diseq_t* entry) {
@@ -575,14 +616,79 @@ static bool uf_plugin_terms_are_equal_in_branch(uf_plugin_t* uf, term_t lhs, ter
     return true;
   }
 
+  eq = _o_yices_eq(lhs, rhs);
+  if (eq == NULL_TERM ||
+      eq == false_term ||
+      uf_plugin_bool_term_is_false(uf, eq)) {
+    return false;
+  }
+  if (eq == true_term || uf_plugin_bool_term_is_true(uf, eq)) {
+    return true;
+  }
+
   if (eq_graph_has_term(&uf->eq_graph, lhs) &&
       eq_graph_has_term(&uf->eq_graph, rhs) &&
-      eq_graph_are_equal(&uf->eq_graph, lhs, rhs)) {
+      eq_graph_term_has_value(&uf->eq_graph, lhs) &&
+      eq_graph_term_has_value(&uf->eq_graph, rhs) &&
+      mcsat_value_eq(eq_graph_get_propagated_term_value(&uf->eq_graph, lhs),
+                     eq_graph_get_propagated_term_value(&uf->eq_graph, rhs))) {
+    return true;
+  }
+
+  return false;
+}
+
+static bool uf_plugin_add_terms_equal_reason(uf_plugin_t* uf, term_t lhs, term_t rhs,
+                                             ivector_t* reason) {
+  term_t eq;
+  type_t lhs_type;
+  ivector_t reasons;
+  uint32_t i;
+
+  if (lhs == rhs) {
+    return true;
+  }
+
+  lhs_type = term_type(uf->ctx->terms, lhs);
+  if (lhs_type == term_type(uf->ctx->terms, rhs) &&
+      is_unit_type(uf->ctx->types, lhs_type)) {
     return true;
   }
 
   eq = _o_yices_eq(lhs, rhs);
-  return uf_plugin_bool_term_is_true(uf, eq);
+  if (eq == NULL_TERM ||
+      eq == false_term ||
+      uf_plugin_bool_term_is_false(uf, eq)) {
+    return false;
+  }
+
+  if (eq == true_term) {
+    return true;
+  }
+
+  if (uf_plugin_bool_term_is_true(uf, eq)) {
+    ivector_push(reason, eq);
+    return true;
+  }
+
+  if (eq_graph_has_term(&uf->eq_graph, lhs) &&
+      eq_graph_has_term(&uf->eq_graph, rhs) &&
+      eq_graph_term_has_value(&uf->eq_graph, lhs) &&
+      eq_graph_term_has_value(&uf->eq_graph, rhs) &&
+      mcsat_value_eq(eq_graph_get_propagated_term_value(&uf->eq_graph, lhs),
+                     eq_graph_get_propagated_term_value(&uf->eq_graph, rhs))) {
+    assert(eq_graph_are_equal(&uf->eq_graph, lhs, rhs));
+    init_ivector(&reasons, 0);
+    eq_graph_explain_eq(&uf->eq_graph, lhs, rhs, &reasons, NULL, &uf->tmp);
+    for (i = 0; i < reasons.size; ++ i) {
+      ivector_push(reason, reasons.data[i]);
+    }
+    delete_ivector(&reasons);
+    uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
+    return true;
+  }
+
+  return false;
 }
 
 static void uf_plugin_emit_fun_diseq_witness_lemmas(uf_plugin_t* uf, trail_token_t* prop) {
@@ -598,6 +704,7 @@ static void uf_plugin_emit_fun_diseq_witness_lemmas(uf_plugin_t* uf, trail_token
 
     if (entry->source == UF_FUN_DISEQ_EXPLICIT && entry->guard != NULL_TERM) {
       lemma[0] = entry->guard;
+      uf->ctx->register_term(uf->ctx, unsigned_term(lemma[0]));
     } else {
       lemma[0] = _o_yices_eq(entry->lhs, entry->rhs);
       uf->ctx->register_term(uf->ctx, lemma[0]);
@@ -605,6 +712,7 @@ static void uf_plugin_emit_fun_diseq_witness_lemmas(uf_plugin_t* uf, trail_token
     lemma[1] = _o_yices_neq(entry->lhs_app, entry->rhs_app);
     if (lemma[1] != true_term) {
       uf->ctx->register_term(uf->ctx, unsigned_term(lemma[1]));
+      int_hset_add(&uf->generated_witness_eqs, unsigned_term(lemma[1]));
     }
 
     prop->lemma(prop, _o_yices_or(2, lemma));
@@ -617,7 +725,7 @@ static bool uf_plugin_check_fun_extensionality_conflict(uf_plugin_t* uf) {
 
   for (i = 0; i < uf->fun_diseq_entries.size; ++ i) {
     uf_fun_diseq_t* entry = uf->fun_diseq_entries.data[i];
-    term_t diseq, witness_eq;
+    term_t diseq;
 
     if (!uf_plugin_fun_diseq_entry_is_active(uf, entry) ||
         !uf_plugin_terms_are_equal_in_branch(uf, entry->lhs_app, entry->rhs_app)) {
@@ -625,15 +733,12 @@ static bool uf_plugin_check_fun_extensionality_conflict(uf_plugin_t* uf) {
     }
 
     diseq = uf_plugin_fun_diseq_literal(uf, entry);
-    witness_eq = _o_yices_eq(entry->lhs_app, entry->rhs_app);
-    if (witness_eq != true_term) {
-      uf->ctx->register_term(uf->ctx, witness_eq);
-    }
 
     ivector_reset(&uf->conflict);
     ivector_push(&uf->conflict, diseq);
-    if (witness_eq != true_term) {
-      ivector_push(&uf->conflict, witness_eq);
+    if (!uf_plugin_add_terms_equal_reason(uf, entry->lhs_app, entry->rhs_app, &uf->conflict)) {
+      ivector_reset(&uf->conflict);
+      continue;
     }
     ivector_remove_duplicates(&uf->conflict);
     return true;
@@ -704,6 +809,8 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_ivector(&uf->conflict, 0);
   init_int_hset(&uf->fun_used_values, 0);
   init_pvector(&uf->fun_diseq_entries, 0);
+  init_int_hset(&uf->diff_witness_terms, 0);
+  init_int_hset(&uf->generated_witness_eqs, 0);
   uf->fun_diseq_trail_scan_index = 0;
   init_ivector(&uf->active_fun_terms, 0);
   init_ivector(&uf->active_fun_types, 0);
@@ -745,6 +852,8 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_int_hset(&uf->fun_used_values);
   uf_plugin_free_fun_diseq_entries_from(uf, 0);
   delete_pvector(&uf->fun_diseq_entries);
+  delete_int_hset(&uf->diff_witness_terms);
+  delete_int_hset(&uf->generated_witness_eqs);
   delete_ivector(&uf->active_fun_terms);
   delete_ivector(&uf->active_fun_types);
   delete_ivector(&uf->active_fun_ids);
