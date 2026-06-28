@@ -706,7 +706,7 @@ void weq_graph_add_diff_terms_vars(weq_graph_t* weq, term_t arr) {
     int_hset_add(&weq->diff_funs, diff_fun);
   }
 
-  weq->ctx->register_term(weq->ctx, arr);
+  variable_db_get_variable(weq->ctx->var_db, arr);
   uint32_t i;
   for (i = 0; i < weq->array_terms.size; ++ i) {
     term_t arr2 = weq->array_terms.data[i];
@@ -716,7 +716,7 @@ void weq_graph_add_diff_terms_vars(weq_graph_t* weq, term_t arr) {
 
     type_t arr2_type = term_type(terms, arr2);
     if (arr_type == arr2_type) {
-      weq->ctx->register_term(weq->ctx, arr2);
+      variable_db_get_variable(weq->ctx->var_db, arr2);
 
       term_t args[2];
       if (arr < arr2) {
@@ -731,9 +731,9 @@ void weq_graph_add_diff_terms_vars(weq_graph_t* weq, term_t arr) {
       term_t select_arg[] = {diff_term};
       term_t diff_select1 = app_term(terms, arr, 1, select_arg);
       term_t diff_select2 = app_term(terms, arr2, 1, select_arg);
-      weq->ctx->register_term(weq->ctx, diff_term);
-      weq->ctx->register_term(weq->ctx, diff_select1);
-      weq->ctx->register_term(weq->ctx, diff_select2);
+      variable_db_get_variable(weq->ctx->var_db, diff_term);
+      variable_db_get_variable(weq->ctx->var_db, diff_select1);
+      variable_db_get_variable(weq->ctx->var_db, diff_select2);
 
       ivector_push(&weq->select_terms, diff_select1);
       ivector_push(&weq->select_terms, diff_select2);
@@ -1347,8 +1347,10 @@ term_t weq_graph_get_array_update_idx_lemma(weq_graph_t* weq, term_t update_term
   term_t r = app_term(terms, update_term, t_desc->arity - 2, t_desc->arg + 1);
   term_t r_lemma = _o_yices_eq(r, t_desc->arg[t_desc->arity - 1]);
 
-  weq->ctx->register_term(weq->ctx, r);
-  weq->ctx->register_term(weq->ctx, r_lemma);
+  if (t_desc->arity > 3) {
+    weq->ctx->register_term(weq->ctx, r);
+    weq->ctx->register_term(weq->ctx, r_lemma);
+  }
 
   (*weq->stats.array_update1_axioms) ++;
 
