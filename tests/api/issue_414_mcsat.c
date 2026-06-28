@@ -199,7 +199,28 @@ int main(void) {
     yices_free_context(ctx);
   }
 
-  // Case 8: the guard is downward-closed through function ranges.
+  // Case 8: n-ary writes use all index components in read-over-write.
+  {
+    type_t dom[2] = { yices_bool_type(), yices_bool_type() };
+    type_t fun_bbi = yices_function_type(2, dom, yices_int_type());
+    CHECK(fun_bbi != NULL_TYPE, "failed to create (Bool Bool -> Int) type");
+
+    term_t f = yices_new_uninterpreted_term(fun_bbi);
+    term_t update = yices_update2(f, yices_false(), yices_true(), yices_int32(0));
+    term_t update_read = yices_application2(update, yices_false(), yices_false());
+    term_t base_read = yices_application2(f, yices_false(), yices_false());
+    context_t *ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (n-ary update case)");
+    CHECK(update != NULL_TERM && update_read != NULL_TERM && base_read != NULL_TERM,
+          "failed to create n-ary update/read terms");
+    CHECK(yices_assert_formula(ctx, yices_neq(update_read, base_read)) == 0,
+          "failed to assert n-ary read-over-write contradiction");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_UNSAT,
+          "expected UNSAT for n-ary read-over-write contradiction");
+    yices_free_context(ctx);
+  }
+
+  // Case 9: the guard is downward-closed through function ranges.
   {
     type_t bool_dom[1] = { yices_bool_type() };
     type_t int_dom[1] = { yices_int_type() };
@@ -219,7 +240,7 @@ int main(void) {
     yices_free_context(ctx);
   }
 
-  // Case 9: the guard is downward-closed through function domains.
+  // Case 10: the guard is downward-closed through function domains.
   {
     type_t bool_dom[1] = { yices_bool_type() };
     type_t fun_bi = yices_function_type(1, bool_dom, yices_int_type());
@@ -239,7 +260,7 @@ int main(void) {
     yices_free_context(ctx);
   }
 
-  // Case 10: infinite-domain, non-unit-codomain function disequality remains accepted.
+  // Case 11: infinite-domain, non-unit-codomain function disequality remains accepted.
   {
     type_t dom[1] = { yices_int_type() };
     type_t fun_ib = yices_function_type(1, dom, yices_bool_type());

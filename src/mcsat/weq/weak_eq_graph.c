@@ -282,6 +282,7 @@ term_t weq_graph_get_index_from_store(weq_graph_t* weq, term_t store) {
   term_table_t* terms = weq->ctx->terms;
   assert(term_kind(terms, store) == UPDATE_TERM);
   composite_term_t* t_desc = update_term_desc(terms, store);
+  assert(t_desc->arity == 3);
   return t_desc->arg[1];
 }
 
@@ -295,6 +296,53 @@ void add_if_not_true_term(ivector_t* vec, term_t t) {
   if (t != true_term) {
     ivector_push(vec, t);
   }
+}
+
+static inline
+uint32_t weq_graph_app_index_arity(const composite_term_t* app_desc) {
+  assert(app_desc->arity >= 1);
+  return app_desc->arity - 1;
+}
+
+static inline
+uint32_t weq_graph_update_index_arity(const composite_term_t* update_desc) {
+  assert(update_desc->arity >= 2);
+  return update_desc->arity - 2;
+}
+
+static inline
+const term_t* weq_graph_app_indices(const composite_term_t* app_desc) {
+  return app_desc->arg + 1;
+}
+
+static inline
+const term_t* weq_graph_update_indices(const composite_term_t* update_desc) {
+  return update_desc->arg + 1;
+}
+
+static
+bool weq_graph_find_index_disequality(weq_graph_t* weq, uint32_t n,
+                                      const term_t* lhs, const term_t* rhs,
+                                      term_t* lhs_out, term_t* rhs_out) {
+  uint32_t i;
+
+  for (i = 0; i < n; ++ i) {
+    if (!eq_graph_are_equal(weq->eq_graph, lhs[i], rhs[i])) {
+      *lhs_out = lhs[i];
+      *rhs_out = rhs[i];
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static
+bool weq_graph_is_unary_function_term(weq_graph_t* weq, term_t t) {
+  type_table_t* types = weq->ctx->types;
+  type_t tau = term_type(weq->ctx->terms, t);
+
+  return type_kind(types, tau) == FUNCTION_TYPE && function_type_arity(types, tau) == 1;
 }
 
 /* make the given node weak-i representative, by inverting the
@@ -311,6 +359,9 @@ static void weq_graph_make_rep_i(weq_graph_t* weq, weq_graph_node_t* n) {
   term_t idx = n->pi;
   weq_graph_node_t* tmp = NULL;
   term_t tmp_sec_store = NULL_TERM;
+
+  assert(term_kind(weq->ctx->terms, n->pstore) == UPDATE_TERM);
+  assert(update_term_desc(weq->ctx->terms, n->pstore)->arity == 3);
   
   while (next) {
     next = weq_graph_find_secondary_node(weq, next, idx);
@@ -421,12 +472,15 @@ static void weq_graph_add_secondary(weq_graph_t* weq, int_hset_t* idx_set,
  */
 static void weq_graph_add_store(weq_graph_t* weq, weq_graph_node_t* a, weq_graph_node_t* b,
                                 term_t idx, term_t store) {
+  composite_term_t* store_desc;
+
   if (a == b) {
     return;
   }
 
+  store_desc = update_term_desc(weq->ctx->terms, store);
   weq_graph_make_rep(weq, b);
-  if (weq_graph_get_rep(a) == b) {
+  if (weq_graph_get_rep(a) == b && store_desc->arity == 3) {
     int_hset_t s;
     init_int_hset(&s, 0);
     int_hset_add(&s, weq_graph_get_term_rep(weq, idx));
@@ -1097,6 +1151,81 @@ bool weq_graph_array_ext_diff_check(weq_graph_t* weq, ivector_t* conflict,
   return res;
 }
 
+static
+bool weq_graph_nary_read_over_write_lemma(weq_graph_t* weq, ivector_t* conflict,
+                                          term_t select_term) {
+  term_table_t* terms = weq->ctx->terms;
+  composite_term_t* select_desc;
+  composite_term_t* update_desc;
+  term_t update_term, base_select, diseq_lhs, diseq_rhs;
+  uint32_t index_arity;
+
+  assert(term_kind(terms, select_term) == APP_TERM);
+  select_desc = app_term_desc(terms, select_term);
+  update_term = select_desc->arg[0];
+
+  if (term_kind(terms, update_term) != UPDATE_TERM) {
+    return true;
+  }
+
+  update_desc = update_term_desc(terms, update_term);
+  index_arity = weq_graph_app_index_arity(select_desc);
+  if (index_arity != weq_graph_update_index_arity(update_desc) ||
+      index_arity <= 1) {
+    return true;
+  }
+
+  if (!weq_graph_find_index_disequality(weq, index_arity,
+                                        weq_graph_app_indices(select_desc),
+                                        weq_graph_update_indices(update_desc),
+                                        &diseq_lhs, &diseq_rhs)) {
+    return true;
+  }
+
+  base_select = app_term(terms, update_desc->arg[0], index_arity,
+                         weq_graph_app_indices(select_desc));
+  weq->ctx->register_term(weq->ctx, base_select);
+
+  if (!eq_graph_term_has_value(weq->eq_graph, select_term) ||
+      !eq_graph_term_has_value(weq->eq_graph, base_select) ||
+      eq_graph_are_equal(weq->eq_graph, select_term, base_select)) {
+    return true;
+  }
+
+  assert(conflict->size == 0);
+  add_if_not_true_term(conflict, _o_yices_neq(diseq_lhs, diseq_rhs));
+  add_if_not_true_term(conflict, _o_yices_neq(select_term, base_select));
+  ivector_remove_duplicates(conflict);
+
+  if (ctx_trace_enabled(weq->ctx, "weq_graph::array")) {
+    ctx_trace_printf(weq->ctx, ">3 N-ary update conflict BEGIN\n");
+    uint32_t k;
+    for (k = 0; k < conflict->size; ++ k) {
+      ctx_trace_term(weq->ctx, conflict->data[k]);
+    }
+    ctx_trace_printf(weq->ctx, ">3 N-ary update conflict END\n");
+  }
+
+  assert(conflict->size > 1);
+  (*weq->stats.array_update2_axioms) ++;
+
+  return false;
+}
+
+static
+bool weq_graph_nary_read_over_write_check(weq_graph_t* weq, ivector_t* conflict,
+                                          const ivector_t* select_terms) {
+  uint32_t i;
+
+  for (i = 0; i < select_terms->size; ++ i) {
+    if (!weq_graph_nary_read_over_write_lemma(weq, conflict, select_terms->data[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 /* Check read-over-right conflict (based on weakly equivalent array
  * reasoning) for all select terms. If a conflict is found, the
  * conflict terms are added in the conflict vector.
@@ -1376,6 +1505,36 @@ void filter_select_terms(const weq_graph_t* weq,
   delete_int_hset(&array_terms_set);
 }
 
+static
+void filter_unary_array_terms(weq_graph_t* weq, ivector_t* array_terms) {
+  uint32_t i, j;
+
+  j = 0;
+  for (i = 0; i < array_terms->size; ++ i) {
+    term_t t = array_terms->data[i];
+    if (weq_graph_is_unary_function_term(weq, t)) {
+      array_terms->data[j++] = t;
+    }
+  }
+  ivector_shrink(array_terms, j);
+}
+
+static
+void filter_unary_select_terms(const weq_graph_t* weq, ivector_t* select_terms) {
+  const term_table_t* terms = weq->ctx->terms;
+  uint32_t i, j;
+
+  j = 0;
+  for (i = 0; i < select_terms->size; ++ i) {
+    term_t t = select_terms->data[i];
+    if (term_kind(terms, t) == APP_TERM &&
+        app_term_desc(terms, t)->arity == 2) {
+      select_terms->data[j++] = t;
+    }
+  }
+  ivector_shrink(select_terms, j);
+}
+
 /* Returns true if all the select terms and arrays terms are fully
  * assigned, otherwise returns false.
  */
@@ -1421,6 +1580,16 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
   copy_uniques(&select_terms, &weq->select_terms);
   // filter select terms
   filter_select_terms(weq, &select_terms, &array_terms);
+
+  ok = weq_graph_nary_read_over_write_check(weq, conflict, &select_terms);
+  /*
+   * The weak-path graph below stores one masking index per update edge.
+   * Keep that algorithm on unary function updates; n-ary writes are handled
+   * above by direct component-wise read-over-write checks.
+   */
+  filter_unary_array_terms(weq, &array_terms);
+  filter_unary_select_terms(weq, &select_terms);
+
   // store select terms according to heuristic score
   int_array_sort2(select_terms.data, select_terms.size, weq->ctx, weq_graph_array_terms_compare);
 

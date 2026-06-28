@@ -807,6 +807,14 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     t_desc = app_term_desc(terms, t);
     eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
     weq_graph_add_select_term(&uf->weq_graph, t);
+    if (term_kind(terms, t_desc->arg[0]) == UPDATE_TERM) {
+      composite_term_t* update_desc = update_term_desc(terms, t_desc->arg[0]);
+      if (t_desc->arity == update_desc->arity - 1) {
+        term_t r = app_term(terms, update_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
+        uf->ctx->register_term(uf->ctx, r);
+        weq_graph_add_select_term(&uf->weq_graph, r);
+      }
+    }
     break;
   case UPDATE_TERM:
     t_desc = update_term_desc(terms, t);
@@ -819,7 +827,7 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     uf->ctx->register_term(uf->ctx, r1);
     weq_graph_add_select_term(&uf->weq_graph, r1);
     // if the element domain is finite then we add this extra read term
-    type_t element_type = term_type(terms, t_desc->arg[2]);
+    type_t element_type = term_type(terms, t_desc->arg[t_desc->arity - 1]);
     if (is_finite_type(terms->types, element_type) || is_boolean_type(element_type) || is_bv_type(terms->types, element_type)){
       term_t r2 = app_term(terms, t_desc->arg[0], t_desc->arity - 2, t_desc->arg + 1);
       uf->ctx->register_term(uf->ctx, r2);
