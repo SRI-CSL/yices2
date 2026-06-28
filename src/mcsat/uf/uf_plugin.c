@@ -30,6 +30,7 @@
 #include "utils/int_array_sort2.h"
 #include "utils/ptr_array_sort2.h"
 #include "utils/int_hash_sets.h"
+#include "utils/ptr_vectors.h"
 
 #include "model/fresh_value_maker.h"
 #include "model/models.h"
@@ -39,6 +40,21 @@
 
 
 #define DECIDE_FUNCTION_VALUE_START UINT32_MAX/64
+
+
+typedef enum {
+  UF_FUN_DISEQ_EXPLICIT,
+  UF_FUN_DISEQ_DISTINCT_ID,
+} uf_fun_diseq_source_t;
+
+typedef struct {
+  term_t lhs;
+  term_t rhs;
+  type_t type;
+  uint32_t arity;
+  uf_fun_diseq_source_t source;
+  term_t guard;
+} uf_fun_diseq_t;
 
 
 typedef struct {
@@ -70,6 +86,14 @@ typedef struct {
   /** Function Values that have been used */
   int_hset_t fun_used_values;
 
+  /** Scoped committed function disequalities */
+  pvector_t fun_diseq_entries;
+
+  /** Active function-id view rebuilt from the current trail */
+  ivector_t active_fun_terms;
+  ivector_t active_fun_types;
+  ivector_t active_fun_ids;
+
   /** Tmp vector */
   int_mset_t tmp;
 
@@ -85,6 +109,58 @@ typedef struct {
   jmp_buf* exception;
 
 } uf_plugin_t;
+
+
+static void uf_plugin_free_fun_diseq_entries_from(uf_plugin_t* uf, uint32_t old_size) {
+  while (uf->fun_diseq_entries.size > old_size) {
+    safe_free(pvector_pop2(&uf->fun_diseq_entries));
+  }
+}
+
+static bool uf_plugin_term_has_function_id(const uf_plugin_t* uf, term_t t, int32_t* id) {
+  term_table_t* terms = uf->ctx->terms;
+  variable_db_t* var_db = uf->ctx->var_db;
+  const mcsat_trail_t* trail = uf->ctx->trail;
+  variable_t v;
+  const mcsat_value_t* value;
+
+  if (t == NULL_TERM || term_type_kind(terms, t) != FUNCTION_TYPE) {
+    return false;
+  }
+
+  v = variable_db_get_variable_if_exists(var_db, t);
+  if (v == variable_null || !trail_has_value(trail, v)) {
+    return false;
+  }
+
+  value = trail_get_value(trail, v);
+  if (value->type != VALUE_RATIONAL) {
+    return false;
+  }
+
+  return q_get32((rational_t*) &value->q, id);
+}
+
+static void uf_plugin_rebuild_active_fun_ids(uf_plugin_t* uf) {
+  variable_db_t* var_db = uf->ctx->var_db;
+  uint32_t i, n;
+
+  ivector_reset(&uf->active_fun_terms);
+  ivector_reset(&uf->active_fun_types);
+  ivector_reset(&uf->active_fun_ids);
+
+  n = variable_db_size(var_db);
+  for (i = 1; i < n; ++ i) {
+    term_t t = var_db->variable_to_term_map.data[i];
+    int32_t id;
+
+    if (uf_plugin_term_has_function_id(uf, t, &id)) {
+      ivector_push(&uf->active_fun_terms, t);
+      ivector_push(&uf->active_fun_types, term_type(uf->ctx->terms, t));
+      ivector_push(&uf->active_fun_ids, id);
+    }
+  }
+}
 
 
 static
@@ -120,6 +196,10 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   scope_holder_construct(&uf->scope);
   init_ivector(&uf->conflict, 0);
   init_int_hset(&uf->fun_used_values, 0);
+  init_pvector(&uf->fun_diseq_entries, 0);
+  init_ivector(&uf->active_fun_terms, 0);
+  init_ivector(&uf->active_fun_types, 0);
+  init_ivector(&uf->active_fun_ids, 0);
   int_mset_construct(&uf->tmp, NULL_TERM);
 
   // Terms
@@ -155,6 +235,11 @@ void uf_plugin_destruct(plugin_t* plugin) {
   scope_holder_destruct(&uf->scope);
   delete_ivector(&uf->conflict);
   delete_int_hset(&uf->fun_used_values);
+  uf_plugin_free_fun_diseq_entries_from(uf, 0);
+  delete_pvector(&uf->fun_diseq_entries);
+  delete_ivector(&uf->active_fun_terms);
+  delete_ivector(&uf->active_fun_types);
+  delete_ivector(&uf->active_fun_ids);
   int_mset_destruct(&uf->tmp);
 
   eq_graph_destruct(&uf->eq_graph);
@@ -359,7 +444,9 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
   // Propagate known terms
   eq_graph_propagate_trail(&uf->eq_graph);
+  uf_plugin_rebuild_active_fun_ids(uf);
   uf_plugin_process_eq_graph_propagations(uf, prop);
+  uf_plugin_rebuild_active_fun_ids(uf);
 
   // Check for conflicts
   if (uf->eq_graph.in_conflict) {
@@ -394,6 +481,7 @@ void uf_plugin_push(plugin_t* plugin) {
   // Push the int variable values
   scope_holder_push(&uf->scope,
                     &uf->eq_graph_addition_trail.size,
+                    &uf->fun_diseq_entries.size,
                     NULL);
 
   weq_graph_push(&uf->weq_graph);
@@ -404,11 +492,12 @@ static
 void uf_plugin_pop(plugin_t* plugin) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
-  uint32_t old_eq_graph_addition_trail_size;
+  uint32_t old_eq_graph_addition_trail_size, old_fun_diseq_entries_size;
 
   // Pop the int variable values
   scope_holder_pop(&uf->scope,
                    &old_eq_graph_addition_trail_size,
+                   &old_fun_diseq_entries_size,
                    NULL);
 
   weq_graph_pop(&uf->weq_graph);
@@ -425,6 +514,8 @@ void uf_plugin_pop(plugin_t* plugin) {
 
   // Clear the conflict
   ivector_reset(&uf->conflict);
+  uf_plugin_free_fun_diseq_entries_from(uf, old_fun_diseq_entries_size);
+  uf_plugin_rebuild_active_fun_ids(uf);
 }
 
 bool value_cmp(void* data, void* v1_void, void* v2_void) {
