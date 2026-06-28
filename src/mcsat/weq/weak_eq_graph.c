@@ -25,7 +25,9 @@
 #include "utils/refcount_strings.h"
 
 
-#define USE_ARRAY_DIFF 0 //experimental
+// Experimental legacy diff-symbol path. This code is unary-only and is
+// intentionally disabled; function diff witnesses are handled by the UF plugin.
+#define USE_ARRAY_DIFF 0
 
 // declaration
 void weq_graph_stats_init(weq_graph_t* weq);
@@ -44,11 +46,11 @@ void weq_graph_construct(weq_graph_t* weq, plugin_context_t* ctx, eq_graph_t* eq
   init_ptr_hmap(&weq->fun_node_map, 0);
 
   init_int_hmap(&weq->val_id_term_map, 0);
-  init_tuple_hmap(&weq->not_weak_eq_i_cache, 0);
+  init_tuple_hmap(&weq->not_weak_eq_cache, 0);
 
   init_ivector(&weq->path_cond, 0);
-  init_ivector(&weq->path_indices1, 0);
-  init_ivector(&weq->path_indices2, 0);
+  init_ivector(&weq->path_edges1, 0);
+  init_ivector(&weq->path_edges2, 0);
 
   weq_graph_stats_init(weq);
 }
@@ -62,13 +64,13 @@ void weq_graph_destruct(weq_graph_t* weq) {
   delete_int_hmap(&weq->type_to_diff);
   delete_int_hset(&weq->diff_funs);
   delete_ivector(&weq->path_cond);
-  delete_ivector(&weq->path_indices1);
-  delete_ivector(&weq->path_indices2);
+  delete_ivector(&weq->path_edges1);
+  delete_ivector(&weq->path_edges2);
 
   weq_graph_clear(weq);
   delete_ptr_hmap(&weq->fun_node_map);
   delete_int_hmap(&weq->val_id_term_map);
-  delete_tuple_hmap(&weq->not_weak_eq_i_cache);
+  delete_tuple_hmap(&weq->not_weak_eq_cache);
 }
 
 void weq_graph_push(weq_graph_t* weq) {
@@ -133,7 +135,6 @@ bool weq_graph_has_diff_fun(weq_graph_t* weq, term_t diff_fun) {
 /* Weakly equivalant graph node, where
  * p = primary node
  * pstore = update term that created the primary edge (the edge between this node and p)
- * pi = index in the update term (pstore)
  * s = secondary node
  * sstore = update term that created the secondary edge (the edge between this node and s)
  *
@@ -143,7 +144,6 @@ bool weq_graph_has_diff_fun(weq_graph_t* weq, term_t diff_fun) {
 typedef struct weq_graph_node_s {
   struct weq_graph_node_s* p;
   term_t pstore;
-  term_t pi;
   struct weq_graph_node_s* s;
   term_t sstore;
 } weq_graph_node_t;  
@@ -162,7 +162,7 @@ void weq_graph_clear(weq_graph_t* weq) {
   }
   ptr_hmap_reset(&weq->fun_node_map);
   int_hmap_reset(&weq->val_id_term_map);
-  reset_tuple_hmap(&weq->not_weak_eq_i_cache);
+  reset_tuple_hmap(&weq->not_weak_eq_cache);
 }
 
 /* Create a new weq_graph node
@@ -171,7 +171,6 @@ static inline weq_graph_node_t *weq_new_node() {
   weq_graph_node_t *n = safe_malloc(sizeof(weq_graph_node_t));
   n->p = NULL;
   n->pstore = NULL_TERM;
-  n->pi = NULL_TERM;
   n->s  = NULL;
   n->sstore = NULL_TERM;
   return n;
@@ -202,17 +201,22 @@ static uint32_t count_primary(const weq_graph_node_t* n) {
   return res;
 }
 
-/* Find the weak-equivalent root node (weak-i rep node) of the weak
- * path on index idx.  The weak path on index idx doesn't mask on idx,
- * i.e. the indices in the updates present on the edges of the path
- * are not equivalent to idx.
+static inline void add_if_not_true_term(ivector_t* vec, term_t t);
+static term_t weq_graph_get_term_rep(weq_graph_t* weq, term_t t);
+static bool weq_graph_store_indices_equal(weq_graph_t* weq, term_t store,
+                                          uint32_t n, const term_t* idx);
+
+/* Find the weak-equivalent root node for the index vector idx.
+ * A weak path for idx may not traverse an update whose whole index vector
+ * is equal to idx.
  */
-static const weq_graph_node_t* weq_graph_get_rep_i(const weq_graph_t* weq,
-                                                   const weq_graph_node_t* n,
-                                                   const term_t idx) {
+static const weq_graph_node_t* weq_graph_get_rep_at(weq_graph_t* weq,
+                                                    const weq_graph_node_t* n,
+                                                    uint32_t idx_arity,
+                                                    const term_t* idx) {
   const weq_graph_node_t* res = n;
   while (res->p != NULL) {
-    if (eq_graph_are_equal(weq->eq_graph, res->pi, idx)) {
+    if (weq_graph_store_indices_equal(weq, res->pstore, idx_arity, idx)) {
       if (res->s == NULL) {
         // no secondary edge means that we have found the node
         break;
@@ -225,16 +229,15 @@ static const weq_graph_node_t* weq_graph_get_rep_i(const weq_graph_t* weq,
   return res;
 }
 
-/* Count the number of nodes that have primary edges masking the index
- * idx.
+/* Count nodes that have primary edges masking the index vector idx.
  */
 static
-uint32_t weq_graph_count_secondary(const weq_graph_t* weq, const weq_graph_node_t* n,
-                                   const term_t idx) {
+uint32_t weq_graph_count_secondary(weq_graph_t* weq, const weq_graph_node_t* n,
+                                   uint32_t idx_arity, const term_t* idx) {
   uint32_t res = 0;
   const weq_graph_node_t* tmp = n;
   while (tmp->p != NULL) {
-    if (eq_graph_are_equal(weq->eq_graph, tmp->pi, idx)) {
+    if (weq_graph_store_indices_equal(weq, tmp->pstore, idx_arity, idx)) {
       if (tmp->s == NULL) {
         break;
       }
@@ -247,13 +250,16 @@ uint32_t weq_graph_count_secondary(const weq_graph_t* weq, const weq_graph_node_
   return res;
 }
 
-/* Find the next node with primary edge masking index idx.
+/* Find the next node with primary edge masking the index vector idx.
  */
 static
 weq_graph_node_t* weq_graph_find_secondary_node(weq_graph_t* weq,
-                                                weq_graph_node_t* n, term_t idx) {
+                                                weq_graph_node_t* n,
+                                                uint32_t idx_arity,
+                                                const term_t* idx) {
   weq_graph_node_t* res = n;
-  while (res->p != NULL && !eq_graph_are_equal(weq->eq_graph, res->pi, idx)) {
+  while (res->p != NULL &&
+         !weq_graph_store_indices_equal(weq, res->pstore, idx_arity, idx)) {
     res = res->p;
   }
   return res;
@@ -264,29 +270,109 @@ weq_graph_node_t* weq_graph_find_secondary_node(weq_graph_t* weq,
 static
 const weq_graph_node_t* weq_graph_find_secondary_node_const(weq_graph_t* weq,
                                                             const weq_graph_node_t* n,
-                                                            term_t idx) {
+                                                            uint32_t idx_arity,
+                                                            const term_t* idx) {
   const weq_graph_node_t* res = n;
-  while (res->p != NULL && !eq_graph_are_equal(weq->eq_graph, res->pi, idx)) {
+  while (res->p != NULL &&
+         !weq_graph_store_indices_equal(weq, res->pstore, idx_arity, idx)) {
     res = res->p;
   }
   return res;
 }
 
-
-#ifndef NDEBUG
-
-/* helper function to extract index from an update term
- */
 static inline
-term_t weq_graph_get_index_from_store(weq_graph_t* weq, term_t store) {
-  term_table_t* terms = weq->ctx->terms;
+uint32_t weq_graph_store_index_arity(const term_table_t* terms, term_t store) {
   assert(term_kind(terms, store) == UPDATE_TERM);
-  composite_term_t* t_desc = update_term_desc(terms, store);
-  assert(t_desc->arity == 3);
-  return t_desc->arg[1];
+  return update_term_desc(terms, store)->arity - 2;
 }
 
-#endif
+static inline
+const term_t* weq_graph_store_indices(const term_table_t* terms, term_t store) {
+  assert(term_kind(terms, store) == UPDATE_TERM);
+  return update_term_desc(terms, store)->arg + 1;
+}
+
+static
+bool weq_graph_index_vectors_equal(weq_graph_t* weq, uint32_t n,
+                                   const term_t* lhs, const term_t* rhs) {
+  uint32_t i;
+
+  for (i = 0; i < n; ++ i) {
+    if (!eq_graph_are_equal(weq->eq_graph, lhs[i], rhs[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static
+bool weq_graph_store_indices_equal(weq_graph_t* weq, term_t store,
+                                   uint32_t n, const term_t* idx) {
+  term_table_t* terms = weq->ctx->terms;
+  if (weq_graph_store_index_arity(terms, store) != n) {
+    return false;
+  }
+  return weq_graph_index_vectors_equal(weq, n, weq_graph_store_indices(terms, store), idx);
+}
+
+static
+bool weq_graph_store_indices_diseq_reason(weq_graph_t* weq, term_t store,
+                                          uint32_t n, const term_t* idx,
+                                          term_t* reason) {
+  term_table_t* terms = weq->ctx->terms;
+  const term_t* store_idx;
+  uint32_t i;
+
+  if (weq_graph_store_index_arity(terms, store) != n) {
+    return false;
+  }
+
+  store_idx = weq_graph_store_indices(terms, store);
+  for (i = 0; i < n; ++ i) {
+    if (!eq_graph_are_equal(weq->eq_graph, store_idx[i], idx[i])) {
+      *reason = _o_yices_neq(store_idx[i], idx[i]);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static
+void weq_graph_add_index_vector_equalities(weq_graph_t* weq, ivector_t* vec,
+                                           uint32_t n, const term_t* lhs, const term_t* rhs) {
+  uint32_t i;
+
+  (void) weq;
+  for (i = 0; i < n; ++ i) {
+    add_if_not_true_term(vec, _o_yices_eq(lhs[i], rhs[i]));
+  }
+}
+
+static
+void weq_graph_add_store_index_disequality(weq_graph_t* weq, ivector_t* vec,
+                                           term_t store, uint32_t n, const term_t* idx) {
+  term_t reason;
+
+  if (weq_graph_store_indices_diseq_reason(weq, store, n, idx, &reason)) {
+    add_if_not_true_term(vec, reason);
+  } else {
+    assert(false);
+  }
+}
+
+static
+void weq_graph_store_index_key(weq_graph_t* weq, term_t store, ivector_t* key) {
+  term_table_t* terms = weq->ctx->terms;
+  const term_t* idx = weq_graph_store_indices(terms, store);
+  uint32_t i, n = weq_graph_store_index_arity(terms, store);
+
+  ivector_reset(key);
+  for (i = 0; i < n; ++ i) {
+    ivector_push(key, weq_graph_get_term_rep(weq, idx[i]));
+  }
+}
 
 
 /* add t to vec if t is not the true term
@@ -305,74 +391,38 @@ uint32_t weq_graph_app_index_arity(const composite_term_t* app_desc) {
 }
 
 static inline
-uint32_t weq_graph_update_index_arity(const composite_term_t* update_desc) {
-  assert(update_desc->arity >= 2);
-  return update_desc->arity - 2;
-}
-
-static inline
 const term_t* weq_graph_app_indices(const composite_term_t* app_desc) {
   return app_desc->arg + 1;
 }
 
-static inline
-const term_t* weq_graph_update_indices(const composite_term_t* update_desc) {
-  return update_desc->arg + 1;
-}
-
-static
-bool weq_graph_find_index_disequality(weq_graph_t* weq, uint32_t n,
-                                      const term_t* lhs, const term_t* rhs,
-                                      term_t* lhs_out, term_t* rhs_out) {
-  uint32_t i;
-
-  for (i = 0; i < n; ++ i) {
-    if (!eq_graph_are_equal(weq->eq_graph, lhs[i], rhs[i])) {
-      *lhs_out = lhs[i];
-      *rhs_out = rhs[i];
-      return true;
-    }
-  }
-
-  return false;
-}
-
-static
-bool weq_graph_is_unary_function_term(weq_graph_t* weq, term_t t) {
-  type_table_t* types = weq->ctx->types;
-  type_t tau = term_type(weq->ctx->terms, t);
-
-  return type_kind(types, tau) == FUNCTION_TYPE && function_type_arity(types, tau) == 1;
-}
-
-/* make the given node weak-i representative, by inverting the
+/* make the given node weak-I representative, by inverting the
  * secondary edges
  */
-static void weq_graph_make_rep_i(weq_graph_t* weq, weq_graph_node_t* n) {
+static void weq_graph_make_rep_at(weq_graph_t* weq, weq_graph_node_t* n) {
   if (n->s == NULL) {
     return;
   }
 
+  term_table_t* terms = weq->ctx->terms;
   weq_graph_node_t* prev = n;
   weq_graph_node_t* next = n->s;
   term_t prev_store = n->sstore;
-  term_t idx = n->pi;
+  uint32_t idx_arity = weq_graph_store_index_arity(terms, n->pstore);
+  const term_t* idx = weq_graph_store_indices(terms, n->pstore);
   weq_graph_node_t* tmp = NULL;
   term_t tmp_sec_store = NULL_TERM;
 
   assert(term_kind(weq->ctx->terms, n->pstore) == UPDATE_TERM);
-  assert(update_term_desc(weq->ctx->terms, n->pstore)->arity == 3);
   
   while (next) {
-    next = weq_graph_find_secondary_node(weq, next, idx);
+    next = weq_graph_find_secondary_node(weq, next, idx_arity, idx);
     tmp = next->s;
     tmp_sec_store = next->sstore;
 
     next->s = prev;
     next->sstore = prev_store;
 
-    assert(!eq_graph_are_equal(weq->eq_graph, next->pi,
-                               weq_graph_get_index_from_store(weq, next->sstore)));
+    assert(!weq_graph_store_indices_equal(weq, next->sstore, idx_arity, idx));
 
     prev = next;
     prev_store = tmp_sec_store;
@@ -410,13 +460,11 @@ static void weq_graph_make_rep(weq_graph_t* weq, weq_graph_node_t* n) {
     next = pvector_pop2(&to_process);
     prev->p = next;
     prev->pstore = next->pstore;
-    prev->pi = next->pi;
 
     next->p = NULL;
     // make sure the node is weak-rep-i
-    weq_graph_make_rep_i(weq, next);
+    weq_graph_make_rep_at(weq, next);
     next->pstore = NULL_TERM;
-    next->pi = NULL_TERM;
 
     prev = next;
   }
@@ -448,49 +496,54 @@ static term_t weq_graph_get_term_rep(weq_graph_t* weq, term_t t) {
 /* Add secondary edge from the node a to node b. 
  * store is saved as the update term for that secondary edge.
  */
-static void weq_graph_add_secondary(weq_graph_t* weq, int_hset_t* idx_set,
+static void weq_graph_add_secondary(weq_graph_t* weq, int_array_hset_t* idx_set,
                                     weq_graph_node_t* a, weq_graph_node_t* b, term_t store) {
   assert(b->p == NULL);
   weq_graph_node_t* n = a;
+  ivector_t key;
+  init_ivector(&key, 0);
+
   while (n != b) {
     assert(n->p);
-    if (!int_hset_member(idx_set, weq_graph_get_term_rep(weq, n->pi)) &&
-        weq_graph_get_rep_i(weq, n, n->pi) != b) {
-      weq_graph_make_rep_i(weq, n);
-      assert(!eq_graph_are_equal(weq->eq_graph, n->pi,
-                                 weq_graph_get_index_from_store(weq, store)));
+    weq_graph_store_index_key(weq, n->pstore, &key);
+    if (int_array_hset_find(idx_set, key.size, key.data) == NULL &&
+        weq_graph_get_rep_at(weq, n, key.size, key.data) != b) {
+      weq_graph_make_rep_at(weq, n);
+      assert(!weq_graph_store_indices_equal(weq, store, key.size, key.data));
       n->s = b;
       n->sstore = store;
     }
-    int_hset_add(idx_set, weq_graph_get_term_rep(weq, n->pi));
+    int_array_hset_get(idx_set, key.size, key.data);
     n = n->p;
   }
+
+  delete_ivector(&key);
 }
 
 /* Add the update term in the weq_graph.
  * Add the store (update term) on the primary edge or call add-secondary.
  */
 static void weq_graph_add_store(weq_graph_t* weq, weq_graph_node_t* a, weq_graph_node_t* b,
-                                term_t idx, term_t store) {
-  composite_term_t* store_desc;
-
+                                term_t store) {
   if (a == b) {
     return;
   }
 
-  store_desc = update_term_desc(weq->ctx->terms, store);
   weq_graph_make_rep(weq, b);
-  if (weq_graph_get_rep(a) == b && store_desc->arity == 3) {
-    int_hset_t s;
-    init_int_hset(&s, 0);
-    int_hset_add(&s, weq_graph_get_term_rep(weq, idx));
+  if (weq_graph_get_rep(a) == b) {
+    int_array_hset_t s;
+    ivector_t key;
+    init_int_array_hset(&s, 0);
+    init_ivector(&key, 0);
+    weq_graph_store_index_key(weq, store, &key);
+    int_array_hset_get(&s, key.size, key.data);
     weq_graph_add_secondary(weq, &s, a, b, store);
-    delete_int_hset(&s);
+    delete_ivector(&key);
+    delete_int_array_hset(&s);
   } else {
     assert(b->p == NULL);
     b->p = a;
     b->pstore = store;
-    b->pi = idx;
   }
 }
 
@@ -511,11 +564,11 @@ static weq_graph_node_t *weq_graph_get_node(weq_graph_t* weq, term_t t) {
 }
 
 /* Step through one primary edge, storing the path conditions and the
- * indices.
+ * update edges.
  */
 static
 term_t weq_graph_compute_weak_path_primary(weq_graph_t* weq, term_t arr,
-                                           ivector_t* indices,
+                                           ivector_t* edges,
                                            ivector_t* path_cond) {
   const weq_graph_node_t* a = weq_graph_get_node(weq, arr);
   term_t res = NULL_TERM;
@@ -533,8 +586,7 @@ term_t weq_graph_compute_weak_path_primary(weq_graph_t* weq, term_t arr,
     res = t_desc->arg[0];
   }
 
-  assert(a->pi == weq_graph_get_index_from_store(weq, a->pstore));
-  ivector_push(indices, a->pi);
+  ivector_push(edges, a->pstore);
 
   return res;
 }
@@ -543,7 +595,7 @@ term_t weq_graph_compute_weak_path_primary(weq_graph_t* weq, term_t arr,
  * arr1 and arr2 are terms
  */
 static void weq_graph_compute_weak_path(weq_graph_t* weq, term_t arr1,
-                                        term_t arr2, ivector_t* indices,
+                                        term_t arr2, ivector_t* edges,
                                         ivector_t* path_cond) {
   const weq_graph_node_t* a = weq_graph_get_node(weq, arr1);
   const weq_graph_node_t* b = weq_graph_get_node(weq, arr2);
@@ -562,22 +614,22 @@ static void weq_graph_compute_weak_path(weq_graph_t* weq, term_t arr1,
   term_t t2 = arr2;
   
   while (prim_cnt1 > prim_cnt2) {
-    t1 = weq_graph_compute_weak_path_primary(weq, t1, indices, path_cond);
+    t1 = weq_graph_compute_weak_path_primary(weq, t1, edges, path_cond);
     a = a->p;
     prim_cnt1--;
   }
 
   while (prim_cnt2 > prim_cnt1) {
-    t2 = weq_graph_compute_weak_path_primary(weq, t2, indices, path_cond);
+    t2 = weq_graph_compute_weak_path_primary(weq, t2, edges, path_cond);
     b = b->p;
     prim_cnt2--;
   }
 
   while (a != b) {
-    t1 = weq_graph_compute_weak_path_primary(weq, t1, indices, path_cond);
+    t1 = weq_graph_compute_weak_path_primary(weq, t1, edges, path_cond);
     a = a->p;
 
-    t2 = weq_graph_compute_weak_path_primary(weq, t2, indices, path_cond);
+    t2 = weq_graph_compute_weak_path_primary(weq, t2, edges, path_cond);
     b = b->p;
   }
 
@@ -588,95 +640,95 @@ static void weq_graph_compute_weak_path(weq_graph_t* weq, term_t arr1,
 }
 
 /* Compute the path between the arr term and the next secondary node.
- * Save the update terms in the path_cond vector and the indices
- * present on the edges in the indices vector.
+ * Save the update terms in the path_cond vector and the update edges
+ * present on the path in the edges vector.
  */
 static
 term_t weq_graph_compute_path_secondary(weq_graph_t* weq, term_t arr,
-                                        term_t idx,
-                                        ivector_t* indices,
+                                        uint32_t idx_arity,
+                                        const term_t* idx,
+                                        ivector_t* edges,
                                         ivector_t* path_cond) {
   term_t res = NULL_TERM;
   term_table_t* terms = weq->ctx->terms;
   const weq_graph_node_t* tmp =
-    weq_graph_find_secondary_node_const(weq, weq_graph_get_node(weq, arr), idx);
+    weq_graph_find_secondary_node_const(weq, weq_graph_get_node(weq, arr), idx_arity, idx);
 
   assert(tmp->sstore != NULL_TERM);
-  assert(tmp->pi != NULL_TERM);
   assert(tmp->s);
-  assert(eq_graph_are_equal(weq->eq_graph, tmp->pi, idx));
-  assert(!eq_graph_are_equal(weq->eq_graph, idx,
-                             weq_graph_get_index_from_store(weq, tmp->sstore)));
+  assert(weq_graph_store_indices_equal(weq, tmp->pstore, idx_arity, idx));
+  assert(!weq_graph_store_indices_equal(weq, tmp->sstore, idx_arity, idx));
 
   composite_term_t* t_desc = update_term_desc(terms, tmp->sstore);
 
   if (weq_graph_find_secondary_node_const(weq, weq_graph_get_node(weq, t_desc->arg[0]),
-                                          idx) == tmp) {
-    weq_graph_compute_weak_path(weq, arr, t_desc->arg[0], indices, path_cond);
+                                          idx_arity, idx) == tmp) {
+    weq_graph_compute_weak_path(weq, arr, t_desc->arg[0], edges, path_cond);
     res = tmp->sstore;
   } else {
     assert(weq_graph_find_secondary_node_const(weq,
                                                weq_graph_get_node(weq, tmp->sstore),
-                                               idx) == tmp);
+                                               idx_arity, idx) == tmp);
 
-    weq_graph_compute_weak_path(weq, arr, tmp->sstore, indices, path_cond);
+    weq_graph_compute_weak_path(weq, arr, tmp->sstore, edges, path_cond);
     res = t_desc->arg[0];
   }
 
-  ivector_push(indices, t_desc->arg[1]);
+  ivector_push(edges, tmp->sstore);
 
   return res;
 }
 
-/* Compute weak-i (index) path, the path doesn't mask index idx.
- * Store the path conditions and the indices on the edges of the path.
+/* Compute weak-I (index vector) path, the path doesn't mask index vector idx.
+ * Store the path conditions and the update edges on the path.
  */
 static
-void weq_graph_compute_weak_path_i(weq_graph_t* weq, term_t arr1,
-                                   term_t arr2, term_t idx,
-                                   ivector_t* indices,
+void weq_graph_compute_weak_path_at(weq_graph_t* weq, term_t arr1,
+                                   term_t arr2, uint32_t idx_arity,
+                                   const term_t* idx,
+                                   ivector_t* edges,
                                    ivector_t* path_cond) {
   const weq_graph_node_t* a = weq_graph_get_node(weq, arr1);
   const weq_graph_node_t* b = weq_graph_get_node(weq, arr2);
-  uint32_t sec_cnt1 = weq_graph_count_secondary(weq, a, idx);  
-  uint32_t sec_cnt2 = weq_graph_count_secondary(weq, b, idx);
+  uint32_t sec_cnt1 = weq_graph_count_secondary(weq, a, idx_arity, idx);
+  uint32_t sec_cnt2 = weq_graph_count_secondary(weq, b, idx_arity, idx);
 
-  assert(weq_graph_get_rep_i(weq, a, idx) ==
-         weq_graph_get_rep_i(weq, b, idx));
+  assert(weq_graph_get_rep_at(weq, a, idx_arity, idx) ==
+         weq_graph_get_rep_at(weq, b, idx_arity, idx));
 
   while (sec_cnt1 > sec_cnt2) {
-    arr1 = weq_graph_compute_path_secondary(weq, arr1, idx, indices, path_cond);
+    arr1 = weq_graph_compute_path_secondary(weq, arr1, idx_arity, idx, edges, path_cond);
     sec_cnt1--;
     a = weq_graph_get_node(weq, arr1);
 
-    assert(weq_graph_count_secondary(weq, a, idx) == sec_cnt1);
-    assert(weq_graph_get_rep_i(weq, a, idx) == weq_graph_get_rep_i(weq, b, idx));
+    assert(weq_graph_count_secondary(weq, a, idx_arity, idx) == sec_cnt1);
+    assert(weq_graph_get_rep_at(weq, a, idx_arity, idx) == weq_graph_get_rep_at(weq, b, idx_arity, idx));
   }
   while (sec_cnt2 > sec_cnt1) {
-    arr2 = weq_graph_compute_path_secondary(weq, arr2, idx, indices, path_cond);
+    arr2 = weq_graph_compute_path_secondary(weq, arr2, idx_arity, idx, edges, path_cond);
     sec_cnt2--;
     b = weq_graph_get_node(weq, arr2);
 
-    assert(weq_graph_count_secondary(weq, b, idx) == sec_cnt2);
-    assert(weq_graph_get_rep_i(weq, a, idx) == weq_graph_get_rep_i(weq, b, idx));
+    assert(weq_graph_count_secondary(weq, b, idx_arity, idx) == sec_cnt2);
+    assert(weq_graph_get_rep_at(weq, a, idx_arity, idx) == weq_graph_get_rep_at(weq, b, idx_arity, idx));
   }
 
   assert(sec_cnt1 == sec_cnt2);
-  while (weq_graph_find_secondary_node_const(weq, a, idx) !=
-         weq_graph_find_secondary_node_const(weq, b, idx)) {
+  while (weq_graph_find_secondary_node_const(weq, a, idx_arity, idx) !=
+         weq_graph_find_secondary_node_const(weq, b, idx_arity, idx)) {
 
-    assert(weq_graph_count_secondary(weq, a, idx) ==
-           weq_graph_count_secondary(weq, b, idx));
+    assert(weq_graph_count_secondary(weq, a, idx_arity, idx) ==
+           weq_graph_count_secondary(weq, b, idx_arity, idx));
 
-    arr1 = weq_graph_compute_path_secondary(weq, arr1, idx, indices, path_cond);
-    arr2 = weq_graph_compute_path_secondary(weq, arr2, idx, indices, path_cond);
+    arr1 = weq_graph_compute_path_secondary(weq, arr1, idx_arity, idx, edges, path_cond);
+    arr2 = weq_graph_compute_path_secondary(weq, arr2, idx_arity, idx, edges, path_cond);
     a = weq_graph_get_node(weq, arr1);
     b = weq_graph_get_node(weq, arr2);
 
-    assert(weq_graph_get_rep_i(weq, a, idx) == weq_graph_get_rep_i(weq, b, idx));
+    assert(weq_graph_get_rep_at(weq, a, idx_arity, idx) == weq_graph_get_rep_at(weq, b, idx_arity, idx));
   }
 
-  weq_graph_compute_weak_path(weq, arr1, arr2, indices, path_cond);
+  weq_graph_compute_weak_path(weq, arr1, arr2, edges, path_cond);
 }
 
 /* Add variables for the diff terms. It will create diff terms for the
@@ -687,6 +739,7 @@ static
 void weq_graph_add_diff_terms_vars(weq_graph_t* weq, term_t arr) {
   term_table_t* terms = weq->ctx->terms;
   type_t arr_type = term_type(terms, arr);
+  assert(function_type_arity(weq->ctx->types, arr_type) == 1);
   type_t idx_type = function_type_domain(weq->ctx->types, arr_type, 0);
 
   term_t diff_fun;
@@ -741,84 +794,46 @@ void weq_graph_add_diff_terms_vars(weq_graph_t* weq, term_t arr) {
   }
 }
 
-/* Check Array idx lemma.
- * Read over write 1: when idices are equal.
- */
-/*
-static
-bool weq_graph_array_idx_check(weq_graph_t* weq, ivector_t* conflict,
-                               const ivector_t* array_terms) {
-  term_table_t* terms = weq->ctx->terms;
-  uint32_t i;
-
-  // array-idx lemma
-  for (i = 0; i < array_terms->size; ++i) {
-    term_t arr = array_terms->data[i];
-    term_kind_t t_kind = term_kind(terms, arr);
-    if (t_kind == UPDATE_TERM) {
-      composite_term_t* t_desc = update_term_desc(terms, arr);
-      term_t r = app_term(terms, arr, t_desc->arity - 2, t_desc->arg + 1);
-      term_t v = t_desc->arg[t_desc->arity - 1];
-      if (!eq_graph_term_has_value(weq->eq_graph, r) ||
-          !eq_graph_term_has_value(weq->eq_graph, v))
-        continue;
-      if (!eq_graph_are_equal(weq->eq_graph, r, v)) {
-        add_if_not_true_term(conflict, _o_yices_neq(r, v));
-
-        if (ctx_trace_enabled(weq->ctx, "weq_graph::array")) {
-          ctx_trace_printf(weq->ctx, ">1 Array conflict 1 BEGIN\n");
-          uint32_t k;
-          for (k = 0; k < conflict->size; ++ k) {
-            ctx_trace_term(weq->ctx, conflict->data[k]);
-          }
-          ctx_trace_printf(weq->ctx, ">1 Array conflict 1 END\n");
-        }
-        return false;
-      }
-    }
-  }
-  return true;
-}
-*/
-
-
-/* Checks if arr1 and arr2 terms are weakly equivalanet on index idx.
- * If it is case, it also stores indices and path conditions.
+/* Checks if arr1 and arr2 terms are weakly equivalent on index vector idx.
+ * If so, it also stores update edges and path conditions.
  */
 static
-bool weq_graph_array_weak_eq_i(weq_graph_t* weq, term_t arr1, term_t arr2,
-                               term_t idx, ivector_t* indices,
-                               ivector_t* path_cond) {
+bool weq_graph_array_weak_eq_at(weq_graph_t* weq, term_t arr1, term_t arr2,
+                                uint32_t idx_arity, const term_t* idx,
+                                ivector_t* edges, ivector_t* path_cond) {
   bool res = false;
-  uint32_t old_indices_size, old_path_cond_size;
+  uint32_t i, old_edges_size, old_path_cond_size;
+  int32_t cache_key[idx_arity + 2];
 
-  int32_t cache_key[3] = {arr1, arr2, idx};
-  tuple_hmap_rec_t* cache_res = tuple_hmap_find(&weq->not_weak_eq_i_cache, 3, cache_key);
+  cache_key[0] = arr1;
+  cache_key[1] = arr2;
+  for (i = 0; i < idx_arity; ++ i) {
+    cache_key[i + 2] = idx[i];
+  }
+  tuple_hmap_rec_t* cache_res = tuple_hmap_find(&weq->not_weak_eq_cache, idx_arity + 2, cache_key);
   if (cache_res != NULL) {
     assert(cache_res->value == 1);
     return false;
   }
 
   const weq_graph_node_t* fn_arr1 =
-    weq_graph_get_rep_i(weq, weq_graph_get_node(weq, arr1), idx);
+    weq_graph_get_rep_at(weq, weq_graph_get_node(weq, arr1), idx_arity, idx);
   const weq_graph_node_t* fn_arr2 =
-    weq_graph_get_rep_i(weq, weq_graph_get_node(weq, arr2), idx);
+    weq_graph_get_rep_at(weq, weq_graph_get_node(weq, arr2), idx_arity, idx);
 
   assert(fn_arr1 != NULL);
   assert(fn_arr2 != NULL);
 
-  old_indices_size = indices->size;
+  old_edges_size = edges->size;
   old_path_cond_size = path_cond->size;
 
   if (fn_arr1 == fn_arr2) {
-    uint32_t k;
-
     res = true;
-    weq_graph_compute_weak_path_i(weq, arr1, arr2, idx, indices, path_cond);
+    weq_graph_compute_weak_path_at(weq, arr1, arr2, idx_arity, idx, edges, path_cond);
 
-    // add indices
-    for (k = old_indices_size; k < indices->size; ++k) {
-      if (eq_graph_are_equal(weq->eq_graph, idx, indices->data[k])) {
+    // all edge index vectors on the path must differ from idx
+    for (i = old_edges_size; i < edges->size; ++i) {
+      if (weq_graph_store_indices_equal(weq, edges->data[i], idx_arity, idx)) {
         res = false;
         break;
       }
@@ -826,23 +841,22 @@ bool weq_graph_array_weak_eq_i(weq_graph_t* weq, term_t arr1, term_t arr2,
   }
 
   if (!res) {
-    ivector_shrink(indices, old_indices_size);
+    ivector_shrink(edges, old_edges_size);
     ivector_shrink(path_cond, old_path_cond_size);
-    tuple_hmap_add(&weq->not_weak_eq_i_cache, 3, cache_key, 1);
+    tuple_hmap_add(&weq->not_weak_eq_cache, idx_arity + 2, cache_key, 1);
   }
 
   return res;
 }
 
-/* Check if arr1 and arr2 terms are weakly congruent on index idx.
+/* Check if arr1 and arr2 terms are weakly congruent on index vector idx.
  * If that is case, store path conditions in the path_cond vector.
  */
 static
-bool weq_graph_array_weak_congruence_i(weq_graph_t* weq, const ivector_t* select_terms,
-                                       term_t arr1, term_t arr2,
-                                       term_t idx, ivector_t* path_cond) {
-  assert(eq_graph_term_has_value(weq->eq_graph, idx));
-
+bool weq_graph_array_weak_congruence_at(weq_graph_t* weq, const ivector_t* select_terms,
+                                        term_t arr1, term_t arr2,
+                                        uint32_t idx_arity, const term_t* idx,
+                                        ivector_t* path_cond) {
   bool res = false;
   term_table_t* terms = weq->ctx->terms;
 
@@ -853,19 +867,20 @@ bool weq_graph_array_weak_congruence_i(weq_graph_t* weq, const ivector_t* select
     old_path_cond_size = path_cond->size;
   }
 
-  ivector_shrink(&weq->path_indices1, 0);
-  if (weq_graph_array_weak_eq_i(weq, arr1, arr2, idx, &weq->path_indices1, path_cond)) {
-    for (k =0; k < weq->path_indices1.size; ++k) {
-      assert(idx != weq->path_indices1.data[k]);
-      if (eq_graph_are_equal(weq->eq_graph, idx, weq->path_indices1.data[k])) {
+  ivector_shrink(&weq->path_edges1, 0);
+  if (weq_graph_array_weak_eq_at(weq, arr1, arr2, idx_arity, idx,
+                                &weq->path_edges1, path_cond)) {
+    for (k = 0; k < weq->path_edges1.size; ++k) {
+      if (weq_graph_store_indices_equal(weq, weq->path_edges1.data[k], idx_arity, idx)) {
         goto nextcheck;
       }
     }
 
     res = true;
 
-    for (k =0; k < weq->path_indices1.size; ++k) {
-      add_if_not_true_term(path_cond, _o_yices_neq(idx, weq->path_indices1.data[k]));
+    for (k = 0; k < weq->path_edges1.size; ++k) {
+      weq_graph_add_store_index_disequality(weq, path_cond, weq->path_edges1.data[k],
+                                            idx_arity, idx);
     }
 
     goto done;
@@ -881,14 +896,16 @@ bool weq_graph_array_weak_congruence_i(weq_graph_t* weq, const ivector_t* select
     type_t t_i_type = term_type(terms, t_i);
     assert(variable_db_get_variable_if_exists(weq->ctx->var_db, t_i) != variable_null);
 
-    ivector_shrink(&weq->path_indices1, 0);
+    ivector_shrink(&weq->path_edges1, 0);
     composite_term_t* e_i_desc = app_term_desc(terms, t_i);
-    if (!eq_graph_are_equal(weq->eq_graph, e_i_desc->arg[1], idx) ||
-        !weq_graph_array_weak_eq_i(weq, arr1, e_i_desc->arg[0], idx, &weq->path_indices1, path_cond)) {
+    if (weq_graph_app_index_arity(e_i_desc) != idx_arity ||
+        !weq_graph_index_vectors_equal(weq, idx_arity, weq_graph_app_indices(e_i_desc), idx) ||
+        !weq_graph_array_weak_eq_at(weq, arr1, e_i_desc->arg[0], idx_arity, idx,
+                                   &weq->path_edges1, path_cond)) {
       continue;
     }
 
-    uint32_t size1 = weq->path_indices1.size;
+    uint32_t size1 = weq->path_edges1.size;
     uint32_t size2;
     if (path_cond) {
       size2 = path_cond->size;
@@ -902,35 +919,40 @@ bool weq_graph_array_weak_congruence_i(weq_graph_t* weq, const ivector_t* select
         continue;
       }
       
-      ivector_shrink(&weq->path_indices1, size1);
+      ivector_shrink(&weq->path_edges1, size1);
       if (path_cond) {
         ivector_shrink(path_cond, size2);
       }
 
       composite_term_t* e_j_desc = app_term_desc(terms, t_j);
-      if (!eq_graph_are_equal(weq->eq_graph, e_j_desc->arg[1], idx) ||
-          !weq_graph_array_weak_eq_i(weq, arr2, e_j_desc->arg[0], idx, &weq->path_indices1, path_cond)) {
+      if (weq_graph_app_index_arity(e_j_desc) != idx_arity ||
+          !weq_graph_index_vectors_equal(weq, idx_arity, weq_graph_app_indices(e_j_desc), idx) ||
+          !weq_graph_array_weak_eq_at(weq, arr2, e_j_desc->arg[0], idx_arity, idx,
+                                     &weq->path_edges1, path_cond)) {
         continue;
       }
       
       res = true;
       if (path_cond) {
-        // Conditions of arr1 weakly-eq-i to a and arr2 weakly-eq-i to b'
-        for (k = 0; k < weq->path_indices1.size; ++k) {
-          if (eq_graph_are_equal(weq->eq_graph, weq->path_indices1.data[k], idx)) {
+        // Conditions of arr1 weakly-eq-at-idx to a and arr2 weakly-eq-at-idx to b'
+        for (k = 0; k < weq->path_edges1.size; ++k) {
+          if (weq_graph_store_indices_equal(weq, weq->path_edges1.data[k], idx_arity, idx)) {
             res = false;
             break;
           }
         }
 
         if (res) {
-          for (k = 0; k < weq->path_indices1.size; ++k) {
-            add_if_not_true_term(path_cond, _o_yices_neq(idx, weq->path_indices1.data[k]));
+          for (k = 0; k < weq->path_edges1.size; ++k) {
+            weq_graph_add_store_index_disequality(weq, path_cond, weq->path_edges1.data[k],
+                                                  idx_arity, idx);
           }
 
-          add_if_not_true_term(path_cond, _o_yices_eq(idx, e_i_desc->arg[1]));
+          weq_graph_add_index_vector_equalities(weq, path_cond, idx_arity, idx,
+                                                weq_graph_app_indices(e_i_desc));
           add_if_not_true_term(path_cond, _o_yices_eq(t_i, t_j));
-          add_if_not_true_term(path_cond, _o_yices_eq(idx, e_j_desc->arg[1]));
+          weq_graph_add_index_vector_equalities(weq, path_cond, idx_arity, idx,
+                                                weq_graph_app_indices(e_j_desc));
 
           goto done;
         }
@@ -972,14 +994,16 @@ bool weq_graph_array_ext_lemma(weq_graph_t* weq, ivector_t* conflict,
     uint32_t k;
     
     ivector_shrink(&weq->path_cond, 0);
-    ivector_shrink(&weq->path_indices2, 0);
-    weq_graph_compute_weak_path(weq, arr1, arr2, &weq->path_indices2, &weq->path_cond);
+    ivector_shrink(&weq->path_edges2, 0);
+    weq_graph_compute_weak_path(weq, arr1, arr2, &weq->path_edges2, &weq->path_cond);
 
-    ivector_remove_duplicates(&weq->path_indices2);
-    for (k = 0; k < weq->path_indices2.size; ++ k) {
-      term_t idx = weq->path_indices2.data[k];
-      if (!weq_graph_array_weak_congruence_i(weq, select_terms, arr1, arr2,
-                                             idx, &weq->path_cond)) {
+    ivector_remove_duplicates(&weq->path_edges2);
+    for (k = 0; k < weq->path_edges2.size; ++ k) {
+      term_t store = weq->path_edges2.data[k];
+      uint32_t idx_arity = weq_graph_store_index_arity(terms, store);
+      const term_t* idx = weq_graph_store_indices(terms, store);
+      if (!weq_graph_array_weak_congruence_at(weq, select_terms, arr1, arr2,
+                                             idx_arity, idx, &weq->path_cond)) {
         ok = false;
         break;
       }
@@ -1151,81 +1175,6 @@ bool weq_graph_array_ext_diff_check(weq_graph_t* weq, ivector_t* conflict,
   return res;
 }
 
-static
-bool weq_graph_nary_read_over_write_lemma(weq_graph_t* weq, ivector_t* conflict,
-                                          term_t select_term) {
-  term_table_t* terms = weq->ctx->terms;
-  composite_term_t* select_desc;
-  composite_term_t* update_desc;
-  term_t update_term, base_select, diseq_lhs, diseq_rhs;
-  uint32_t index_arity;
-
-  assert(term_kind(terms, select_term) == APP_TERM);
-  select_desc = app_term_desc(terms, select_term);
-  update_term = select_desc->arg[0];
-
-  if (term_kind(terms, update_term) != UPDATE_TERM) {
-    return true;
-  }
-
-  update_desc = update_term_desc(terms, update_term);
-  index_arity = weq_graph_app_index_arity(select_desc);
-  if (index_arity != weq_graph_update_index_arity(update_desc) ||
-      index_arity <= 1) {
-    return true;
-  }
-
-  if (!weq_graph_find_index_disequality(weq, index_arity,
-                                        weq_graph_app_indices(select_desc),
-                                        weq_graph_update_indices(update_desc),
-                                        &diseq_lhs, &diseq_rhs)) {
-    return true;
-  }
-
-  base_select = app_term(terms, update_desc->arg[0], index_arity,
-                         weq_graph_app_indices(select_desc));
-  weq->ctx->register_term(weq->ctx, base_select);
-
-  if (!eq_graph_term_has_value(weq->eq_graph, select_term) ||
-      !eq_graph_term_has_value(weq->eq_graph, base_select) ||
-      eq_graph_are_equal(weq->eq_graph, select_term, base_select)) {
-    return true;
-  }
-
-  assert(conflict->size == 0);
-  add_if_not_true_term(conflict, _o_yices_neq(diseq_lhs, diseq_rhs));
-  add_if_not_true_term(conflict, _o_yices_neq(select_term, base_select));
-  ivector_remove_duplicates(conflict);
-
-  if (ctx_trace_enabled(weq->ctx, "weq_graph::array")) {
-    ctx_trace_printf(weq->ctx, ">3 N-ary update conflict BEGIN\n");
-    uint32_t k;
-    for (k = 0; k < conflict->size; ++ k) {
-      ctx_trace_term(weq->ctx, conflict->data[k]);
-    }
-    ctx_trace_printf(weq->ctx, ">3 N-ary update conflict END\n");
-  }
-
-  assert(conflict->size > 1);
-  (*weq->stats.array_update2_axioms) ++;
-
-  return false;
-}
-
-static
-bool weq_graph_nary_read_over_write_check(weq_graph_t* weq, ivector_t* conflict,
-                                          const ivector_t* select_terms) {
-  uint32_t i;
-
-  for (i = 0; i < select_terms->size; ++ i) {
-    if (!weq_graph_nary_read_over_write_lemma(weq, conflict, select_terms->data[i])) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 /* Check read-over-right conflict (based on weakly equivalent array
  * reasoning) for all select terms. If a conflict is found, the
  * conflict terms are added in the conflict vector.
@@ -1249,30 +1198,36 @@ bool weq_graph_array_read_over_write_check(weq_graph_t* weq, ivector_t* conflict
       composite_term_t* e_j_desc = app_term_desc(terms, t_j);
       if (t_i == t_j ||
           t_i_type != t_j_type ||
-          !eq_graph_are_equal(weq->eq_graph, e_i_desc->arg[1], e_j_desc->arg[1]) ||
+          weq_graph_app_index_arity(e_i_desc) != weq_graph_app_index_arity(e_j_desc) ||
+          !weq_graph_index_vectors_equal(weq, weq_graph_app_index_arity(e_i_desc),
+                                         weq_graph_app_indices(e_i_desc),
+                                         weq_graph_app_indices(e_j_desc)) ||
           eq_graph_are_equal(weq->eq_graph, t_i, t_j)) {
         continue;
       }
       
-      ivector_shrink(&weq->path_indices1, 0);
+      ivector_shrink(&weq->path_edges1, 0);
       ivector_shrink(&weq->path_cond, 0);
 
-      if (weq_graph_array_weak_eq_i(weq, e_i_desc->arg[0], e_j_desc->arg[0],
-                                    e_i_desc->arg[1], &weq->path_indices1, &weq->path_cond)) {
+      if (weq_graph_array_weak_eq_at(weq, e_i_desc->arg[0], e_j_desc->arg[0],
+                                     weq_graph_app_index_arity(e_i_desc),
+                                     weq_graph_app_indices(e_i_desc),
+                                     &weq->path_edges1, &weq->path_cond)) {
         // found conflict
         assert(conflict->size == 0);
 
         bool ok = true;
-        for (k = 0; k < weq->path_indices1.size; ++ k) {
-          assert(weq->path_indices1.data[k] != e_i_desc->arg[1]);
-          if (eq_graph_are_equal(weq->eq_graph,
-                                 e_i_desc->arg[1], weq->path_indices1.data[k])) {
+        for (k = 0; k < weq->path_edges1.size; ++ k) {
+          if (weq_graph_store_indices_equal(weq, weq->path_edges1.data[k],
+                                            weq_graph_app_index_arity(e_i_desc),
+                                            weq_graph_app_indices(e_i_desc))) {
             ok = false;
             break;
           }
 
-          add_if_not_true_term(conflict,
-                               _o_yices_neq(e_i_desc->arg[1], weq->path_indices1.data[k]));
+          weq_graph_add_store_index_disequality(weq, conflict, weq->path_edges1.data[k],
+                                                weq_graph_app_index_arity(e_i_desc),
+                                                weq_graph_app_indices(e_i_desc));
         }
 
         if (!ok) {
@@ -1282,7 +1237,10 @@ bool weq_graph_array_read_over_write_check(weq_graph_t* weq, ivector_t* conflict
             add_if_not_true_term(conflict, weq->path_cond.data[k]);
           }
 
-          add_if_not_true_term(conflict, _o_yices_eq(e_i_desc->arg[1], e_j_desc->arg[1]));
+          weq_graph_add_index_vector_equalities(weq, conflict,
+                                                weq_graph_app_index_arity(e_i_desc),
+                                                weq_graph_app_indices(e_i_desc),
+                                                weq_graph_app_indices(e_j_desc));
           add_if_not_true_term(conflict, _o_yices_neq(t_i, t_j));
 
           ivector_remove_duplicates(conflict);
@@ -1330,8 +1288,7 @@ void weq_graph_array_build_weak_eq_graph(weq_graph_t* weq,
     if (t_kind == UPDATE_TERM) {
       composite_term_t* t_desc = update_term_desc(terms, t);
       weq_graph_node_t *a = weq_graph_get_node(weq, t_desc->arg[0]);
-      term_t idx = t_desc->arg[1];
-      weq_graph_add_store(weq, a, b, idx, t);
+      weq_graph_add_store(weq, a, b, t);
     }
   }
 }
@@ -1507,36 +1464,6 @@ void filter_select_terms(const weq_graph_t* weq,
   delete_int_hset(&array_terms_set);
 }
 
-static
-void filter_unary_array_terms(weq_graph_t* weq, ivector_t* array_terms) {
-  uint32_t i, j;
-
-  j = 0;
-  for (i = 0; i < array_terms->size; ++ i) {
-    term_t t = array_terms->data[i];
-    if (weq_graph_is_unary_function_term(weq, t)) {
-      array_terms->data[j++] = t;
-    }
-  }
-  ivector_shrink(array_terms, j);
-}
-
-static
-void filter_unary_select_terms(const weq_graph_t* weq, ivector_t* select_terms) {
-  const term_table_t* terms = weq->ctx->terms;
-  uint32_t i, j;
-
-  j = 0;
-  for (i = 0; i < select_terms->size; ++ i) {
-    term_t t = select_terms->data[i];
-    if (term_kind(terms, t) == APP_TERM &&
-        app_term_desc(terms, t)->arity == 2) {
-      select_terms->data[j++] = t;
-    }
-  }
-  ivector_shrink(select_terms, j);
-}
-
 /* Returns true if all the select terms and arrays terms are fully
  * assigned, otherwise returns false.
  */
@@ -1583,22 +1510,11 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
   // filter select terms
   filter_select_terms(weq, &select_terms, &array_terms);
 
-  ok = weq_graph_nary_read_over_write_check(weq, conflict, &select_terms);
-  /*
-   * The weak-path graph below stores one masking index per update edge.
-   * Keep that algorithm on unary function updates; n-ary writes are handled
-   * above by direct component-wise read-over-write checks.
-   */
-  filter_unary_array_terms(weq, &array_terms);
-  filter_unary_select_terms(weq, &select_terms);
-
   // store select terms according to heuristic score
   int_array_sort2(select_terms.data, select_terms.size, weq->ctx, weq_graph_array_terms_compare);
 
-  //ok = weq_graph_array_idx_check(weq, conflict, &array_terms);
-
   // check if updates are present.
-  // also make sure that relevant array terms have been assinged values
+  // also make sure that relevant array terms have been assigned values
   bool updates_present = false;
   uint32_t i;
   term_table_t* terms = weq->ctx->terms;

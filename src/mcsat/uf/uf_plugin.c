@@ -99,9 +99,6 @@ typedef struct {
   /** Trail prefix already scanned for explicit function disequalities */
   uint32_t fun_diseq_trail_scan_index;
 
-  /** True once an n-ary update term has been registered */
-  bool has_nary_update_terms;
-
   /** Active function-id view rebuilt from the current trail */
   ivector_t active_fun_terms;
   ivector_t active_fun_types;
@@ -588,165 +585,6 @@ static bool uf_plugin_terms_are_equal_in_branch(uf_plugin_t* uf, term_t lhs, ter
   return uf_plugin_bool_term_is_true(uf, eq);
 }
 
-static void uf_plugin_push_reason_term(uf_plugin_t* uf, ivector_t* reasons, term_t t) {
-  if (t == true_term) {
-    return;
-  }
-
-  uf->ctx->register_term(uf->ctx, unsigned_term(t));
-  ivector_push(reasons, t);
-}
-
-static bool uf_plugin_add_equality_reason(uf_plugin_t* uf, term_t lhs, term_t rhs,
-                                          ivector_t* reasons) {
-  term_t eq;
-
-  if (!uf_plugin_terms_are_equal_in_branch(uf, lhs, rhs)) {
-    return false;
-  }
-
-  eq = _o_yices_eq(lhs, rhs);
-  uf_plugin_push_reason_term(uf, reasons, eq);
-  return true;
-}
-
-static bool uf_plugin_add_index_vector_equality_reasons(uf_plugin_t* uf, uint32_t n,
-                                                        const term_t* lhs, const term_t* rhs,
-                                                        ivector_t* reasons) {
-  uint32_t i;
-
-  for (i = 0; i < n; ++ i) {
-    if (!uf_plugin_add_equality_reason(uf, lhs[i], rhs[i], reasons)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-static bool uf_plugin_find_index_vector_diseq_reason(uf_plugin_t* uf, uint32_t n,
-                                                     const term_t* lhs, const term_t* rhs,
-                                                     term_t* reason) {
-  uint32_t i;
-
-  for (i = 0; i < n; ++ i) {
-    term_t eq, neq;
-
-    if (lhs[i] == rhs[i]) {
-      continue;
-    }
-
-    eq = _o_yices_eq(lhs[i], rhs[i]);
-    if (eq == false_term || uf_plugin_bool_term_is_false(uf, eq)) {
-      *reason = opposite_term(eq);
-      return true;
-    }
-
-    neq = _o_yices_neq(lhs[i], rhs[i]);
-    if (neq == true_term || uf_plugin_bool_term_is_true(uf, neq)) {
-      *reason = neq;
-      return true;
-    }
-  }
-
-  return false;
-}
-
-static bool uf_plugin_nary_update_desc(term_table_t* terms, term_t t,
-                                       composite_term_t** desc, uint32_t* index_arity) {
-  if (term_kind(terms, t) != UPDATE_TERM) {
-    return false;
-  }
-
-  *desc = update_term_desc(terms, t);
-  if ((*desc)->arity <= 3) {
-    return false;
-  }
-
-  *index_arity = (*desc)->arity - 2;
-  return true;
-}
-
-static bool uf_plugin_add_nary_update_commutation_reasons(uf_plugin_t* uf, term_t lhs, term_t rhs,
-                                                          ivector_t* reasons) {
-  term_table_t* terms = uf->ctx->terms;
-  composite_term_t *lhs_outer, *lhs_inner, *rhs_outer, *rhs_inner;
-  uint32_t lhs_outer_n, lhs_inner_n, rhs_outer_n, rhs_inner_n;
-  term_t diseq_reason;
-
-  if (!uf_plugin_nary_update_desc(terms, lhs, &lhs_outer, &lhs_outer_n) ||
-      !uf_plugin_nary_update_desc(terms, rhs, &rhs_outer, &rhs_outer_n) ||
-      lhs_outer_n != rhs_outer_n ||
-      !uf_plugin_nary_update_desc(terms, lhs_outer->arg[0], &lhs_inner, &lhs_inner_n) ||
-      !uf_plugin_nary_update_desc(terms, rhs_outer->arg[0], &rhs_inner, &rhs_inner_n) ||
-      lhs_outer_n != lhs_inner_n ||
-      lhs_outer_n != rhs_inner_n) {
-    return false;
-  }
-
-  if (!uf_plugin_add_index_vector_equality_reasons(uf, lhs_outer_n,
-                                                   lhs_outer->arg + 1, rhs_inner->arg + 1,
-                                                   reasons) ||
-      !uf_plugin_add_equality_reason(uf, lhs_outer->arg[lhs_outer->arity - 1],
-                                     rhs_inner->arg[rhs_inner->arity - 1],
-                                     reasons) ||
-      !uf_plugin_add_index_vector_equality_reasons(uf, lhs_outer_n,
-                                                   lhs_inner->arg + 1, rhs_outer->arg + 1,
-                                                   reasons) ||
-      !uf_plugin_add_equality_reason(uf, lhs_inner->arg[lhs_inner->arity - 1],
-                                     rhs_outer->arg[rhs_outer->arity - 1],
-                                     reasons) ||
-      !uf_plugin_add_equality_reason(uf, lhs_inner->arg[0], rhs_inner->arg[0],
-                                     reasons)) {
-    return false;
-  }
-
-  if (!uf_plugin_find_index_vector_diseq_reason(uf, lhs_outer_n,
-                                                lhs_outer->arg + 1, lhs_inner->arg + 1,
-                                                &diseq_reason)) {
-    return false;
-  }
-  uf_plugin_push_reason_term(uf, reasons, diseq_reason);
-
-  return true;
-}
-
-static bool uf_plugin_check_nary_update_commutation_conflict(uf_plugin_t* uf) {
-  term_table_t* terms = uf->ctx->terms;
-  variable_db_t* var_db = uf->ctx->var_db;
-  const mcsat_trail_t* trail = uf->ctx->trail;
-  uint32_t i, n;
-
-  n = trail_size(trail);
-  for (i = 0; i < n; ++ i) {
-    variable_t v = trail_at(trail, i);
-    term_t t = variable_db_get_term(var_db, v);
-    const mcsat_value_t* value;
-    composite_term_t* eq;
-
-    if (t == NULL_TERM || term_kind(terms, t) != EQ_TERM) {
-      continue;
-    }
-
-    value = trail_get_value(trail, v);
-    if (value->type != VALUE_BOOLEAN || value->b) {
-      continue;
-    }
-
-    eq = eq_term_desc(terms, t);
-    ivector_reset(&uf->conflict);
-    ivector_push(&uf->conflict, opposite_term(t));
-    if (uf_plugin_add_nary_update_commutation_reasons(uf, eq->arg[0], eq->arg[1],
-                                                      &uf->conflict)) {
-      ivector_remove_duplicates(&uf->conflict);
-      return true;
-    }
-  }
-
-  ivector_reset(&uf->conflict);
-  return false;
-}
-
 static void uf_plugin_emit_fun_diseq_witness_lemmas(uf_plugin_t* uf, trail_token_t* prop) {
   uint32_t i;
 
@@ -867,7 +705,6 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_int_hset(&uf->fun_used_values, 0);
   init_pvector(&uf->fun_diseq_entries, 0);
   uf->fun_diseq_trail_scan_index = 0;
-  uf->has_nary_update_terms = false;
   init_ivector(&uf->active_fun_terms, 0);
   init_ivector(&uf->active_fun_types, 0);
   init_ivector(&uf->active_fun_ids, 0);
@@ -998,9 +835,6 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     break;
   case UPDATE_TERM:
     t_desc = update_term_desc(terms, t);
-    if (t_desc->arity > 3) {
-      uf->has_nary_update_terms = true;
-    }
     eq_graph_add_ufun_term(&uf->eq_graph, t, t_desc->arg[0], t_desc->arity - 1, t_desc->arg + 1);
     // remember array term
     weq_graph_add_array_term(&uf->weq_graph, t);
@@ -1177,14 +1011,6 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   }
 
   if (uf_plugin_check_fun_extensionality_conflict(uf)) {
-    prop->conflict(prop);
-    (*uf->stats.conflicts) ++;
-    statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
-    return;
-  }
-
-  if (uf->has_nary_update_terms &&
-      uf_plugin_check_nary_update_commutation_conflict(uf)) {
     prop->conflict(prop);
     (*uf->stats.conflicts) ++;
     statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
