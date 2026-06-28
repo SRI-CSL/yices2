@@ -106,6 +106,7 @@ typedef struct {
     statistic_int_t* egraph_terms;
     statistic_int_t* fun_diseq_explicit;
     statistic_int_t* fun_diseq_distinct_id;
+    statistic_int_t* fun_diseq_incompatible_id_merges;
     statistic_int_t* fun_diseq_witnesses;
     statistic_int_t* propagations;
     statistic_int_t* conflicts;
@@ -358,6 +359,42 @@ static bool uf_plugin_can_create_distinct_id_witnesses(uf_plugin_t* uf, term_t t
   return needed <= UF_FUN_DISEQ_WITNESS_CAP - uf->fun_diseq_entries.size;
 }
 
+static bool uf_plugin_has_incompatible_fun_id_merge(uf_plugin_t* uf) {
+  uint32_t i, j, n;
+
+  n = uf->active_fun_terms.size;
+  for (i = 0; i < n; ++ i) {
+    term_t lhs = uf->active_fun_terms.data[i];
+    type_t lhs_type = uf->active_fun_types.data[i];
+    int32_t lhs_id = uf->active_fun_ids.data[i];
+
+    if (!eq_graph_has_term(&uf->eq_graph, lhs)) {
+      continue;
+    }
+
+    for (j = i + 1; j < n; ++ j) {
+      term_t rhs = uf->active_fun_terms.data[j];
+
+      if (lhs_type == (type_t) uf->active_fun_types.data[j] &&
+          lhs_id != uf->active_fun_ids.data[j] &&
+          eq_graph_has_term(&uf->eq_graph, rhs) &&
+          eq_graph_are_equal(&uf->eq_graph, lhs, rhs)) {
+        (*uf->stats.fun_diseq_incompatible_id_merges) ++;
+        if (!uf->eq_graph.in_conflict &&
+            eq_graph_has_propagated_term_value(&uf->eq_graph, lhs) &&
+            eq_graph_has_propagated_term_value(&uf->eq_graph, rhs)) {
+          uf->eq_graph.in_conflict = true;
+          uf->eq_graph.conflict_lhs = eq_graph_get_propagated_term_value_id(&uf->eq_graph, lhs);
+          uf->eq_graph.conflict_rhs = eq_graph_get_propagated_term_value_id(&uf->eq_graph, rhs);
+        }
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 static void uf_plugin_rebuild_active_fun_ids(uf_plugin_t* uf) {
   variable_db_t* var_db = uf->ctx->var_db;
   uint32_t i, n;
@@ -388,6 +425,7 @@ void uf_plugin_stats_init(uf_plugin_t* uf) {
   uf->stats.egraph_terms = statistics_new_int(uf->ctx->stats, "mcsat::uf::egraph_terms");
   uf->stats.fun_diseq_explicit = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_explicit");
   uf->stats.fun_diseq_distinct_id = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_distinct_id");
+  uf->stats.fun_diseq_incompatible_id_merges = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_incompatible_id_merges");
   uf->stats.fun_diseq_witnesses = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_witnesses");
   uf->stats.avg_conflict_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_conflict_size");
   uf->stats.avg_explanation_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_explanation_size");
@@ -673,6 +711,9 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     eq_graph_propagate_trail(&uf->eq_graph);
     uf_plugin_process_eq_graph_propagations(uf, prop);
     uf_plugin_rebuild_active_fun_ids(uf);
+  }
+  if (uf_plugin_has_incompatible_fun_id_merge(uf)) {
+    assert(uf->eq_graph.in_conflict);
   }
 
   // Check for conflicts
