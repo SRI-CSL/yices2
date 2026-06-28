@@ -1,0 +1,6 @@
+(define f::(-> bool bool int))
+(define u::(-> bool bool int) (update f (false true) 0))
+
+(assert (/= (u false false) (f false false)))
+
+(check)
