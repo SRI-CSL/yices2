@@ -136,26 +136,8 @@ static void uf_plugin_free_fun_diseq_entries_from(uf_plugin_t* uf, uint32_t old_
   }
 }
 
-static bool uf_plugin_is_first_order_function_type(type_table_t* types, type_t tau) {
-  uint32_t i, n;
-
-  if (type_kind(types, tau) != FUNCTION_TYPE ||
-      type_kind(types, function_type_range(types, tau)) == FUNCTION_TYPE) {
-    return false;
-  }
-
-  n = function_type_arity(types, tau);
-  for (i = 0; i < n; ++ i) {
-    if (type_kind(types, function_type_domain(types, tau, i)) == FUNCTION_TYPE) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 static bool uf_plugin_supports_diff_witness_type(type_table_t* types, type_t tau) {
-  return uf_plugin_is_first_order_function_type(types, tau) && type_has_finite_domain(types, tau);
+  return type_kind(types, tau) == FUNCTION_TYPE && type_has_finite_domain(types, tau);
 }
 
 static void uf_plugin_order_fun_pair(term_t* lhs, term_t* rhs) {
@@ -266,7 +248,7 @@ static bool uf_plugin_term_has_function_id(const uf_plugin_t* uf, term_t t, int3
   variable_t v;
   const mcsat_value_t* value;
 
-  if (t == NULL_TERM || !uf_plugin_is_first_order_function_type(uf->ctx->types, term_type(terms, t))) {
+  if (t == NULL_TERM || term_type_kind(terms, t) != FUNCTION_TYPE) {
     return false;
   }
 

@@ -1233,60 +1233,12 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
 }
 
 static
-bool type_contains_function_type(type_table_t* types, type_t tau) {
-  uint32_t i, n;
-
-  switch (type_kind(types, tau)) {
-  case FUNCTION_TYPE:
-    return true;
-
-  case TUPLE_TYPE:
-    n = tuple_type_arity(types, tau);
-    for (i = 0; i < n; ++ i) {
-      if (type_contains_function_type(types, tuple_type_component(types, tau, i))) {
-        return true;
-      }
-    }
-    return false;
-
-  case INSTANCE_TYPE:
-    n = instance_type_arity(types, tau);
-    for (i = 0; i < n; ++ i) {
-      if (type_contains_function_type(types, instance_type_param(types, tau, i))) {
-        return true;
-      }
-    }
-    return false;
-
-  default:
-    return false;
-  }
-}
-
-static
-bool first_order_function_type_is_supported(type_table_t* types, type_t tau) {
-  uint32_t i, n;
-
-  assert(is_function_type(types, tau));
-
-  n = function_type_arity(types, tau);
-  for (i = 0; i < n; ++ i) {
-    if (type_contains_function_type(types, function_type_domain(types, tau, i))) {
-      return false;
-    }
-  }
-
-  return !type_contains_function_type(types, function_type_range(types, tau));
-}
-
-static
 bool type_needs_function_diseq_guard(type_table_t* types, type_t tau) {
   uint32_t i, n;
 
   switch (type_kind(types, tau)) {
   case FUNCTION_TYPE:
-    if (first_order_function_type_is_supported(types, tau) &&
-        type_has_finite_domain(types, tau)) {
+    if (type_has_finite_domain(types, tau)) {
       return false;
     }
 
