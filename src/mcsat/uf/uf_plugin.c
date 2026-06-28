@@ -431,13 +431,13 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     weq_graph_add_array_term(&uf->weq_graph, t_desc->arg[0]);
     // remember select terms
     term_t r1 = app_term(terms, t, t_desc->arity - 2, t_desc->arg + 1);
-    variable_db_get_variable(uf->ctx->var_db, r1);
+    uf->ctx->register_term(uf->ctx, r1);
     weq_graph_add_select_term(&uf->weq_graph, r1);
     // if the element domain is finite then we add this extra read term
     type_t element_type = term_type(terms, t_desc->arg[2]);
     if (is_finite_type(terms->types, element_type) || is_boolean_type(element_type) || is_bv_type(terms->types, element_type)){
       term_t r2 = app_term(terms, t_desc->arg[0], t_desc->arity - 2, t_desc->arg + 1);
-      variable_db_get_variable(uf->ctx->var_db, r2);
+      uf->ctx->register_term(uf->ctx, r2);
       weq_graph_add_select_term(&uf->weq_graph, r2);
     }
     break;
