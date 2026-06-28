@@ -1559,6 +1559,33 @@ value_t uf_model_builder_get_term_value(uf_model_builder_t* builder, term_t t) {
 }
 
 static
+bool uf_plugin_term_has_trail_value(uf_plugin_t* uf, term_t t) {
+  variable_t var;
+
+  var = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
+  return var != variable_null && trail_has_value(uf->ctx->trail, var);
+}
+
+static
+void uf_model_builder_map_term_if_missing(uf_model_builder_t* builder, model_t* model, term_t t) {
+  value_t value;
+
+  if (model_find_term_value(model, t) != null_value) {
+    return;
+  }
+
+  if (term_type_kind(builder->uf->ctx->terms, t) != FUNCTION_TYPE &&
+      !uf_plugin_term_has_trail_value(builder->uf, t)) {
+    return;
+  }
+
+  value = uf_model_builder_get_term_value(builder, t);
+  if (value != null_value) {
+    model_map_term(model, t, value);
+  }
+}
+
+static
 void uf_model_builder_prepare(uf_model_builder_t* builder) {
   uf_plugin_t* uf = builder->uf;
   term_table_t* terms = uf->ctx->terms;
@@ -1601,6 +1628,26 @@ void uf_model_builder_prepare(uf_model_builder_t* builder) {
 }
 
 static
+void uf_model_builder_map_diff_witnesses(uf_model_builder_t* builder, model_t* model) {
+  uf_plugin_t* uf = builder->uf;
+  uint32_t i, j;
+
+  for (i = 0; i < uf->fun_diseq_entries.size; ++ i) {
+    uf_fun_diseq_t* entry = uf->fun_diseq_entries.data[i];
+
+    if (!uf_plugin_fun_diseq_entry_is_active(uf, entry)) {
+      continue;
+    }
+
+    for (j = 0; j < entry->arity; ++ j) {
+      uf_model_builder_map_term_if_missing(builder, model, entry->diff_terms[j]);
+    }
+    uf_model_builder_map_term_if_missing(builder, model, entry->lhs_app);
+    uf_model_builder_map_term_if_missing(builder, model, entry->rhs_app);
+  }
+}
+
+static
 void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
@@ -1628,6 +1675,8 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
       }
     }
   }
+
+  uf_model_builder_map_diff_witnesses(&builder, model);
 
   // Now construct special interpreted functions for division-by-zero cases.
   ivector_t special_terms;

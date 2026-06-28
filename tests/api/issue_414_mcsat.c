@@ -154,6 +154,25 @@ int main(void) {
           "failed to assert Bool -> Int function disequality");
     CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
           "expected SAT for disequality over Bool -> Int");
+    {
+      model_t *model = yices_get_model(ctx, 1);
+      term_t diff = yices_get_term_by_name("mcsat_diff_0_0");
+      term_t f_diff, g_diff;
+      int32_t diff_value;
+
+      CHECK(model != NULL, "failed to build model for Bool -> Int disequality");
+      CHECK(diff != NULL_TERM, "failed to retrieve generated diff witness");
+      CHECK(yices_get_bool_value(model, diff, &diff_value) == 0,
+            "model must define generated diff witness");
+
+      f_diff = yices_application1(f, diff);
+      g_diff = yices_application1(g, diff);
+      CHECK(f_diff != NULL_TERM && g_diff != NULL_TERM,
+            "failed to rebuild witness applications");
+      CHECK(yices_formula_true_in_model(model, yices_neq(f_diff, g_diff)) == 1,
+            "model must satisfy witness applications disequality");
+      yices_free_model(model);
+    }
     yices_free_context(ctx);
   }
 
