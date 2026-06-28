@@ -254,6 +254,49 @@ static bool uf_plugin_term_has_function_id(const uf_plugin_t* uf, term_t t, int3
   return q_get32((rational_t*) &value->q, id);
 }
 
+static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
+  term_table_t* terms = uf->ctx->terms;
+  variable_db_t* var_db = uf->ctx->var_db;
+  const mcsat_trail_t* trail = uf->ctx->trail;
+  bool added = false;
+  uint32_t i, n;
+
+  n = trail_size(trail);
+  for (i = 0; i < n; ++ i) {
+    variable_t v = trail_at(trail, i);
+    term_t t = variable_db_get_term(var_db, v);
+    const mcsat_value_t* value;
+    composite_term_t* eq;
+    term_t lhs, rhs;
+    type_t tau;
+
+    if (term_kind(terms, t) != EQ_TERM) {
+      continue;
+    }
+
+    value = trail_get_value(trail, v);
+    if (value->type != VALUE_BOOLEAN || value->b) {
+      continue;
+    }
+
+    eq = eq_term_desc(terms, t);
+    lhs = eq->arg[0];
+    rhs = eq->arg[1];
+    tau = term_type(terms, lhs);
+    if (tau != term_type(terms, rhs) ||
+        !uf_plugin_is_first_order_function_type(uf->ctx->types, tau)) {
+      continue;
+    }
+
+    if (uf_plugin_find_fun_diseq_entry(uf, lhs, rhs) == NULL &&
+        uf_plugin_ensure_diff_witnesses(uf, lhs, rhs, UF_FUN_DISEQ_EXPLICIT, t) != NULL) {
+      added = true;
+    }
+  }
+
+  return added;
+}
+
 static void uf_plugin_rebuild_active_fun_ids(uf_plugin_t* uf) {
   variable_db_t* var_db = uf->ctx->var_db;
   uint32_t i, n;
@@ -560,6 +603,11 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   uf_plugin_rebuild_active_fun_ids(uf);
   uf_plugin_process_eq_graph_propagations(uf, prop);
   uf_plugin_rebuild_active_fun_ids(uf);
+  if (uf_plugin_add_explicit_fun_diseq_witnesses(uf)) {
+    eq_graph_propagate_trail(&uf->eq_graph);
+    uf_plugin_process_eq_graph_propagations(uf, prop);
+    uf_plugin_rebuild_active_fun_ids(uf);
+  }
 
   // Check for conflicts
   if (uf->eq_graph.in_conflict) {
