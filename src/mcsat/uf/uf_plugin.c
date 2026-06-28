@@ -395,6 +395,90 @@ static bool uf_plugin_has_incompatible_fun_id_merge(uf_plugin_t* uf) {
   return false;
 }
 
+static bool uf_plugin_bool_term_is_false(uf_plugin_t* uf, term_t t) {
+  variable_t v;
+
+  v = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
+  return v != variable_null &&
+    trail_has_value(uf->ctx->trail, v) &&
+    trail_get_value(uf->ctx->trail, v)->type == VALUE_BOOLEAN &&
+    !trail_get_value(uf->ctx->trail, v)->b;
+}
+
+static bool uf_plugin_bool_term_is_true(uf_plugin_t* uf, term_t t) {
+  variable_t v;
+
+  v = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
+  return v != variable_null &&
+    trail_has_value(uf->ctx->trail, v) &&
+    trail_get_value(uf->ctx->trail, v)->type == VALUE_BOOLEAN &&
+    trail_get_value(uf->ctx->trail, v)->b;
+}
+
+static bool uf_plugin_fun_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_diseq_t* entry) {
+  int32_t lhs_id, rhs_id;
+
+  switch (entry->source) {
+  case UF_FUN_DISEQ_EXPLICIT:
+    return entry->guard != NULL_TERM && uf_plugin_bool_term_is_false(uf, entry->guard);
+  case UF_FUN_DISEQ_DISTINCT_ID:
+    return uf_plugin_term_has_function_id(uf, entry->lhs, &lhs_id) &&
+      uf_plugin_term_has_function_id(uf, entry->rhs, &rhs_id) &&
+      lhs_id != rhs_id;
+  default:
+    assert(false);
+    return false;
+  }
+}
+
+static bool uf_plugin_terms_are_equal_in_branch(uf_plugin_t* uf, term_t lhs, term_t rhs) {
+  term_t eq;
+
+  if (lhs == rhs) {
+    return true;
+  }
+
+  if (eq_graph_has_term(&uf->eq_graph, lhs) &&
+      eq_graph_has_term(&uf->eq_graph, rhs) &&
+      eq_graph_are_equal(&uf->eq_graph, lhs, rhs)) {
+    return true;
+  }
+
+  eq = _o_yices_eq(lhs, rhs);
+  return uf_plugin_bool_term_is_true(uf, eq);
+}
+
+static bool uf_plugin_check_fun_extensionality_conflict(uf_plugin_t* uf) {
+  uint32_t i;
+
+  for (i = 0; i < uf->fun_diseq_entries.size; ++ i) {
+    uf_fun_diseq_t* entry = uf->fun_diseq_entries.data[i];
+    term_t diseq, witness_eq;
+
+    if (!uf_plugin_fun_diseq_entry_is_active(uf, entry) ||
+        !uf_plugin_terms_are_equal_in_branch(uf, entry->lhs_app, entry->rhs_app)) {
+      continue;
+    }
+
+    if (entry->source == UF_FUN_DISEQ_EXPLICIT && entry->guard != NULL_TERM) {
+      diseq = opposite_term(entry->guard);
+    } else {
+      diseq = _o_yices_neq(entry->lhs, entry->rhs);
+      uf->ctx->register_term(uf->ctx, unsigned_term(diseq));
+    }
+    witness_eq = _o_yices_eq(entry->lhs_app, entry->rhs_app);
+    uf->ctx->register_term(uf->ctx, witness_eq);
+
+    ivector_reset(&uf->conflict);
+    ivector_push(&uf->conflict, diseq);
+    ivector_push(&uf->conflict, witness_eq);
+    ivector_remove_duplicates(&uf->conflict);
+    return true;
+  }
+
+  return false;
+}
+
 static void uf_plugin_rebuild_active_fun_ids(uf_plugin_t* uf) {
   variable_db_t* var_db = uf->ctx->var_db;
   uint32_t i, n;
@@ -724,6 +808,13 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     // Construct the conflict
     eq_graph_get_conflict(&uf->eq_graph, &uf->conflict, NULL, &uf->tmp);
     uf_plugin_bump_terms_and_reset(uf, &uf->tmp);
+    statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
+    return;
+  }
+
+  if (uf_plugin_check_fun_extensionality_conflict(uf)) {
+    prop->conflict(prop);
+    (*uf->stats.conflicts) ++;
     statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
     return;
   }
