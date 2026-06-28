@@ -121,6 +121,8 @@ typedef struct {
   mcsat_solver_t* solver;
 } mcsat_evaluator_t;
 
+static void mcsat_process_registration_queue(mcsat_solver_t* mcsat);
+
 struct mcsat_solver_s {
 
   /** Context of the solver */
@@ -777,6 +779,15 @@ void mcsat_plugin_context_hint_value(plugin_context_t* self, variable_t x, const
 }
 
 static
+void mcsat_plugin_context_register_term(plugin_context_t* self, term_t t) {
+  mcsat_plugin_context_t* mctx;
+  mctx = (mcsat_plugin_context_t*) self;
+  t = unsigned_term(t);
+  variable_db_get_variable(mctx->mcsat->var_db, t);
+  mcsat_process_registration_queue(mctx->mcsat);
+}
+
+static
 void mcsat_plugin_context_decision_calls(plugin_context_t* self, type_kind_t type) {
   mcsat_plugin_context_t* mctx;
 
@@ -808,6 +819,7 @@ void mcsat_plugin_context_construct(mcsat_plugin_context_t* ctx, mcsat_solver_t*
   ctx->ctx.request_top_decision = mcsat_plugin_context_request_top_decision;
   ctx->ctx.hint_next_decision = mcsat_plugin_context_hint_next_decision;
   ctx->ctx.hint_value = mcsat_plugin_context_hint_value;
+  ctx->ctx.register_term = mcsat_plugin_context_register_term;
   ctx->mcsat = mcsat;
   ctx->plugin_name = plugin_name;
 }

@@ -166,6 +166,20 @@ static uf_fun_diseq_t* uf_plugin_find_fun_diseq_entry(uf_plugin_t* uf, term_t lh
   return NULL;
 }
 
+static void uf_plugin_register_diff_witness_terms(uf_plugin_t* uf, uf_fun_diseq_t* entry) {
+  uint32_t i;
+
+  assert(uf->ctx->register_term != NULL);
+
+  uf->ctx->register_term(uf->ctx, entry->lhs);
+  uf->ctx->register_term(uf->ctx, entry->rhs);
+  for (i = 0; i < entry->arity; ++ i) {
+    uf->ctx->register_term(uf->ctx, entry->diff_terms[i]);
+  }
+  uf->ctx->register_term(uf->ctx, entry->lhs_app);
+  uf->ctx->register_term(uf->ctx, entry->rhs_app);
+}
+
 uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, term_t rhs,
                                                 uf_fun_diseq_source_t source, term_t guard) {
   term_table_t* terms = uf->ctx->terms;
@@ -209,6 +223,8 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
 
   entry->lhs_app = app_term(terms, lhs, arity, entry->diff_terms);
   entry->rhs_app = app_term(terms, rhs, arity, entry->diff_terms);
+
+  uf_plugin_register_diff_witness_terms(uf, entry);
 
   pvector_push(&uf->fun_diseq_entries, entry);
   return entry;

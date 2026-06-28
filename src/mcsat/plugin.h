@@ -123,6 +123,9 @@ struct plugin_context_s {
   /** Add model value hint in the value cache */
   void (*hint_value) (plugin_context_t* self, variable_t x, const mcsat_value_t* val);
 
+  /** Register a generated term and notify its owners */
+  void (*register_term) (plugin_context_t* self, term_t t);
+
 };
 
 /** Token to add entries to the trail */
