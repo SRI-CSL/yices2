@@ -220,7 +220,7 @@ int main(void) {
     yices_free_context(ctx);
   }
 
-  // Case 9: the guard is downward-closed through function ranges.
+  // Case 9: higher-order ranges are accepted when their disequalities are covered recursively.
   {
     type_t bool_dom[1] = { yices_bool_type() };
     type_t int_dom[1] = { yices_int_type() };
@@ -233,14 +233,14 @@ int main(void) {
     term_t g = yices_new_uninterpreted_term(higher_order);
     context_t *ctx = make_mcsat_context();
     CHECK(ctx != NULL, "failed to create mcsat context (range closure case)");
-    CHECK(yices_assert_formula(ctx, yices_eq(f, g)) < 0,
-          "expected equality over a function range containing finite functions to be rejected");
-    CHECK(yices_error_code() == MCSAT_ERROR_UNSUPPORTED_THEORY,
-          "expected MCSAT unsupported-theory error for range closure");
+    CHECK(yices_assert_formula(ctx, yices_eq(f, g)) == 0,
+          "failed to assert equality over a function range containing finite functions");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for equality over Int -> (Bool -> Int)");
     yices_free_context(ctx);
   }
 
-  // Case 10: the guard is downward-closed through function domains.
+  // Case 10: function-typed domains with infinite cardinality remain accepted.
   {
     type_t bool_dom[1] = { yices_bool_type() };
     type_t fun_bi = yices_function_type(1, bool_dom, yices_int_type());
@@ -253,10 +253,10 @@ int main(void) {
     term_t g = yices_new_uninterpreted_term(higher_order);
     context_t *ctx = make_mcsat_context();
     CHECK(ctx != NULL, "failed to create mcsat context (domain closure case)");
-    CHECK(yices_assert_formula(ctx, yices_neq(f, g)) < 0,
-          "expected disequality over a function domain containing finite functions to be rejected");
-    CHECK(yices_error_code() == MCSAT_ERROR_UNSUPPORTED_THEORY,
-          "expected MCSAT unsupported-theory error for domain closure");
+    CHECK(yices_assert_formula(ctx, yices_neq(f, g)) == 0,
+          "failed to assert disequality over a function-typed infinite domain");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for disequality over ((Bool -> Int) -> Int)");
     yices_free_context(ctx);
   }
 

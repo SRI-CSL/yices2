@@ -1238,13 +1238,9 @@ bool type_needs_function_diseq_guard(type_table_t* types, type_t tau) {
 
   switch (type_kind(types, tau)) {
   case FUNCTION_TYPE:
-    if (type_has_finite_domain(types, tau)) {
-      return false;
-    }
-
     if (type_has_finite_domain(types, tau) ||
         is_unit_type(types, function_type_range(types, tau))) {
-      return true;
+      return false;
     }
 
     n = function_type_arity(types, tau);

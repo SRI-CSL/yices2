@@ -137,7 +137,8 @@ static void uf_plugin_free_fun_diseq_entries_from(uf_plugin_t* uf, uint32_t old_
 }
 
 static bool uf_plugin_supports_diff_witness_type(type_table_t* types, type_t tau) {
-  return type_kind(types, tau) == FUNCTION_TYPE && type_has_finite_domain(types, tau);
+  return type_kind(types, tau) == FUNCTION_TYPE &&
+    (type_has_finite_domain(types, tau) || is_unit_type(types, function_type_range(types, tau)));
 }
 
 static void uf_plugin_order_fun_pair(term_t* lhs, term_t* rhs) {
