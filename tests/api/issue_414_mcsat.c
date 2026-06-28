@@ -58,7 +58,7 @@ int main(void) {
     yices_free_context(ctx);
   }
 
-  // Case 2: finite function equality/disequality is rejected in MCSAT.
+  // Case 2: singleton-range function disequality is unsatisfiable.
   {
     type_t dom[1] = { yices_int_type() };
     type_t fun_unit = yices_function_type(1, dom, unit);
@@ -68,14 +68,14 @@ int main(void) {
     term_t g = yices_new_uninterpreted_term(fun_unit);
     context_t *ctx = make_mcsat_context();
     CHECK(ctx != NULL, "failed to create mcsat context (function case)");
-    CHECK(yices_assert_formula(ctx, yices_neq(f, g)) < 0,
-          "expected finite-function disequality to be rejected by MCSAT");
-    CHECK(yices_error_code() == MCSAT_ERROR_UNSUPPORTED_THEORY,
-          "expected MCSAT unsupported-theory error for finite-function disequality");
+    CHECK(yices_assert_formula(ctx, yices_neq(f, g)) == 0,
+          "failed to assert singleton-range function disequality");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_UNSAT,
+          "expected UNSAT for disequality over Int -> scalar(1)");
     yices_free_context(ctx);
   }
 
-  // Case 3: same rejection for Bool -> Bool (finite domain and codomain).
+  // Case 3: Bool -> Bool function equality is satisfiable.
   {
     type_t dom[1] = { yices_bool_type() };
     type_t fun_bb = yices_function_type(1, dom, yices_bool_type());
@@ -85,14 +85,14 @@ int main(void) {
     term_t g = yices_new_uninterpreted_term(fun_bb);
     context_t *ctx = make_mcsat_context();
     CHECK(ctx != NULL, "failed to create mcsat context (Bool->Bool case)");
-    CHECK(yices_assert_formula(ctx, yices_eq(f, g)) < 0,
-          "expected finite-function equality to be rejected by MCSAT");
-    CHECK(yices_error_code() == MCSAT_ERROR_UNSUPPORTED_THEORY,
-          "expected MCSAT unsupported-theory error for finite-function equality");
+    CHECK(yices_assert_formula(ctx, yices_eq(f, g)) == 0,
+          "failed to assert Bool -> Bool function equality");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for equality over Bool -> Bool");
     yices_free_context(ctx);
   }
 
-  // Case 4: DISTINCT_TERM is rejected before expansion to pairwise disequalities.
+  // Case 4: three Bool -> Bool functions can be pairwise distinct.
   {
     type_t dom[1] = { yices_bool_type() };
     type_t fun_bb = yices_function_type(1, dom, yices_bool_type());
@@ -108,14 +108,39 @@ int main(void) {
 
     context_t *ctx = make_mcsat_context();
     CHECK(ctx != NULL, "failed to create mcsat context (distinct Bool->Bool case)");
-    CHECK(yices_assert_formula(ctx, distinct) < 0,
-          "expected finite-function distinct to be rejected by MCSAT");
-    CHECK(yices_error_code() == MCSAT_ERROR_UNSUPPORTED_THEORY,
-          "expected MCSAT unsupported-theory error for finite-function distinct");
+    CHECK(yices_assert_formula(ctx, distinct) == 0,
+          "failed to assert distinct Bool -> Bool functions");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for three distinct Bool -> Bool functions");
     yices_free_context(ctx);
   }
 
-  // Case 5: finite-domain functions are rejected even when the codomain is infinite.
+  // Case 5: five Bool -> Bool functions cannot be pairwise distinct.
+  {
+    type_t dom[1] = { yices_bool_type() };
+    type_t fun_bb = yices_function_type(1, dom, yices_bool_type());
+    CHECK(fun_bb != NULL_TYPE, "failed to create (Bool -> Bool) type");
+
+    term_t funs[5] = {
+      yices_new_uninterpreted_term(fun_bb),
+      yices_new_uninterpreted_term(fun_bb),
+      yices_new_uninterpreted_term(fun_bb),
+      yices_new_uninterpreted_term(fun_bb),
+      yices_new_uninterpreted_term(fun_bb),
+    };
+    term_t distinct = yices_distinct(5, funs);
+    CHECK(distinct != NULL_TERM, "failed to create pigeonhole distinct term");
+
+    context_t *ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (pigeonhole Bool->Bool case)");
+    CHECK(yices_assert_formula(ctx, distinct) == 0,
+          "failed to assert five distinct Bool -> Bool functions");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_UNSAT,
+          "expected UNSAT for five distinct Bool -> Bool functions");
+    yices_free_context(ctx);
+  }
+
+  // Case 6: finite-domain functions with infinite codomain can be disequal.
   {
     type_t dom[1] = { yices_bool_type() };
     type_t fun_bi = yices_function_type(1, dom, yices_int_type());
@@ -125,14 +150,14 @@ int main(void) {
     term_t g = yices_new_uninterpreted_term(fun_bi);
     context_t *ctx = make_mcsat_context();
     CHECK(ctx != NULL, "failed to create mcsat context (Bool->Int case)");
-    CHECK(yices_assert_formula(ctx, yices_neq(f, g)) < 0,
-          "expected finite-domain function disequality to be rejected by MCSAT");
-    CHECK(yices_error_code() == MCSAT_ERROR_UNSUPPORTED_THEORY,
-          "expected MCSAT unsupported-theory error for finite-domain function disequality");
+    CHECK(yices_assert_formula(ctx, yices_neq(f, g)) == 0,
+          "failed to assert Bool -> Int function disequality");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for disequality over Bool -> Int");
     yices_free_context(ctx);
   }
 
-  // Case 6: DISTINCT_TERM over finite-domain functions is rejected too.
+  // Case 7: DISTINCT_TERM over Bool -> Int functions is satisfiable.
   {
     type_t dom[1] = { yices_bool_type() };
     type_t fun_bi = yices_function_type(1, dom, yices_int_type());
@@ -148,14 +173,14 @@ int main(void) {
 
     context_t *ctx = make_mcsat_context();
     CHECK(ctx != NULL, "failed to create mcsat context (distinct Bool->Int case)");
-    CHECK(yices_assert_formula(ctx, distinct) < 0,
-          "expected finite-domain function distinct to be rejected by MCSAT");
-    CHECK(yices_error_code() == MCSAT_ERROR_UNSUPPORTED_THEORY,
-          "expected MCSAT unsupported-theory error for finite-domain function distinct");
+    CHECK(yices_assert_formula(ctx, distinct) == 0,
+          "failed to assert distinct Bool -> Int functions");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for three distinct Bool -> Int functions");
     yices_free_context(ctx);
   }
 
-  // Case 7: the guard is downward-closed through function ranges.
+  // Case 8: the guard is downward-closed through function ranges.
   {
     type_t bool_dom[1] = { yices_bool_type() };
     type_t int_dom[1] = { yices_int_type() };
@@ -175,7 +200,7 @@ int main(void) {
     yices_free_context(ctx);
   }
 
-  // Case 8: the guard is downward-closed through function domains.
+  // Case 9: the guard is downward-closed through function domains.
   {
     type_t bool_dom[1] = { yices_bool_type() };
     type_t fun_bi = yices_function_type(1, bool_dom, yices_int_type());
@@ -195,7 +220,7 @@ int main(void) {
     yices_free_context(ctx);
   }
 
-  // Case 9: infinite-domain, non-unit-codomain function disequality remains accepted.
+  // Case 10: infinite-domain, non-unit-codomain function disequality remains accepted.
   {
     type_t dom[1] = { yices_int_type() };
     type_t fun_ib = yices_function_type(1, dom, yices_bool_type());

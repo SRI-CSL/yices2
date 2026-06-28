@@ -59,6 +59,7 @@ typedef struct {
   term_t* diff_terms;
   term_t lhs_app;
   term_t rhs_app;
+  bool lemma_emitted;
 } uf_fun_diseq_t;
 
 
@@ -216,6 +217,7 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
   entry->source = source;
   entry->guard = guard;
   entry->diff_terms = safe_malloc(arity * sizeof(term_t));
+  entry->lemma_emitted = false;
 
   for (i = 0; i < arity; ++ i) {
     type_t sigma = function_type_domain(types, tau, i);
@@ -433,8 +435,15 @@ static bool uf_plugin_fun_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_di
 
 static bool uf_plugin_terms_are_equal_in_branch(uf_plugin_t* uf, term_t lhs, term_t rhs) {
   term_t eq;
+  type_t lhs_type;
 
   if (lhs == rhs) {
+    return true;
+  }
+
+  lhs_type = term_type(uf->ctx->terms, lhs);
+  if (lhs_type == term_type(uf->ctx->terms, rhs) &&
+      is_unit_type(uf->ctx->types, lhs_type)) {
     return true;
   }
 
@@ -446,6 +455,33 @@ static bool uf_plugin_terms_are_equal_in_branch(uf_plugin_t* uf, term_t lhs, ter
 
   eq = _o_yices_eq(lhs, rhs);
   return uf_plugin_bool_term_is_true(uf, eq);
+}
+
+static void uf_plugin_emit_fun_diseq_witness_lemmas(uf_plugin_t* uf, trail_token_t* prop) {
+  uint32_t i;
+
+  for (i = 0; i < uf->fun_diseq_entries.size; ++ i) {
+    uf_fun_diseq_t* entry = uf->fun_diseq_entries.data[i];
+    term_t lemma[2];
+
+    if (entry->lemma_emitted || !uf_plugin_fun_diseq_entry_is_active(uf, entry)) {
+      continue;
+    }
+
+    if (entry->source == UF_FUN_DISEQ_EXPLICIT && entry->guard != NULL_TERM) {
+      lemma[0] = entry->guard;
+    } else {
+      lemma[0] = _o_yices_eq(entry->lhs, entry->rhs);
+      uf->ctx->register_term(uf->ctx, lemma[0]);
+    }
+    lemma[1] = _o_yices_neq(entry->lhs_app, entry->rhs_app);
+    if (lemma[1] != true_term) {
+      uf->ctx->register_term(uf->ctx, unsigned_term(lemma[1]));
+    }
+
+    prop->lemma(prop, _o_yices_or(2, lemma));
+    entry->lemma_emitted = true;
+  }
 }
 
 static bool uf_plugin_check_fun_extensionality_conflict(uf_plugin_t* uf) {
@@ -467,11 +503,15 @@ static bool uf_plugin_check_fun_extensionality_conflict(uf_plugin_t* uf) {
       uf->ctx->register_term(uf->ctx, unsigned_term(diseq));
     }
     witness_eq = _o_yices_eq(entry->lhs_app, entry->rhs_app);
-    uf->ctx->register_term(uf->ctx, witness_eq);
+    if (witness_eq != true_term) {
+      uf->ctx->register_term(uf->ctx, witness_eq);
+    }
 
     ivector_reset(&uf->conflict);
     ivector_push(&uf->conflict, diseq);
-    ivector_push(&uf->conflict, witness_eq);
+    if (witness_eq != true_term) {
+      ivector_push(&uf->conflict, witness_eq);
+    }
     ivector_remove_duplicates(&uf->conflict);
     return true;
   }
@@ -779,8 +819,10 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     ctx_trace_printf(uf->ctx, "uf_plugin_propagate()\n");
   }
 
-  // If we're not watching anything, we just ignore
-  if (eq_graph_term_size(&uf->eq_graph) == 0) {
+  bool added_fun_diseq_witnesses = uf_plugin_add_explicit_fun_diseq_witnesses(uf);
+
+  // If we're not watching anything and no witness was added, we just ignore.
+  if (eq_graph_term_size(&uf->eq_graph) == 0 && !added_fun_diseq_witnesses) {
     return;
   }
 
@@ -789,13 +831,13 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   uf_plugin_rebuild_active_fun_ids(uf);
   uf_plugin_process_eq_graph_propagations(uf, prop);
   uf_plugin_rebuild_active_fun_ids(uf);
-  bool added_fun_diseq_witnesses = uf_plugin_add_explicit_fun_diseq_witnesses(uf);
   added_fun_diseq_witnesses = uf_plugin_add_distinct_id_fun_diseq_witnesses(uf) || added_fun_diseq_witnesses;
   if (added_fun_diseq_witnesses) {
     eq_graph_propagate_trail(&uf->eq_graph);
     uf_plugin_process_eq_graph_propagations(uf, prop);
     uf_plugin_rebuild_active_fun_ids(uf);
   }
+  uf_plugin_emit_fun_diseq_witness_lemmas(uf, prop);
   if (uf_plugin_has_incompatible_fun_id_merge(uf)) {
     assert(uf->eq_graph.in_conflict);
   }
@@ -1330,18 +1372,8 @@ value_t uf_model_builder_get_function_value(uf_model_builder_t* builder, term_t 
   type_t fun_type = term_type(terms, fun_term);
   f_value = make_fresh_function(&builder->maker, fun_type);
   if (f_value == null_value) {
-    // Unreachable on supported inputs: the MCSAT preprocessor guard
-    // (term_needs_function_diseq_guard in mcsat/preprocessor.c) rejects
-    // equality atoms whose type contains a finite-domain function sort, so
-    // make_fresh_function should always succeed for any function type that
-    // reaches model construction. If we ever reach here, the guard has a
-    // hole; fail closed rather than silently constructing a collapsing
-    // default function value.
-    // LCOV_EXCL_START - unreachable, rejected by preprocessor guard
-    assert(false && "unreachable: preprocessor guard should have rejected this type");
     delete_ivector(&arguments);
     return null_value;
-    // LCOV_EXCL_STOP
   }
 
   // Cache the fresh base function first to handle recursive calls that come

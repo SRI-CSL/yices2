@@ -1233,29 +1233,17 @@ void tuple_blast_term(preprocessor_t* pre, term_t t) {
 }
 
 static
-bool type_needs_function_diseq_guard(type_table_t* types, type_t tau) {
+bool type_contains_function_type(type_table_t* types, type_t tau) {
   uint32_t i, n;
 
   switch (type_kind(types, tau)) {
   case FUNCTION_TYPE:
-    if (type_has_finite_domain(types, tau) ||
-        is_unit_type(types, function_type_range(types, tau))) {
-      return true;
-    }
-
-    n = function_type_arity(types, tau);
-    for (i = 0; i < n; ++ i) {
-      if (type_needs_function_diseq_guard(types, function_type_domain(types, tau, i))) {
-        return true;
-      }
-    }
-
-    return type_needs_function_diseq_guard(types, function_type_range(types, tau));
+    return true;
 
   case TUPLE_TYPE:
     n = tuple_type_arity(types, tau);
     for (i = 0; i < n; ++ i) {
-      if (type_needs_function_diseq_guard(types, tuple_type_component(types, tau, i))) {
+      if (type_contains_function_type(types, tuple_type_component(types, tau, i))) {
         return true;
       }
     }
@@ -1264,7 +1252,54 @@ bool type_needs_function_diseq_guard(type_table_t* types, type_t tau) {
   case INSTANCE_TYPE:
     n = instance_type_arity(types, tau);
     for (i = 0; i < n; ++ i) {
-      if (type_needs_function_diseq_guard(types, instance_type_param(types, tau, i))) {
+      if (type_contains_function_type(types, instance_type_param(types, tau, i))) {
+        return true;
+      }
+    }
+    return false;
+
+  default:
+    return false;
+  }
+}
+
+static
+bool first_order_function_type_is_supported(type_table_t* types, type_t tau) {
+  uint32_t i, n;
+
+  assert(is_function_type(types, tau));
+
+  n = function_type_arity(types, tau);
+  for (i = 0; i < n; ++ i) {
+    if (type_contains_function_type(types, function_type_domain(types, tau, i))) {
+      return false;
+    }
+  }
+
+  return !type_contains_function_type(types, function_type_range(types, tau));
+}
+
+static
+bool type_needs_function_diseq_guard(type_table_t* types, type_t tau) {
+  uint32_t i, n;
+
+  switch (type_kind(types, tau)) {
+  case FUNCTION_TYPE:
+    return !first_order_function_type_is_supported(types, tau);
+
+  case TUPLE_TYPE:
+    n = tuple_type_arity(types, tau);
+    for (i = 0; i < n; ++ i) {
+      if (type_contains_function_type(types, tuple_type_component(types, tau, i))) {
+        return true;
+      }
+    }
+    return false;
+
+  case INSTANCE_TYPE:
+    n = instance_type_arity(types, tau);
+    for (i = 0; i < n; ++ i) {
+      if (type_contains_function_type(types, instance_type_param(types, tau, i))) {
         return true;
       }
     }
@@ -1276,7 +1311,27 @@ bool type_needs_function_diseq_guard(type_table_t* types, type_t tau) {
 }
 
 static bool term_needs_function_diseq_guard(term_table_t* terms, term_t t) {
-  return type_needs_function_diseq_guard(terms->types, term_type(terms, t));
+  type_table_t* types;
+  type_t tau;
+
+  types = terms->types;
+  tau = term_type(terms, t);
+  if (type_kind(types, tau) != FUNCTION_TYPE) {
+    return type_needs_function_diseq_guard(types, tau);
+  }
+
+  if (!first_order_function_type_is_supported(types, tau)) {
+    return true;
+  }
+
+  switch (term_kind(terms, t)) {
+  case CONSTANT_TERM:
+  case UNINTERPRETED_TERM:
+  case UPDATE_TERM:
+    return false;
+  default:
+    return true;
+  }
 }
 
 /**
