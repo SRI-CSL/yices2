@@ -111,8 +111,8 @@ typedef struct {
   ivector_t active_fun_types;
   ivector_t active_fun_ids;
 
-  /** Cached support check for diff witnesses, keyed by type id */
-  int_hmap_t diff_witness_type_cache;
+  /** Cached risky-function-type check, keyed by type id */
+  int_hmap_t risky_function_type_cache;
 
   /** Tmp vector */
   int_mset_t tmp;
@@ -144,24 +144,56 @@ static void uf_plugin_free_fun_diseq_entries_from(uf_plugin_t* uf, uint32_t old_
   }
 }
 
-static bool uf_plugin_supports_diff_witness_type_uncached(type_table_t* types, type_t tau) {
-  return type_kind(types, tau) == FUNCTION_TYPE &&
-    (type_has_finite_domain(types, tau) || is_unit_type(types, function_type_range(types, tau)));
+static bool uf_type_is_equality_sensitive(uf_plugin_t* uf, type_t tau) {
+  return uf->ctx->type_is_equality_sensitive == NULL ||
+    uf->ctx->type_is_equality_sensitive(uf->ctx, tau);
 }
 
-static bool uf_plugin_supports_diff_witness_type(uf_plugin_t* uf, type_t tau) {
-  int_hmap_pair_t* cached;
-  bool supported;
+static void uf_plugin_assert_equality_sensitivity_frozen(uf_plugin_t* uf) {
+  assert(uf->ctx->equality_sensitivity_is_frozen == NULL ||
+         uf->ctx->equality_sensitivity_is_frozen(uf->ctx));
+}
 
-  cached = int_hmap_find(&uf->diff_witness_type_cache, tau);
+static bool uf_type_has_unit_cardinality(type_table_t* types, type_t tau) {
+  return is_unit_type(types, tau) ||
+    (type_card_is_exact(types, tau) && type_card(types, tau) == 1);
+}
+
+static bool uf_type_is_risky_uncached(type_table_t* types, type_t tau) {
+  return type_kind(types, tau) == FUNCTION_TYPE &&
+    (type_has_finite_domain(types, tau) ||
+     uf_type_has_unit_cardinality(types, function_type_range(types, tau)));
+}
+
+static bool uf_type_is_risky(uf_plugin_t* uf, type_t tau) {
+  int_hmap_pair_t* cached;
+  bool risky;
+
+  cached = int_hmap_find(&uf->risky_function_type_cache, tau);
   if (cached != NULL) {
     return cached->val != 0;
   }
 
-  supported = uf_plugin_supports_diff_witness_type_uncached(uf->ctx->types, tau);
-  cached = int_hmap_get(&uf->diff_witness_type_cache, tau);
-  cached->val = supported;
-  return supported;
+  risky = uf_type_is_risky_uncached(uf->ctx->types, tau);
+  cached = int_hmap_get(&uf->risky_function_type_cache, tau);
+  cached->val = risky;
+  return risky;
+}
+
+static bool uf_type_needs_search_diff(uf_plugin_t* uf, type_t tau) {
+  uf_plugin_assert_equality_sensitivity_frozen(uf);
+
+  return type_kind(uf->ctx->types, tau) == FUNCTION_TYPE &&
+    uf_type_is_equality_sensitive(uf, tau) &&
+    uf_type_is_risky(uf, tau);
+}
+
+static bool uf_type_needs_model_diseq_record(uf_plugin_t* uf, type_t tau) {
+  uf_plugin_assert_equality_sensitivity_frozen(uf);
+
+  return type_kind(uf->ctx->types, tau) == FUNCTION_TYPE &&
+    uf_type_is_equality_sensitive(uf, tau) &&
+    !uf_type_is_risky(uf, tau);
 }
 
 static void uf_plugin_order_fun_pair(term_t* lhs, term_t* rhs) {
@@ -223,7 +255,7 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
 
   tau = term_type(terms, lhs);
   assert(tau == term_type(terms, rhs));
-  assert(uf_plugin_supports_diff_witness_type(uf, tau));
+  assert(uf_type_needs_search_diff(uf, tau));
 
   arity = function_type_arity(types, tau);
   entry = safe_malloc(sizeof(uf_fun_diseq_t));
@@ -266,7 +298,7 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
 
   if (uf->fun_diseq_entries.size < UF_FUN_DISEQ_WITNESS_CAP) {
     type_t range = function_type_range(types, tau);
-    if (uf_plugin_supports_diff_witness_type(uf, range) &&
+    if (uf_type_needs_search_diff(uf, range) &&
         uf_plugin_find_fun_diseq_entry(uf, entry->lhs_app, entry->rhs_app) == NULL) {
       term_t child_guard = _o_yices_eq(entry->lhs_app, entry->rhs_app);
       uf_plugin_ensure_diff_witnesses(uf, entry->lhs_app, entry->rhs_app,
@@ -347,7 +379,8 @@ static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
         int_hset_member(&uf->generated_witness_eqs, t) ||
         int_hset_member(&uf->diff_witness_terms, lhs) ||
         int_hset_member(&uf->diff_witness_terms, rhs) ||
-        !uf_plugin_supports_diff_witness_type(uf, tau)) {
+        uf_type_needs_model_diseq_record(uf, tau) ||
+        !uf_type_needs_search_diff(uf, tau)) {
       continue;
     }
 
@@ -371,7 +404,8 @@ static bool uf_plugin_can_create_distinct_id_witnesses(uf_plugin_t* uf, term_t t
   type_t tau = term_type(terms, t);
   uint32_t i, needed;
 
-  if (!uf_plugin_supports_diff_witness_type(uf, tau)) {
+  if (uf_type_needs_model_diseq_record(uf, tau) ||
+      !uf_type_needs_search_diff(uf, tau)) {
     return true;
   }
 
@@ -797,13 +831,19 @@ static void uf_plugin_rebuild_active_fun_ids(uf_plugin_t* uf) {
   n = var_db->variable_to_term_map.size;
   for (i = 1; i < n; ++ i) {
     term_t t = var_db->variable_to_term_map.data[i];
+    type_t tau;
     int32_t id;
 
-    if (t != NULL_TERM &&
-        uf_plugin_supports_diff_witness_type(uf, term_type(uf->ctx->terms, t)) &&
+    if (t == NULL_TERM) {
+      continue;
+    }
+
+    tau = term_type(uf->ctx->terms, t);
+    if (type_kind(uf->ctx->types, tau) == FUNCTION_TYPE &&
+        uf_type_is_equality_sensitive(uf, tau) &&
         uf_plugin_term_has_function_id(uf, t, &id)) {
       ivector_push(&uf->active_fun_terms, t);
-      ivector_push(&uf->active_fun_types, term_type(uf->ctx->terms, t));
+      ivector_push(&uf->active_fun_types, tau);
       ivector_push(&uf->active_fun_ids, id);
     }
   }
@@ -854,7 +894,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_ivector(&uf->active_fun_terms, 0);
   init_ivector(&uf->active_fun_types, 0);
   init_ivector(&uf->active_fun_ids, 0);
-  init_int_hmap(&uf->diff_witness_type_cache, 0);
+  init_int_hmap(&uf->risky_function_type_cache, 0);
   int_mset_construct(&uf->tmp, NULL_TERM);
 
   // Terms
@@ -897,7 +937,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&uf->active_fun_terms);
   delete_ivector(&uf->active_fun_types);
   delete_ivector(&uf->active_fun_ids);
-  delete_int_hmap(&uf->diff_witness_type_cache);
+  delete_int_hmap(&uf->risky_function_type_cache);
   int_mset_destruct(&uf->tmp);
 
   eq_graph_destruct(&uf->eq_graph);
