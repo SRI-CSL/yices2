@@ -56,9 +56,8 @@
 /*
  * Default clause deletion parameters
  */
-#define DEFAULT_R_THRESHOLD   1000
-#define DEFAULT_R_FRACTION    0.25
-#define DEFAULT_R_FACTOR      1.05
+#define DEFAULT_R_INITIAL_THRESHOLD   300
+#define DEFAULT_R_INTERVAL    25
 
 
 /*
@@ -135,9 +134,8 @@ static const param_t default_settings = {
   DEFAULT_C_FACTOR,
   DEFAULT_D_FACTOR,
 
-  DEFAULT_R_THRESHOLD,
-  DEFAULT_R_FRACTION,
-  DEFAULT_R_FACTOR,
+  DEFAULT_R_INITIAL_THRESHOLD,
+  DEFAULT_R_INTERVAL,
 
   DEFAULT_VAR_DECAY,
   DEFAULT_RANDOMNESS,
@@ -193,9 +191,8 @@ typedef enum param_key {
   PARAM_D_FACTOR,
   PARAM_DELEGATE,
   // clause deletion heuristic
-  PARAM_R_THRESHOLD,
-  PARAM_R_FRACTION,
-  PARAM_R_FACTOR,
+  PARAM_R_INITIAL_THRESHOLD,
+  PARAM_R_INTERVAL,
   // branching heuristic
   PARAM_VAR_DECAY,
   PARAM_RANDOMNESS,
@@ -259,9 +256,8 @@ static const char *const param_key_names[NUM_PARAM_KEYS] = {
   "mcsat-supplement-check",
   "optimistic-final-check",
   "prop-threshold",
-  "r-factor",
-  "r-fraction",
-  "r-threshold",
+  "r-initial-threshold",
+  "r-interval",
   "random-seed",
   "randomness",
   "simplex-adjust",
@@ -298,9 +294,8 @@ static const int32_t param_code[NUM_PARAM_KEYS] = {
   PARAM_MCSAT_SUPPLEMENT_CHECK,
   PARAM_OPTIMISTIC_FCHECK,
   PARAM_PROP_THRESHOLD,
-  PARAM_R_FACTOR,
-  PARAM_R_FRACTION,
-  PARAM_R_THRESHOLD,
+  PARAM_R_INITIAL_THRESHOLD,
+  PARAM_R_INTERVAL,
   PARAM_RANDOM_SEED,
   PARAM_RANDOMNESS,
   PARAM_SIMPLEX_ADJUST,
@@ -747,20 +742,25 @@ int32_t params_set_field(param_t *parameters, const char *key, const char *value
     r = set_sat_delegate_param(value, &parameters->delegate);
     break;
 
-  case PARAM_R_THRESHOLD:
-    r = set_int32_param(value, &z, 1, INT32_MAX);
+  case PARAM_R_INITIAL_THRESHOLD: {
+    uint32_t u;
+    r = set_uint32_param(value, &u);
     if (r == 0) {
-      parameters->r_threshold = z;
+      if (u == 0) r = -2;
+      else parameters->r_initial_threshold = u;
     }
     break;
+  }
 
-  case PARAM_R_FRACTION:
-    r = set_double_param(value, &parameters->r_fraction, 0.0, 1.0);
+  case PARAM_R_INTERVAL: {
+    uint32_t u;
+    r = set_uint32_param(value, &u);
+    if (r == 0) {
+      if (u == 0) r = -2;
+      else parameters->r_interval = u;
+    }
     break;
-
-  case PARAM_R_FACTOR:
-    r = set_double_param(value, &parameters->r_factor, 1.0, DBL_MAX);
-    break;
+  }
 
   case PARAM_VAR_DECAY:
     r = set_double_param(value, &parameters->var_decay, 0.0, 1.0);

@@ -160,6 +160,25 @@ static inline void multiply_activity(clause_t *cl, float scale) {
 }
 
 /*
+ * Reduce-protection counter (CaDiCaL-style "used recently" flag).
+ * - set to CLAUSE_USED_INIT when cl is resolved in conflict analysis
+ * - decremented on each reduce; cl is protected from deletion while > 0
+ */
+#define CLAUSE_USED_INIT 1
+
+static inline uint32_t get_used(const clause_t *cl) {
+  return learned(cl)->used;
+}
+
+static inline void set_used(clause_t *cl) {
+  learned(cl)->used = CLAUSE_USED_INIT;
+}
+
+static inline void dec_used(clause_t *cl) {
+  learned(cl)->used --;
+}
+
+/*
  * Mark a clause cl for removal
  */
 static inline void mark_for_removal(clause_t *cl) {
@@ -238,6 +257,7 @@ static clause_t *new_learned_clause(uint32_t len, literal_t *lit) {
   tmp = (learned_clause_t *) safe_malloc(sizeof(learned_clause_t) + sizeof(literal_t) +
                                          len * sizeof(literal_t));
   tmp->activity = 0.0;
+  tmp->used = 0; // unprotected until re-resolved in a later conflict
   result = &(tmp->clause);
 
   for (i=0; i<len; i++) {
@@ -3538,6 +3558,7 @@ static void resolve_conflict(smt_core_t *s) {
    */
   if (l == end_learned) {
     increase_clause_activity(s, s->false_clause);
+    set_used(s->false_clause); // existing learned clause reused in conflict analysis
   }
 
   assert(unresolved > 0);
@@ -3587,6 +3608,7 @@ static void resolve_conflict(smt_core_t *s) {
           }
           if (l == end_learned) {
             increase_clause_activity(s, cl);
+            set_used(cl); // existing learned clause reused in conflict analysis
           }
           break;
 
@@ -4797,13 +4819,19 @@ void reduce_clause_database(smt_core_t *s) {
 
   // prepare for deletion: all non-locked clauses, with activity less
   // than activity_threshold are marked for deletion.
+  // Clauses used since the last reduce are protected (their counter is
+  // decremented so the protection decays if they stay idle).
   for (i=0; i<n/2; i++) {
-    if (get_activity(v[i]) <= act_threshold && ! clause_is_locked(s, v[i])) {
+    if (get_used(v[i]) > 0) {
+      dec_used(v[i]);
+    } else if (get_activity(v[i]) <= act_threshold && ! clause_is_locked(s, v[i])) {
       mark_for_removal(v[i]);
     }
   }
   for (i = n/2; i<n; i++) {
-    if (! clause_is_locked(s, v[i])) {
+    if (get_used(v[i]) > 0) {
+      dec_used(v[i]);
+    } else if (! clause_is_locked(s, v[i])) {
       mark_for_removal(v[i]);
     }
   }
