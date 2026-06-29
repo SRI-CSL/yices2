@@ -123,13 +123,13 @@ struct param_s {
   double   d_factor;        // increase factor for next d_threshold
 
   /*
-   * Clause-deletion heuristic
-   * - initial reduce_threshold is max(r_threshold, num_prob_clauses * r_fraction)
-   * - increase by r_factor on every outer restart provided reduce was called in that loop
+   * Clause-deletion heuristic (CaDiCaL-style, triggered on conflict count)
+   * - initial reduce threshold is r_initial_threshold
+   * - on each reduce, the next threshold is set to
+   *     num_conflicts + r_interval * sqrt(num_conflicts)
    */
-  uint32_t r_threshold;
-  double   r_fraction;
-  double   r_factor;
+  uint32_t r_initial_threshold;
+  uint32_t r_interval;
 
   /*
    * SMT Core parameters:
