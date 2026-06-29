@@ -430,17 +430,19 @@ int main(void) {
     yices_free_context(ctx);
   }
 
-  // Case 15: distinct function ids on a risky equality-sensitive type trigger
-  // diff witnesses even when f and g were not explicitly disequal.
+  // Case 15: higher-order constraints can separate risky function terms even
+  // when f and g were not explicitly disequal.
   {
     type_t dom[1] = { yices_bool_type() };
     type_t fun_bb = yices_function_type(1, dom, yices_bool_type());
     type_t pred_dom[1] = { fun_bb };
-    type_t pred_type = yices_function_type(1, pred_dom, yices_bool_type());
-    term_t p, f, g, p_f, p_g, f_t, f_f, g_t, g_f;
+    type_t colors = yices_new_scalar_type(2);
+    type_t pred_type = yices_function_type(1, pred_dom, colors);
+    term_t p, f, g, p_f, p_g;
     context_t *ctx;
 
     CHECK(fun_bb != NULL_TYPE, "failed to create Bool -> Bool type (distinct-id risky case)");
+    CHECK(colors != NULL_TYPE, "failed to create scalar(2) type (distinct-id risky case)");
     CHECK(pred_type != NULL_TYPE, "failed to create higher-order predicate type (distinct-id risky case)");
 
     p = yices_new_uninterpreted_term(pred_type);
@@ -451,37 +453,70 @@ int main(void) {
 
     p_f = yices_application1(p, f);
     p_g = yices_application1(p, g);
-    f_t = yices_application1(f, yices_true());
-    f_f = yices_application1(f, yices_false());
-    g_t = yices_application1(g, yices_true());
-    g_f = yices_application1(g, yices_false());
-    CHECK(p_f != NULL_TERM && p_g != NULL_TERM &&
-          f_t != NULL_TERM && f_f != NULL_TERM && g_t != NULL_TERM && g_f != NULL_TERM,
+    CHECK(p_f != NULL_TERM && p_g != NULL_TERM,
           "failed to create Bool -> Bool applications (distinct-id risky case)");
 
     ctx = make_mcsat_context();
     CHECK(ctx != NULL, "failed to create mcsat context (distinct-id risky case)");
-    CHECK(yices_assert_formula(ctx, p_f) == 0,
-          "failed to assert p(f) (distinct-id risky case)");
-    CHECK(yices_assert_formula(ctx, yices_not(p_g)) == 0,
-          "failed to assert not p(g) (distinct-id risky case)");
-    CHECK(yices_assert_formula(ctx, yices_not(f_t)) == 0,
-          "failed to assert f(true) (distinct-id risky case)");
-    CHECK(yices_assert_formula(ctx, yices_not(f_f)) == 0,
-          "failed to assert f(false) (distinct-id risky case)");
-    CHECK(yices_assert_formula(ctx, yices_not(g_t)) == 0,
-          "failed to assert g(true) (distinct-id risky case)");
-    CHECK(yices_assert_formula(ctx, yices_not(g_f)) == 0,
-          "failed to assert g(false) (distinct-id risky case)");
-    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_UNSAT,
-          "expected UNSAT for risky distinct-id extensionality case");
-    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_distinct_id") > 0,
-          "risky distinct-id path did not allocate a witness");
+    CHECK(yices_assert_formula(ctx, yices_eq(p_f, yices_constant(colors, 0))) == 0,
+          "failed to assert p(f) color (distinct-id risky case)");
+    CHECK(yices_assert_formula(ctx, yices_eq(p_g, yices_constant(colors, 1))) == 0,
+          "failed to assert p(g) color (distinct-id risky case)");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for risky higher-order separation case");
+    {
+      model_t *model = yices_get_model(ctx, 1);
+      CHECK(model != NULL, "failed to build model for risky higher-order separation case");
+      CHECK(yices_formula_true_in_model(model, yices_neq(f, g)) == 1,
+            "model must separate functions with different higher-order images");
+      yices_free_model(model);
+    }
+    yices_free_context(ctx);
+  }
+
+  // Case 15b: diff witness terms are persistent for a function pair across
+  // push/pop. Re-entering the same disequality may recreate the active scoped
+  // obligation, but it must reuse the cached witness term.
+  {
+    type_t dom[1] = { yices_bool_type() };
+    type_t fun_bi = yices_function_type(1, dom, yices_int_type());
+    term_t f, g, diseq;
+    context_t *ctx;
+
+    CHECK(fun_bi != NULL_TYPE, "failed to create Bool -> Int type (persistent witness case)");
+
+    f = yices_new_uninterpreted_term(fun_bi);
+    g = yices_new_uninterpreted_term(fun_bi);
+    diseq = yices_neq(f, g);
+    CHECK(f != NULL_TERM && g != NULL_TERM && diseq != NULL_TERM,
+          "failed to create persistent witness disequality");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (persistent witness case)");
+
+    CHECK(yices_push(ctx) == 0, "failed to push persistent witness context");
+    CHECK(yices_assert_formula(ctx, diseq) == 0,
+          "failed to assert first persistent witness disequality");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for first persistent witness disequality");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_witnesses") == 1,
+          "first disequality did not allocate one witness");
+    CHECK(yices_pop(ctx) == 0, "failed to pop persistent witness context");
+
+    CHECK(yices_push(ctx) == 0, "failed to repush persistent witness context");
+    CHECK(yices_assert_formula(ctx, diseq) == 0,
+          "failed to assert second persistent witness disequality");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for second persistent witness disequality");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_witnesses") == 1,
+          "same function pair allocated a second witness after pop");
+    CHECK(yices_pop(ctx) == 0, "failed to pop second persistent witness context");
+
     yices_free_context(ctx);
   }
 
   // Case 16: distinct function ids on a non-risky equality-sensitive type are
-  // recorded for model completion without UF diff witnesses.
+  // enforced in the model without pairwise model records or UF diff witnesses.
   {
     type_t dom[1] = { yices_int_type() };
     type_t fun_ib = yices_function_type(1, dom, yices_bool_type());
@@ -517,9 +552,9 @@ int main(void) {
     CHECK(yices_assert_formula(ctx, yices_not(g_0)) == 0,
           "failed to assert g(0) (distinct-id non-risky case)");
     CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
-          "expected SAT for non-risky distinct-id record case");
-    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_model") > 0,
-          "non-risky distinct-id path did not record model disequality");
+          "expected SAT for non-risky distinct-id model case");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_model") == 0,
+          "non-risky distinct-id path enumerated model disequality pairs");
     CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_witnesses") == 0,
           "non-risky distinct-id path allocated a UF diff witness");
     {

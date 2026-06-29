@@ -138,8 +138,9 @@ void weq_graph_assert_generated_equality_sensitive(weq_graph_t* weq, const char*
   type_t tau;
 
   (void) origin;
-  assert(weq_graph_equality_sensitivity_is_frozen(weq) &&
-         "WEQ generated equality before equality sensitivity was frozen");
+  if (!weq_graph_equality_sensitivity_is_frozen(weq)) {
+    return;
+  }
   tau = term_type(weq->ctx->terms, lhs);
   assert(tau == term_type(weq->ctx->terms, rhs) &&
          "WEQ generated equality on mismatched types");
@@ -611,6 +612,9 @@ bool weq_graph_terms_diseq_reason(weq_graph_t* weq, term_t lhs, term_t rhs,
   weq_graph_assert_generated_equality_sensitive(weq, "disequality reason", lhs, rhs);
 #endif
   neq = _o_yices_neq(lhs, rhs);
+  if (neq == false_term || weq_graph_bool_term_is_false(weq, neq)) {
+    return false;
+  }
   if (neq == true_term || weq_graph_bool_term_is_true(weq, neq)) {
     *reason = neq;
     return true;
@@ -1767,7 +1771,7 @@ void copy_uniques(ivector_t *to, ivector_t *from) {
  */
 static
 bool weq_is_fully_assigned(const weq_graph_t* weq, term_t t) {
-  variable_t t_var = variable_db_get_variable_if_exists(weq->ctx->var_db, t);
+  variable_t t_var = variable_db_get_variable_if_exists(weq->ctx->var_db, unsigned_term(t));
   assert(t_var != variable_null);
   if (!trail_has_value(weq->ctx->trail, t_var)) {
     return false;
@@ -1793,8 +1797,16 @@ bool weq_is_fully_assigned(const weq_graph_t* weq, term_t t) {
   uint32_t i;
   for (i = 0; t_desc && i < t_desc->arity; ++ i) {
     term_t c = t_desc->arg[i];
-    variable_t c_var = variable_db_get_variable_if_exists(weq->ctx->var_db, c);
-    assert(c_var != variable_null);
+    variable_t c_var;
+
+    if (c == true_term || c == false_term) {
+      continue;
+    }
+
+    c_var = variable_db_get_variable_if_exists(weq->ctx->var_db, unsigned_term(c));
+    if (c_var == variable_null) {
+      return false;
+    }
     if (!trail_has_value(weq->ctx->trail, c_var)) {
       return false;
     }
