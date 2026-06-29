@@ -118,6 +118,7 @@ struct clause_s {
 
 typedef struct learned_clause_s {
   float activity;
+  uint8_t used;     // reduce-protection counter (fills existing padding)
   clause_t clause;
 } learned_clause_t;
 

@@ -3623,7 +3623,8 @@ __YICES_DLLSPEC__ extern void yices_stop_search(context_t *ctx);
  * Then individual parameters can be set using function
  * - yices_set_param(s, name, value) where both name and value are
  *   character strings.
- * - an unknown/unsupported parameter name is ignored
+ * - an unknown/unsupported parameter name causes yices_set_param to return -1
+ *   with error code CTX_UNKNOWN_PARAMETER
  *
  * Then the param object can be passed on as argument to yices_check_context.
  *
