@@ -243,14 +243,12 @@ endif
 endif
 
 #
-# test_context_delegate_stats reaches into internal headers
-# (context/context.h and what it transitively includes) to inspect
-# sat_delegate_stats_t and context_get_sat_delegate_stats.  Those
-# headers use zero-size flexible-array idioms and signed/unsigned
-# comparisons that are accepted when compiled by the main src/ build
-# but trip -Wpedantic / -Wextra under -Werror.  Relax those two
-# warnings for this single test object so the test binary can still
-# link against the regular libyices.{a,so} and run via run_test.sh.
+# test_context_delegate_stats and issue_414_mcsat reach into internal
+# headers to inspect solver-internal state. Those headers use zero-size
+# flexible-array idioms and signed/unsigned comparisons that are accepted when
+# compiled by the main src/ build but trip -Wpedantic / -Wextra under -Werror.
+# Relax those two warnings for these test objects so the test binaries can
+# still link against the regular libyices.{a,so} and run via run_test.sh.
 #
 # Placed after the mode-specific CFLAGS additions above so that the
 # per-target := evaluation captures the fully assembled flag set
@@ -258,7 +256,11 @@ endif
 #
 $(objdir)/test_context_delegate_stats.o: \
   CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
+$(objdir)/issue_414_mcsat.o: \
+  CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
 $(static_objdir)/test_context_delegate_stats.o: \
+  CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
+$(static_objdir)/issue_414_mcsat.o: \
   CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
 
 #
@@ -451,4 +453,3 @@ $(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices)
 	@ echo "  STATIC_GMP = $(STATIC_GMP)"
 	@ echo "  STATIC_GMP_INCLUDE_DIR = $(STATIC_GMP_INCLUDE_DIR)"
 	@ echo
-

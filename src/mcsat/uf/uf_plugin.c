@@ -64,6 +64,21 @@ typedef struct {
   bool lemma_emitted;
 } uf_fun_diseq_t;
 
+typedef struct {
+  term_t lhs;
+  term_t rhs;
+  type_t type;
+  uf_fun_diseq_source_t source;
+  term_t guard;
+} uf_fun_model_diseq_t;
+
+typedef enum {
+  UF_EXPLICIT_DISEQ_NO_CHANGE,
+  UF_EXPLICIT_DISEQ_ADDED_WITNESS,
+  UF_EXPLICIT_DISEQ_CONFLICT,
+  UF_EXPLICIT_DISEQ_CAP_REACHED,
+} uf_explicit_diseq_result_t;
+
 
 typedef struct {
 
@@ -97,6 +112,9 @@ typedef struct {
   /** Scoped committed function disequalities */
   pvector_t fun_diseq_entries;
 
+  /** Scoped non-risky function disequalities for model completion */
+  pvector_t fun_model_diseq_entries;
+
   /** Internal diff witness terms */
   int_hset_t diff_witness_terms;
 
@@ -121,6 +139,7 @@ typedef struct {
     statistic_int_t* egraph_terms;
     statistic_int_t* fun_diseq_explicit;
     statistic_int_t* fun_diseq_distinct_id;
+    statistic_int_t* fun_diseq_model;
     statistic_int_t* fun_diseq_incompatible_id_merges;
     statistic_int_t* fun_diseq_witnesses;
     statistic_int_t* propagations;
@@ -144,6 +163,12 @@ static void uf_plugin_free_fun_diseq_entries_from(uf_plugin_t* uf, uint32_t old_
   }
 }
 
+static void uf_plugin_free_fun_model_diseq_entries_from(uf_plugin_t* uf, uint32_t old_size) {
+  while (uf->fun_model_diseq_entries.size > old_size) {
+    safe_free(pvector_pop2(&uf->fun_model_diseq_entries));
+  }
+}
+
 static bool uf_type_is_equality_sensitive(uf_plugin_t* uf, type_t tau) {
   return uf->ctx->type_is_equality_sensitive == NULL ||
     uf->ctx->type_is_equality_sensitive(uf->ctx, tau);
@@ -152,6 +177,11 @@ static bool uf_type_is_equality_sensitive(uf_plugin_t* uf, type_t tau) {
 static void uf_plugin_assert_equality_sensitivity_frozen(uf_plugin_t* uf) {
   assert(uf->ctx->equality_sensitivity_is_frozen == NULL ||
          uf->ctx->equality_sensitivity_is_frozen(uf->ctx));
+}
+
+static bool uf_plugin_equality_sensitivity_is_frozen(uf_plugin_t* uf) {
+  return uf->ctx->equality_sensitivity_is_frozen == NULL ||
+    uf->ctx->equality_sensitivity_is_frozen(uf->ctx);
 }
 
 static bool uf_type_has_unit_cardinality(type_table_t* types, type_t tau) {
@@ -221,6 +251,84 @@ static uf_fun_diseq_t* uf_plugin_find_fun_diseq_entry(uf_plugin_t* uf, term_t lh
   return NULL;
 }
 
+static uf_fun_model_diseq_t* uf_plugin_find_fun_model_diseq_entry(uf_plugin_t* uf, term_t lhs, term_t rhs) {
+  uint32_t i;
+
+  uf_plugin_order_fun_pair(&lhs, &rhs);
+
+  for (i = 0; i < uf->fun_model_diseq_entries.size; ++ i) {
+    uf_fun_model_diseq_t* entry = uf->fun_model_diseq_entries.data[i];
+    if (entry->lhs == lhs && entry->rhs == rhs) {
+      return entry;
+    }
+  }
+
+  return NULL;
+}
+
+static uf_fun_model_diseq_t* uf_plugin_ensure_model_diseq_record(uf_plugin_t* uf, term_t lhs, term_t rhs,
+                                                                 uf_fun_diseq_source_t source, term_t guard) {
+  term_table_t* terms = uf->ctx->terms;
+  type_t tau;
+  uf_fun_model_diseq_t* entry;
+
+  if (lhs == rhs) {
+    return NULL;
+  }
+
+  uf_plugin_order_fun_pair(&lhs, &rhs);
+  entry = uf_plugin_find_fun_model_diseq_entry(uf, lhs, rhs);
+  if (entry != NULL) {
+    return entry;
+  }
+
+  tau = term_type(terms, lhs);
+  assert(tau == term_type(terms, rhs));
+  assert(uf_type_needs_model_diseq_record(uf, tau));
+
+  entry = safe_malloc(sizeof(uf_fun_model_diseq_t));
+  entry->lhs = lhs;
+  entry->rhs = rhs;
+  entry->type = tau;
+  entry->source = source;
+  entry->guard = guard;
+  pvector_push(&uf->fun_model_diseq_entries, entry);
+  (*uf->stats.fun_diseq_model) ++;
+
+  return entry;
+}
+
+static bool uf_plugin_function_term_is_defined(uf_plugin_t* uf, term_t t) {
+  term_table_t* terms = uf->ctx->terms;
+
+  if (term_type_kind(terms, t) != FUNCTION_TYPE) {
+    return false;
+  }
+
+  switch (term_kind(terms, t)) {
+  case APP_TERM:
+  case UPDATE_TERM:
+  case ITE_TERM:
+  case ITE_SPECIAL:
+  case SELECT_TERM:
+  case LAMBDA_TERM:
+    return true;
+  default:
+    return false;
+  }
+}
+
+static bool uf_plugin_fun_pair_needs_search_diff(uf_plugin_t* uf, term_t lhs, term_t rhs) {
+  type_t tau;
+
+  tau = term_type(uf->ctx->terms, lhs);
+  assert(tau == term_type(uf->ctx->terms, rhs));
+
+  return uf_type_needs_search_diff(uf, tau) ||
+    uf_plugin_function_term_is_defined(uf, lhs) ||
+    uf_plugin_function_term_is_defined(uf, rhs);
+}
+
 static void uf_plugin_register_diff_witness_terms(uf_plugin_t* uf, uf_fun_diseq_t* entry) {
   uint32_t i;
 
@@ -255,7 +363,7 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
 
   tau = term_type(terms, lhs);
   assert(tau == term_type(terms, rhs));
-  assert(uf_type_needs_search_diff(uf, tau));
+  assert(uf_plugin_fun_pair_needs_search_diff(uf, lhs, rhs));
 
   arity = function_type_arity(types, tau);
   entry = safe_malloc(sizeof(uf_fun_diseq_t));
@@ -333,14 +441,68 @@ static bool uf_plugin_term_has_function_id(const uf_plugin_t* uf, term_t t, int3
   return q_get32((rational_t*) &value->q, id);
 }
 
+static uf_explicit_diseq_result_t uf_plugin_add_explicit_fun_diseq_pair(uf_plugin_t* uf, term_t lhs, term_t rhs,
+                                                                        term_t guard) {
+  term_table_t* terms = uf->ctx->terms;
+  type_table_t* types = uf->ctx->types;
+  type_t tau;
+
+  if (lhs == rhs) {
+    return UF_EXPLICIT_DISEQ_NO_CHANGE;
+  }
+
+  tau = term_type(terms, lhs);
+  if (tau != term_type(terms, rhs) ||
+      type_kind(types, tau) != FUNCTION_TYPE ||
+      int_hset_member(&uf->diff_witness_terms, lhs) ||
+      int_hset_member(&uf->diff_witness_terms, rhs)) {
+    return UF_EXPLICIT_DISEQ_NO_CHANGE;
+  }
+
+  assert(uf_type_is_equality_sensitive(uf, tau));
+  if (!uf_type_is_equality_sensitive(uf, tau)) {
+    return UF_EXPLICIT_DISEQ_NO_CHANGE;
+  }
+
+  if (uf_type_has_unit_cardinality(types, function_type_range(types, tau))) {
+    assert(guard != NULL_TERM);
+    ivector_reset(&uf->conflict);
+    ivector_push(&uf->conflict, opposite_term(guard));
+    return UF_EXPLICIT_DISEQ_CONFLICT;
+  }
+
+  if (uf_plugin_fun_pair_needs_search_diff(uf, lhs, rhs)) {
+    if (uf->fun_diseq_entries.size >= UF_FUN_DISEQ_WITNESS_CAP) {
+      return UF_EXPLICIT_DISEQ_CAP_REACHED;
+    }
+    if (uf_plugin_find_fun_diseq_entry(uf, lhs, rhs) == NULL &&
+        uf_plugin_ensure_diff_witnesses(uf, lhs, rhs, UF_FUN_DISEQ_EXPLICIT, guard) != NULL) {
+      return UF_EXPLICIT_DISEQ_ADDED_WITNESS;
+    }
+    return UF_EXPLICIT_DISEQ_NO_CHANGE;
+  }
+
+  if (uf_type_needs_model_diseq_record(uf, tau) &&
+      uf_plugin_find_fun_model_diseq_entry(uf, lhs, rhs) == NULL) {
+    uf_plugin_ensure_model_diseq_record(uf, lhs, rhs, UF_FUN_DISEQ_EXPLICIT, guard);
+  }
+
+  return UF_EXPLICIT_DISEQ_NO_CHANGE;
+}
+
 static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
   term_table_t* terms = uf->ctx->terms;
   variable_db_t* var_db = uf->ctx->var_db;
   const mcsat_trail_t* trail = uf->ctx->trail;
   bool added = false;
-  uint32_t i, n;
+  uint32_t i, n, retry_index;
+
+  if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
+    return false;
+  }
 
   n = trail_size(trail);
+  retry_index = n;
   if (uf->fun_diseq_trail_scan_index > n) {
     uf->fun_diseq_trail_scan_index = n;
   }
@@ -349,48 +511,69 @@ static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
     variable_t v = trail_at(trail, i);
     term_t t = variable_db_get_term(var_db, v);
     const mcsat_value_t* value;
-    composite_term_t* eq;
-    term_t lhs, rhs;
-    type_t tau;
-
-    if (uf->fun_diseq_entries.size >= UF_FUN_DISEQ_WITNESS_CAP) {
-      n = i;
-      break;
-    }
+    term_kind_t kind;
+    uf_explicit_diseq_result_t result;
 
     if (t == NULL_TERM) {
       continue;
     }
 
-    if (term_kind(terms, t) != EQ_TERM) {
-      continue;
-    }
-
+    kind = term_kind(terms, t);
     value = trail_get_value(trail, v);
-    if (value->type != VALUE_BOOLEAN || value->b) {
+    if (value->type != VALUE_BOOLEAN) {
       continue;
     }
 
-    eq = eq_term_desc(terms, t);
-    lhs = eq->arg[0];
-    rhs = eq->arg[1];
-    tau = term_type(terms, lhs);
-    if (tau != term_type(terms, rhs) ||
-        int_hset_member(&uf->generated_witness_eqs, t) ||
-        int_hset_member(&uf->diff_witness_terms, lhs) ||
-        int_hset_member(&uf->diff_witness_terms, rhs) ||
-        uf_type_needs_model_diseq_record(uf, tau) ||
-        !uf_type_needs_search_diff(uf, tau)) {
-      continue;
-    }
+    switch (kind) {
+    case EQ_TERM:
+      if (value->b || int_hset_member(&uf->generated_witness_eqs, t)) {
+        continue;
+      }
+      {
+        composite_term_t* eq = eq_term_desc(terms, t);
+        result = uf_plugin_add_explicit_fun_diseq_pair(uf, eq->arg[0], eq->arg[1], t);
+      }
+      if (result == UF_EXPLICIT_DISEQ_ADDED_WITNESS) {
+        added = true;
+      } else if (result == UF_EXPLICIT_DISEQ_CONFLICT) {
+        uf->fun_diseq_trail_scan_index = retry_index;
+        return added;
+      } else if (result == UF_EXPLICIT_DISEQ_CAP_REACHED) {
+        retry_index = retry_index < i ? retry_index : i;
+      }
+      break;
 
-    if (uf_plugin_find_fun_diseq_entry(uf, lhs, rhs) == NULL &&
-        uf_plugin_ensure_diff_witnesses(uf, lhs, rhs, UF_FUN_DISEQ_EXPLICIT, t) != NULL) {
-      added = true;
+    case DISTINCT_TERM:
+      if (!value->b) {
+        continue;
+      }
+      {
+        composite_term_t* distinct = distinct_term_desc(terms, t);
+        term_t guard = opposite_term(t);
+        uint32_t j, k;
+
+        for (j = 0; j < distinct->arity; ++ j) {
+          for (k = j + 1; k < distinct->arity; ++ k) {
+            result = uf_plugin_add_explicit_fun_diseq_pair(uf, distinct->arg[j], distinct->arg[k], guard);
+            if (result == UF_EXPLICIT_DISEQ_ADDED_WITNESS) {
+              added = true;
+            } else if (result == UF_EXPLICIT_DISEQ_CONFLICT) {
+              uf->fun_diseq_trail_scan_index = retry_index;
+              return added;
+            } else if (result == UF_EXPLICIT_DISEQ_CAP_REACHED) {
+              retry_index = retry_index < i ? retry_index : i;
+            }
+          }
+        }
+      }
+      break;
+
+    default:
+      break;
     }
   }
 
-  uf->fun_diseq_trail_scan_index = n;
+  uf->fun_diseq_trail_scan_index = retry_index;
   return added;
 }
 
@@ -858,6 +1041,7 @@ void uf_plugin_stats_init(uf_plugin_t* uf) {
   uf->stats.egraph_terms = statistics_new_int(uf->ctx->stats, "mcsat::uf::egraph_terms");
   uf->stats.fun_diseq_explicit = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_explicit");
   uf->stats.fun_diseq_distinct_id = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_distinct_id");
+  uf->stats.fun_diseq_model = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_model");
   uf->stats.fun_diseq_incompatible_id_merges = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_incompatible_id_merges");
   uf->stats.fun_diseq_witnesses = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_witnesses");
   uf->stats.avg_conflict_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_conflict_size");
@@ -888,6 +1072,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_ivector(&uf->conflict, 0);
   init_int_hset(&uf->fun_used_values, 0);
   init_pvector(&uf->fun_diseq_entries, 0);
+  init_pvector(&uf->fun_model_diseq_entries, 0);
   init_int_hset(&uf->diff_witness_terms, 0);
   init_int_hset(&uf->generated_witness_eqs, 0);
   uf->fun_diseq_trail_scan_index = 0;
@@ -932,6 +1117,8 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_int_hset(&uf->fun_used_values);
   uf_plugin_free_fun_diseq_entries_from(uf, 0);
   delete_pvector(&uf->fun_diseq_entries);
+  uf_plugin_free_fun_model_diseq_entries_from(uf, 0);
+  delete_pvector(&uf->fun_model_diseq_entries);
   delete_int_hset(&uf->diff_witness_terms);
   delete_int_hset(&uf->generated_witness_eqs);
   delete_ivector(&uf->active_fun_terms);
@@ -1164,6 +1351,12 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   }
 
   bool added_fun_diseq_witnesses = uf_plugin_add_explicit_fun_diseq_witnesses(uf);
+  if (uf->conflict.size > 0) {
+    prop->conflict(prop);
+    (*uf->stats.conflicts) ++;
+    statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
+    return;
+  }
 
   // Propagate known terms
   eq_graph_propagate_trail(&uf->eq_graph);
@@ -1229,6 +1422,7 @@ void uf_plugin_push(plugin_t* plugin) {
   scope_holder_push(&uf->scope,
                     &uf->eq_graph_addition_trail.size,
                     &uf->fun_diseq_entries.size,
+                    &uf->fun_model_diseq_entries.size,
                     NULL);
 
   weq_graph_push(&uf->weq_graph);
@@ -1240,11 +1434,13 @@ void uf_plugin_pop(plugin_t* plugin) {
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
 
   uint32_t old_eq_graph_addition_trail_size, old_fun_diseq_entries_size;
+  uint32_t old_fun_model_diseq_entries_size;
 
   // Pop the int variable values
   scope_holder_pop(&uf->scope,
                    &old_eq_graph_addition_trail_size,
                    &old_fun_diseq_entries_size,
+                   &old_fun_model_diseq_entries_size,
                    NULL);
 
   weq_graph_pop(&uf->weq_graph);
@@ -1262,6 +1458,7 @@ void uf_plugin_pop(plugin_t* plugin) {
   // Clear the conflict
   ivector_reset(&uf->conflict);
   uf_plugin_free_fun_diseq_entries_from(uf, old_fun_diseq_entries_size);
+  uf_plugin_free_fun_model_diseq_entries_from(uf, old_fun_model_diseq_entries_size);
   if (uf->fun_diseq_trail_scan_index > trail_size(uf->ctx->trail)) {
     uf->fun_diseq_trail_scan_index = trail_size(uf->ctx->trail);
   }

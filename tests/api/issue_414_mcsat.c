@@ -1,6 +1,10 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "yices.h"
+
+#include "context/context_types.h"
 
 #define CHECK(COND, MSG) do { \
   if (!(COND)) { \
@@ -27,6 +31,39 @@ static context_t *make_mcsat_context(void) {
   ctx = yices_new_context(config);
   yices_free_config(config);
   return ctx;
+}
+
+static int64_t mcsat_stat_value(context_t *ctx, const char *name) {
+  FILE *tmp;
+  char line[256];
+  char needle[160];
+  int64_t value;
+
+  if (ctx == NULL || ctx->mcsat == NULL) {
+    return -1;
+  }
+
+  tmp = tmpfile();
+  if (tmp == NULL) {
+    return -1;
+  }
+
+  mcsat_show_stats(ctx->mcsat, tmp);
+  fflush(tmp);
+  rewind(tmp);
+
+  snprintf(needle, sizeof(needle), ":%s ", name);
+  value = -1;
+  while (fgets(line, sizeof(line), tmp) != NULL) {
+    char *p = strstr(line, needle);
+    if (p != NULL) {
+      value = strtoll(p + strlen(needle), NULL, 10);
+      break;
+    }
+  }
+
+  fclose(tmp);
+  return value;
 }
 
 int main(void) {
@@ -274,6 +311,122 @@ int main(void) {
           "expected infinite-domain non-unit function disequality to be accepted by MCSAT");
     CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
           "expected SAT for disequality over Int -> Bool");
+    yices_free_context(ctx);
+  }
+
+  // Case 12: hitting the risky diff-witness cap must not stop the scanner
+  // from recording a later non-risky explicit disequality.
+  {
+    type_t bool_dom[1] = { yices_bool_type() };
+    type_t int_dom[1] = { yices_int_type() };
+    type_t risky_fun = yices_function_type(1, bool_dom, yices_int_type());
+    type_t non_risky_fun = yices_function_type(1, int_dom, yices_bool_type());
+    term_t risky_terms[34];
+    term_t f, g;
+    context_t *ctx;
+    int32_t i;
+
+    CHECK(risky_fun != NULL_TYPE, "failed to create risky Bool -> Int type");
+    CHECK(non_risky_fun != NULL_TYPE, "failed to create non-risky Int -> Bool type");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (cap-pressure case)");
+
+    for (i = 0; i < 34; ++ i) {
+      risky_terms[i] = yices_new_uninterpreted_term(risky_fun);
+      CHECK(risky_terms[i] != NULL_TERM, "failed to create risky function term");
+    }
+    for (i = 0; i < 17; ++ i) {
+      CHECK(yices_assert_formula(ctx, yices_neq(risky_terms[2 * i], risky_terms[2 * i + 1])) == 0,
+            "failed to assert risky cap-pressure disequality");
+    }
+
+    f = yices_new_uninterpreted_term(non_risky_fun);
+    g = yices_new_uninterpreted_term(non_risky_fun);
+    CHECK(f != NULL_TERM && g != NULL_TERM, "failed to create non-risky function terms");
+    CHECK(yices_assert_formula(ctx, yices_neq(f, g)) == 0,
+          "failed to assert post-cap non-risky disequality");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for cap-pressure non-risky disequality");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_model") == 1,
+          "post-cap non-risky disequality was not recorded");
+    yices_free_context(ctx);
+  }
+
+  // Case 13: a post-cap unit-range function disequality is a direct conflict.
+  {
+    type_t bool_dom[1] = { yices_bool_type() };
+    type_t int_dom[1] = { yices_int_type() };
+    type_t risky_fun = yices_function_type(1, bool_dom, yices_int_type());
+    type_t unit_fun = yices_function_type(1, int_dom, unit);
+    term_t risky_terms[34];
+    term_t f, g;
+    context_t *ctx;
+    int32_t i;
+
+    CHECK(risky_fun != NULL_TYPE, "failed to create risky Bool -> Int type");
+    CHECK(unit_fun != NULL_TYPE, "failed to create unit-range Int -> Unit type");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (unit cap-pressure case)");
+
+    for (i = 0; i < 34; ++ i) {
+      risky_terms[i] = yices_new_uninterpreted_term(risky_fun);
+      CHECK(risky_terms[i] != NULL_TERM, "failed to create risky function term");
+    }
+    for (i = 0; i < 17; ++ i) {
+      CHECK(yices_assert_formula(ctx, yices_neq(risky_terms[2 * i], risky_terms[2 * i + 1])) == 0,
+            "failed to assert risky cap-pressure disequality");
+    }
+
+    f = yices_new_uninterpreted_term(unit_fun);
+    g = yices_new_uninterpreted_term(unit_fun);
+    CHECK(f != NULL_TERM && g != NULL_TERM, "failed to create unit-range function terms");
+    CHECK(yices_assert_formula(ctx, yices_neq(f, g)) == 0,
+          "failed to assert post-cap unit-range disequality");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_UNSAT,
+          "expected UNSAT for post-cap unit-range disequality");
+    yices_free_context(ctx);
+  }
+
+  // Case 14: a post-cap defined function disequality is still handled by
+  // definitional reasoning, not silently dropped by the witness cap.
+  {
+    type_t bool_dom[1] = { yices_bool_type() };
+    type_t int_dom[1] = { yices_int_type() };
+    type_t risky_fun = yices_function_type(1, bool_dom, yices_int_type());
+    type_t non_risky_fun = yices_function_type(1, int_dom, yices_bool_type());
+    term_t risky_terms[34];
+    term_t f, g, b, h;
+    context_t *ctx;
+    int32_t i;
+
+    CHECK(risky_fun != NULL_TYPE, "failed to create risky Bool -> Int type");
+    CHECK(non_risky_fun != NULL_TYPE, "failed to create non-risky Int -> Bool type");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (defined cap-pressure case)");
+
+    for (i = 0; i < 34; ++ i) {
+      risky_terms[i] = yices_new_uninterpreted_term(risky_fun);
+      CHECK(risky_terms[i] != NULL_TERM, "failed to create risky function term");
+    }
+    for (i = 0; i < 17; ++ i) {
+      CHECK(yices_assert_formula(ctx, yices_neq(risky_terms[2 * i], risky_terms[2 * i + 1])) == 0,
+            "failed to assert risky cap-pressure disequality");
+    }
+
+    f = yices_new_uninterpreted_term(non_risky_fun);
+    g = yices_new_uninterpreted_term(non_risky_fun);
+    b = yices_new_uninterpreted_term(yices_bool_type());
+    h = yices_ite(b, f, g);
+    CHECK(f != NULL_TERM && g != NULL_TERM && b != NULL_TERM && h != NULL_TERM,
+          "failed to create function-typed ITE terms");
+    CHECK(yices_assert_formula(ctx, b) == 0, "failed to assert ITE guard");
+    CHECK(yices_assert_formula(ctx, yices_neq(h, f)) == 0,
+          "failed to assert post-cap defined function disequality");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_UNSAT,
+          "expected UNSAT for post-cap defined function disequality");
     yices_free_context(ctx);
   }
 
