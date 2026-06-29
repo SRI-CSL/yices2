@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 
 #include "yices.h"
 
 #include "context/context_types.h"
+#include "model/models.h"
 
 #define CHECK(COND, MSG) do { \
   if (!(COND)) { \
@@ -64,6 +66,69 @@ static int64_t mcsat_stat_value(context_t *ctx, const char *name) {
 
   fclose(tmp);
   return value;
+}
+
+static bool function_value_has_exact_range_values(value_table_t *vtbl, value_t value, type_t fun_type);
+
+static bool value_has_exact_function_type(value_table_t *vtbl, value_t value, type_t fun_type) {
+  return value != null_value &&
+    (object_is_function(vtbl, value) || object_is_update(vtbl, value)) &&
+    vtbl_function_type(vtbl, value) == fun_type &&
+    function_value_has_exact_range_values(vtbl, value, fun_type);
+}
+
+static bool function_range_value_has_type(value_table_t *vtbl, value_t value, type_t range_type) {
+  if (type_kind(vtbl->type_table, range_type) == FUNCTION_TYPE) {
+    return value_has_exact_function_type(vtbl, value, range_type);
+  }
+
+  return is_subtype(vtbl->type_table, vtbl_value_type(vtbl, value), range_type);
+}
+
+static bool function_map_result_has_type(value_table_t *vtbl, value_t map, type_t range_type) {
+  return object_is_map(vtbl, map) &&
+    function_range_value_has_type(vtbl, vtbl_map_result(vtbl, map), range_type);
+}
+
+static bool function_value_has_exact_range_values(value_table_t *vtbl, value_t value, type_t fun_type) {
+  type_t range_type;
+  uint32_t i;
+
+  range_type = function_type_range(vtbl->type_table, fun_type);
+
+  while (object_is_update(vtbl, value)) {
+    value_update_t *update = vtbl_update(vtbl, value);
+    if (!function_map_result_has_type(vtbl, update->map, range_type)) {
+      return false;
+    }
+    value = update->fun;
+  }
+
+  if (!object_is_function(vtbl, value)) {
+    return false;
+  }
+
+  value_fun_t *fun = vtbl_function(vtbl, value);
+  if (fun->type != fun_type ||
+      !function_range_value_has_type(vtbl, fun->def, range_type)) {
+    return false;
+  }
+
+  for (i = 0; i < fun->map_size; ++ i) {
+    if (!function_map_result_has_type(vtbl, fun->map[i], range_type)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static bool function_model_range_values_have_type(model_t *model, term_t f, type_t range_type) {
+  value_t value = model_find_term_value(model, f);
+  type_t fun_type = term_type(model->terms, f);
+
+  return value_has_exact_function_type(model_get_vtbl(model), value, fun_type) &&
+    function_type_range(model->terms->types, fun_type) == range_type;
 }
 
 int main(void) {
@@ -793,6 +858,272 @@ int main(void) {
           "expected UNSAT for five semantic Bool -> Bool function ids");
     CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_cardinality_conflicts") > 0,
           "semantic Bool -> Bool pigeonhole was not detected by cardinality");
+    yices_free_context(ctx);
+  }
+
+  // Case 20: distinct-id diff witnesses are created for function-id class
+  // representatives, not for every syntactic alias in those classes.
+  {
+    enum { NALIASES = 8 };
+    type_t dom[1] = { yices_bool_type() };
+    type_t fun_bb = yices_function_type(1, dom, yices_bool_type());
+    type_t colors = yices_new_scalar_type(2);
+    type_t pred_dom[1] = { fun_bb };
+    type_t pred_type = yices_function_type(1, pred_dom, colors);
+    term_t p;
+    term_t f[NALIASES];
+    term_t g[NALIASES];
+    context_t *ctx;
+    uint32_t i;
+
+    CHECK(fun_bb != NULL_TYPE, "failed to create Bool -> Bool type (representative case)");
+    CHECK(colors != NULL_TYPE, "failed to create scalar(2) type (representative case)");
+    CHECK(pred_type != NULL_TYPE, "failed to create higher-order predicate type (representative case)");
+
+    p = yices_new_uninterpreted_term(pred_type);
+    CHECK(p != NULL_TERM, "failed to create predicate term (representative case)");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (representative case)");
+
+    for (i = 0; i < NALIASES; ++ i) {
+      term_t p_f, p_g;
+
+      f[i] = yices_new_uninterpreted_term(fun_bb);
+      g[i] = yices_new_uninterpreted_term(fun_bb);
+      CHECK(f[i] != NULL_TERM && g[i] != NULL_TERM,
+            "failed to create alias functions (representative case)");
+
+      if (i > 0) {
+        CHECK(yices_assert_formula(ctx, yices_eq(f[0], f[i])) == 0,
+              "failed to assert f alias equality (representative case)");
+        CHECK(yices_assert_formula(ctx, yices_eq(g[0], g[i])) == 0,
+              "failed to assert g alias equality (representative case)");
+      }
+
+      p_f = yices_application1(p, f[i]);
+      p_g = yices_application1(p, g[i]);
+      CHECK(p_f != NULL_TERM && p_g != NULL_TERM,
+            "failed to create alias applications (representative case)");
+      CHECK(yices_assert_formula(ctx, yices_eq(p_f, yices_constant(colors, 0))) == 0,
+            "failed to assert f alias image (representative case)");
+      CHECK(yices_assert_formula(ctx, yices_eq(p_g, yices_constant(colors, 1))) == 0,
+            "failed to assert g alias image (representative case)");
+    }
+
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for representative distinct-id case");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_witnesses") == 1,
+          "representative distinct-id path created redundant diff witnesses");
+    yices_free_context(ctx);
+  }
+
+  // Case 21: compatible function types are keyed by max_super_type, so a
+  // Bool -> Int function and a Bool -> Real function can reuse the same
+  // function id when no constraint separates them.
+  {
+    type_t dom[1] = { yices_bool_type() };
+    type_t fun_bi = yices_function_type(1, dom, yices_int_type());
+    type_t fun_br = yices_function_type(1, dom, yices_real_type());
+    type_t pred_dom[1] = { fun_br };
+    type_t pred_type = yices_function_type(1, pred_dom, yices_bool_type());
+    term_t p, f, g, p_f, p_g;
+    context_t *ctx;
+
+    CHECK(fun_bi != NULL_TYPE, "failed to create Bool -> Int type (compatible key case)");
+    CHECK(fun_br != NULL_TYPE, "failed to create Bool -> Real type (compatible key case)");
+    CHECK(pred_type != NULL_TYPE, "failed to create predicate type (compatible key case)");
+
+    p = yices_new_uninterpreted_term(pred_type);
+    f = yices_new_uninterpreted_term(fun_bi);
+    g = yices_new_uninterpreted_term(fun_br);
+    CHECK(p != NULL_TERM && f != NULL_TERM && g != NULL_TERM,
+          "failed to create compatible-key terms");
+
+    p_f = yices_application1(p, f);
+    p_g = yices_application1(p, g);
+    CHECK(p_f != NULL_TERM && p_g != NULL_TERM,
+          "failed to create compatible-key applications");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (compatible key case)");
+    CHECK(yices_assert_formula(ctx, p_f) == 0,
+          "failed to assert p(f) (compatible key case)");
+    CHECK(yices_assert_formula(ctx, p_g) == 0,
+          "failed to assert p(g) (compatible key case)");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for compatible function-id key case");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_distinct_id") == 0,
+          "compatible equal functions produced a distinct-id obligation");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_witnesses") == 0,
+          "compatible equal functions produced a diff witness");
+    yices_free_context(ctx);
+  }
+
+  // Case 22: compatible shared-key model construction must not coerce a
+  // narrower Bool -> Int view to a fractional Bool -> Real application value.
+  {
+    type_t dom[1] = { yices_bool_type() };
+    type_t fun_bi = yices_function_type(1, dom, yices_int_type());
+    type_t fun_br = yices_function_type(1, dom, yices_real_type());
+    type_t pred_dom[1] = { fun_br };
+    type_t pred_type = yices_function_type(1, pred_dom, yices_bool_type());
+    term_t p, f, g, p_f, p_g, f_true, g_true, half;
+    context_t *ctx;
+
+    CHECK(fun_bi != NULL_TYPE, "failed to create Bool -> Int type (compatible model case)");
+    CHECK(fun_br != NULL_TYPE, "failed to create Bool -> Real type (compatible model case)");
+    CHECK(pred_type != NULL_TYPE, "failed to create predicate type (compatible model case)");
+
+    p = yices_new_uninterpreted_term(pred_type);
+    f = yices_new_uninterpreted_term(fun_bi);
+    g = yices_new_uninterpreted_term(fun_br);
+    half = yices_rational32(1, 2);
+    CHECK(p != NULL_TERM && f != NULL_TERM && g != NULL_TERM && half != NULL_TERM,
+          "failed to create compatible-model terms");
+
+    p_f = yices_application1(p, f);
+    p_g = yices_application1(p, g);
+    f_true = yices_application1(f, yices_true());
+    g_true = yices_application1(g, yices_true());
+    CHECK(p_f != NULL_TERM && p_g != NULL_TERM && f_true != NULL_TERM && g_true != NULL_TERM,
+          "failed to create compatible-model applications");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (compatible model case)");
+    CHECK(yices_assert_formula(ctx, p_f) == 0,
+          "failed to assert p(f) (compatible model case)");
+    CHECK(yices_assert_formula(ctx, p_g) == 0,
+          "failed to assert p(g) (compatible model case)");
+    CHECK(yices_assert_formula(ctx, yices_arith_eq_atom(g_true, half)) == 0,
+          "failed to assert g(true) = 1/2 (compatible model case)");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for compatible model case");
+    {
+      model_t *model = yices_get_model(ctx, 1);
+      CHECK(model != NULL, "failed to build model for compatible model case");
+      CHECK(yices_formula_true_in_model(model, yices_arith_eq_atom(g_true, half)) == 1,
+            "model must preserve g(true) = 1/2");
+      CHECK(yices_formula_true_in_model(model, yices_arith_neq_atom(f_true, half)) == 1,
+            "model must keep Bool -> Int view away from fractional value");
+      yices_free_model(model);
+    }
+    yices_free_context(ctx);
+  }
+
+  // Case 23: non-risky compatible function disequality model completion must
+  // update each exact view with a value of that exact range, even when the
+  // compatible supertype has a wider nested function range.
+  {
+    type_t bool_dom[1] = { yices_bool_type() };
+    type_t int_dom[1] = { yices_int_type() };
+    type_t inner_i = yices_function_type(1, bool_dom, yices_int_type());
+    type_t inner_r = yices_function_type(1, bool_dom, yices_real_type());
+    type_t outer_i = yices_function_type(1, int_dom, inner_i);
+    type_t outer_r = yices_function_type(1, int_dom, inner_r);
+    type_t colors = yices_new_scalar_type(2);
+    type_t pred_dom[1] = { outer_r };
+    type_t pred_type = yices_function_type(1, pred_dom, colors);
+    term_t p, f, g, p_f, p_g;
+    context_t *ctx;
+
+    CHECK(inner_i != NULL_TYPE && inner_r != NULL_TYPE,
+          "failed to create nested inner function types (non-risky model case)");
+    CHECK(outer_i != NULL_TYPE && outer_r != NULL_TYPE,
+          "failed to create nested outer function types (non-risky model case)");
+    CHECK(pred_type != NULL_TYPE,
+          "failed to create nested predicate type (non-risky model case)");
+
+    p = yices_new_uninterpreted_term(pred_type);
+    f = yices_new_uninterpreted_term(outer_i);
+    g = yices_new_uninterpreted_term(outer_r);
+    CHECK(p != NULL_TERM && f != NULL_TERM && g != NULL_TERM,
+          "failed to create nested model terms");
+
+    p_f = yices_application1(p, f);
+    p_g = yices_application1(p, g);
+    CHECK(p_f != NULL_TERM && p_g != NULL_TERM,
+          "failed to create nested model applications");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (non-risky nested model case)");
+    CHECK(yices_assert_formula(ctx, yices_eq(p_f, yices_constant(colors, 0))) == 0,
+          "failed to assert p(f) image (non-risky nested model case)");
+    CHECK(yices_assert_formula(ctx, yices_eq(p_g, yices_constant(colors, 1))) == 0,
+          "failed to assert p(g) image (non-risky nested model case)");
+    CHECK(yices_assert_formula(ctx, yices_neq(f, g)) == 0,
+          "failed to assert f != g (non-risky nested model case)");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for non-risky nested model case");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_model") == 1,
+          "nested non-risky case should use model disequality completion");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_witnesses") == 0,
+          "nested non-risky case should not create search diff witnesses");
+    {
+      model_t *model = yices_get_model(ctx, 1);
+      CHECK(model != NULL, "failed to build model for non-risky nested model case");
+      CHECK(function_model_range_values_have_type(model, f, inner_i),
+            "nested non-risky model must keep f range values at Bool -> Int");
+      CHECK(function_model_range_values_have_type(model, g, inner_r),
+            "nested non-risky model must keep g range values at Bool -> Real");
+      yices_free_model(model);
+    }
+    yices_free_context(ctx);
+  }
+
+  // Case 24: risky compatible function disequality witnesses must also update
+  // each exact view with a value of that exact nested function range.
+  {
+    type_t bool_dom[1] = { yices_bool_type() };
+    type_t inner_i = yices_function_type(1, bool_dom, yices_int_type());
+    type_t inner_r = yices_function_type(1, bool_dom, yices_real_type());
+    type_t outer_i = yices_function_type(1, bool_dom, inner_i);
+    type_t outer_r = yices_function_type(1, bool_dom, inner_r);
+    type_t colors = yices_new_scalar_type(2);
+    type_t pred_dom[1] = { outer_r };
+    type_t pred_type = yices_function_type(1, pred_dom, colors);
+    term_t p, f, g, p_f, p_g;
+    context_t *ctx;
+
+    CHECK(inner_i != NULL_TYPE && inner_r != NULL_TYPE,
+          "failed to create nested inner function types (risky witness case)");
+    CHECK(outer_i != NULL_TYPE && outer_r != NULL_TYPE,
+          "failed to create nested outer function types (risky witness case)");
+    CHECK(pred_type != NULL_TYPE,
+          "failed to create nested predicate type (risky witness case)");
+
+    p = yices_new_uninterpreted_term(pred_type);
+    f = yices_new_uninterpreted_term(outer_i);
+    g = yices_new_uninterpreted_term(outer_r);
+    CHECK(p != NULL_TERM && f != NULL_TERM && g != NULL_TERM,
+          "failed to create nested witness terms");
+
+    p_f = yices_application1(p, f);
+    p_g = yices_application1(p, g);
+    CHECK(p_f != NULL_TERM && p_g != NULL_TERM,
+          "failed to create nested witness applications");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (risky nested witness case)");
+    CHECK(yices_assert_formula(ctx, yices_eq(p_f, yices_constant(colors, 0))) == 0,
+          "failed to assert p(f) image (risky nested witness case)");
+    CHECK(yices_assert_formula(ctx, yices_eq(p_g, yices_constant(colors, 1))) == 0,
+          "failed to assert p(g) image (risky nested witness case)");
+    CHECK(yices_assert_formula(ctx, yices_neq(f, g)) == 0,
+          "failed to assert f != g (risky nested witness case)");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for risky nested witness case");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_witnesses") > 0,
+          "nested risky case should create diff witnesses");
+    {
+      model_t *model = yices_get_model(ctx, 1);
+      CHECK(model != NULL, "failed to build model for risky nested witness case");
+      CHECK(function_model_range_values_have_type(model, f, inner_i),
+            "nested risky witness model must keep f range values at Bool -> Int");
+      CHECK(function_model_range_values_have_type(model, g, inner_r),
+            "nested risky witness model must keep g range values at Bool -> Real");
+      yices_free_model(model);
+    }
     yices_free_context(ctx);
   }
 

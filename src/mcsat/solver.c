@@ -402,6 +402,7 @@ bool mcsat_eqsens_add_type(mcsat_solver_t* mcsat, type_t tau) {
     return false;
   }
 
+  tau = max_super_type(mcsat->types, tau);
   if (int_hset_add(&mcsat->eqsens_types, tau)) {
     ivector_push(&mcsat->eqsens_type_worklist, tau);
     return true;
@@ -587,6 +588,7 @@ bool mcsat_eqsens_type_is_sensitive(mcsat_solver_t* mcsat, type_t tau) {
   if (tau == NULL_TYPE) {
     return false;
   }
+  tau = max_super_type(mcsat->types, tau);
   return int_hset_member(&mcsat->eqsens_types, tau);
 }
 
@@ -612,8 +614,8 @@ void mcsat_assert_generated_equality_is_sensitive(mcsat_solver_t* mcsat, term_t 
   switch (kind) {
   case EQ_TERM: {
     composite_term_t* eq = eq_term_desc(terms, t);
-    tau = term_type(terms, eq->arg[0]);
-    assert(tau == term_type(terms, eq->arg[1]));
+    tau = super_type(mcsat->types, term_type(terms, eq->arg[0]), term_type(terms, eq->arg[1]));
+    assert(tau != NULL_TYPE);
     assert(mcsat_eqsens_type_is_sensitive(mcsat, tau) &&
            "post-freeze generated equality on non-sensitive type");
     break;

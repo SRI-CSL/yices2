@@ -29,6 +29,7 @@
 
 #include "utils/int_array_sort2.h"
 #include "utils/int_hash_map.h"
+#include "utils/int_hash_map2.h"
 #include "utils/pair_hash_map.h"
 #include "utils/ptr_array_sort2.h"
 #include "utils/int_hash_sets.h"
@@ -37,6 +38,7 @@
 
 #include "model/fresh_value_maker.h"
 #include "model/models.h"
+#include "model/term_to_val.h"
 
 #include "terms/terms.h"
 #include "terms/term_utils.h"
@@ -122,6 +124,9 @@ typedef struct {
   /** Function Values that have been used */
   int_hset_t fun_used_values;
 
+  /** Permanent normalized function-type key for each allocated function id */
+  int_hmap_t fun_value_type_keys;
+
   /** Scoped committed function disequalities */
   pvector_t fun_diseq_entries;
 
@@ -144,6 +149,7 @@ typedef struct {
   /** Active function-id view rebuilt from the current trail */
   ivector_t active_fun_terms;
   ivector_t active_fun_types;
+  ivector_t active_fun_type_keys;
   ivector_t active_fun_ids;
   uint32_t active_fun_trail_size;
   uint32_t active_fun_generation;
@@ -181,8 +187,10 @@ static void uf_plugin_bump_terms_and_reset(uf_plugin_t* uf, int_mset_t* to_bump)
 static void uf_plugin_rebuild_active_fun_ids(uf_plugin_t* uf);
 static term_t uf_plugin_distinct_id_diseq_literal(uf_plugin_t* uf, term_t lhs, term_t rhs);
 static bool ivector_contains_term(const ivector_t* v, term_t t);
+static bool uf_plugin_term_has_direct_trail_assignment(uf_plugin_t* uf, term_t t, variable_t v);
 static bool uf_plugin_pick_active_function_id(uf_plugin_t* uf, term_t t, type_t tau, const pvector_t* forbidden,
                                               int32_t* picked_id);
+static bool uf_plugin_fun_pair_super_type(uf_plugin_t* uf, term_t lhs, term_t rhs, type_t* tau);
 
 static void uf_plugin_free_fun_diseq_entries_from(uf_plugin_t* uf, uint32_t old_size) {
   while (uf->fun_diseq_entries.size > old_size) {
@@ -210,6 +218,33 @@ static bool uf_type_is_equality_sensitive(uf_plugin_t* uf, type_t tau) {
     uf->ctx->type_is_equality_sensitive(uf->ctx, tau);
 }
 
+static void uf_plugin_invalidate_active_fun_ids(uf_plugin_t* uf) {
+  uf->active_fun_ids_valid = false;
+}
+
+static type_t uf_function_type_key(uf_plugin_t* uf, type_t tau) {
+  assert(type_kind(uf->ctx->types, tau) == FUNCTION_TYPE);
+  return max_super_type(uf->ctx->types, tau);
+}
+
+static bool uf_function_types_have_supertype(uf_plugin_t* uf, type_t lhs_type, type_t rhs_type,
+                                             type_t* super) {
+  type_t tau;
+
+  if (type_kind(uf->ctx->types, lhs_type) != FUNCTION_TYPE ||
+      type_kind(uf->ctx->types, rhs_type) != FUNCTION_TYPE) {
+    return false;
+  }
+
+  tau = super_type(uf->ctx->types, lhs_type, rhs_type);
+  if (tau == NULL_TYPE || type_kind(uf->ctx->types, tau) != FUNCTION_TYPE) {
+    return false;
+  }
+
+  *super = tau;
+  return true;
+}
+
 static void uf_plugin_assert_equality_sensitivity_frozen(uf_plugin_t* uf) {
   assert(uf->ctx->equality_sensitivity_is_frozen == NULL ||
          uf->ctx->equality_sensitivity_is_frozen(uf->ctx));
@@ -233,6 +268,7 @@ static void uf_plugin_refresh_equality_sensitivity_generation(uf_plugin_t* uf) {
     uf->fun_diseq_trail_scan_index = 0;
     ivector_reset(&uf->active_fun_terms);
     ivector_reset(&uf->active_fun_types);
+    ivector_reset(&uf->active_fun_type_keys);
     ivector_reset(&uf->active_fun_ids);
     uf->active_fun_ids_valid = false;
   }
@@ -241,15 +277,17 @@ static void uf_plugin_refresh_equality_sensitivity_generation(uf_plugin_t* uf) {
 #ifndef NDEBUG
 static void uf_plugin_assert_generated_equality_sensitive(uf_plugin_t* uf, const char* origin,
                                                           term_t lhs, term_t rhs) {
-  type_t tau;
+  type_t tau, lhs_type, rhs_type;
 
   (void) origin;
   if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
     return;
   }
-  tau = term_type(uf->ctx->terms, lhs);
-  assert(tau == term_type(uf->ctx->terms, rhs) &&
-         "UF generated equality on mismatched types");
+  lhs_type = term_type(uf->ctx->terms, lhs);
+  rhs_type = term_type(uf->ctx->terms, rhs);
+  tau = super_type(uf->ctx->types, lhs_type, rhs_type);
+  assert(tau != NULL_TYPE &&
+         "UF generated equality on incompatible types");
   assert(uf_type_is_equality_sensitive(uf, tau) &&
          "UF generated equality on non-sensitive type");
 }
@@ -350,9 +388,13 @@ static uf_fun_model_diseq_t* uf_plugin_find_fun_model_diseq_entry(uf_plugin_t* u
   return NULL;
 }
 
+static bool uf_plugin_fun_pair_super_type(uf_plugin_t* uf, term_t lhs, term_t rhs, type_t* tau) {
+  return uf_function_types_have_supertype(uf, term_type(uf->ctx->terms, lhs),
+                                          term_type(uf->ctx->terms, rhs), tau);
+}
+
 static uf_fun_model_diseq_t* uf_plugin_ensure_model_diseq_record(uf_plugin_t* uf, term_t lhs, term_t rhs,
                                                                   uf_fun_diseq_source_t source, term_t guard) {
-  term_table_t* terms = uf->ctx->terms;
   type_t tau;
   uf_fun_model_diseq_t* entry;
 
@@ -366,9 +408,10 @@ static uf_fun_model_diseq_t* uf_plugin_ensure_model_diseq_record(uf_plugin_t* uf
     return entry;
   }
 
-  tau = term_type(terms, lhs);
-  assert(tau == term_type(terms, rhs));
-  assert(uf_type_needs_model_diseq_record(uf, tau));
+  if (!uf_plugin_fun_pair_super_type(uf, lhs, rhs, &tau) ||
+      !uf_type_needs_model_diseq_record(uf, tau)) {
+    return NULL;
+  }
 
   entry = safe_malloc(sizeof(uf_fun_model_diseq_t));
   entry->lhs = lhs;
@@ -385,10 +428,8 @@ static uf_fun_model_diseq_t* uf_plugin_ensure_model_diseq_record(uf_plugin_t* uf
 static bool uf_plugin_fun_pair_needs_search_diff(uf_plugin_t* uf, term_t lhs, term_t rhs) {
   type_t tau;
 
-  tau = term_type(uf->ctx->terms, lhs);
-  assert(tau == term_type(uf->ctx->terms, rhs));
-
-  return uf_type_needs_search_diff(uf, tau);
+  return uf_plugin_fun_pair_super_type(uf, lhs, rhs, &tau) &&
+    uf_type_needs_search_diff(uf, tau);
 }
 
 static void uf_plugin_register_diff_witness_terms(uf_plugin_t* uf, const uf_diff_witness_t* witness) {
@@ -424,8 +465,9 @@ static uf_diff_witness_t* uf_plugin_ensure_diff_witness_cache(uf_plugin_t* uf, t
     return rec->val;
   }
 
-  tau = term_type(terms, lhs);
-  assert(tau == term_type(terms, rhs));
+  if (!uf_plugin_fun_pair_super_type(uf, lhs, rhs, &tau)) {
+    return NULL;
+  }
   assert(uf_plugin_equality_sensitivity_is_frozen(uf));
   assert(uf_type_is_equality_sensitive(uf, tau));
   assert(uf_plugin_fun_pair_needs_search_diff(uf, lhs, rhs));
@@ -457,6 +499,7 @@ static uf_diff_witness_t* uf_plugin_ensure_diff_witness_cache(uf_plugin_t* uf, t
   if (witness->app_eq != true_term && witness->app_eq != false_term) {
     int_hset_add(&uf->generated_witness_eqs, witness->app_eq);
   }
+  uf_plugin_invalidate_active_fun_ids(uf);
 
   rec = pmap_get(&uf->diff_witness_cache, lhs, rhs);
   assert(rec->val == DEFAULT_PTR);
@@ -469,7 +512,6 @@ static uf_diff_witness_t* uf_plugin_ensure_diff_witness_cache(uf_plugin_t* uf, t
 
 uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, term_t rhs,
                                                 uf_fun_diseq_source_t source, term_t guard) {
-  term_table_t* terms = uf->ctx->terms;
   type_table_t* types = uf->ctx->types;
   type_t tau;
   uint32_t arity;
@@ -486,8 +528,9 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
     return entry;
   }
 
-  tau = term_type(terms, lhs);
-  assert(tau == term_type(terms, rhs));
+  if (!uf_plugin_fun_pair_super_type(uf, lhs, rhs, &tau)) {
+    return NULL;
+  }
   assert(uf_plugin_equality_sensitivity_is_frozen(uf));
   assert(uf_type_is_equality_sensitive(uf, tau));
   assert(uf_plugin_fun_pair_needs_search_diff(uf, lhs, rhs));
@@ -576,7 +619,6 @@ static term_t uf_plugin_fun_diseq_literal_for_source(uf_plugin_t* uf, term_t lhs
 
 static uf_fun_diseq_result_t uf_plugin_add_fun_diseq_pair(uf_plugin_t* uf, term_t lhs, term_t rhs,
                                                           uf_fun_diseq_source_t source, term_t guard) {
-  term_table_t* terms = uf->ctx->terms;
   type_table_t* types = uf->ctx->types;
   type_t tau;
 
@@ -584,8 +626,7 @@ static uf_fun_diseq_result_t uf_plugin_add_fun_diseq_pair(uf_plugin_t* uf, term_
     return UF_FUN_DISEQ_NO_CHANGE;
   }
 
-  tau = term_type(terms, lhs);
-  if (tau != term_type(terms, rhs) ||
+  if (!uf_plugin_fun_pair_super_type(uf, lhs, rhs, &tau) ||
       type_kind(types, tau) != FUNCTION_TYPE ||
       int_hset_member(&uf->diff_witness_terms, lhs) ||
       int_hset_member(&uf->diff_witness_terms, rhs)) {
@@ -656,7 +697,7 @@ static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
     term_kind_t kind;
     uf_fun_diseq_result_t result;
 
-    if (t == NULL_TERM) {
+    if (t == NULL_TERM || int_hset_member(&uf->diff_witness_terms, t)) {
       continue;
     }
 
@@ -733,9 +774,10 @@ static bool uf_plugin_add_distinct_id_fun_diseq_witnesses(uf_plugin_t* uf) {
   for (i = 0; i < n; ++ i) {
     term_t lhs = uf->active_fun_terms.data[i];
     type_t lhs_type = uf->active_fun_types.data[i];
+    type_t lhs_key = uf->active_fun_type_keys.data[i];
     int32_t lhs_id = uf->active_fun_ids.data[i];
 
-    if (!uf_type_needs_search_diff(uf, lhs_type)) {
+    if (!uf_type_needs_search_diff(uf, lhs_key)) {
       continue;
     }
 
@@ -743,15 +785,30 @@ static bool uf_plugin_add_distinct_id_fun_diseq_witnesses(uf_plugin_t* uf) {
       continue;
     }
 
+#ifndef NDEBUG
+    variable_t lhs_var = variable_db_get_variable_if_exists(uf->ctx->var_db, lhs);
+    assert(lhs_var != variable_null &&
+           uf_plugin_term_has_direct_trail_assignment(uf, lhs, lhs_var));
+#endif
+
     for (j = i + 1; j < n; ++ j) {
       term_t rhs = uf->active_fun_terms.data[j];
+      type_t pair_type;
       uf_fun_diseq_result_t result;
 
-      if (lhs_type != (type_t) uf->active_fun_types.data[j] ||
+      if (lhs_key != (type_t) uf->active_fun_type_keys.data[j] ||
           lhs_id == uf->active_fun_ids.data[j] ||
-          int_hset_member(&uf->diff_witness_terms, rhs)) {
+          int_hset_member(&uf->diff_witness_terms, rhs) ||
+          !uf_function_types_have_supertype(uf, lhs_type, uf->active_fun_types.data[j], &pair_type) ||
+          !uf_type_needs_search_diff(uf, pair_type)) {
         continue;
       }
+
+#ifndef NDEBUG
+      variable_t rhs_var = variable_db_get_variable_if_exists(uf->ctx->var_db, rhs);
+      assert(rhs_var != variable_null &&
+             uf_plugin_term_has_direct_trail_assignment(uf, rhs, rhs_var));
+#endif
 
       result = uf_plugin_add_fun_diseq_pair(uf, lhs, rhs, UF_FUN_DISEQ_DISTINCT_ID, NULL_TERM);
       if (result == UF_FUN_DISEQ_ADDED_WITNESS) {
@@ -780,6 +837,21 @@ static bool uf_plugin_forbidden_contains_id(const pvector_t* forbidden, int32_t 
   }
 
   return false;
+}
+
+static bool uf_plugin_function_id_key_is_allowed(uf_plugin_t* uf, int32_t id, type_t key) {
+  int_hmap_pair_t* cached;
+
+  cached = int_hmap_find(&uf->fun_value_type_keys, id);
+  return cached == NULL || cached->val == key;
+}
+
+static void uf_plugin_record_function_id_key(uf_plugin_t* uf, int32_t id, type_t key) {
+  int_hmap_pair_t* cached;
+
+  cached = int_hmap_get(&uf->fun_value_type_keys, id);
+  assert(cached->val < 0 || cached->val == key);
+  cached->val = key;
 }
 
 static bool uf_plugin_fun_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_diseq_t* entry);
@@ -832,18 +904,22 @@ static bool uf_plugin_active_diseq_blocks_function_id(uf_plugin_t* uf, term_t t,
 static bool uf_plugin_pick_active_function_id(uf_plugin_t* uf, term_t t, type_t tau, const pvector_t* forbidden,
                                               int32_t* picked_id) {
   uint32_t i;
+  type_t key;
 
+  key = uf_function_type_key(uf, tau);
   uf_plugin_rebuild_active_fun_ids(uf);
   for (i = 0; i < uf->active_fun_terms.size; ++ i) {
     int32_t id;
 
-    if (tau != (type_t) uf->active_fun_types.data[i]) {
+    if (key != (type_t) uf->active_fun_type_keys.data[i]) {
       continue;
     }
 
     id = uf->active_fun_ids.data[i];
     if (!uf_plugin_forbidden_contains_id(forbidden, id) &&
+        uf_plugin_function_id_key_is_allowed(uf, id, key) &&
         !uf_plugin_active_diseq_blocks_function_id(uf, t, id)) {
+      uf_plugin_record_function_id_key(uf, id, key);
       *picked_id = id;
       return true;
     }
@@ -855,6 +931,7 @@ static bool uf_plugin_pick_active_function_id(uf_plugin_t* uf, term_t t, type_t 
 static bool uf_plugin_cached_function_id_is_allowed(uf_plugin_t* uf, term_t t, const pvector_t* forbidden,
                                                     const mcsat_value_t* candidate) {
   type_t tau;
+  type_t key;
   int32_t id, active_id;
 
   if (candidate == NULL ||
@@ -866,11 +943,22 @@ static bool uf_plugin_cached_function_id_is_allowed(uf_plugin_t* uf, term_t t, c
   }
 
   tau = term_type(uf->ctx->terms, t);
+  key = uf_function_type_key(uf, tau);
+  if (!uf_plugin_function_id_key_is_allowed(uf, id, key)) {
+    return false;
+  }
+
   if (!uf_plugin_pick_active_function_id(uf, t, tau, forbidden, &active_id)) {
+    uf_plugin_record_function_id_key(uf, id, key);
     return true;
   }
 
-  return id == active_id;
+  if (id == active_id) {
+    uf_plugin_record_function_id_key(uf, id, key);
+    return true;
+  }
+
+  return false;
 }
 
 static bool uf_plugin_bool_term_is_false(uf_plugin_t* uf, term_t t) {
@@ -1040,8 +1128,9 @@ static term_t uf_plugin_distinct_id_eq_atom(uf_plugin_t* uf, term_t lhs, term_t 
   type_t tau;
   term_t eq;
 
-  tau = term_type(uf->ctx->terms, lhs);
-  assert(tau == term_type(uf->ctx->terms, rhs));
+  if (!uf_plugin_fun_pair_super_type(uf, lhs, rhs, &tau)) {
+    return NULL_TERM;
+  }
   assert(type_kind(uf->ctx->types, tau) == FUNCTION_TYPE);
   assert(uf->ctx->equality_sensitivity_is_frozen == NULL ||
          uf->ctx->equality_sensitivity_is_frozen(uf->ctx));
@@ -1060,7 +1149,9 @@ static term_t uf_plugin_distinct_id_eq_atom(uf_plugin_t* uf, term_t lhs, term_t 
 }
 
 static term_t uf_plugin_distinct_id_diseq_literal(uf_plugin_t* uf, term_t lhs, term_t rhs) {
-  return opposite_term(uf_plugin_distinct_id_eq_atom(uf, lhs, rhs));
+  term_t eq = uf_plugin_distinct_id_eq_atom(uf, lhs, rhs);
+  assert(eq != NULL_TERM);
+  return eq == NULL_TERM ? NULL_TERM : opposite_term(eq);
 }
 
 static term_t uf_plugin_fun_diseq_literal(uf_plugin_t* uf, const uf_fun_diseq_t* entry) {
@@ -1190,19 +1281,19 @@ static bool uf_plugin_check_distinct_id_cardinality_conflict(uf_plugin_t* uf) {
 
   n = uf->active_fun_terms.size;
   for (i = 0; i < n && !conflict_found; ++ i) {
-    type_t tau = uf->active_fun_types.data[i];
+    type_t key = uf->active_fun_type_keys.data[i];
     uint32_t card;
 
-    if (ivector_contains_term(&seen_types, tau)) {
+    if (ivector_contains_term(&seen_types, key)) {
       continue;
     }
-    ivector_push(&seen_types, tau);
+    ivector_push(&seen_types, key);
 
-    if (!uf_type_needs_search_diff(uf, tau)) {
+    if (!uf_type_needs_search_diff(uf, key)) {
       continue;
     }
 
-    if (!uf_function_type_exact_cardinality(types, tau, &card) ||
+    if (!uf_function_type_exact_cardinality(types, key, &card) ||
         card >= UF_FUN_CARDINALITY_CLIQUE_TERM_CAP) {
       continue;
     }
@@ -1213,7 +1304,7 @@ static bool uf_plugin_check_distinct_id_cardinality_conflict(uf_plugin_t* uf) {
       int32_t id;
       term_t t;
 
-      if (tau != (type_t) uf->active_fun_types.data[j]) {
+      if (key != (type_t) uf->active_fun_type_keys.data[j]) {
         continue;
       }
 
@@ -1482,6 +1573,7 @@ static void uf_plugin_rebuild_active_fun_ids(uf_plugin_t* uf) {
   if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
     ivector_reset(&uf->active_fun_terms);
     ivector_reset(&uf->active_fun_types);
+    ivector_reset(&uf->active_fun_type_keys);
     ivector_reset(&uf->active_fun_ids);
     uf->active_fun_ids_valid = false;
     return;
@@ -1497,6 +1589,7 @@ static void uf_plugin_rebuild_active_fun_ids(uf_plugin_t* uf) {
 
   ivector_reset(&uf->active_fun_terms);
   ivector_reset(&uf->active_fun_types);
+  ivector_reset(&uf->active_fun_type_keys);
   ivector_reset(&uf->active_fun_ids);
 
   for (i = 0; i < n; ++ i) {
@@ -1504,24 +1597,49 @@ static void uf_plugin_rebuild_active_fun_ids(uf_plugin_t* uf) {
     term_t t = variable_db_get_term(var_db, v);
     const mcsat_value_t* value;
     type_t tau;
+    type_t key;
     int32_t id;
 
-    if (t == NULL_TERM) {
+    if (t == NULL_TERM || int_hset_member(&uf->diff_witness_terms, t)) {
       continue;
     }
 
     tau = term_type(uf->ctx->terms, t);
-    if (type_kind(uf->ctx->types, tau) == FUNCTION_TYPE &&
-        uf_type_needs_search_diff(uf, tau)) {
+    if (type_kind(uf->ctx->types, tau) == FUNCTION_TYPE) {
+      key = uf_function_type_key(uf, tau);
+      if (!uf_type_needs_search_diff(uf, key)) {
+        continue;
+      }
+
       value = trail_get_value(trail, v);
       if (value->type != VALUE_RATIONAL ||
           !q_get32((rational_t*) &value->q, &id)) {
         continue;
       }
+      if (!uf_plugin_term_has_direct_trail_assignment(uf, t, v)) {
+        continue;
+      }
+      if (!uf_plugin_function_id_key_is_allowed(uf, id, key)) {
+        assert(false && "function id used with incompatible normalized type key");
+        continue;
+      }
+      uf_plugin_record_function_id_key(uf, id, key);
 
-      ivector_push(&uf->active_fun_terms, t);
-      ivector_push(&uf->active_fun_types, tau);
-      ivector_push(&uf->active_fun_ids, id);
+      bool found = false;
+      uint32_t j;
+      for (j = 0; j < uf->active_fun_terms.size; ++ j) {
+        if (key == (type_t) uf->active_fun_type_keys.data[j] &&
+            id == uf->active_fun_ids.data[j]) {
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        ivector_push(&uf->active_fun_terms, t);
+        ivector_push(&uf->active_fun_types, tau);
+        ivector_push(&uf->active_fun_type_keys, key);
+        ivector_push(&uf->active_fun_ids, id);
+      }
     }
   }
 
@@ -1570,6 +1688,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   scope_holder_construct(&uf->scope);
   init_ivector(&uf->conflict, 0);
   init_int_hset(&uf->fun_used_values, 0);
+  init_int_hmap(&uf->fun_value_type_keys, 0);
   init_pvector(&uf->fun_diseq_entries, 0);
   init_pvector(&uf->fun_model_diseq_entries, 0);
   init_int_hset(&uf->diff_witness_terms, 0);
@@ -1579,6 +1698,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   uf->fun_diseq_trail_scan_index = 0;
   init_ivector(&uf->active_fun_terms, 0);
   init_ivector(&uf->active_fun_types, 0);
+  init_ivector(&uf->active_fun_type_keys, 0);
   init_ivector(&uf->active_fun_ids, 0);
   uf->active_fun_trail_size = 0;
   uf->active_fun_generation = 0;
@@ -1620,6 +1740,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   scope_holder_destruct(&uf->scope);
   delete_ivector(&uf->conflict);
   delete_int_hset(&uf->fun_used_values);
+  delete_int_hmap(&uf->fun_value_type_keys);
   uf_plugin_free_fun_diseq_entries_from(uf, 0);
   delete_pvector(&uf->fun_diseq_entries);
   uf_plugin_free_fun_model_diseq_entries_from(uf, 0);
@@ -1631,6 +1752,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_int_hset(&uf->generated_witness_eqs);
   delete_ivector(&uf->active_fun_terms);
   delete_ivector(&uf->active_fun_types);
+  delete_ivector(&uf->active_fun_type_keys);
   delete_ivector(&uf->active_fun_ids);
   delete_int_hmap(&uf->risky_function_type_cache);
   int_mset_destruct(&uf->tmp);
@@ -1798,7 +1920,8 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     if (trail_has_value(uf->ctx->trail, c_var)) {
       // we need to process it if we ignored it
       if (eq_graph_term_is_rep(&uf->eq_graph, unsigned_term(c))) {
-        eq_graph_propagate_trail_assertion(&uf->eq_graph, unsigned_term(c));
+	eq_graph_propagate_trail_assertion(&uf->eq_graph, unsigned_term(c));
+	uf_plugin_invalidate_active_fun_ids(uf);
       }
     }
   }
@@ -1887,6 +2010,7 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
   // Propagate known terms
   eq_graph_propagate_trail(&uf->eq_graph);
+  uf_plugin_invalidate_active_fun_ids(uf);
   uf_plugin_rebuild_active_fun_ids(uf);
   uf_plugin_process_eq_graph_propagations(uf, prop);
   uf_plugin_rebuild_active_fun_ids(uf);
@@ -1905,6 +2029,7 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   }
   if (added_fun_diseq_witnesses) {
     eq_graph_propagate_trail(&uf->eq_graph);
+    uf_plugin_invalidate_active_fun_ids(uf);
     uf_plugin_process_eq_graph_propagations(uf, prop);
     uf_plugin_rebuild_active_fun_ids(uf);
   }
@@ -1999,6 +2124,7 @@ void uf_plugin_pop(plugin_t* plugin) {
   }
   ivector_reset(&uf->active_fun_terms);
   ivector_reset(&uf->active_fun_types);
+  ivector_reset(&uf->active_fun_type_keys);
   ivector_reset(&uf->active_fun_ids);
   uf->active_fun_ids_valid = false;
 }
@@ -2109,6 +2235,7 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
       /* we pick different values for different functions. Equal
 	 functions get equal values via equality propagation. */
       type_t tau = term_type(terms, x_term);
+      type_t key = uf_function_type_key(uf, tau);
       bool picked_existing_function_value = false;
       if (uf_plugin_pick_active_function_id(uf, x_term, tau, &forbidden, &picked_value)) {
         assert(!uf_plugin_forbidden_contains_id(&forbidden, picked_value));
@@ -2140,6 +2267,7 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
       if (!picked_existing_function_value) {
         int_hset_add(&uf->fun_used_values, picked_value);
       }
+      uf_plugin_record_function_id_key(uf, picked_value, key);
     }
   } else {
     assert(x_cached_value->type == VALUE_RATIONAL);
@@ -2379,13 +2507,19 @@ static inline
 value_t uf_plugin_get_term_value(uf_plugin_t* uf, value_table_t* vtbl, term_t t) {
   type_t t_type = term_type(uf->ctx->terms, t);
   variable_t t_var = variable_db_get_variable_if_exists(uf->ctx->var_db, t);
-  if (t_var != variable_null) {
+  if (t_var != variable_null && trail_has_value(uf->ctx->trail, t_var)) {
     const mcsat_value_t* t_value = trail_get_value(uf->ctx->trail, t_var);
     return mcsat_value_to_value(t_value, uf->ctx->types, t_type, vtbl);
-  } else {
-    assert(false);
-    return null_value;
   }
+
+  term_converter_t convert;
+  value_t value;
+
+  init_term_converter(&convert, uf->ctx->terms, vtbl);
+  value = convert_term_to_val(&convert, t);
+  delete_term_converter(&convert);
+
+  return value >= 0 ? value : null_value;
 }
 
 // Default value of type tau for use as the "else" branch of a function.
@@ -2403,7 +2537,7 @@ typedef struct {
   ivector_t arguments;
   int_hmap_t app_term_first;
   int_hmap_t function_term;
-  int_hmap_t function_value;
+  int_hmap2_t function_value;
 } uf_model_builder_t;
 
 static
@@ -2415,12 +2549,12 @@ void uf_model_builder_construct(uf_model_builder_t* builder, uf_plugin_t* uf, va
   init_ivector(&builder->arguments, 0);
   init_int_hmap(&builder->app_term_first, 0);
   init_int_hmap(&builder->function_term, 0);
-  init_int_hmap(&builder->function_value, 0);
+  init_int_hmap2(&builder->function_value, 0);
 }
 
 static
 void uf_model_builder_destruct(uf_model_builder_t* builder) {
-  delete_int_hmap(&builder->function_value);
+  delete_int_hmap2(&builder->function_value);
   delete_int_hmap(&builder->function_term);
   delete_int_hmap(&builder->app_term_first);
   delete_ivector(&builder->arguments);
@@ -2461,10 +2595,13 @@ static
 value_t uf_model_builder_get_function_value(uf_model_builder_t* builder, term_t t) {
   uint32_t i;
   int32_t function_id;
-  int_hmap_pair_t* find;
+  int_hmap2_rec_t* find;
   term_table_t* terms = builder->uf->ctx->terms;
+  type_table_t* types = builder->uf->ctx->types;
+  type_t fun_type;
   value_t f_value;
   ivector_t arguments;
+  bool new_record;
 
   assert(term_type_kind(terms, t) == FUNCTION_TYPE);
 
@@ -2474,15 +2611,17 @@ value_t uf_model_builder_get_function_value(uf_model_builder_t* builder, term_t 
 
   uf_model_builder_remember_function_term(builder, t);
 
-  find = int_hmap_get(&builder->function_value, function_id);
+  fun_type = term_type(terms, t);
+  find = int_hmap2_get(&builder->function_value, function_id, fun_type, &new_record);
+  if (new_record) {
+    find->val = -1;
+  }
   if (find->val >= 0) {
     return find->val;
   }
 
   init_ivector(&arguments, 0);
 
-  term_t fun_term = int_hmap_find(&builder->function_term, function_id)->val;
-  type_t fun_type = term_type(terms, fun_term);
   f_value = make_fresh_function(&builder->maker, fun_type);
   if (f_value == null_value) {
     delete_ivector(&arguments);
@@ -2518,21 +2657,34 @@ value_t uf_model_builder_get_function_value(uf_model_builder_t* builder, term_t 
           app_function_id != function_id) {
         break;
       }
+      if (!is_subtype(types, term_type(terms, app_term), function_type_range(types, fun_type))) {
+        continue;
+      }
 
       ivector_reset(&arguments);
       uint32_t arg_i;
       for (arg_i = 1; arg_i < app_desc->arity; ++ arg_i) {
-        ivector_push(&arguments, uf_model_builder_get_term_value(builder, app_desc->arg[arg_i]));
+        value_t arg_value = uf_model_builder_get_term_value(builder, app_desc->arg[arg_i]);
+        if (arg_value == null_value) {
+          break;
+        }
+        ivector_push(&arguments, arg_value);
+      }
+      if (arg_i < app_desc->arity) {
+        continue;
       }
 
       value_t result_value = uf_model_builder_get_term_value(builder, app_term);
+      if (result_value == null_value) {
+        continue;
+      }
       f_value = vtbl_mk_update(builder->vtbl, f_value, arguments.size, arguments.data, result_value);
     }
 
     // Re-fetch: the recursive calls above may have inserted new entries into
     // builder->function_value and triggered int_hmap_extend, which invalidates
     // any int_hmap_pair_t* obtained before recursion.
-    int_hmap_get(&builder->function_value, function_id)->val = f_value;
+    int_hmap2_get(&builder->function_value, function_id, fun_type, &new_record)->val = f_value;
   }
 
   delete_ivector(&arguments);
@@ -2579,6 +2731,10 @@ bool uf_model_builder_make_fresh_domain_values(uf_model_builder_t* builder, type
   return has_fresh_component;
 }
 
+static bool uf_model_builder_pick_distinct_range_values(uf_model_builder_t* builder,
+                                                        type_t lhs_range, type_t rhs_range,
+                                                        value_t* lhs_value, value_t* rhs_value);
+
 static
 void uf_model_builder_apply_model_diseqs(uf_model_builder_t* builder) {
   uf_plugin_t* uf = builder->uf;
@@ -2590,13 +2746,13 @@ void uf_model_builder_apply_model_diseqs(uf_model_builder_t* builder) {
 
   for (i = 0; i < uf->fun_model_diseq_entries.size; ++ i) {
     uf_fun_model_diseq_t* entry = uf->fun_model_diseq_entries.data[i];
-    type_t tau, range;
+    type_t tau, lhs_type, rhs_type, lhs_range, rhs_range;
     int32_t lhs_id, rhs_id;
     value_t lhs_value, rhs_value;
-    value_t range_values[2];
+    value_t lhs_range_value, rhs_range_value;
 
     if (!uf_plugin_fun_model_diseq_entry_is_active(uf, entry) ||
-        !uf_plugin_get_function_id(uf, entry->lhs, &lhs_id) ||
+	!uf_plugin_get_function_id(uf, entry->lhs, &lhs_id) ||
         !uf_plugin_get_function_id(uf, entry->rhs, &rhs_id) ||
         lhs_id == rhs_id) {
       continue;
@@ -2606,9 +2762,18 @@ void uf_model_builder_apply_model_diseqs(uf_model_builder_t* builder) {
     assert(type_kind(types, tau) == FUNCTION_TYPE);
     assert(!uf_type_is_risky(uf, tau));
 
-    range = function_type_range(types, tau);
-    if (!uf_model_builder_make_fresh_domain_values(builder, tau, &arguments) ||
-        !vtbl_make_two_objects(builder->vtbl, range, range_values)) {
+    if (!uf_model_builder_make_fresh_domain_values(builder, tau, &arguments)) {
+      continue;
+    }
+
+    lhs_type = term_type(uf->ctx->terms, entry->lhs);
+    rhs_type = term_type(uf->ctx->terms, entry->rhs);
+    lhs_range = function_type_range(types, lhs_type);
+    rhs_range = function_type_range(types, rhs_type);
+    lhs_range_value = null_value;
+    rhs_range_value = null_value;
+    if (!uf_model_builder_pick_distinct_range_values(builder, lhs_range, rhs_range,
+						     &lhs_range_value, &rhs_range_value)) {
       continue;
     }
 
@@ -2618,10 +2783,14 @@ void uf_model_builder_apply_model_diseqs(uf_model_builder_t* builder) {
       continue;
     }
 
-    lhs_value = vtbl_mk_update(builder->vtbl, lhs_value, arguments.size, arguments.data, range_values[0]);
-    rhs_value = vtbl_mk_update(builder->vtbl, rhs_value, arguments.size, arguments.data, range_values[1]);
-    int_hmap_get(&builder->function_value, lhs_id)->val = lhs_value;
-    int_hmap_get(&builder->function_value, rhs_id)->val = rhs_value;
+    lhs_value = vtbl_mk_update(builder->vtbl, lhs_value, arguments.size, arguments.data, lhs_range_value);
+    rhs_value = vtbl_mk_update(builder->vtbl, rhs_value, arguments.size, arguments.data, rhs_range_value);
+    {
+      bool new_record;
+
+      int_hmap2_get(&builder->function_value, lhs_id, lhs_type, &new_record)->val = lhs_value;
+      int_hmap2_get(&builder->function_value, rhs_id, rhs_type, &new_record)->val = rhs_value;
+    }
   }
 
   delete_ivector(&arguments);
@@ -2658,33 +2827,51 @@ static bool uf_model_builder_pick_value_distinct_from(uf_model_builder_t* builde
 }
 
 static bool uf_model_builder_pick_distinct_range_values(uf_model_builder_t* builder,
-                                                        type_t range,
+                                                        type_t lhs_range, type_t rhs_range,
                                                         value_t* lhs_value,
                                                         value_t* rhs_value) {
-  value_t values[2];
-
   if (*lhs_value != null_value && *rhs_value != null_value) {
     return !uf_model_values_are_equal(builder->vtbl, *lhs_value, *rhs_value);
   }
 
   if (*lhs_value != null_value) {
-    return uf_model_builder_pick_value_distinct_from(builder, range, *lhs_value, rhs_value);
+    return uf_model_builder_pick_value_distinct_from(builder, rhs_range, *lhs_value, rhs_value);
   }
 
   if (*rhs_value != null_value) {
-    return uf_model_builder_pick_value_distinct_from(builder, range, *rhs_value, lhs_value);
+    return uf_model_builder_pick_value_distinct_from(builder, lhs_range, *rhs_value, lhs_value);
   }
 
-  if (!vtbl_make_two_objects(builder->vtbl, range, values)) {
+  *lhs_value = vtbl_make_object(builder->vtbl, lhs_range);
+  if (*lhs_value == null_value) {
     return false;
   }
-
-  *lhs_value = values[0];
-  *rhs_value = values[1];
-  return true;
+  return uf_model_builder_pick_value_distinct_from(builder, rhs_range, *lhs_value, rhs_value);
 }
 
 static bool uf_plugin_term_has_trail_value(uf_plugin_t* uf, term_t t);
+
+static bool uf_plugin_term_has_direct_trail_assignment(uf_plugin_t* uf, term_t t, variable_t v) {
+  const eq_graph_t* eq = &uf->eq_graph;
+  eq_node_id_t t_id;
+  eq_edge_id_t e_id;
+
+  if (!eq_graph_has_term(eq, t)) {
+    return false;
+  }
+
+  t_id = eq_graph_term_id(eq, t);
+  for (e_id = eq->graph.data[t_id]; e_id != eq_edge_null; e_id = eq->edges[e_id].next) {
+    const eq_edge_t* edge = &eq->edges[e_id];
+    if (edge->reason.type == REASON_IS_IN_TRAIL &&
+        edge->reason.data == (uint32_t) v &&
+        eq->nodes[edge->v].type == EQ_NODE_VALUE) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 static
 void uf_model_builder_apply_search_diff_witnesses(uf_model_builder_t* builder) {
@@ -2697,7 +2884,7 @@ void uf_model_builder_apply_search_diff_witnesses(uf_model_builder_t* builder) {
 
   for (i = 0; i < uf->fun_diseq_entries.size; ++ i) {
     uf_fun_diseq_t* entry = uf->fun_diseq_entries.data[i];
-    type_t range;
+    type_t lhs_type, rhs_type, lhs_range, rhs_range;
     int32_t lhs_id, rhs_id;
     value_t lhs_fun_value, rhs_fun_value;
     value_t lhs_app_value, rhs_app_value;
@@ -2711,7 +2898,10 @@ void uf_model_builder_apply_search_diff_witnesses(uf_model_builder_t* builder) {
 
     assert(type_kind(types, entry->type) == FUNCTION_TYPE);
     assert(uf_type_is_risky(uf, entry->type));
-    range = function_type_range(types, entry->type);
+    lhs_type = term_type(uf->ctx->terms, entry->lhs);
+    rhs_type = term_type(uf->ctx->terms, entry->rhs);
+    lhs_range = function_type_range(types, lhs_type);
+    rhs_range = function_type_range(types, rhs_type);
 
     ivector_reset(&arguments);
     for (j = 0; j < entry->arity; ++ j) {
@@ -2731,7 +2921,8 @@ void uf_model_builder_apply_search_diff_witnesses(uf_model_builder_t* builder) {
     rhs_app_value = uf_plugin_term_has_trail_value(uf, entry->rhs_app)
       ? uf_model_builder_get_term_value(builder, entry->rhs_app)
       : null_value;
-    if (!uf_model_builder_pick_distinct_range_values(builder, range, &lhs_app_value, &rhs_app_value)) {
+    if (!uf_model_builder_pick_distinct_range_values(builder, lhs_range, rhs_range,
+						     &lhs_app_value, &rhs_app_value)) {
       continue;
     }
 
@@ -2743,8 +2934,12 @@ void uf_model_builder_apply_search_diff_witnesses(uf_model_builder_t* builder) {
 
     lhs_fun_value = vtbl_mk_update(builder->vtbl, lhs_fun_value, arguments.size, arguments.data, lhs_app_value);
     rhs_fun_value = vtbl_mk_update(builder->vtbl, rhs_fun_value, arguments.size, arguments.data, rhs_app_value);
-    int_hmap_get(&builder->function_value, lhs_id)->val = lhs_fun_value;
-    int_hmap_get(&builder->function_value, rhs_id)->val = rhs_fun_value;
+    {
+      bool new_record;
+
+      int_hmap2_get(&builder->function_value, lhs_id, lhs_type, &new_record)->val = lhs_fun_value;
+      int_hmap2_get(&builder->function_value, rhs_id, rhs_type, &new_record)->val = rhs_fun_value;
+    }
   }
 
   delete_ivector(&arguments);
@@ -2766,8 +2961,7 @@ void uf_model_builder_map_term_if_missing(uf_model_builder_t* builder, model_t* 
     return;
   }
 
-  if (term_type_kind(builder->uf->ctx->terms, t) != FUNCTION_TYPE &&
-      !uf_plugin_term_has_trail_value(builder->uf, t)) {
+  if (!uf_plugin_term_has_trail_value(builder->uf, t)) {
     return;
   }
 
@@ -2879,6 +3073,10 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
         model_map_term(model, x_term, x_value);
       }
     }
+  }
+
+  for (i = 0; i < builder.app_terms.size; ++ i) {
+    uf_model_builder_map_term_if_missing(&builder, model, builder.app_terms.data[i]);
   }
 
   uf_model_builder_map_diff_witnesses(&builder, model);
