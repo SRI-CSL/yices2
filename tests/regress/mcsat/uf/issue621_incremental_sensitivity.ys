@@ -1,0 +1,14 @@
+(define f0::(-> bool bool))
+(define f1::(-> bool bool))
+(define f2::(-> bool bool))
+(define f3::(-> bool bool))
+(define f4::(-> bool bool))
+
+(assert (= (f0 false) false))
+
+(check)
+(push)
+(assert (distinct f0 f1 f2 f3 f4))
+(check)
+(pop)
+(check)

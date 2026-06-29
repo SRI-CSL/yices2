@@ -1,0 +1,4 @@
+sat
+(((= f g) false)
+ ((= f h) false)
+ ((= g h) false))
