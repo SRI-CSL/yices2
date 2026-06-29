@@ -322,6 +322,35 @@ bool weq_graph_bool_term_is_false(weq_graph_t* weq, term_t t) {
 }
 
 static
+bool weq_graph_bool_term_is_true(weq_graph_t* weq, term_t t) {
+  variable_t v;
+  bool value;
+
+  if (t == NULL_TERM) {
+    return false;
+  }
+  if (t == true_term) {
+    return true;
+  }
+  if (t == false_term) {
+    return false;
+  }
+
+  v = variable_db_get_variable_if_exists(weq->ctx->var_db, unsigned_term(t));
+  if (v == variable_null ||
+      !trail_has_value(weq->ctx->trail, v) ||
+      trail_get_value(weq->ctx->trail, v)->type != VALUE_BOOLEAN) {
+    return false;
+  }
+
+  value = trail_get_value(weq->ctx->trail, v)->b;
+  if (is_neg_term(t)) {
+    value = !value;
+  }
+  return value;
+}
+
+static
 bool weq_graph_terms_equal_in_branch(weq_graph_t* weq, term_t lhs, term_t rhs) {
   term_t eq;
   type_t lhs_type;
@@ -333,6 +362,12 @@ bool weq_graph_terms_equal_in_branch(weq_graph_t* weq, term_t lhs, term_t rhs) {
   lhs_type = term_type(weq->ctx->terms, lhs);
   if (lhs_type == term_type(weq->ctx->terms, rhs) &&
       is_unit_type(weq->ctx->types, lhs_type)) {
+    return true;
+  }
+
+  if (eq_graph_has_term(weq->eq_graph, lhs) &&
+      eq_graph_has_term(weq->eq_graph, rhs) &&
+      eq_graph_are_equal(weq->eq_graph, lhs, rhs)) {
     return true;
   }
 
@@ -348,6 +383,25 @@ bool weq_graph_terms_equal_in_branch(weq_graph_t* weq, term_t lhs, term_t rhs) {
     (eq_graph_has_term(weq->eq_graph, lhs) &&
      eq_graph_has_term(weq->eq_graph, rhs) &&
      eq_graph_are_equal(weq->eq_graph, lhs, rhs));
+}
+
+static
+bool weq_graph_terms_equal_in_graph(weq_graph_t* weq, term_t lhs, term_t rhs) {
+  type_t lhs_type;
+
+  if (lhs == rhs) {
+    return true;
+  }
+
+  lhs_type = term_type(weq->ctx->terms, lhs);
+  if (lhs_type == term_type(weq->ctx->terms, rhs) &&
+      is_unit_type(weq->ctx->types, lhs_type)) {
+    return true;
+  }
+
+  return eq_graph_has_term(weq->eq_graph, lhs) &&
+    eq_graph_has_term(weq->eq_graph, rhs) &&
+    eq_graph_are_equal(weq->eq_graph, lhs, rhs);
 }
 
 static
@@ -405,7 +459,7 @@ bool weq_graph_index_vectors_equal(weq_graph_t* weq, uint32_t n,
   uint32_t i;
 
   for (i = 0; i < n; ++ i) {
-    if (!weq_graph_terms_equal_in_branch(weq, lhs[i], rhs[i])) {
+    if (!weq_graph_terms_equal_in_graph(weq, lhs[i], rhs[i])) {
       return false;
     }
   }
@@ -447,8 +501,16 @@ bool weq_graph_terms_have_different_values(weq_graph_t* weq, term_t lhs, term_t 
 static
 bool weq_graph_terms_diseq_reason(weq_graph_t* weq, term_t lhs, term_t rhs,
                                   term_t* reason) {
+  term_t neq;
+
+  neq = _o_yices_neq(lhs, rhs);
+  if (neq == true_term || weq_graph_bool_term_is_true(weq, neq)) {
+    *reason = neq;
+    return true;
+  }
+
   if (weq_graph_terms_have_different_values(weq, lhs, rhs)) {
-    *reason = _o_yices_neq(lhs, rhs);
+    *reason = neq;
     return true;
   }
 
@@ -736,12 +798,14 @@ term_t weq_graph_compute_weak_path_primary(weq_graph_t* weq, term_t arr,
   t_desc = update_term_desc(terms, a->pstore);
 
   if (eq_graph_are_equal(weq->eq_graph, t_desc->arg[0], arr)) {
-    if (!weq_graph_add_terms_eq_reason(weq, path_cond, t_desc->arg[0], arr)) {
+    if (path_cond != NULL &&
+        !weq_graph_add_terms_eq_reason(weq, path_cond, t_desc->arg[0], arr)) {
       return NULL_TERM;
     }
     res = a->pstore;
   } else {
-    if (!weq_graph_add_terms_eq_reason(weq, path_cond, a->pstore, arr)) {
+    if (path_cond != NULL &&
+        !weq_graph_add_terms_eq_reason(weq, path_cond, a->pstore, arr)) {
       return NULL_TERM;
     }
     res = t_desc->arg[0];
@@ -765,7 +829,8 @@ static bool weq_graph_compute_weak_path(weq_graph_t* weq, term_t arr1,
   assert(weq_graph_get_rep(a) == weq_graph_get_rep(b));
 
   if (a == b) {
-    if (!weq_graph_add_terms_eq_reason(weq, path_cond, arr1, arr2)) {
+    if (path_cond != NULL &&
+        !weq_graph_add_terms_eq_reason(weq, path_cond, arr1, arr2)) {
       return false;
     }
     return true;
@@ -809,7 +874,7 @@ static bool weq_graph_compute_weak_path(weq_graph_t* weq, term_t arr1,
   }
 
   assert(a == b);
-  if (t1 != t2) {
+  if (path_cond != NULL && t1 != t2) {
     if (!weq_graph_add_terms_eq_reason(weq, path_cond, t1, t2)) {
       return false;
     }
@@ -998,6 +1063,7 @@ bool weq_graph_array_weak_eq_at(weq_graph_t* weq, term_t arr1, term_t arr2,
                                 ivector_t* edges, ivector_t* path_cond) {
   bool res = false;
   uint32_t i, old_edges_size, old_path_cond_size;
+  ivector_t reason_edges;
   int32_t cache_key[idx_arity + 2];
 
   cache_key[0] = arr1;
@@ -1020,10 +1086,10 @@ bool weq_graph_array_weak_eq_at(weq_graph_t* weq, term_t arr1, term_t arr2,
   assert(fn_arr2 != NULL);
 
   old_edges_size = edges->size;
-  old_path_cond_size = path_cond->size;
+  old_path_cond_size = path_cond != NULL ? path_cond->size : 0;
 
   if (fn_arr1 == fn_arr2) {
-    res = weq_graph_compute_weak_path_at(weq, arr1, arr2, idx_arity, idx, edges, path_cond);
+    res = weq_graph_compute_weak_path_at(weq, arr1, arr2, idx_arity, idx, edges, NULL);
 
     // all edge index vectors on the path must differ from idx
     if (res) {
@@ -1034,11 +1100,20 @@ bool weq_graph_array_weak_eq_at(weq_graph_t* weq, term_t arr1, term_t arr2,
         }
       }
     }
+
+    if (res && path_cond != NULL) {
+      init_ivector(&reason_edges, 0);
+      res = weq_graph_compute_weak_path_at(weq, arr1, arr2, idx_arity, idx,
+                                           &reason_edges, path_cond);
+      delete_ivector(&reason_edges);
+    }
   }
 
   if (!res) {
     ivector_shrink(edges, old_edges_size);
-    ivector_shrink(path_cond, old_path_cond_size);
+    if (path_cond != NULL) {
+      ivector_shrink(path_cond, old_path_cond_size);
+    }
     tuple_hmap_add(&weq->not_weak_eq_cache, idx_arity + 2, cache_key, 1);
   }
 
