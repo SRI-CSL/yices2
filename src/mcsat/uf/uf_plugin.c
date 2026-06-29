@@ -28,6 +28,7 @@
 #include "mcsat/weq/weak_eq_graph.h"
 
 #include "utils/int_array_sort2.h"
+#include "utils/int_hash_map.h"
 #include "utils/ptr_array_sort2.h"
 #include "utils/int_hash_sets.h"
 #include "utils/ptr_vectors.h"
@@ -110,6 +111,9 @@ typedef struct {
   ivector_t active_fun_types;
   ivector_t active_fun_ids;
 
+  /** Cached support check for diff witnesses, keyed by type id */
+  int_hmap_t diff_witness_type_cache;
+
   /** Tmp vector */
   int_mset_t tmp;
 
@@ -140,9 +144,24 @@ static void uf_plugin_free_fun_diseq_entries_from(uf_plugin_t* uf, uint32_t old_
   }
 }
 
-static bool uf_plugin_supports_diff_witness_type(type_table_t* types, type_t tau) {
+static bool uf_plugin_supports_diff_witness_type_uncached(type_table_t* types, type_t tau) {
   return type_kind(types, tau) == FUNCTION_TYPE &&
     (type_has_finite_domain(types, tau) || is_unit_type(types, function_type_range(types, tau)));
+}
+
+static bool uf_plugin_supports_diff_witness_type(uf_plugin_t* uf, type_t tau) {
+  int_hmap_pair_t* cached;
+  bool supported;
+
+  cached = int_hmap_find(&uf->diff_witness_type_cache, tau);
+  if (cached != NULL) {
+    return cached->val != 0;
+  }
+
+  supported = uf_plugin_supports_diff_witness_type_uncached(uf->ctx->types, tau);
+  cached = int_hmap_get(&uf->diff_witness_type_cache, tau);
+  cached->val = supported;
+  return supported;
 }
 
 static void uf_plugin_order_fun_pair(term_t* lhs, term_t* rhs) {
@@ -204,7 +223,7 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
 
   tau = term_type(terms, lhs);
   assert(tau == term_type(terms, rhs));
-  assert(uf_plugin_supports_diff_witness_type(types, tau));
+  assert(uf_plugin_supports_diff_witness_type(uf, tau));
 
   arity = function_type_arity(types, tau);
   entry = safe_malloc(sizeof(uf_fun_diseq_t));
@@ -247,7 +266,7 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
 
   if (uf->fun_diseq_entries.size < UF_FUN_DISEQ_WITNESS_CAP) {
     type_t range = function_type_range(types, tau);
-    if (uf_plugin_supports_diff_witness_type(types, range) &&
+    if (uf_plugin_supports_diff_witness_type(uf, range) &&
         uf_plugin_find_fun_diseq_entry(uf, entry->lhs_app, entry->rhs_app) == NULL) {
       term_t child_guard = _o_yices_eq(entry->lhs_app, entry->rhs_app);
       uf_plugin_ensure_diff_witnesses(uf, entry->lhs_app, entry->rhs_app,
@@ -328,7 +347,7 @@ static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
         int_hset_member(&uf->generated_witness_eqs, t) ||
         int_hset_member(&uf->diff_witness_terms, lhs) ||
         int_hset_member(&uf->diff_witness_terms, rhs) ||
-        !uf_plugin_supports_diff_witness_type(uf->ctx->types, tau)) {
+        !uf_plugin_supports_diff_witness_type(uf, tau)) {
       continue;
     }
 
@@ -352,7 +371,7 @@ static bool uf_plugin_can_create_distinct_id_witnesses(uf_plugin_t* uf, term_t t
   type_t tau = term_type(terms, t);
   uint32_t i, needed;
 
-  if (!uf_plugin_supports_diff_witness_type(uf->ctx->types, tau)) {
+  if (!uf_plugin_supports_diff_witness_type(uf, tau)) {
     return true;
   }
 
@@ -761,7 +780,7 @@ static void uf_plugin_rebuild_active_fun_ids(uf_plugin_t* uf) {
     int32_t id;
 
     if (t != NULL_TERM &&
-        uf_plugin_supports_diff_witness_type(uf->ctx->types, term_type(uf->ctx->terms, t)) &&
+        uf_plugin_supports_diff_witness_type(uf, term_type(uf->ctx->terms, t)) &&
         uf_plugin_term_has_function_id(uf, t, &id)) {
       ivector_push(&uf->active_fun_terms, t);
       ivector_push(&uf->active_fun_types, term_type(uf->ctx->terms, t));
@@ -815,6 +834,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_ivector(&uf->active_fun_terms, 0);
   init_ivector(&uf->active_fun_types, 0);
   init_ivector(&uf->active_fun_ids, 0);
+  init_int_hmap(&uf->diff_witness_type_cache, 0);
   int_mset_construct(&uf->tmp, NULL_TERM);
 
   // Terms
@@ -857,6 +877,7 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&uf->active_fun_terms);
   delete_ivector(&uf->active_fun_types);
   delete_ivector(&uf->active_fun_ids);
+  delete_int_hmap(&uf->diff_witness_type_cache);
   int_mset_destruct(&uf->tmp);
 
   eq_graph_destruct(&uf->eq_graph);

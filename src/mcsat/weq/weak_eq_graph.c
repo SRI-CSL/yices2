@@ -351,6 +351,24 @@ bool weq_graph_bool_term_is_true(weq_graph_t* weq, term_t t) {
 }
 
 static
+bool weq_graph_terms_equal_in_eq_graph(weq_graph_t* weq, term_t lhs, term_t rhs) {
+  eq_graph_t* eq = weq->eq_graph;
+  eq_node_id_t lhs_id, rhs_id;
+
+  lhs_id = eq_graph_term_id_if_exists(eq, lhs);
+  if (lhs_id == eq_node_null) {
+    return false;
+  }
+
+  rhs_id = eq_graph_term_id_if_exists(eq, rhs);
+  if (rhs_id == eq_node_null) {
+    return false;
+  }
+
+  return eq->nodes[lhs_id].find == eq->nodes[rhs_id].find;
+}
+
+static
 bool weq_graph_terms_equal_in_branch(weq_graph_t* weq, term_t lhs, term_t rhs) {
   term_t eq;
   type_t lhs_type;
@@ -365,9 +383,7 @@ bool weq_graph_terms_equal_in_branch(weq_graph_t* weq, term_t lhs, term_t rhs) {
     return true;
   }
 
-  if (eq_graph_has_term(weq->eq_graph, lhs) &&
-      eq_graph_has_term(weq->eq_graph, rhs) &&
-      eq_graph_are_equal(weq->eq_graph, lhs, rhs)) {
+  if (weq_graph_terms_equal_in_eq_graph(weq, lhs, rhs)) {
     return true;
   }
 
@@ -380,9 +396,7 @@ bool weq_graph_terms_equal_in_branch(weq_graph_t* weq, term_t lhs, term_t rhs) {
 
   return eq == true_term ||
     weq_graph_bool_term_is_false(weq, opposite_term(eq)) ||
-    (eq_graph_has_term(weq->eq_graph, lhs) &&
-     eq_graph_has_term(weq->eq_graph, rhs) &&
-     eq_graph_are_equal(weq->eq_graph, lhs, rhs));
+    weq_graph_terms_equal_in_eq_graph(weq, lhs, rhs);
 }
 
 static
@@ -399,9 +413,7 @@ bool weq_graph_terms_equal_in_graph(weq_graph_t* weq, term_t lhs, term_t rhs) {
     return true;
   }
 
-  return eq_graph_has_term(weq->eq_graph, lhs) &&
-    eq_graph_has_term(weq->eq_graph, rhs) &&
-    eq_graph_are_equal(weq->eq_graph, lhs, rhs);
+  return weq_graph_terms_equal_in_eq_graph(weq, lhs, rhs);
 }
 
 static
@@ -487,6 +499,21 @@ const mcsat_value_t* weq_graph_get_term_value(weq_graph_t* weq, term_t t) {
   }
 
   return eq->values_list.data + find->index;
+}
+
+static
+eq_node_id_t weq_graph_get_term_value_id(weq_graph_t* weq, term_t t) {
+  eq_graph_t* eq = weq->eq_graph;
+  eq_node_id_t id, find_id;
+  const eq_node_t* node;
+
+  id = eq_graph_term_id(eq, t);
+  node = eq->nodes + id;
+  find_id = node->find;
+
+  assert(eq->nodes[find_id].type == EQ_NODE_VALUE);
+
+  return find_id;
 }
 
 static
@@ -697,9 +724,7 @@ static void weq_graph_make_rep(weq_graph_t* weq, weq_graph_node_t* n) {
  * the equivalence class whose root is a value node.
  */
 static term_t weq_graph_get_term_rep(weq_graph_t* weq, term_t t) {
-  assert(eq_graph_term_has_value(weq->eq_graph, t));
-
-  eq_node_id_t val_id = eq_graph_get_propagated_term_value_id(weq->eq_graph, t);
+  eq_node_id_t val_id = weq_graph_get_term_value_id(weq, t);
 
   int_hmap_pair_t *v = int_hmap_find(&weq->val_id_term_map, val_id);
   if (v == NULL) {
@@ -707,7 +732,7 @@ static term_t weq_graph_get_term_rep(weq_graph_t* weq, term_t t) {
     v->val = t;
   }
 
-  assert(eq_graph_are_equal(weq->eq_graph, t, v->val));
+  assert(weq_graph_get_term_value_id(weq, v->val) == val_id);
 
   return v->val;
 }
