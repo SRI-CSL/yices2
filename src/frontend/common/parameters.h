@@ -56,9 +56,8 @@ typedef enum yices_param {
   PARAM_D_THRESHOLD,
   PARAM_D_FACTOR,
   // clause deletion heuristic
-  PARAM_R_THRESHOLD,
-  PARAM_R_FRACTION,
-  PARAM_R_FACTOR,
+  PARAM_R_INITIAL_THRESHOLD,
+  PARAM_R_INTERVAL,
   // branching heuristic
   PARAM_VAR_DECAY,
   PARAM_RANDOMNESS,
