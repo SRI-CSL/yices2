@@ -101,6 +101,43 @@ void weq_graph_stats_init(weq_graph_t* weq) {
   weq->stats.array_ext_axioms = statistics_new_int(weq->ctx->stats, "mcsat::uf::array_ext_axioms");
 }
 
+static
+bool weq_graph_type_is_equality_sensitive(weq_graph_t* weq, type_t tau) {
+  assert(weq->ctx->equality_sensitivity_is_frozen == NULL ||
+         weq->ctx->equality_sensitivity_is_frozen(weq->ctx));
+
+  return weq->ctx->type_is_equality_sensitive == NULL ||
+    weq->ctx->type_is_equality_sensitive(weq->ctx, tau);
+}
+
+static
+bool weq_graph_function_type_is_equality_sensitive(weq_graph_t* weq, type_t tau) {
+  return type_kind(weq->ctx->types, tau) == FUNCTION_TYPE &&
+    weq_graph_type_is_equality_sensitive(weq, tau);
+}
+
+static
+bool weq_graph_function_pair_is_equality_sensitive(weq_graph_t* weq, term_t lhs, term_t rhs) {
+  type_t tau;
+
+  tau = term_type(weq->ctx->terms, lhs);
+  return tau == term_type(weq->ctx->terms, rhs) &&
+    weq_graph_function_type_is_equality_sensitive(weq, tau);
+}
+
+static
+bool weq_graph_pair_allows_diseq_reason(weq_graph_t* weq, term_t lhs, term_t rhs) {
+  type_t tau;
+
+  tau = term_type(weq->ctx->terms, lhs);
+  if (tau != term_type(weq->ctx->terms, rhs)) {
+    return false;
+  }
+
+  return type_kind(weq->ctx->types, tau) != FUNCTION_TYPE ||
+    weq_graph_type_is_equality_sensitive(weq, tau);
+}
+
 // declaration
 static void weq_graph_add_diff_terms_vars(weq_graph_t* weq, term_t arr);
 
@@ -530,6 +567,10 @@ bool weq_graph_terms_diseq_reason(weq_graph_t* weq, term_t lhs, term_t rhs,
                                   term_t* reason) {
   term_t neq;
 
+  if (!weq_graph_pair_allows_diseq_reason(weq, lhs, rhs)) {
+    return false;
+  }
+
   neq = _o_yices_neq(lhs, rhs);
   if (neq == true_term || weq_graph_bool_term_is_true(weq, neq)) {
     *reason = neq;
@@ -568,8 +609,7 @@ bool weq_graph_store_indices_diseq_reason(weq_graph_t* weq, term_t store,
 
   store_idx = weq_graph_store_indices(terms, store);
   for (i = 0; i < n; ++ i) {
-    if (weq_graph_terms_have_different_values(weq, store_idx[i], idx[i])) {
-      *reason = _o_yices_neq(store_idx[i], idx[i]);
+    if (weq_graph_terms_diseq_reason(weq, store_idx[i], idx[i], reason)) {
       return true;
     }
   }
@@ -1284,6 +1324,7 @@ bool weq_graph_array_ext_lemma(weq_graph_t* weq, ivector_t* conflict,
   type_t arr2_type = term_type(terms, arr2);
   term_t arr_diseq;
   if (arr1 == arr2 || arr1_type != arr2_type ||
+      !weq_graph_function_type_is_equality_sensitive(weq, arr1_type) ||
       eq_graph_are_equal(weq->eq_graph, arr1, arr2) ||
       !weq_graph_terms_diseq_reason(weq, arr1, arr2, &arr_diseq)) {
     return res;
@@ -1363,10 +1404,17 @@ bool weq_graph_array_ext_check(weq_graph_t* weq, ivector_t* conflict,
     arr1 = array_terms->data[i];
     
     for (j = 0; res && j < i; ++j) {
+      term_t eq;
+
       arr2 = array_terms->data[j];
-      if (!int_hset_member(&seen, _o_yices_eq(arr1, arr2))) {
+      if (!weq_graph_function_pair_is_equality_sensitive(weq, arr1, arr2)) {
+        continue;
+      }
+
+      eq = _o_yices_eq(arr1, arr2);
+      if (!int_hset_member(&seen, eq)) {
         res = weq_graph_array_ext_lemma(weq, conflict, arr1, arr2, select_terms);
-        int_hset_add(&seen, _o_yices_eq(arr1, arr2));
+        int_hset_add(&seen, eq);
       }
     }
   }
@@ -1400,6 +1448,7 @@ bool weq_graph_array_ext_diff_lemma(weq_graph_t* weq, ivector_t* conflict,
       !eq_graph_term_has_value(weq->eq_graph, arr1) ||
       !eq_graph_term_has_value(weq->eq_graph, arr2) ||
       arr1_type != arr2_type ||
+      !weq_graph_function_type_is_equality_sensitive(weq, arr1_type) ||
       !weq_graph_terms_diseq_reason(weq, arr1, arr2, &arr_diseq)) {
     return true;
   }
