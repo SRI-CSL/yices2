@@ -19,6 +19,7 @@
 #include "weak_eq_graph.h"
 
 #include "mcsat/tracing.h"
+#include "mcsat/utils/branch_utils.h"
 
 #include "utils/int_array_sort2.h"
 #include "utils/ptr_vectors.h"
@@ -27,7 +28,9 @@
 
 // Experimental legacy diff-symbol path. This code is unary-only and is
 // intentionally disabled; function diff witnesses are handled by the UF plugin.
-#define USE_ARRAY_DIFF 0
+#ifndef WEQ_ENABLE_LEGACY_ARRAY_DIFF
+#define WEQ_ENABLE_LEGACY_ARRAY_DIFF 0
+#endif
 
 // declaration
 void weq_graph_stats_init(weq_graph_t* weq);
@@ -41,8 +44,10 @@ void weq_graph_construct(weq_graph_t* weq, plugin_context_t* ctx, eq_graph_t* eq
   init_ivector(&weq->array_terms, 0);
   init_ivector(&weq->select_terms, 0);
 
+#if WEQ_ENABLE_LEGACY_ARRAY_DIFF
   init_int_hmap(&weq->type_to_diff, 0);
   init_int_hset(&weq->diff_funs, 0);
+#endif
   init_ptr_hmap(&weq->fun_node_map, 0);
 
   init_int_hmap(&weq->val_id_term_map, 0);
@@ -61,8 +66,10 @@ void weq_graph_destruct(weq_graph_t* weq) {
   delete_ivector(&weq->array_terms);
   delete_ivector(&weq->select_terms);
 
+#if WEQ_ENABLE_LEGACY_ARRAY_DIFF
   delete_int_hmap(&weq->type_to_diff);
   delete_int_hset(&weq->diff_funs);
+#endif
   delete_ivector(&weq->path_cond);
   delete_ivector(&weq->path_edges1);
   delete_ivector(&weq->path_edges2);
@@ -162,26 +169,33 @@ bool weq_graph_pair_allows_diseq_reason(weq_graph_t* weq, term_t lhs, term_t rhs
     weq_graph_type_is_equality_sensitive(weq, tau);
 }
 
+#if WEQ_ENABLE_LEGACY_ARRAY_DIFF
 // declaration
 static void weq_graph_add_diff_terms_vars(weq_graph_t* weq, term_t arr);
+#endif
 
 // save array (vars and updates) terms
 void weq_graph_add_array_term(weq_graph_t* weq, term_t arr) {
-  if (USE_ARRAY_DIFF) {
-    weq_graph_add_diff_terms_vars(weq, arr);
-  }
+#if WEQ_ENABLE_LEGACY_ARRAY_DIFF
+  weq_graph_add_diff_terms_vars(weq, arr);
+#endif
   ivector_push(&weq->array_terms, arr);
 }
 
 // save select terms
 void weq_graph_add_select_term(weq_graph_t* weq, term_t sel) {
+#if WEQ_ENABLE_LEGACY_ARRAY_DIFF
   term_table_t* terms = weq->ctx->terms;
   composite_term_t* t_desc = app_term_desc(terms, sel);
   if (!weq_graph_has_diff_fun(weq, t_desc->arg[0])) {
     ivector_push(&weq->select_terms, sel);
   }
+#else
+  ivector_push(&weq->select_terms, sel);
+#endif
 }
 
+#if WEQ_ENABLE_LEGACY_ARRAY_DIFF
 // save diff function (not a diff function application)
 void weq_graph_add_diff_fun(weq_graph_t* weq, term_t diff_fun) {
   int_hset_add(&weq->diff_funs, diff_fun);
@@ -191,6 +205,7 @@ void weq_graph_add_diff_fun(weq_graph_t* weq, term_t diff_fun) {
 bool weq_graph_has_diff_fun(weq_graph_t* weq, term_t diff_fun) {
   return int_hset_member(&weq->diff_funs, diff_fun);
 }
+#endif
 
 
 /* Weakly equivalant graph node, where
@@ -355,60 +370,12 @@ const term_t* weq_graph_store_indices(const term_table_t* terms, term_t store) {
 
 static
 bool weq_graph_bool_term_is_false(weq_graph_t* weq, term_t t) {
-  variable_t v;
-  bool value;
-
-  if (t == NULL_TERM) {
-    return false;
-  }
-  if (t == false_term) {
-    return true;
-  }
-  if (t == true_term) {
-    return false;
-  }
-
-  v = variable_db_get_variable_if_exists(weq->ctx->var_db, unsigned_term(t));
-  if (v == variable_null ||
-      !trail_has_value(weq->ctx->trail, v) ||
-      trail_get_value(weq->ctx->trail, v)->type != VALUE_BOOLEAN) {
-    return false;
-  }
-
-  value = trail_get_value(weq->ctx->trail, v)->b;
-  if (is_neg_term(t)) {
-    value = !value;
-  }
-  return !value;
+  return mcsat_branch_bool_term_is_false(weq->ctx, t);
 }
 
 static
 bool weq_graph_bool_term_is_true(weq_graph_t* weq, term_t t) {
-  variable_t v;
-  bool value;
-
-  if (t == NULL_TERM) {
-    return false;
-  }
-  if (t == true_term) {
-    return true;
-  }
-  if (t == false_term) {
-    return false;
-  }
-
-  v = variable_db_get_variable_if_exists(weq->ctx->var_db, unsigned_term(t));
-  if (v == variable_null ||
-      !trail_has_value(weq->ctx->trail, v) ||
-      trail_get_value(weq->ctx->trail, v)->type != VALUE_BOOLEAN) {
-    return false;
-  }
-
-  value = trail_get_value(weq->ctx->trail, v)->b;
-  if (is_neg_term(t)) {
-    value = !value;
-  }
-  return value;
+  return mcsat_branch_bool_term_is_true(weq->ctx, t);
 }
 
 static
@@ -429,6 +396,7 @@ bool weq_graph_terms_equal_in_eq_graph(weq_graph_t* weq, term_t lhs, term_t rhs)
   return eq->nodes[lhs_id].find == eq->nodes[rhs_id].find;
 }
 
+#if WEQ_ENABLE_LEGACY_ARRAY_DIFF
 static
 bool weq_graph_terms_equal_in_branch(weq_graph_t* weq, term_t lhs, term_t rhs) {
   term_t eq;
@@ -462,6 +430,7 @@ bool weq_graph_terms_equal_in_branch(weq_graph_t* weq, term_t lhs, term_t rhs) {
     weq_graph_bool_term_is_false(weq, opposite_term(eq)) ||
     weq_graph_terms_equal_in_eq_graph(weq, lhs, rhs);
 }
+#endif
 
 static
 bool weq_graph_terms_equal_in_graph(weq_graph_t* weq, term_t lhs, term_t rhs) {
@@ -1103,6 +1072,7 @@ bool weq_graph_compute_weak_path_at(weq_graph_t* weq, term_t arr1,
  * give arr term and all the earlier stored array terms. It will also
  * store select terms on these diff terms as well.
  */
+#if WEQ_ENABLE_LEGACY_ARRAY_DIFF
 static
 void weq_graph_add_diff_terms_vars(weq_graph_t* weq, term_t arr) {
   term_table_t* terms = weq->ctx->terms;
@@ -1165,6 +1135,7 @@ void weq_graph_add_diff_terms_vars(weq_graph_t* weq, term_t arr) {
     }
   }
 }
+#endif
 
 /* Checks if arr1 and arr2 terms are weakly equivalent on index vector idx.
  * If so, it also stores update edges and path conditions.
@@ -1175,7 +1146,6 @@ bool weq_graph_array_weak_eq_at(weq_graph_t* weq, term_t arr1, term_t arr2,
                                 ivector_t* edges, ivector_t* path_cond) {
   bool res = false;
   uint32_t i, old_edges_size, old_path_cond_size;
-  ivector_t reason_edges;
   int32_t cache_key[idx_arity + 2];
 
   cache_key[0] = arr1;
@@ -1201,7 +1171,7 @@ bool weq_graph_array_weak_eq_at(weq_graph_t* weq, term_t arr1, term_t arr2,
   old_path_cond_size = path_cond != NULL ? path_cond->size : 0;
 
   if (fn_arr1 == fn_arr2) {
-    res = weq_graph_compute_weak_path_at(weq, arr1, arr2, idx_arity, idx, edges, NULL);
+    res = weq_graph_compute_weak_path_at(weq, arr1, arr2, idx_arity, idx, edges, path_cond);
 
     // all edge index vectors on the path must differ from idx
     if (res) {
@@ -1211,13 +1181,6 @@ bool weq_graph_array_weak_eq_at(weq_graph_t* weq, term_t arr1, term_t arr2,
           break;
         }
       }
-    }
-
-    if (res && path_cond != NULL) {
-      init_ivector(&reason_edges, 0);
-      res = weq_graph_compute_weak_path_at(weq, arr1, arr2, idx_arity, idx,
-                                           &reason_edges, path_cond);
-      delete_ivector(&reason_edges);
     }
   }
 
@@ -1478,6 +1441,7 @@ bool weq_graph_array_ext_check(weq_graph_t* weq, ivector_t* conflict,
  * diff terms) between arr1 and arr2 terms. If a conflict is found,
  * the conflict terms are added in the conflict vector.
  */
+#if WEQ_ENABLE_LEGACY_ARRAY_DIFF
 static
 bool weq_graph_array_ext_diff_lemma(weq_graph_t* weq, ivector_t* conflict,
                                     term_t arr1, term_t arr2) {
@@ -1585,6 +1549,7 @@ bool weq_graph_array_ext_diff_check(weq_graph_t* weq, ivector_t* conflict,
 
   return res;
 }
+#endif
 
 /* Check read-over-right conflict (based on weakly equivalent array
  * reasoning) for all select terms. If a conflict is found, the
@@ -1965,11 +1930,11 @@ void weq_graph_check_array_conflict(weq_graph_t* weq, ivector_t* conflict) {
     }
 
     if (ok) {
-      if (USE_ARRAY_DIFF) {
-        ok = weq_graph_array_ext_diff_check(weq, conflict, &array_terms);
-      } else {
-        ok = weq_graph_array_ext_check(weq, conflict, &array_terms, &select_terms);
-      }
+#if WEQ_ENABLE_LEGACY_ARRAY_DIFF
+      ok = weq_graph_array_ext_diff_check(weq, conflict, &array_terms);
+#else
+      ok = weq_graph_array_ext_check(weq, conflict, &array_terms, &select_terms);
+#endif
     }
   }
   

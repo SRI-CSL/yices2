@@ -201,9 +201,6 @@ struct mcsat_solver_s {
   /** True if obligation roots changed since the last freeze. */
   bool eqsens_dirty;
 
-  /** True if term registration happened after the pre-search freeze hook. */
-  bool eqsens_post_freeze_registration;
-
   /** Whether term registration currently records active-obligation roots. */
   bool eqsens_record_registration_roots;
 
@@ -218,6 +215,9 @@ struct mcsat_solver_s {
 
   /** Queue for registering new variables */
   int_queue_t registration_queue;
+
+  /** True while draining the registration queue. */
+  bool registration_queue_processing;
 
   /** Has a term been registered already */
   int_hset_t registration_cache;
@@ -659,7 +659,12 @@ static
 void mcsat_eqsens_note_registered_term(mcsat_solver_t* mcsat, term_t t) {
   if (mcsat->eqsens_record_registration_roots) {
     if (mcsat->eqsens_frozen) {
-      mcsat->eqsens_post_freeze_registration = true;
+      /*
+       * The pre-search freeze is the boundary for assertion/assumption roots.
+       * Terms generated during search are internal obligations; they may be
+       * registered with plugins, but they must not enlarge the root set for
+       * the already-frozen equality-sensitivity generation.
+       */
       return;
     }
     if (mcsat->eqsens_registration_roots_are_assumptions) {
@@ -696,7 +701,6 @@ void mcsat_eqsens_clear_assumption_roots(mcsat_solver_t* mcsat) {
 static
 void mcsat_eqsens_unfreeze(mcsat_solver_t* mcsat) {
   mcsat->eqsens_frozen = false;
-  mcsat->eqsens_post_freeze_registration = false;
 }
 
 static
@@ -1138,7 +1142,9 @@ void mcsat_plugin_context_register_term(plugin_context_t* self, term_t t) {
   mcsat_assert_generated_equality_is_sensitive(mctx->mcsat, t);
 #endif
   variable_db_get_variable(mctx->mcsat->var_db, t);
-  mcsat_process_registration_queue(mctx->mcsat);
+  if (!mctx->mcsat->registration_queue_processing) {
+    mcsat_process_registration_queue(mctx->mcsat);
+  }
 }
 
 static
@@ -1316,7 +1322,6 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   mcsat->eqsens_generation = 0;
   mcsat->eqsens_frozen = false;
   mcsat->eqsens_dirty = false;
-  mcsat->eqsens_post_freeze_registration = false;
   mcsat->eqsens_record_registration_roots = true;
   mcsat->eqsens_registration_roots_are_assumptions = false;
 
@@ -1326,6 +1331,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
 
   // Variable registration queue
   init_int_queue(&mcsat->registration_queue, 0);
+  mcsat->registration_queue_processing = false;
   init_int_hset(&mcsat->registration_cache, 0);
 
   // Init all the term owners to NULL
@@ -1696,6 +1702,10 @@ static void mcsat_process_registration_queue(mcsat_solver_t* mcsat) {
   int_mset_t to_notify;
   ivector_t* to_notify_list;
 
+  if (mcsat->registration_queue_processing) {
+    return;
+  }
+  mcsat->registration_queue_processing = true;
   int_mset_construct(&to_notify, MCSAT_MAX_PLUGINS);
 
   while (!int_queue_is_empty(&mcsat->registration_queue)) {
@@ -1735,6 +1745,7 @@ static void mcsat_process_registration_queue(mcsat_solver_t* mcsat) {
   }
 
   int_mset_destruct(&to_notify);
+  mcsat->registration_queue_processing = false;
 }
 
 static
@@ -1744,7 +1755,6 @@ void mcsat_prepare_search(mcsat_solver_t* mcsat) {
 
   mcsat->eqsens_frozen = true;
   mcsat->eqsens_dirty = false;
-  mcsat->eqsens_post_freeze_registration = false;
 }
 
 /** Pass true to mark terms and types in the internal yices term tables */

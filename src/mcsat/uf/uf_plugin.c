@@ -20,6 +20,7 @@
 
 #include "mcsat/trail.h"
 #include "mcsat/tracing.h"
+#include "mcsat/utils/branch_utils.h"
 #include "mcsat/watch_list_manager.h"
 #include "mcsat/utils/scope_holder.h"
 #include "mcsat/value.h"
@@ -188,6 +189,7 @@ static void uf_plugin_bump_terms_and_reset(uf_plugin_t* uf, int_mset_t* to_bump)
 static void uf_plugin_rebuild_active_fun_ids(uf_plugin_t* uf);
 static term_t uf_plugin_distinct_id_diseq_literal(uf_plugin_t* uf, term_t lhs, term_t rhs);
 static bool ivector_contains_term(const ivector_t* v, term_t t);
+static void ivector_push_unique_term(ivector_t* v, term_t t);
 static bool uf_plugin_term_has_direct_trail_assignment(uf_plugin_t* uf, term_t t, variable_t v);
 static bool uf_plugin_pick_active_function_id(uf_plugin_t* uf, term_t t, type_t tau, const pvector_t* forbidden,
                                               int32_t* picked_id);
@@ -963,59 +965,11 @@ static bool uf_plugin_cached_function_id_is_allowed(uf_plugin_t* uf, term_t t, c
 }
 
 static bool uf_plugin_bool_term_is_false(uf_plugin_t* uf, term_t t) {
-  variable_t v;
-  bool value;
-
-  if (t == NULL_TERM) {
-    return false;
-  }
-  if (t == false_term) {
-    return true;
-  }
-  if (t == true_term) {
-    return false;
-  }
-
-  v = variable_db_get_variable_if_exists(uf->ctx->var_db, unsigned_term(t));
-  if (v == variable_null ||
-      !trail_has_value(uf->ctx->trail, v) ||
-      trail_get_value(uf->ctx->trail, v)->type != VALUE_BOOLEAN) {
-    return false;
-  }
-
-  value = trail_get_value(uf->ctx->trail, v)->b;
-  if (is_neg_term(t)) {
-    value = !value;
-  }
-  return !value;
+  return mcsat_branch_bool_term_is_false(uf->ctx, t);
 }
 
 static bool uf_plugin_bool_term_is_true(uf_plugin_t* uf, term_t t) {
-  variable_t v;
-  bool value;
-
-  if (t == NULL_TERM) {
-    return false;
-  }
-  if (t == true_term) {
-    return true;
-  }
-  if (t == false_term) {
-    return false;
-  }
-
-  v = variable_db_get_variable_if_exists(uf->ctx->var_db, unsigned_term(t));
-  if (v == variable_null ||
-      !trail_has_value(uf->ctx->trail, v) ||
-      trail_get_value(uf->ctx->trail, v)->type != VALUE_BOOLEAN) {
-    return false;
-  }
-
-  value = trail_get_value(uf->ctx->trail, v)->b;
-  if (is_neg_term(t)) {
-    value = !value;
-  }
-  return value;
+  return mcsat_branch_bool_term_is_true(uf->ctx, t);
 }
 
 static bool uf_plugin_literal_is_true_in_branch(uf_plugin_t* uf, term_t t) {
@@ -1989,6 +1943,8 @@ static
 void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
 
   uf_plugin_t* uf = (uf_plugin_t*) plugin;
+  bool added_distinct_id_witnesses;
+  bool cardinality_checked_after_witnesses;
 
   if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
     ctx_trace_printf(uf->ctx, "uf_plugin_propagate()\n");
@@ -2015,13 +1971,18 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   uf_plugin_rebuild_active_fun_ids(uf);
   uf_plugin_process_eq_graph_propagations(uf, prop);
   uf_plugin_rebuild_active_fun_ids(uf);
-  if (uf_plugin_check_fun_cardinality_conflict(uf)) {
+  if (added_fun_diseq_witnesses && uf_plugin_check_fun_cardinality_conflict(uf)) {
     prop->conflict(prop);
     (*uf->stats.conflicts) ++;
     statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
     return;
   }
-  added_fun_diseq_witnesses = uf_plugin_add_distinct_id_fun_diseq_witnesses(uf) || added_fun_diseq_witnesses;
+  cardinality_checked_after_witnesses = added_fun_diseq_witnesses;
+  added_distinct_id_witnesses = uf_plugin_add_distinct_id_fun_diseq_witnesses(uf);
+  added_fun_diseq_witnesses = added_distinct_id_witnesses || added_fun_diseq_witnesses;
+  if (added_distinct_id_witnesses) {
+    cardinality_checked_after_witnesses = false;
+  }
   if (uf->conflict.size > 0) {
     prop->conflict(prop);
     (*uf->stats.conflicts) ++;
@@ -2047,7 +2008,7 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     return;
   }
 
-  if (uf_plugin_check_fun_cardinality_conflict(uf)) {
+  if (!cardinality_checked_after_witnesses && uf_plugin_check_fun_cardinality_conflict(uf)) {
     prop->conflict(prop);
     (*uf->stats.conflicts) ++;
     statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
