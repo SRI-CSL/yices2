@@ -2072,6 +2072,14 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
       statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
     }
   }
+
+  // Some checks above can register generated terms synchronously. Registration
+  // may add terms to the equality graph and produce term/value notifications
+  // after the main propagation drain, so consume them before the solver can
+  // create a new decision scope.
+  if (uf->conflict.size == 0 && uf_plugin_process_eq_graph_propagations(uf, prop)) {
+    uf_plugin_invalidate_active_fun_ids(uf);
+  }
 }
 
 static
