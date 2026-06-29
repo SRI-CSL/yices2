@@ -781,6 +781,22 @@ static bool uf_plugin_fun_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_di
   }
 }
 
+static bool uf_plugin_fun_model_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_model_diseq_t* entry) {
+  int32_t lhs_id, rhs_id;
+
+  switch (entry->source) {
+  case UF_FUN_DISEQ_EXPLICIT:
+    return entry->guard != NULL_TERM && uf_plugin_bool_term_is_false(uf, entry->guard);
+  case UF_FUN_DISEQ_DISTINCT_ID:
+    return uf_plugin_term_has_function_id(uf, entry->lhs, &lhs_id) &&
+      uf_plugin_term_has_function_id(uf, entry->rhs, &rhs_id) &&
+      lhs_id != rhs_id;
+  default:
+    assert(false);
+    return false;
+  }
+}
+
 static term_t uf_plugin_distinct_id_eq_atom(uf_plugin_t* uf, term_t lhs, term_t rhs) {
   type_t tau;
   term_t eq;
@@ -2209,6 +2225,85 @@ value_t uf_model_builder_get_term_value(uf_model_builder_t* builder, term_t t) {
 }
 
 static
+bool uf_model_builder_make_fresh_domain_values(uf_model_builder_t* builder, type_t tau, ivector_t* arguments) {
+  type_table_t* types = builder->uf->ctx->types;
+  uint32_t i, arity;
+  bool has_fresh_component = false;
+
+  assert(type_kind(types, tau) == FUNCTION_TYPE);
+
+  ivector_reset(arguments);
+  arity = function_type_arity(types, tau);
+  for (i = 0; i < arity; ++ i) {
+    type_t sigma = function_type_domain(types, tau, i);
+    value_t v;
+
+    if (is_finite_type(types, sigma)) {
+      v = vtbl_make_object(builder->vtbl, sigma);
+    } else {
+      v = make_fresh_value(&builder->maker, sigma);
+      has_fresh_component = true;
+    }
+
+    if (v == null_value) {
+      ivector_reset(arguments);
+      return false;
+    }
+    ivector_push(arguments, v);
+  }
+
+  return has_fresh_component;
+}
+
+static
+void uf_model_builder_apply_model_diseqs(uf_model_builder_t* builder) {
+  uf_plugin_t* uf = builder->uf;
+  type_table_t* types = uf->ctx->types;
+  ivector_t arguments;
+  uint32_t i;
+
+  init_ivector(&arguments, 0);
+
+  for (i = 0; i < uf->fun_model_diseq_entries.size; ++ i) {
+    uf_fun_model_diseq_t* entry = uf->fun_model_diseq_entries.data[i];
+    type_t tau, range;
+    int32_t lhs_id, rhs_id;
+    value_t lhs_value, rhs_value;
+    value_t range_values[2];
+
+    if (!uf_plugin_fun_model_diseq_entry_is_active(uf, entry) ||
+        !uf_plugin_get_function_id(uf, entry->lhs, &lhs_id) ||
+        !uf_plugin_get_function_id(uf, entry->rhs, &rhs_id) ||
+        lhs_id == rhs_id) {
+      continue;
+    }
+
+    tau = entry->type;
+    assert(type_kind(types, tau) == FUNCTION_TYPE);
+    assert(!uf_type_is_risky(uf, tau));
+
+    range = function_type_range(types, tau);
+    if (!uf_model_builder_make_fresh_domain_values(builder, tau, &arguments) ||
+        !vtbl_make_two_objects(builder->vtbl, range, range_values)) {
+      continue;
+    }
+
+    lhs_value = uf_model_builder_get_function_value(builder, entry->lhs);
+    rhs_value = uf_model_builder_get_function_value(builder, entry->rhs);
+    if (lhs_value == null_value || rhs_value == null_value) {
+      continue;
+    }
+
+    lhs_value = vtbl_mk_update(builder->vtbl, lhs_value, arguments.size, arguments.data, range_values[0]);
+    rhs_value = vtbl_mk_update(builder->vtbl, rhs_value, arguments.size, arguments.data, range_values[1]);
+    int_hmap_get(&builder->function_value, lhs_id)->val = lhs_value;
+    int_hmap_get(&builder->function_value, rhs_id)->val = rhs_value;
+  }
+
+  delete_ivector(&arguments);
+}
+
+static
 bool uf_plugin_term_has_trail_value(uf_plugin_t* uf, term_t t) {
   variable_t var;
 
@@ -2318,9 +2413,20 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
     if (x_term != NULL_TERM &&
         term_kind(terms, x_term) == UNINTERPRETED_TERM &&
         term_type_kind(terms, x_term) == FUNCTION_TYPE) {
-      value_t x_value;
       uf_model_builder_remember_function_term(&builder, x_term);
-      x_value = uf_model_builder_get_function_value(&builder, x_term);
+      uf_model_builder_get_function_value(&builder, x_term);
+    }
+  }
+
+  uf_model_builder_apply_model_diseqs(&builder);
+
+  for (i = 0; i < trail_elements->size; ++ i) {
+    variable_t x = trail_elements->data[i];
+    term_t x_term = variable_db_get_term(var_db, x);
+    if (x_term != NULL_TERM &&
+        term_kind(terms, x_term) == UNINTERPRETED_TERM &&
+        term_type_kind(terms, x_term) == FUNCTION_TYPE) {
+      value_t x_value = uf_model_builder_get_function_value(&builder, x_term);
       if (x_value != null_value) {
         model_map_term(model, x_term, x_value);
       }

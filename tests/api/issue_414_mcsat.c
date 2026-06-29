@@ -522,6 +522,122 @@ int main(void) {
           "non-risky distinct-id path did not record model disequality");
     CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_witnesses") == 0,
           "non-risky distinct-id path allocated a UF diff witness");
+    {
+      model_t *model = yices_get_model(ctx, 1);
+      CHECK(model != NULL, "failed to build model for non-risky distinct-id case");
+      CHECK(yices_formula_true_in_model(model, yices_neq(f, g)) == 1,
+            "model must satisfy non-risky distinct-id function disequality");
+      yices_free_model(model);
+    }
+    yices_free_context(ctx);
+  }
+
+  // Case 16b: explicit non-risky disequality commitments are true in the model.
+  {
+    type_t dom[1] = { yices_int_type() };
+    type_t fun_ib = yices_function_type(1, dom, yices_bool_type());
+    term_t f, g;
+    context_t *ctx;
+
+    CHECK(fun_ib != NULL_TYPE, "failed to create Int -> Bool type (non-risky model case)");
+
+    f = yices_new_uninterpreted_term(fun_ib);
+    g = yices_new_uninterpreted_term(fun_ib);
+    CHECK(f != NULL_TERM && g != NULL_TERM,
+          "failed to create Int -> Bool functions (non-risky model case)");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (non-risky model case)");
+    CHECK(yices_assert_formula(ctx, yices_neq(f, g)) == 0,
+          "failed to assert non-risky disequality");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for non-risky disequality");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_witnesses") == 0,
+          "non-risky explicit disequality allocated a UF diff witness");
+    {
+      model_t *model = yices_get_model(ctx, 1);
+      CHECK(model != NULL, "failed to build model for non-risky explicit disequality");
+      CHECK(yices_formula_true_in_model(model, yices_neq(f, g)) == 1,
+            "model must satisfy non-risky explicit function disequality");
+      yices_free_model(model);
+    }
+    yices_free_context(ctx);
+  }
+
+  // Case 16c: multiple non-risky commitments over one type are all true in the model.
+  {
+    type_t dom[1] = { yices_int_type() };
+    type_t fun_ib = yices_function_type(1, dom, yices_bool_type());
+    term_t f, g, h, distinct;
+    context_t *ctx;
+
+    CHECK(fun_ib != NULL_TYPE, "failed to create Int -> Bool type (non-risky multi-model case)");
+
+    f = yices_new_uninterpreted_term(fun_ib);
+    g = yices_new_uninterpreted_term(fun_ib);
+    h = yices_new_uninterpreted_term(fun_ib);
+    {
+      term_t funs[3] = { f, g, h };
+      distinct = yices_distinct(3, funs);
+    }
+    CHECK(f != NULL_TERM && g != NULL_TERM && h != NULL_TERM && distinct != NULL_TERM,
+          "failed to create non-risky distinct functions");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (non-risky multi-model case)");
+    CHECK(yices_assert_formula(ctx, distinct) == 0,
+          "failed to assert non-risky distinct term");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for multiple non-risky disequalities");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_witnesses") == 0,
+          "non-risky distinct term allocated a UF diff witness");
+    {
+      model_t *model = yices_get_model(ctx, 1);
+      CHECK(model != NULL, "failed to build model for multiple non-risky disequalities");
+      CHECK(yices_formula_true_in_model(model, yices_neq(f, g)) == 1,
+            "model must satisfy f != g");
+      CHECK(yices_formula_true_in_model(model, yices_neq(f, h)) == 1,
+            "model must satisfy f != h");
+      CHECK(yices_formula_true_in_model(model, yices_neq(g, h)) == 1,
+            "model must satisfy g != h");
+      yices_free_model(model);
+    }
+    yices_free_context(ctx);
+  }
+
+  // Case 16d: model completion separates current classes, not just the
+  // syntactic terms that originally appeared in a disequality.
+  {
+    type_t dom[1] = { yices_int_type() };
+    type_t fun_ib = yices_function_type(1, dom, yices_bool_type());
+    term_t f, g, h;
+    context_t *ctx;
+
+    CHECK(fun_ib != NULL_TYPE, "failed to create Int -> Bool type (non-risky merge-model case)");
+
+    f = yices_new_uninterpreted_term(fun_ib);
+    g = yices_new_uninterpreted_term(fun_ib);
+    h = yices_new_uninterpreted_term(fun_ib);
+    CHECK(f != NULL_TERM && g != NULL_TERM && h != NULL_TERM,
+          "failed to create non-risky merge functions");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (non-risky merge-model case)");
+    CHECK(yices_assert_formula(ctx, yices_eq(f, h)) == 0,
+          "failed to assert non-risky equality");
+    CHECK(yices_assert_formula(ctx, yices_neq(f, g)) == 0,
+          "failed to assert non-risky disequality after equality");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for non-risky equality plus disequality");
+    {
+      model_t *model = yices_get_model(ctx, 1);
+      CHECK(model != NULL, "failed to build model for non-risky merge disequality");
+      CHECK(yices_formula_true_in_model(model, yices_eq(f, h)) == 1,
+            "model must preserve merged non-risky class");
+      CHECK(yices_formula_true_in_model(model, yices_neq(h, g)) == 1,
+            "model must separate merged class from disequal function");
+      yices_free_model(model);
+    }
     yices_free_context(ctx);
   }
 
