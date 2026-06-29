@@ -170,6 +170,30 @@ struct mcsat_solver_s {
   /** Temp assertion vector while preprocessing */
   ivector_t assertions_tmp;
 
+  /** Deterministic active-obligation roots for equality-sensitivity scanning. */
+  ivector_t eqsens_obligation_roots;
+
+  /** Per-check assumption roots; reset after solving with assumptions. */
+  ivector_t eqsens_assumption_roots;
+
+  /** Generation for invalidating future sensitivity-dependent caches. */
+  uint32_t eqsens_generation;
+
+  /** True after the pre-search equality-sensitivity freeze hook has run. */
+  bool eqsens_frozen;
+
+  /** True if obligation roots changed since the last freeze. */
+  bool eqsens_dirty;
+
+  /** True if term registration happened after the pre-search freeze hook. */
+  bool eqsens_post_freeze_registration;
+
+  /** Whether term registration currently records active-obligation roots. */
+  bool eqsens_record_registration_roots;
+
+  /** Whether currently recorded registration roots are per-check assumptions. */
+  bool eqsens_registration_roots_are_assumptions;
+
   /** The trail */
   mcsat_trail_t* trail;
 
@@ -346,6 +370,76 @@ struct mcsat_solver_s {
 static
 bool mcsat_is_consistent(mcsat_solver_t* mcsat) {
   return trail_is_consistent(mcsat->trail) && mcsat->variable_in_conflict == variable_null;
+}
+
+static
+void mcsat_eqsens_note_dirty(mcsat_solver_t* mcsat) {
+  if (!mcsat->eqsens_dirty) {
+    mcsat->eqsens_dirty = true;
+    mcsat->eqsens_generation ++;
+  }
+}
+
+static
+void mcsat_eqsens_note_obligation_root(mcsat_solver_t* mcsat, term_t t) {
+  if (t == NULL_TERM) {
+    return;
+  }
+
+  t = unsigned_term(t);
+  if (t == true_term || t == false_term) {
+    return;
+  }
+
+  ivector_push(&mcsat->eqsens_obligation_roots, t);
+  mcsat_eqsens_note_dirty(mcsat);
+}
+
+static
+void mcsat_eqsens_note_assumption_root(mcsat_solver_t* mcsat, term_t t);
+
+static
+void mcsat_eqsens_note_registered_term(mcsat_solver_t* mcsat, term_t t) {
+  if (mcsat->eqsens_record_registration_roots) {
+    if (mcsat->eqsens_frozen) {
+      mcsat->eqsens_post_freeze_registration = true;
+      return;
+    }
+    if (mcsat->eqsens_registration_roots_are_assumptions) {
+      mcsat_eqsens_note_assumption_root(mcsat, t);
+    } else {
+      mcsat_eqsens_note_obligation_root(mcsat, t);
+    }
+  }
+}
+
+static
+void mcsat_eqsens_note_assumption_root(mcsat_solver_t* mcsat, term_t t) {
+  if (t == NULL_TERM) {
+    return;
+  }
+
+  t = unsigned_term(t);
+  if (t == true_term || t == false_term) {
+    return;
+  }
+
+  ivector_push(&mcsat->eqsens_assumption_roots, t);
+  mcsat_eqsens_note_dirty(mcsat);
+}
+
+static
+void mcsat_eqsens_clear_assumption_roots(mcsat_solver_t* mcsat) {
+  if (mcsat->eqsens_assumption_roots.size > 0) {
+    ivector_reset(&mcsat->eqsens_assumption_roots);
+    mcsat_eqsens_note_dirty(mcsat);
+  }
+}
+
+static
+void mcsat_eqsens_unfreeze(mcsat_solver_t* mcsat) {
+  mcsat->eqsens_frozen = false;
+  mcsat->eqsens_post_freeze_registration = false;
 }
 
 static
@@ -925,6 +1019,14 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   init_ivector(&mcsat->assertion_vars, 0);
   init_ivector(&mcsat->assertion_terms_original, 0);
   init_ivector(&mcsat->assertions_tmp, 0);
+  init_ivector(&mcsat->eqsens_obligation_roots, 0);
+  init_ivector(&mcsat->eqsens_assumption_roots, 0);
+  mcsat->eqsens_generation = 0;
+  mcsat->eqsens_frozen = false;
+  mcsat->eqsens_dirty = false;
+  mcsat->eqsens_post_freeze_registration = false;
+  mcsat->eqsens_record_registration_roots = true;
+  mcsat->eqsens_registration_roots_are_assumptions = false;
 
   // The trail
   mcsat->trail = safe_malloc(sizeof(mcsat_trail_t));
@@ -1025,6 +1127,8 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   delete_ivector(&mcsat->assertion_vars);
   delete_ivector(&mcsat->assertion_terms_original);
   delete_ivector(&mcsat->assertions_tmp);
+  delete_ivector(&mcsat->eqsens_obligation_roots);
+  delete_ivector(&mcsat->eqsens_assumption_roots);
   trail_destruct(mcsat->trail);
   safe_free(mcsat->trail);
   variable_db_destruct(mcsat->var_db);
@@ -1139,6 +1243,7 @@ void mcsat_push(mcsat_solver_t* mcsat) {
       &mcsat->assertion_vars.size,
       &mcsat->assertion_terms_original.size,
       &mcsat->plugin_definition_lemmas.size,
+      &mcsat->eqsens_obligation_roots.size,
       NULL);
   // Regular push for the internal data structures
   mcsat_push_internal(mcsat);
@@ -1184,13 +1289,18 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
   uint32_t assertion_vars_size = 0;
   uint32_t assertion_terms_size = 0;
   uint32_t definition_lemmas_size = 0;
+  uint32_t eqsens_obligation_roots_size = 0;
   scope_holder_pop(&mcsat->scope,
       &assertion_vars_size,
       &assertion_terms_size,
       &definition_lemmas_size,
+      &eqsens_obligation_roots_size,
       NULL);
   ivector_shrink(&mcsat->assertion_vars, assertion_vars_size);
   ivector_shrink(&mcsat->assertion_terms_original, assertion_terms_size);
+  ivector_shrink(&mcsat->eqsens_obligation_roots, eqsens_obligation_roots_size);
+  mcsat_eqsens_note_dirty(mcsat);
+  mcsat_eqsens_unfreeze(mcsat);
 
   // Pop the preprocessor
   preprocessor_pop(&mcsat->preprocessor);
@@ -1236,6 +1346,8 @@ void mcsat_clear(mcsat_solver_t* mcsat) {
   mcsat->assumption_i = 0;
   ivector_reset(&mcsat->assumption_vars);
   ivector_reset(&mcsat->assumption_values);
+  mcsat_eqsens_clear_assumption_roots(mcsat);
+  mcsat_eqsens_unfreeze(mcsat);
   mcsat->assumptions_decided_level = -1;
   mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, true);
   mcsat->status = YICES_STATUS_IDLE;
@@ -1293,6 +1405,7 @@ static void mcsat_process_registration_queue(mcsat_solver_t* mcsat) {
     // Next term to register
     t = int_queue_pop(&mcsat->registration_queue);
     assert(is_pos_term(t));
+    mcsat_eqsens_note_registered_term(mcsat, t);
 
     if (trace_enabled(mcsat->ctx->trace, "mcsat::registration")) {
       mcsat_trace_printf(mcsat->ctx->trace, "term registration: ");
@@ -1325,6 +1438,15 @@ static void mcsat_process_registration_queue(mcsat_solver_t* mcsat) {
   }
 
   int_mset_destruct(&to_notify);
+}
+
+static
+void mcsat_prepare_search(mcsat_solver_t* mcsat) {
+  mcsat_process_registration_queue(mcsat);
+
+  mcsat->eqsens_frozen = true;
+  mcsat->eqsens_dirty = false;
+  mcsat->eqsens_post_freeze_registration = false;
 }
 
 /** Pass true to mark terms and types in the internal yices term tables */
@@ -1368,6 +1490,18 @@ void mcsat_gc(mcsat_solver_t* mcsat, bool mark_and_gc_internal) {
     if (trace_enabled(mcsat->ctx->trace, "mcsat::gc")) {
       mcsat_trace_printf(mcsat->ctx->trace, "mcsat_gc(): marking ");
       trace_term_ln(mcsat->ctx->trace, mcsat->terms, variable_db_get_term(mcsat->var_db, var));
+    }
+  }
+  for (i = 0; i < mcsat->eqsens_obligation_roots.size; ++ i) {
+    var = variable_db_get_variable_if_exists(mcsat->var_db, mcsat->eqsens_obligation_roots.data[i]);
+    if (var != variable_null) {
+      gc_info_mark(&gc_vars, var);
+    }
+  }
+  for (i = 0; i < mcsat->eqsens_assumption_roots.size; ++ i) {
+    var = variable_db_get_variable_if_exists(mcsat->var_db, mcsat->eqsens_assumption_roots.data[i]);
+    if (var != variable_null) {
+      gc_info_mark(&gc_vars, var);
     }
   }
 
@@ -1679,10 +1813,11 @@ bool mcsat_propagate(mcsat_solver_t* mcsat, bool run_learning) {
 }
 
 static
-void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
+void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f, bool assumption_obligation) {
 
   term_t f_pos;
   variable_t f_pos_var;
+  bool old_registration_roots_are_assumptions;
 
   if (trace_enabled(mcsat->ctx->trace, "mcsat")) {
     mcsat_trace_printf(mcsat->ctx->trace, "mcsat_assert_formula()\n");
@@ -1701,8 +1836,18 @@ void mcsat_assert_formula(mcsat_solver_t* mcsat, term_t f) {
 
   // Add the terms
   f_pos = unsigned_term(f);
+  old_registration_roots_are_assumptions = mcsat->eqsens_registration_roots_are_assumptions;
+  if (assumption_obligation) {
+    mcsat->eqsens_registration_roots_are_assumptions = true;
+  }
   f_pos_var = variable_db_get_variable(mcsat->var_db, f_pos);
+  if (assumption_obligation) {
+    mcsat_eqsens_note_assumption_root(mcsat, f_pos);
+  } else {
+    mcsat_eqsens_note_obligation_root(mcsat, f_pos);
+  }
   mcsat_process_registration_queue(mcsat);
+  mcsat->eqsens_registration_roots_are_assumptions = old_registration_roots_are_assumptions;
 
   // Remember the assertion
   ivector_push(&mcsat->assertion_vars, f_pos_var);
@@ -2849,14 +2994,19 @@ void mcsat_check_model(mcsat_solver_t* mcsat, bool assert) {
 }
 
 static
-void mcsat_assert_formulas_internal(mcsat_solver_t* mcsat, uint32_t n, const term_t *f, bool preprocess);
+void mcsat_assert_formulas_internal(mcsat_solver_t* mcsat, uint32_t n, const term_t *f, bool preprocess,
+                                    bool assumption_obligation);
 
 static
 void mcsat_add_assumption_leaf(mcsat_solver_t* mcsat, term_t x, value_t value) {
+  bool old_registration_roots_are_assumptions = mcsat->eqsens_registration_roots_are_assumptions;
+  mcsat->eqsens_registration_roots_are_assumptions = true;
   variable_t x_var = variable_db_get_variable(mcsat->var_db, unsigned_term(x));
+  mcsat_eqsens_note_assumption_root(mcsat, x);
   ivector_push(&mcsat->assumption_vars, x_var);
   ivector_push(&mcsat->assumption_values, value);
   mcsat_process_registration_queue(mcsat);
+  mcsat->eqsens_registration_roots_are_assumptions = old_registration_roots_are_assumptions;
 }
 
 static
@@ -2893,7 +3043,7 @@ void mcsat_add_tuple_assumption_leaves(mcsat_solver_t* mcsat, model_t* mdl, term
       /* As with scalar assumptions, keep the original public assumption leaf
        * decidable while preserving substitutions learned during preprocessing. */
       term_t eq = mk_eq(&mcsat->tm, leaf, leaf_pre);
-      mcsat_assert_formulas_internal(mcsat, 1, &eq, false);
+      mcsat_assert_formulas_internal(mcsat, 1, &eq, false, true);
     }
     mcsat_add_assumption_leaf(mcsat, leaf, values.data[i]);
   }
@@ -2942,6 +3092,8 @@ void mcsat_set_tuple_hint_leaves(mcsat_solver_t* mcsat, model_t* mdl, term_t x) 
 
 void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_filter,
                           const term_t mdl_filter[]) {
+  bool old_record_registration_roots;
+
   if (n_mdl_filter == 0) {
     return;
   }
@@ -2964,7 +3116,10 @@ void mcsat_set_model_hint(mcsat_solver_t* mcsat, model_t* mdl, uint32_t n_mdl_fi
     }
   }
 
+  old_record_registration_roots = mcsat->eqsens_record_registration_roots;
+  mcsat->eqsens_record_registration_roots = false;
   mcsat_process_registration_queue(mcsat);
+  mcsat->eqsens_record_registration_roots = old_record_registration_roots;
 }
 
 static
@@ -3013,7 +3168,7 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
         if (x != x_pre) {
           // Assert x = t although we solved it already :(
           term_t eq = mk_eq(&mcsat->tm, x, x_pre);
-          mcsat_assert_formulas_internal(mcsat, 1, &eq, false);
+          mcsat_assert_formulas_internal(mcsat, 1, &eq, false, true);
         }
         // Make sure the variable is registered (maybe it doesn't appear in assertions)
         mcsat_add_assumption_leaf(mcsat, x, model_get_term_value(mdl, x));
@@ -3050,10 +3205,9 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 
   // Initialize for search
   mcsat_heuristics_init(mcsat, params);
-  mcsat_notify_plugins(mcsat, MCSAT_SOLVER_START);
-
-  // set initial variable order
   mcsat_set_initial_var_order(mcsat);
+  mcsat_prepare_search(mcsat);
+  mcsat_notify_plugins(mcsat, MCSAT_SOLVER_START);
 
   // Initialize the Luby sequence with interval 10
   restart_resource = 0;
@@ -3184,10 +3338,14 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
 solve_done:
   ivector_reset(&mcsat->assumption_vars);
   ivector_reset(&mcsat->assumption_values);
+  mcsat_eqsens_clear_assumption_roots(mcsat);
+  mcsat_eqsens_unfreeze(mcsat);
 }
 
 void mcsat_cleanup_assumptions(mcsat_solver_t* mcsat) {
   mcsat->assumptions_decided_level = -1;
+  mcsat_eqsens_clear_assumption_roots(mcsat);
+  mcsat_eqsens_unfreeze(mcsat);
   if (!trail_is_at_base_level(mcsat->trail)) {
     mcsat_backtrack_to(mcsat, mcsat->trail->decision_level_base, false);
   }
@@ -3226,8 +3384,9 @@ void mcsat_flush_lemmas(mcsat_solver_t* mcsat, ivector_t* out) {
 }
 
 static
-void mcsat_assert_formulas_internal(mcsat_solver_t* mcsat, uint32_t n, const term_t *f, bool preprocess) {
-  uint32_t i;
+void mcsat_assert_formulas_internal(mcsat_solver_t* mcsat, uint32_t n, const term_t *f, bool preprocess,
+                                    bool assumption_obligation) {
+  uint32_t i, permanent_limit;
 
   // Remember the original assertions
   for (i = 0; i < n; ++ i) {
@@ -3238,6 +3397,7 @@ void mcsat_assert_formulas_internal(mcsat_solver_t* mcsat, uint32_t n, const ter
   ivector_t* assertions = &mcsat->assertions_tmp;
   ivector_reset(assertions);
   mcsat_flush_lemmas(mcsat, assertions);
+  permanent_limit = assertions->size;
 
   // Preprocess the formulas (preprocessor might throw)
   ivector_add(assertions, f, n);
@@ -3260,7 +3420,7 @@ void mcsat_assert_formulas_internal(mcsat_solver_t* mcsat, uint32_t n, const ter
   // Assert individual formulas
   for (i = 0; i < assertions->size; ++ i) {
     // Assert it
-    mcsat_assert_formula(mcsat, assertions->data[i]);
+    mcsat_assert_formula(mcsat, assertions->data[i], assumption_obligation && i >= permanent_limit);
     // Add any lemmas that were added
     mcsat_flush_lemmas(mcsat, assertions);
   }
@@ -3270,7 +3430,7 @@ void mcsat_assert_formulas_internal(mcsat_solver_t* mcsat, uint32_t n, const ter
 }
 
 int32_t mcsat_assert_formulas(mcsat_solver_t* mcsat, uint32_t n, const term_t *f) {
-  mcsat_assert_formulas_internal(mcsat, n, f, true);
+  mcsat_assert_formulas_internal(mcsat, n, f, true, false);
   mcsat->interpolant = NULL_TERM;
   return CTX_NO_ERROR;
 }
