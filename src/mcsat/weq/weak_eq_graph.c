@@ -111,6 +111,12 @@ bool weq_graph_type_is_equality_sensitive(weq_graph_t* weq, type_t tau) {
 }
 
 static
+bool weq_graph_equality_sensitivity_is_frozen(weq_graph_t* weq) {
+  return weq->ctx->equality_sensitivity_is_frozen == NULL ||
+    weq->ctx->equality_sensitivity_is_frozen(weq->ctx);
+}
+
+static
 bool weq_graph_function_type_is_equality_sensitive(weq_graph_t* weq, type_t tau) {
   return type_kind(weq->ctx->types, tau) == FUNCTION_TYPE &&
     weq_graph_type_is_equality_sensitive(weq, tau);
@@ -124,6 +130,23 @@ bool weq_graph_function_pair_is_equality_sensitive(weq_graph_t* weq, term_t lhs,
   return tau == term_type(weq->ctx->terms, rhs) &&
     weq_graph_function_type_is_equality_sensitive(weq, tau);
 }
+
+#ifndef NDEBUG
+static
+void weq_graph_assert_generated_equality_sensitive(weq_graph_t* weq, const char* origin,
+                                                   term_t lhs, term_t rhs) {
+  type_t tau;
+
+  (void) origin;
+  assert(weq_graph_equality_sensitivity_is_frozen(weq) &&
+         "WEQ generated equality before equality sensitivity was frozen");
+  tau = term_type(weq->ctx->terms, lhs);
+  assert(tau == term_type(weq->ctx->terms, rhs) &&
+         "WEQ generated equality on mismatched types");
+  assert(weq_graph_type_is_equality_sensitive(weq, tau) &&
+         "WEQ generated equality on non-sensitive type");
+}
+#endif
 
 static
 bool weq_graph_pair_allows_diseq_reason(weq_graph_t* weq, term_t lhs, term_t rhs) {
@@ -424,6 +447,9 @@ bool weq_graph_terms_equal_in_branch(weq_graph_t* weq, term_t lhs, term_t rhs) {
     return true;
   }
 
+#ifndef NDEBUG
+  weq_graph_assert_generated_equality_sensitive(weq, "branch equality check", lhs, rhs);
+#endif
   eq = _o_yices_eq(lhs, rhs);
   if (eq == NULL_TERM ||
       eq == false_term ||
@@ -471,6 +497,9 @@ bool weq_graph_add_terms_eq_reason(weq_graph_t* weq, ivector_t* vec,
     return true;
   }
 
+#ifndef NDEBUG
+  weq_graph_assert_generated_equality_sensitive(weq, "equality reason", lhs, rhs);
+#endif
   eq = _o_yices_eq(lhs, rhs);
   if (eq == NULL_TERM ||
       eq == false_term ||
@@ -557,6 +586,13 @@ static
 bool weq_graph_terms_have_different_values(weq_graph_t* weq, term_t lhs, term_t rhs) {
   const mcsat_value_t* lhs_value = weq_graph_get_term_value(weq, lhs);
   const mcsat_value_t* rhs_value = weq_graph_get_term_value(weq, rhs);
+#ifndef NDEBUG
+  type_t tau = term_type(weq->ctx->terms, lhs);
+  assert(tau != term_type(weq->ctx->terms, rhs) ||
+         type_kind(weq->ctx->types, tau) != FUNCTION_TYPE ||
+         weq_graph_type_is_equality_sensitive(weq, tau) ||
+         !"WEQ value disequality used for non-sensitive function type");
+#endif
 
   return lhs_value != NULL && rhs_value != NULL &&
     !mcsat_value_eq(lhs_value, rhs_value);
@@ -571,6 +607,9 @@ bool weq_graph_terms_diseq_reason(weq_graph_t* weq, term_t lhs, term_t rhs,
     return false;
   }
 
+#ifndef NDEBUG
+  weq_graph_assert_generated_equality_sensitive(weq, "disequality reason", lhs, rhs);
+#endif
   neq = _o_yices_neq(lhs, rhs);
   if (neq == true_term || weq_graph_bool_term_is_true(weq, neq)) {
     *reason = neq;
@@ -1064,6 +1103,10 @@ static
 void weq_graph_add_diff_terms_vars(weq_graph_t* weq, term_t arr) {
   term_table_t* terms = weq->ctx->terms;
   type_t arr_type = term_type(terms, arr);
+  if (!weq_graph_equality_sensitivity_is_frozen(weq) ||
+      !weq_graph_function_type_is_equality_sensitive(weq, arr_type)) {
+    return;
+  }
   assert(function_type_arity(weq->ctx->types, arr_type) == 1);
   type_t idx_type = function_type_domain(weq->ctx->types, arr_type, 0);
 
@@ -1410,6 +1453,9 @@ bool weq_graph_array_ext_check(weq_graph_t* weq, ivector_t* conflict,
       if (!weq_graph_function_pair_is_equality_sensitive(weq, arr1, arr2)) {
         continue;
       }
+#ifndef NDEBUG
+      weq_graph_assert_generated_equality_sensitive(weq, "array extensionality pair", arr1, arr2);
+#endif
 
       eq = _o_yices_eq(arr1, arr2);
       if (!int_hset_member(&seen, eq)) {
@@ -1434,22 +1480,24 @@ bool weq_graph_array_ext_diff_lemma(weq_graph_t* weq, ivector_t* conflict,
 
   term_table_t* terms = weq->ctx->terms;
   type_t arr1_type = term_type(terms, arr1);
-  term_t diff_fun;
-  int_hmap_pair_t *diff = int_hmap_find(&weq->type_to_diff, arr1_type);
-  if (diff != NULL) {
-    diff_fun = diff->val;
-  } else {
-    assert(false);
-  }
-
   type_t arr2_type = term_type(terms, arr2);
   term_t arr_diseq;
+  term_t diff_fun;
+
   if (arr1 == arr2 ||
       !eq_graph_term_has_value(weq->eq_graph, arr1) ||
       !eq_graph_term_has_value(weq->eq_graph, arr2) ||
       arr1_type != arr2_type ||
       !weq_graph_function_type_is_equality_sensitive(weq, arr1_type) ||
       !weq_graph_terms_diseq_reason(weq, arr1, arr2, &arr_diseq)) {
+    return true;
+  }
+
+  int_hmap_pair_t *diff = int_hmap_find(&weq->type_to_diff, arr1_type);
+  if (diff != NULL) {
+    diff_fun = diff->val;
+  } else {
+    assert(false);
     return true;
   }
 
@@ -1664,6 +1712,10 @@ term_t weq_graph_get_array_update_idx_lemma(weq_graph_t* weq, term_t update_term
 
   composite_term_t* t_desc = update_term_desc(terms, update_term);
   term_t r = app_term(terms, update_term, t_desc->arity - 2, t_desc->arg + 1);
+#ifndef NDEBUG
+  weq_graph_assert_generated_equality_sensitive(weq, "array update index lemma",
+                                                r, t_desc->arg[t_desc->arity - 1]);
+#endif
   term_t r_lemma = _o_yices_eq(r, t_desc->arg[t_desc->arity - 1]);
 
   if (t_desc->arity > 3) {

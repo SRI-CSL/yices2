@@ -132,6 +132,9 @@ typedef struct {
   /** Cached risky-function-type check, keyed by type id */
   int_hmap_t risky_function_type_cache;
 
+  /** Sensitivity generation used for scan cursors and active id views */
+  uint32_t equality_sensitivity_generation;
+
   /** Tmp vector */
   int_mset_t tmp;
 
@@ -185,6 +188,39 @@ static bool uf_plugin_equality_sensitivity_is_frozen(uf_plugin_t* uf) {
   return uf->ctx->equality_sensitivity_is_frozen == NULL ||
     uf->ctx->equality_sensitivity_is_frozen(uf->ctx);
 }
+
+static void uf_plugin_refresh_equality_sensitivity_generation(uf_plugin_t* uf) {
+  uint32_t generation;
+
+  if (uf->ctx->equality_sensitivity_generation == NULL) {
+    return;
+  }
+
+  generation = uf->ctx->equality_sensitivity_generation(uf->ctx);
+  if (uf->equality_sensitivity_generation != generation) {
+    uf->equality_sensitivity_generation = generation;
+    uf->fun_diseq_trail_scan_index = 0;
+    ivector_reset(&uf->active_fun_terms);
+    ivector_reset(&uf->active_fun_types);
+    ivector_reset(&uf->active_fun_ids);
+  }
+}
+
+#ifndef NDEBUG
+static void uf_plugin_assert_generated_equality_sensitive(uf_plugin_t* uf, const char* origin,
+                                                          term_t lhs, term_t rhs) {
+  type_t tau;
+
+  (void) origin;
+  assert(uf_plugin_equality_sensitivity_is_frozen(uf) &&
+         "UF generated equality before equality sensitivity was frozen");
+  tau = term_type(uf->ctx->terms, lhs);
+  assert(tau == term_type(uf->ctx->terms, rhs) &&
+         "UF generated equality on mismatched types");
+  assert(uf_type_is_equality_sensitive(uf, tau) &&
+         "UF generated equality on non-sensitive type");
+}
+#endif
 
 static bool uf_type_has_unit_cardinality(type_table_t* types, type_t tau) {
   return is_unit_type(types, tau) ||
@@ -378,6 +414,8 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
 
   tau = term_type(terms, lhs);
   assert(tau == term_type(terms, rhs));
+  assert(uf_plugin_equality_sensitivity_is_frozen(uf));
+  assert(uf_type_is_equality_sensitive(uf, tau));
   assert(uf_plugin_fun_pair_needs_search_diff(uf, lhs, rhs));
 
   arity = function_type_arity(types, tau);
@@ -395,6 +433,7 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
     type_t sigma = function_type_domain(types, tau, i);
     char name[64];
 
+    assert(uf_type_is_equality_sensitive(uf, sigma));
     entry->diff_terms[i] = new_uninterpreted_term(terms, sigma);
     snprintf(name, sizeof(name), "mcsat_diff_%"PRIu32"_%"PRIu32, uf->fun_diseq_entries.size, i);
     set_term_name(terms, entry->diff_terms[i], clone_string(name));
@@ -422,6 +461,11 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
   type_t range = function_type_range(types, tau);
   if (uf_type_needs_search_diff(uf, range) &&
       uf_plugin_find_fun_diseq_entry(uf, entry->lhs_app, entry->rhs_app) == NULL) {
+    assert(uf_type_is_equality_sensitive(uf, range));
+#ifndef NDEBUG
+    uf_plugin_assert_generated_equality_sensitive(uf, "recursive diff witness guard",
+                                                  entry->lhs_app, entry->rhs_app);
+#endif
     term_t child_guard = _o_yices_eq(entry->lhs_app, entry->rhs_app);
     uf_plugin_ensure_diff_witnesses(uf, entry->lhs_app, entry->rhs_app,
                                     UF_FUN_DISEQ_EXPLICIT, child_guard);
@@ -527,6 +571,7 @@ static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
   if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
     return false;
   }
+  uf_plugin_refresh_equality_sensitivity_generation(uf);
 
   n = trail_size(trail);
   retry_index = n;
@@ -612,6 +657,7 @@ static bool uf_plugin_add_distinct_id_fun_diseq_witnesses(uf_plugin_t* uf) {
   if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
     return false;
   }
+  uf_plugin_refresh_equality_sensitivity_generation(uf);
 
   n = uf->active_fun_terms.size;
   for (i = 0; i < n; ++ i) {
@@ -767,34 +813,50 @@ static bool uf_plugin_bool_term_is_true(uf_plugin_t* uf, term_t t) {
 
 static bool uf_plugin_fun_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_diseq_t* entry) {
   int32_t lhs_id, rhs_id;
+  bool active;
 
   switch (entry->source) {
   case UF_FUN_DISEQ_EXPLICIT:
-    return entry->guard != NULL_TERM && uf_plugin_bool_term_is_false(uf, entry->guard);
+    active = entry->guard != NULL_TERM && uf_plugin_bool_term_is_false(uf, entry->guard);
+    break;
   case UF_FUN_DISEQ_DISTINCT_ID:
-    return uf_plugin_term_has_function_id(uf, entry->lhs, &lhs_id) &&
+    active = uf_plugin_term_has_function_id(uf, entry->lhs, &lhs_id) &&
       uf_plugin_term_has_function_id(uf, entry->rhs, &rhs_id) &&
       lhs_id != rhs_id;
+    break;
   default:
     assert(false);
     return false;
   }
+
+  assert(!active || !uf_plugin_equality_sensitivity_is_frozen(uf) ||
+         uf_type_is_equality_sensitive(uf, entry->type) ||
+         !"active UF diff entry on non-sensitive type");
+  return active;
 }
 
 static bool uf_plugin_fun_model_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_model_diseq_t* entry) {
   int32_t lhs_id, rhs_id;
+  bool active;
 
   switch (entry->source) {
   case UF_FUN_DISEQ_EXPLICIT:
-    return entry->guard != NULL_TERM && uf_plugin_bool_term_is_false(uf, entry->guard);
+    active = entry->guard != NULL_TERM && uf_plugin_bool_term_is_false(uf, entry->guard);
+    break;
   case UF_FUN_DISEQ_DISTINCT_ID:
-    return uf_plugin_term_has_function_id(uf, entry->lhs, &lhs_id) &&
+    active = uf_plugin_term_has_function_id(uf, entry->lhs, &lhs_id) &&
       uf_plugin_term_has_function_id(uf, entry->rhs, &rhs_id) &&
       lhs_id != rhs_id;
+    break;
   default:
     assert(false);
     return false;
   }
+
+  assert(!active || !uf_plugin_equality_sensitivity_is_frozen(uf) ||
+         uf_type_is_equality_sensitive(uf, entry->type) ||
+         !"active UF model-diseq entry on non-sensitive type");
+  return active;
 }
 
 static term_t uf_plugin_distinct_id_eq_atom(uf_plugin_t* uf, term_t lhs, term_t rhs) {
@@ -808,6 +870,9 @@ static term_t uf_plugin_distinct_id_eq_atom(uf_plugin_t* uf, term_t lhs, term_t 
          uf->ctx->equality_sensitivity_is_frozen(uf->ctx));
   assert(uf->ctx->type_is_equality_sensitive == NULL ||
          uf->ctx->type_is_equality_sensitive(uf->ctx, tau));
+#ifndef NDEBUG
+  uf_plugin_assert_generated_equality_sensitive(uf, "distinct id equality atom", lhs, rhs);
+#endif
   (void) tau;
 
   eq = _o_yices_eq(lhs, rhs);
@@ -1103,6 +1168,9 @@ static bool uf_plugin_terms_are_equal_in_branch(uf_plugin_t* uf, term_t lhs, ter
     return true;
   }
 
+#ifndef NDEBUG
+  uf_plugin_assert_generated_equality_sensitive(uf, "branch equality check", lhs, rhs);
+#endif
   eq = _o_yices_eq(lhs, rhs);
   if (eq == NULL_TERM ||
       eq == false_term ||
@@ -1142,6 +1210,9 @@ static bool uf_plugin_add_terms_equal_reason(uf_plugin_t* uf, term_t lhs, term_t
     return true;
   }
 
+#ifndef NDEBUG
+  uf_plugin_assert_generated_equality_sensitive(uf, "equality reason", lhs, rhs);
+#endif
   eq = _o_yices_eq(lhs, rhs);
   if (eq == NULL_TERM ||
       eq == false_term ||
@@ -1179,15 +1250,18 @@ static bool uf_plugin_add_terms_equal_reason(uf_plugin_t* uf, term_t lhs, term_t
 }
 
 static void uf_plugin_emit_fun_diseq_witness_lemmas(uf_plugin_t* uf, trail_token_t* prop) {
+  term_table_t* terms = uf->ctx->terms;
   uint32_t i;
 
   for (i = 0; i < uf->fun_diseq_entries.size; ++ i) {
     uf_fun_diseq_t* entry = uf->fun_diseq_entries.data[i];
     term_t lemma[2];
+    type_t range;
 
     if (entry->lemma_emitted || !uf_plugin_fun_diseq_entry_is_active(uf, entry)) {
       continue;
     }
+    assert(uf_type_is_equality_sensitive(uf, entry->type));
 
     if (entry->source == UF_FUN_DISEQ_EXPLICIT && entry->guard != NULL_TERM) {
       lemma[0] = entry->guard;
@@ -1195,6 +1269,9 @@ static void uf_plugin_emit_fun_diseq_witness_lemmas(uf_plugin_t* uf, trail_token
     } else {
       lemma[0] = uf_plugin_distinct_id_eq_atom(uf, entry->lhs, entry->rhs);
     }
+    range = term_type(terms, entry->lhs_app);
+    assert(range == term_type(terms, entry->rhs_app));
+    assert(uf_type_is_equality_sensitive(uf, range));
     lemma[1] = _o_yices_neq(entry->lhs_app, entry->rhs_app);
     if (lemma[1] != true_term) {
       uf->ctx->register_term(uf->ctx, unsigned_term(lemma[1]));
@@ -1240,6 +1317,11 @@ static void uf_plugin_rebuild_active_fun_ids(uf_plugin_t* uf) {
   ivector_reset(&uf->active_fun_terms);
   ivector_reset(&uf->active_fun_types);
   ivector_reset(&uf->active_fun_ids);
+
+  if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
+    return;
+  }
+  uf_plugin_refresh_equality_sensitivity_generation(uf);
 
   n = var_db->variable_to_term_map.size;
   for (i = 1; i < n; ++ i) {
@@ -1311,6 +1393,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_ivector(&uf->active_fun_types, 0);
   init_ivector(&uf->active_fun_ids, 0);
   init_int_hmap(&uf->risky_function_type_cache, 0);
+  uf->equality_sensitivity_generation = 0;
   int_mset_construct(&uf->tmp, NULL_TERM);
 
   // Terms
@@ -1575,6 +1658,8 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   if (ctx_trace_enabled(uf->ctx, "uf_plugin")) {
     ctx_trace_printf(uf->ctx, "uf_plugin_propagate()\n");
   }
+
+  uf_plugin_refresh_equality_sensitivity_generation(uf);
 
   // If we're not watching anything, we just ignore.
   if (eq_graph_term_size(&uf->eq_graph) == 0) {

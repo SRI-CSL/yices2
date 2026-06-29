@@ -590,6 +590,51 @@ bool mcsat_eqsens_type_is_sensitive(mcsat_solver_t* mcsat, type_t tau) {
   return int_hset_member(&mcsat->eqsens_types, tau);
 }
 
+#ifndef NDEBUG
+static
+void mcsat_assert_generated_equality_is_sensitive(mcsat_solver_t* mcsat, term_t t) {
+  term_table_t* terms;
+  term_kind_t kind;
+  type_t tau;
+  uint32_t i;
+
+  if (!mcsat->eqsens_frozen) {
+    return;
+  }
+
+  t = unsigned_term(t);
+  if (t == true_term || t == false_term) {
+    return;
+  }
+
+  terms = mcsat->terms;
+  kind = term_kind(terms, t);
+  switch (kind) {
+  case EQ_TERM: {
+    composite_term_t* eq = eq_term_desc(terms, t);
+    tau = term_type(terms, eq->arg[0]);
+    assert(tau == term_type(terms, eq->arg[1]));
+    assert(mcsat_eqsens_type_is_sensitive(mcsat, tau) &&
+           "post-freeze generated equality on non-sensitive type");
+    break;
+  }
+
+  case DISTINCT_TERM: {
+    composite_term_t* distinct = distinct_term_desc(terms, t);
+    for (i = 0; i < distinct->arity; ++ i) {
+      tau = term_type(terms, distinct->arg[i]);
+      assert(mcsat_eqsens_type_is_sensitive(mcsat, tau) &&
+             "post-freeze generated distinct on non-sensitive type");
+    }
+    break;
+  }
+
+  default:
+    break;
+  }
+}
+#endif
+
 static
 void mcsat_eqsens_note_obligation_root(mcsat_solver_t* mcsat, term_t t) {
   if (t == NULL_TERM) {
@@ -1087,6 +1132,9 @@ void mcsat_plugin_context_register_term(plugin_context_t* self, term_t t) {
   mcsat_plugin_context_t* mctx;
   mctx = (mcsat_plugin_context_t*) self;
   t = unsigned_term(t);
+#ifndef NDEBUG
+  mcsat_assert_generated_equality_is_sensitive(mctx->mcsat, t);
+#endif
   variable_db_get_variable(mctx->mcsat->var_db, t);
   mcsat_process_registration_queue(mctx->mcsat);
 }
