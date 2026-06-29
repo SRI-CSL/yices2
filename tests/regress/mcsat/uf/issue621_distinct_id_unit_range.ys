@@ -1,0 +1,9 @@
+(define-type U (scalar u))
+(define p::(-> (-> int U) bool))
+(define f::(-> int U))
+(define g::(-> int U))
+
+(assert (p f))
+(assert (not (p g)))
+
+(check)
