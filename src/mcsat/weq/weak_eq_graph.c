@@ -117,11 +117,13 @@ bool weq_graph_type_is_equality_sensitive(weq_graph_t* weq, type_t tau) {
     weq->ctx->type_is_equality_sensitive(weq->ctx, tau);
 }
 
+#if !defined(NDEBUG) || WEQ_ENABLE_LEGACY_ARRAY_DIFF
 static
 bool weq_graph_equality_sensitivity_is_frozen(weq_graph_t* weq) {
   return weq->ctx->equality_sensitivity_is_frozen == NULL ||
     weq->ctx->equality_sensitivity_is_frozen(weq->ctx);
 }
+#endif
 
 static
 bool weq_graph_function_type_is_equality_sensitive(weq_graph_t* weq, type_t tau) {
