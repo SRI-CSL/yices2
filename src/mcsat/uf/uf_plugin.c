@@ -501,16 +501,37 @@ static bool uf_plugin_fun_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_di
   }
 }
 
-static term_t uf_plugin_fun_diseq_literal(uf_plugin_t* uf, const uf_fun_diseq_t* entry) {
-  term_t diseq;
+static term_t uf_plugin_distinct_id_eq_atom(uf_plugin_t* uf, term_t lhs, term_t rhs) {
+  type_t tau;
+  term_t eq;
 
+  tau = term_type(uf->ctx->terms, lhs);
+  assert(tau == term_type(uf->ctx->terms, rhs));
+  assert(type_kind(uf->ctx->types, tau) == FUNCTION_TYPE);
+  assert(uf->ctx->equality_sensitivity_is_frozen == NULL ||
+         uf->ctx->equality_sensitivity_is_frozen(uf->ctx));
+  assert(uf->ctx->type_is_equality_sensitive == NULL ||
+         uf->ctx->type_is_equality_sensitive(uf->ctx, tau));
+  (void) tau;
+
+  eq = _o_yices_eq(lhs, rhs);
+  if (eq != true_term && eq != false_term) {
+    uf->ctx->register_term(uf->ctx, eq);
+  }
+  return eq;
+}
+
+static term_t uf_plugin_distinct_id_diseq_literal(uf_plugin_t* uf, term_t lhs, term_t rhs) {
+  return opposite_term(uf_plugin_distinct_id_eq_atom(uf, lhs, rhs));
+}
+
+static term_t uf_plugin_fun_diseq_literal(uf_plugin_t* uf, const uf_fun_diseq_t* entry) {
   if (entry->source == UF_FUN_DISEQ_EXPLICIT && entry->guard != NULL_TERM) {
     return opposite_term(entry->guard);
   }
 
-  diseq = _o_yices_neq(entry->lhs, entry->rhs);
-  uf->ctx->register_term(uf->ctx, unsigned_term(diseq));
-  return diseq;
+  assert(entry->source == UF_FUN_DISEQ_DISTINCT_ID);
+  return uf_plugin_distinct_id_diseq_literal(uf, entry->lhs, entry->rhs);
 }
 
 static bool ivector_contains_term(const ivector_t* v, term_t t) {
@@ -725,8 +746,7 @@ static void uf_plugin_emit_fun_diseq_witness_lemmas(uf_plugin_t* uf, trail_token
       lemma[0] = entry->guard;
       uf->ctx->register_term(uf->ctx, unsigned_term(lemma[0]));
     } else {
-      lemma[0] = _o_yices_eq(entry->lhs, entry->rhs);
-      uf->ctx->register_term(uf->ctx, lemma[0]);
+      lemma[0] = uf_plugin_distinct_id_eq_atom(uf, entry->lhs, entry->rhs);
     }
     lemma[1] = _o_yices_neq(entry->lhs_app, entry->rhs_app);
     if (lemma[1] != true_term) {
