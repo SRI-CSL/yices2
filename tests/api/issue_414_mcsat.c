@@ -599,6 +599,52 @@ int main(void) {
     yices_free_context(ctx);
   }
 
+  // Case 19: five semantic function ids cannot fit in the four Bool -> Bool
+  // functions. This exercises the UF cardinality checker rather than relying
+  // on term-level simplification of an explicit distinct term.
+  {
+    type_t dom[1] = { yices_bool_type() };
+    type_t fun_bb = yices_function_type(1, dom, yices_bool_type());
+    type_t colors = yices_new_scalar_type(5);
+    type_t pred_dom[1] = { fun_bb };
+    type_t pred_type = yices_function_type(1, pred_dom, colors);
+    term_t p;
+    term_t funs[5];
+    context_t *ctx;
+    uint32_t i;
+
+    CHECK(fun_bb != NULL_TYPE, "failed to create Bool -> Bool type (cardinality id case)");
+    CHECK(colors != NULL_TYPE, "failed to create scalar(5) type (cardinality id case)");
+    CHECK(pred_type != NULL_TYPE, "failed to create higher-order scalar map type (cardinality id case)");
+
+    p = yices_new_uninterpreted_term(pred_type);
+    CHECK(p != NULL_TERM, "failed to create higher-order scalar map (cardinality id case)");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (cardinality id case)");
+
+    for (i = 0; i < 5; ++ i) {
+      term_t app, color, eq;
+
+      funs[i] = yices_new_uninterpreted_term(fun_bb);
+      CHECK(funs[i] != NULL_TERM, "failed to create Bool -> Bool function (cardinality id case)");
+
+      app = yices_application1(p, funs[i]);
+      color = yices_constant(colors, i);
+      eq = yices_eq(app, color);
+      CHECK(app != NULL_TERM && color != NULL_TERM && eq != NULL_TERM,
+            "failed to create higher-order scalar constraint (cardinality id case)");
+      CHECK(yices_assert_formula(ctx, eq) == 0,
+            "failed to assert higher-order scalar constraint (cardinality id case)");
+    }
+
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_UNSAT,
+          "expected UNSAT for five semantic Bool -> Bool function ids");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_cardinality_conflicts") > 0,
+          "semantic Bool -> Bool pigeonhole was not detected by cardinality");
+    yices_free_context(ctx);
+  }
+
   yices_exit();
   return 0;
 }

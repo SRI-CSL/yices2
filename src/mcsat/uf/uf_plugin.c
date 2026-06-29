@@ -142,6 +142,7 @@ typedef struct {
     statistic_int_t* fun_diseq_model;
     statistic_int_t* fun_diseq_incompatible_id_merges;
     statistic_int_t* fun_diseq_witnesses;
+    statistic_int_t* fun_diseq_cardinality_conflicts;
     statistic_int_t* propagations;
     statistic_int_t* conflicts;
     statistic_avg_t* avg_conflict_size;
@@ -209,6 +210,19 @@ static bool uf_type_is_risky(uf_plugin_t* uf, type_t tau) {
   cached = int_hmap_get(&uf->risky_function_type_cache, tau);
   cached->val = risky;
   return risky;
+}
+
+static bool uf_function_type_exact_cardinality(type_table_t* types, type_t tau, uint32_t* card) {
+  assert(type_kind(types, tau) == FUNCTION_TYPE);
+
+  if (!type_has_finite_domain(types, tau) ||
+      !type_has_finite_range(types, tau) ||
+      !type_card_is_exact(types, tau)) {
+    return false;
+  }
+
+  *card = type_card(types, tau);
+  return true;
 }
 
 static bool uf_type_needs_search_diff(uf_plugin_t* uf, type_t tau) {
@@ -831,6 +845,149 @@ static bool uf_plugin_active_fun_diseq_entry(uf_plugin_t* uf, term_t lhs, term_t
   return false;
 }
 
+static bool uf_plugin_check_explicit_distinct_cardinality_conflict(uf_plugin_t* uf) {
+  term_table_t* terms = uf->ctx->terms;
+  type_table_t* types = uf->ctx->types;
+  variable_db_t* var_db = uf->ctx->var_db;
+  const mcsat_trail_t* trail = uf->ctx->trail;
+  uint32_t i, j, n;
+
+  if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
+    return false;
+  }
+
+  n = trail_size(trail);
+  for (i = 0; i < n; ++ i) {
+    variable_t v = trail_at(trail, i);
+    term_t t = variable_db_get_term(var_db, v);
+    const mcsat_value_t* value;
+    composite_term_t* distinct;
+    type_t tau;
+    uint32_t card;
+
+    if (t == NULL_TERM || term_kind(terms, t) != DISTINCT_TERM) {
+      continue;
+    }
+
+    value = trail_get_value(trail, v);
+    if (value->type != VALUE_BOOLEAN || !value->b) {
+      continue;
+    }
+
+    distinct = distinct_term_desc(terms, t);
+    if (distinct->arity == 0) {
+      continue;
+    }
+
+    tau = term_type(terms, distinct->arg[0]);
+    if (type_kind(types, tau) != FUNCTION_TYPE ||
+        !uf_type_is_equality_sensitive(uf, tau) ||
+        !uf_function_type_exact_cardinality(types, tau, &card) ||
+        distinct->arity <= card) {
+      continue;
+    }
+
+    for (j = 0; j < distinct->arity; ++ j) {
+      if (term_type(terms, distinct->arg[j]) != tau ||
+          int_hset_member(&uf->diff_witness_terms, distinct->arg[j])) {
+        break;
+      }
+    }
+    if (j < distinct->arity) {
+      continue;
+    }
+
+    ivector_reset(&uf->conflict);
+    ivector_push(&uf->conflict, t);
+    (*uf->stats.fun_diseq_cardinality_conflicts) ++;
+    return true;
+  }
+
+  return false;
+}
+
+static bool uf_plugin_check_distinct_id_cardinality_conflict(uf_plugin_t* uf) {
+  type_table_t* types = uf->ctx->types;
+  ivector_t seen_types;
+  ivector_t reps;
+  ivector_t rep_ids;
+  uint32_t i, j, k, n;
+  bool conflict_found = false;
+
+  if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
+    return false;
+  }
+
+  init_ivector(&seen_types, 0);
+  init_ivector(&reps, 0);
+  init_ivector(&rep_ids, 0);
+
+  n = uf->active_fun_terms.size;
+  for (i = 0; i < n && !conflict_found; ++ i) {
+    type_t tau = uf->active_fun_types.data[i];
+    uint32_t card;
+
+    if (ivector_contains_term(&seen_types, tau)) {
+      continue;
+    }
+    ivector_push(&seen_types, tau);
+
+    if (!uf_function_type_exact_cardinality(types, tau, &card) ||
+        card >= UF_FUN_CARDINALITY_CLIQUE_TERM_CAP) {
+      continue;
+    }
+
+    ivector_reset(&reps);
+    ivector_reset(&rep_ids);
+    for (j = i; j < n && reps.size <= card; ++ j) {
+      int32_t id;
+      term_t t;
+
+      if (tau != (type_t) uf->active_fun_types.data[j]) {
+        continue;
+      }
+
+      id = uf->active_fun_ids.data[j];
+      if (ivector_contains_term(&rep_ids, id)) {
+        continue;
+      }
+
+      t = uf->active_fun_terms.data[j];
+      if (int_hset_member(&uf->diff_witness_terms, t)) {
+        continue;
+      }
+
+      ivector_push(&reps, t);
+      ivector_push(&rep_ids, id);
+    }
+
+    if (reps.size <= card) {
+      continue;
+    }
+
+    ivector_reset(&uf->conflict);
+    for (j = 0; j < reps.size; ++ j) {
+      for (k = j + 1; k < reps.size; ++ k) {
+        ivector_push(&uf->conflict,
+                     uf_plugin_distinct_id_diseq_literal(uf, reps.data[j], reps.data[k]));
+      }
+    }
+    ivector_remove_duplicates(&uf->conflict);
+    conflict_found = uf->conflict.size > 0;
+    if (conflict_found) {
+      (*uf->stats.fun_diseq_cardinality_conflicts) ++;
+    }
+  }
+
+  if (!conflict_found) {
+    ivector_reset(&uf->conflict);
+  }
+  delete_ivector(&rep_ids);
+  delete_ivector(&reps);
+  delete_ivector(&seen_types);
+  return conflict_found;
+}
+
 static bool uf_plugin_check_fun_cardinality_conflict(uf_plugin_t* uf) {
   type_table_t* types = uf->ctx->types;
   ivector_t seen_types;
@@ -840,6 +997,13 @@ static bool uf_plugin_check_fun_cardinality_conflict(uf_plugin_t* uf) {
 
   init_ivector(&seen_types, 0);
   init_ivector(&terms, 0);
+
+  if (uf_plugin_check_explicit_distinct_cardinality_conflict(uf) ||
+      uf_plugin_check_distinct_id_cardinality_conflict(uf)) {
+    delete_ivector(&terms);
+    delete_ivector(&seen_types);
+    return true;
+  }
 
   for (i = 0; i < uf->fun_diseq_entries.size && !conflict_found; ++ i) {
     uf_fun_diseq_t* entry = uf->fun_diseq_entries.data[i];
@@ -853,11 +1017,9 @@ static bool uf_plugin_check_fun_cardinality_conflict(uf_plugin_t* uf) {
     }
     ivector_push(&seen_types, tau);
 
-    if (!is_finite_type(types, tau) || !type_card_is_exact(types, tau)) {
+    if (!uf_function_type_exact_cardinality(types, tau, &card)) {
       continue;
     }
-
-    card = type_card(types, tau);
     if (card >= UF_FUN_CARDINALITY_CLIQUE_TERM_CAP) {
       continue;
     }
@@ -895,6 +1057,9 @@ static bool uf_plugin_check_fun_cardinality_conflict(uf_plugin_t* uf) {
     if (clique) {
       ivector_remove_duplicates(&uf->conflict);
       conflict_found = uf->conflict.size > 0;
+      if (conflict_found) {
+        (*uf->stats.fun_diseq_cardinality_conflicts) ++;
+      }
     } else {
       ivector_reset(&uf->conflict);
     }
@@ -1093,6 +1258,7 @@ void uf_plugin_stats_init(uf_plugin_t* uf) {
   uf->stats.fun_diseq_model = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_model");
   uf->stats.fun_diseq_incompatible_id_merges = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_incompatible_id_merges");
   uf->stats.fun_diseq_witnesses = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_witnesses");
+  uf->stats.fun_diseq_cardinality_conflicts = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_cardinality_conflicts");
   uf->stats.avg_conflict_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_conflict_size");
   uf->stats.avg_explanation_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_explanation_size");
 }
@@ -1414,6 +1580,12 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   uf_plugin_rebuild_active_fun_ids(uf);
   added_fun_diseq_witnesses = uf_plugin_add_distinct_id_fun_diseq_witnesses(uf) || added_fun_diseq_witnesses;
   if (uf->conflict.size > 0) {
+    prop->conflict(prop);
+    (*uf->stats.conflicts) ++;
+    statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
+    return;
+  }
+  if (uf_plugin_check_fun_cardinality_conflict(uf)) {
     prop->conflict(prop);
     (*uf->stats.conflicts) ++;
     statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
