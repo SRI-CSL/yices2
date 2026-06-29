@@ -43,6 +43,7 @@
 #include "terms/terms.h"
 #include "terms/term_utils.h"
 #include "inttypes.h"
+#include <string.h>
 
 
 #define DECIDE_FUNCTION_VALUE_START UINT32_MAX/64
@@ -2091,6 +2092,7 @@ void uf_plugin_push(plugin_t* plugin) {
                     &uf->eq_graph_addition_trail.size,
                     &uf->fun_diseq_entries.size,
                     &uf->fun_model_diseq_entries.size,
+                    &uf->fun_diseq_trail_scan_index,
                     NULL);
 
   weq_graph_push(&uf->weq_graph);
@@ -2103,12 +2105,14 @@ void uf_plugin_pop(plugin_t* plugin) {
 
   uint32_t old_eq_graph_addition_trail_size, old_fun_diseq_entries_size;
   uint32_t old_fun_model_diseq_entries_size;
+  uint32_t old_fun_diseq_trail_scan_index;
 
   // Pop the int variable values
   scope_holder_pop(&uf->scope,
                    &old_eq_graph_addition_trail_size,
                    &old_fun_diseq_entries_size,
                    &old_fun_model_diseq_entries_size,
+                   &old_fun_diseq_trail_scan_index,
                    NULL);
 
   weq_graph_pop(&uf->weq_graph);
@@ -2127,9 +2131,7 @@ void uf_plugin_pop(plugin_t* plugin) {
   ivector_reset(&uf->conflict);
   uf_plugin_free_fun_diseq_entries_from(uf, old_fun_diseq_entries_size);
   uf_plugin_free_fun_model_diseq_entries_from(uf, old_fun_model_diseq_entries_size);
-  if (uf->fun_diseq_trail_scan_index > trail_size(uf->ctx->trail)) {
-    uf->fun_diseq_trail_scan_index = trail_size(uf->ctx->trail);
-  }
+  uf->fun_diseq_trail_scan_index = old_fun_diseq_trail_scan_index;
   ivector_reset(&uf->active_fun_terms);
   ivector_reset(&uf->active_fun_types);
   ivector_reset(&uf->active_fun_type_keys);
@@ -2538,6 +2540,14 @@ value_t vtbl_mk_default(value_table_t *vtbl, type_t tau) {
 }
 
 typedef struct {
+  int32_t function_id;
+  type_t type;
+  uint32_t arity;
+  value_t value;
+  value_t arguments[0];
+} uf_model_app_value_t;
+
+typedef struct {
   uf_plugin_t* uf;
   value_table_t* vtbl;
   fresh_val_maker_t maker;
@@ -2546,6 +2556,7 @@ typedef struct {
   int_hmap_t app_term_first;
   int_hmap_t function_term;
   int_hmap2_t function_value;
+  pvector_t app_value_reservations;
 } uf_model_builder_t;
 
 static
@@ -2558,10 +2569,15 @@ void uf_model_builder_construct(uf_model_builder_t* builder, uf_plugin_t* uf, va
   init_int_hmap(&builder->app_term_first, 0);
   init_int_hmap(&builder->function_term, 0);
   init_int_hmap2(&builder->function_value, 0);
+  init_pvector(&builder->app_value_reservations, 0);
 }
 
 static
 void uf_model_builder_destruct(uf_model_builder_t* builder) {
+  while (builder->app_value_reservations.size > 0) {
+    safe_free(pvector_pop2(&builder->app_value_reservations));
+  }
+  delete_pvector(&builder->app_value_reservations);
   delete_int_hmap2(&builder->function_value);
   delete_int_hmap(&builder->function_term);
   delete_int_hmap(&builder->app_term_first);
@@ -2859,6 +2875,66 @@ static bool uf_model_builder_pick_distinct_range_values(uf_model_builder_t* buil
 
 static bool uf_plugin_term_has_trail_value(uf_plugin_t* uf, term_t t);
 
+static uf_model_app_value_t* uf_model_builder_find_app_value(uf_model_builder_t* builder,
+                                                             int32_t function_id, type_t type,
+                                                             uint32_t arity, value_t* arguments) {
+  uint32_t i, j;
+
+  for (i = 0; i < builder->app_value_reservations.size; ++ i) {
+    uf_model_app_value_t* entry = builder->app_value_reservations.data[i];
+    if (entry->function_id != function_id || entry->type != type || entry->arity != arity) {
+      continue;
+    }
+
+    for (j = 0; j < arity; ++ j) {
+      if (entry->arguments[j] != arguments[j]) {
+        break;
+      }
+    }
+    if (j == arity) {
+      return entry;
+    }
+  }
+
+  return NULL;
+}
+
+static value_t uf_model_builder_get_reserved_app_value(uf_model_builder_t* builder,
+                                                       int32_t function_id, type_t type, term_t app_term,
+                                                       uint32_t arity, value_t* arguments) {
+  uf_model_app_value_t* entry;
+
+  if (uf_plugin_term_has_trail_value(builder->uf, app_term)) {
+    return uf_model_builder_get_term_value(builder, app_term);
+  }
+
+  entry = uf_model_builder_find_app_value(builder, function_id, type, arity, arguments);
+  if (entry != NULL) {
+    return entry->value;
+  }
+
+  return null_value;
+}
+
+static void uf_model_builder_reserve_app_value(uf_model_builder_t* builder,
+                                               int32_t function_id, type_t type,
+                                               uint32_t arity, value_t* arguments, value_t value) {
+  uf_model_app_value_t* entry;
+
+  entry = uf_model_builder_find_app_value(builder, function_id, type, arity, arguments);
+  if (entry != NULL) {
+    return;
+  }
+
+  entry = safe_malloc(sizeof(uf_model_app_value_t) + arity * sizeof(value_t));
+  entry->function_id = function_id;
+  entry->type = type;
+  entry->arity = arity;
+  entry->value = value;
+  memcpy(entry->arguments, arguments, arity * sizeof(value_t));
+  pvector_push(&builder->app_value_reservations, entry);
+}
+
 static bool uf_plugin_term_has_direct_trail_assignment(uf_plugin_t* uf, term_t t, variable_t v) {
   const eq_graph_t* eq = &uf->eq_graph;
   eq_node_id_t t_id;
@@ -2923,25 +2999,25 @@ void uf_model_builder_apply_search_diff_witnesses(uf_model_builder_t* builder) {
       continue;
     }
 
-    lhs_app_value = uf_plugin_term_has_trail_value(uf, entry->lhs_app)
-      ? uf_model_builder_get_term_value(builder, entry->lhs_app)
-      : null_value;
-    rhs_app_value = uf_plugin_term_has_trail_value(uf, entry->rhs_app)
-      ? uf_model_builder_get_term_value(builder, entry->rhs_app)
-      : null_value;
-    if (!uf_model_builder_pick_distinct_range_values(builder, lhs_range, rhs_range,
-						     &lhs_app_value, &rhs_app_value)) {
-      continue;
-    }
-
     lhs_fun_value = uf_model_builder_get_function_value(builder, entry->lhs);
     rhs_fun_value = uf_model_builder_get_function_value(builder, entry->rhs);
     if (lhs_fun_value == null_value || rhs_fun_value == null_value) {
       continue;
     }
 
+    lhs_app_value = uf_model_builder_get_reserved_app_value(builder, lhs_id, lhs_type, entry->lhs_app,
+                                                           arguments.size, arguments.data);
+    rhs_app_value = uf_model_builder_get_reserved_app_value(builder, rhs_id, rhs_type, entry->rhs_app,
+                                                           arguments.size, arguments.data);
+    if (!uf_model_builder_pick_distinct_range_values(builder, lhs_range, rhs_range,
+						     &lhs_app_value, &rhs_app_value)) {
+      continue;
+    }
+
     lhs_fun_value = vtbl_mk_update(builder->vtbl, lhs_fun_value, arguments.size, arguments.data, lhs_app_value);
     rhs_fun_value = vtbl_mk_update(builder->vtbl, rhs_fun_value, arguments.size, arguments.data, rhs_app_value);
+    uf_model_builder_reserve_app_value(builder, lhs_id, lhs_type, arguments.size, arguments.data, lhs_app_value);
+    uf_model_builder_reserve_app_value(builder, rhs_id, rhs_type, arguments.size, arguments.data, rhs_app_value);
     {
       bool new_record;
 
@@ -3022,6 +3098,54 @@ void uf_model_builder_prepare(uf_model_builder_t* builder) {
 }
 
 static
+void uf_model_builder_reserve_trail_app_values(uf_model_builder_t* builder) {
+  uf_plugin_t* uf = builder->uf;
+  term_table_t* terms = uf->ctx->terms;
+  uint32_t i;
+
+  for (i = 0; i < builder->app_terms.size; ++ i) {
+    term_t app_term = builder->app_terms.data[i];
+    composite_term_t* app_desc;
+    int32_t function_id;
+    type_t function_type;
+    value_t app_value;
+    uint32_t j;
+
+    if (!uf_plugin_term_has_trail_value(uf, app_term)) {
+      continue;
+    }
+
+    app_desc = app_term_desc(terms, app_term);
+    if (!uf_plugin_get_function_id(uf, app_desc->arg[0], &function_id)) {
+      continue;  // LCOV_EXCL_LINE - defensive fallback, unreachable on supported inputs
+    }
+
+    ivector_reset(&builder->arguments);
+    for (j = 1; j < app_desc->arity; ++ j) {
+      value_t arg = uf_model_builder_get_term_value(builder, app_desc->arg[j]);
+      if (arg == null_value) {
+        break;
+      }
+      ivector_push(&builder->arguments, arg);
+    }
+    if (j < app_desc->arity) {
+      continue;
+    }
+
+    app_value = uf_model_builder_get_term_value(builder, app_term);
+    if (app_value == null_value) {
+      continue;
+    }
+
+    function_type = term_type(terms, app_desc->arg[0]);
+    uf_model_builder_reserve_app_value(builder, function_id, function_type,
+                                       builder->arguments.size, builder->arguments.data, app_value);
+  }
+
+  ivector_reset(&builder->arguments);
+}
+
+static
 void uf_model_builder_map_diff_witnesses(uf_model_builder_t* builder, model_t* model) {
   uf_plugin_t* uf = builder->uf;
   uint32_t i, j;
@@ -3067,6 +3191,7 @@ void uf_plugin_build_model(plugin_t* plugin, model_t* model) {
     }
   }
 
+  uf_model_builder_reserve_trail_app_values(&builder);
   uf_model_builder_apply_model_diseqs(&builder);
   uf_model_builder_apply_search_diff_witnesses(&builder);
 
