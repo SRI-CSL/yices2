@@ -317,27 +317,27 @@ int main(void) {
   // Case 12: hitting the risky diff-witness cap must not stop the scanner
   // from recording a later non-risky explicit disequality.
   {
-    type_t bool_dom[1] = { yices_bool_type() };
     type_t int_dom[1] = { yices_int_type() };
-    type_t risky_fun = yices_function_type(1, bool_dom, yices_int_type());
     type_t non_risky_fun = yices_function_type(1, int_dom, yices_bool_type());
-    term_t risky_terms[34];
     term_t f, g;
     context_t *ctx;
     int32_t i;
 
-    CHECK(risky_fun != NULL_TYPE, "failed to create risky Bool -> Int type");
     CHECK(non_risky_fun != NULL_TYPE, "failed to create non-risky Int -> Bool type");
 
     ctx = make_mcsat_context();
     CHECK(ctx != NULL, "failed to create mcsat context (cap-pressure case)");
 
-    for (i = 0; i < 34; ++ i) {
-      risky_terms[i] = yices_new_uninterpreted_term(risky_fun);
-      CHECK(risky_terms[i] != NULL_TERM, "failed to create risky function term");
-    }
-    for (i = 0; i < 17; ++ i) {
-      CHECK(yices_assert_formula(ctx, yices_neq(risky_terms[2 * i], risky_terms[2 * i + 1])) == 0,
+    for (i = 0; i < 16; ++ i) {
+      type_t risky_dom[1] = { yices_new_scalar_type(2 + i) };
+      type_t risky_fun = yices_function_type(1, risky_dom, yices_int_type());
+      term_t risky_f = yices_new_uninterpreted_term(risky_fun);
+      term_t risky_g = yices_new_uninterpreted_term(risky_fun);
+      CHECK(risky_dom[0] != NULL_TYPE && risky_fun != NULL_TYPE,
+            "failed to create risky cap-pressure function type");
+      CHECK(risky_f != NULL_TERM && risky_g != NULL_TERM,
+            "failed to create risky function term");
+      CHECK(yices_assert_formula(ctx, yices_neq(risky_f, risky_g)) == 0,
             "failed to assert risky cap-pressure disequality");
     }
 
@@ -355,27 +355,27 @@ int main(void) {
 
   // Case 13: a post-cap unit-range function disequality is a direct conflict.
   {
-    type_t bool_dom[1] = { yices_bool_type() };
     type_t int_dom[1] = { yices_int_type() };
-    type_t risky_fun = yices_function_type(1, bool_dom, yices_int_type());
     type_t unit_fun = yices_function_type(1, int_dom, unit);
-    term_t risky_terms[34];
     term_t f, g;
     context_t *ctx;
     int32_t i;
 
-    CHECK(risky_fun != NULL_TYPE, "failed to create risky Bool -> Int type");
     CHECK(unit_fun != NULL_TYPE, "failed to create unit-range Int -> Unit type");
 
     ctx = make_mcsat_context();
     CHECK(ctx != NULL, "failed to create mcsat context (unit cap-pressure case)");
 
-    for (i = 0; i < 34; ++ i) {
-      risky_terms[i] = yices_new_uninterpreted_term(risky_fun);
-      CHECK(risky_terms[i] != NULL_TERM, "failed to create risky function term");
-    }
-    for (i = 0; i < 17; ++ i) {
-      CHECK(yices_assert_formula(ctx, yices_neq(risky_terms[2 * i], risky_terms[2 * i + 1])) == 0,
+    for (i = 0; i < 16; ++ i) {
+      type_t risky_dom[1] = { yices_new_scalar_type(2 + i) };
+      type_t risky_fun = yices_function_type(1, risky_dom, yices_int_type());
+      term_t risky_f = yices_new_uninterpreted_term(risky_fun);
+      term_t risky_g = yices_new_uninterpreted_term(risky_fun);
+      CHECK(risky_dom[0] != NULL_TYPE && risky_fun != NULL_TYPE,
+            "failed to create risky cap-pressure function type");
+      CHECK(risky_f != NULL_TERM && risky_g != NULL_TERM,
+            "failed to create risky function term");
+      CHECK(yices_assert_formula(ctx, yices_neq(risky_f, risky_g)) == 0,
             "failed to assert risky cap-pressure disequality");
     }
 
@@ -392,27 +392,27 @@ int main(void) {
   // Case 14: a post-cap defined function disequality is still handled by
   // definitional reasoning, not silently dropped by the witness cap.
   {
-    type_t bool_dom[1] = { yices_bool_type() };
     type_t int_dom[1] = { yices_int_type() };
-    type_t risky_fun = yices_function_type(1, bool_dom, yices_int_type());
     type_t non_risky_fun = yices_function_type(1, int_dom, yices_bool_type());
-    term_t risky_terms[34];
     term_t f, g, b, h;
     context_t *ctx;
     int32_t i;
 
-    CHECK(risky_fun != NULL_TYPE, "failed to create risky Bool -> Int type");
     CHECK(non_risky_fun != NULL_TYPE, "failed to create non-risky Int -> Bool type");
 
     ctx = make_mcsat_context();
     CHECK(ctx != NULL, "failed to create mcsat context (defined cap-pressure case)");
 
-    for (i = 0; i < 34; ++ i) {
-      risky_terms[i] = yices_new_uninterpreted_term(risky_fun);
-      CHECK(risky_terms[i] != NULL_TERM, "failed to create risky function term");
-    }
-    for (i = 0; i < 17; ++ i) {
-      CHECK(yices_assert_formula(ctx, yices_neq(risky_terms[2 * i], risky_terms[2 * i + 1])) == 0,
+    for (i = 0; i < 16; ++ i) {
+      type_t risky_dom[1] = { yices_new_scalar_type(2 + i) };
+      type_t risky_fun = yices_function_type(1, risky_dom, yices_int_type());
+      term_t risky_f = yices_new_uninterpreted_term(risky_fun);
+      term_t risky_g = yices_new_uninterpreted_term(risky_fun);
+      CHECK(risky_dom[0] != NULL_TYPE && risky_fun != NULL_TYPE,
+            "failed to create risky cap-pressure function type");
+      CHECK(risky_f != NULL_TERM && risky_g != NULL_TERM,
+            "failed to create risky function term");
+      CHECK(yices_assert_formula(ctx, yices_neq(risky_f, risky_g)) == 0,
             "failed to assert risky cap-pressure disequality");
     }
 
@@ -427,6 +427,175 @@ int main(void) {
           "failed to assert post-cap defined function disequality");
     CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_UNSAT,
           "expected UNSAT for post-cap defined function disequality");
+    yices_free_context(ctx);
+  }
+
+  // Case 15: distinct function ids on a risky equality-sensitive type trigger
+  // diff witnesses even when f and g were not explicitly disequal.
+  {
+    type_t dom[1] = { yices_bool_type() };
+    type_t fun_bb = yices_function_type(1, dom, yices_bool_type());
+    type_t pred_dom[1] = { fun_bb };
+    type_t pred_type = yices_function_type(1, pred_dom, yices_bool_type());
+    term_t p, f, g, p_f, p_g, f_t, f_f, g_t, g_f;
+    context_t *ctx;
+
+    CHECK(fun_bb != NULL_TYPE, "failed to create Bool -> Bool type (distinct-id risky case)");
+    CHECK(pred_type != NULL_TYPE, "failed to create higher-order predicate type (distinct-id risky case)");
+
+    p = yices_new_uninterpreted_term(pred_type);
+    f = yices_new_uninterpreted_term(fun_bb);
+    g = yices_new_uninterpreted_term(fun_bb);
+    CHECK(p != NULL_TERM && f != NULL_TERM && g != NULL_TERM,
+          "failed to create Bool -> Bool functions (distinct-id risky case)");
+
+    p_f = yices_application1(p, f);
+    p_g = yices_application1(p, g);
+    f_t = yices_application1(f, yices_true());
+    f_f = yices_application1(f, yices_false());
+    g_t = yices_application1(g, yices_true());
+    g_f = yices_application1(g, yices_false());
+    CHECK(p_f != NULL_TERM && p_g != NULL_TERM &&
+          f_t != NULL_TERM && f_f != NULL_TERM && g_t != NULL_TERM && g_f != NULL_TERM,
+          "failed to create Bool -> Bool applications (distinct-id risky case)");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (distinct-id risky case)");
+    CHECK(yices_assert_formula(ctx, p_f) == 0,
+          "failed to assert p(f) (distinct-id risky case)");
+    CHECK(yices_assert_formula(ctx, yices_not(p_g)) == 0,
+          "failed to assert not p(g) (distinct-id risky case)");
+    CHECK(yices_assert_formula(ctx, yices_not(f_t)) == 0,
+          "failed to assert f(true) (distinct-id risky case)");
+    CHECK(yices_assert_formula(ctx, yices_not(f_f)) == 0,
+          "failed to assert f(false) (distinct-id risky case)");
+    CHECK(yices_assert_formula(ctx, yices_not(g_t)) == 0,
+          "failed to assert g(true) (distinct-id risky case)");
+    CHECK(yices_assert_formula(ctx, yices_not(g_f)) == 0,
+          "failed to assert g(false) (distinct-id risky case)");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_UNSAT,
+          "expected UNSAT for risky distinct-id extensionality case");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_distinct_id") > 0,
+          "risky distinct-id path did not allocate a witness");
+    yices_free_context(ctx);
+  }
+
+  // Case 16: distinct function ids on a non-risky equality-sensitive type are
+  // recorded for model completion without UF diff witnesses.
+  {
+    type_t dom[1] = { yices_int_type() };
+    type_t fun_ib = yices_function_type(1, dom, yices_bool_type());
+    type_t pred_dom[1] = { fun_ib };
+    type_t pred_type = yices_function_type(1, pred_dom, yices_bool_type());
+    term_t p, f, g, p_f, p_g, f_0, g_0;
+    context_t *ctx;
+
+    CHECK(fun_ib != NULL_TYPE, "failed to create Int -> Bool type (distinct-id non-risky case)");
+    CHECK(pred_type != NULL_TYPE, "failed to create higher-order predicate type (distinct-id non-risky case)");
+
+    p = yices_new_uninterpreted_term(pred_type);
+    f = yices_new_uninterpreted_term(fun_ib);
+    g = yices_new_uninterpreted_term(fun_ib);
+    CHECK(p != NULL_TERM && f != NULL_TERM && g != NULL_TERM,
+          "failed to create Int -> Bool functions (distinct-id non-risky case)");
+
+    p_f = yices_application1(p, f);
+    p_g = yices_application1(p, g);
+    f_0 = yices_application1(f, yices_int32(0));
+    g_0 = yices_application1(g, yices_int32(0));
+    CHECK(p_f != NULL_TERM && p_g != NULL_TERM && f_0 != NULL_TERM && g_0 != NULL_TERM,
+          "failed to create Int -> Bool applications (distinct-id non-risky case)");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (distinct-id non-risky case)");
+    CHECK(yices_assert_formula(ctx, p_f) == 0,
+          "failed to assert p(f) (distinct-id non-risky case)");
+    CHECK(yices_assert_formula(ctx, yices_not(p_g)) == 0,
+          "failed to assert not p(g) (distinct-id non-risky case)");
+    CHECK(yices_assert_formula(ctx, yices_not(f_0)) == 0,
+          "failed to assert f(0) (distinct-id non-risky case)");
+    CHECK(yices_assert_formula(ctx, yices_not(g_0)) == 0,
+          "failed to assert g(0) (distinct-id non-risky case)");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for non-risky distinct-id record case");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_model") > 0,
+          "non-risky distinct-id path did not record model disequality");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_witnesses") == 0,
+          "non-risky distinct-id path allocated a UF diff witness");
+    yices_free_context(ctx);
+  }
+
+  // Case 17: fresh ids on non-equality-sensitive function types remain
+  // internal tags and do not create semantic disequality obligations.
+  {
+    type_t dom[1] = { yices_int_type() };
+    type_t fun_ib = yices_function_type(1, dom, yices_bool_type());
+    term_t f, g, f_0, g_0;
+    context_t *ctx;
+
+    CHECK(fun_ib != NULL_TYPE, "failed to create Int -> Bool type (non-sensitive id case)");
+
+    f = yices_new_uninterpreted_term(fun_ib);
+    g = yices_new_uninterpreted_term(fun_ib);
+    CHECK(f != NULL_TERM && g != NULL_TERM,
+          "failed to create Int -> Bool functions (non-sensitive id case)");
+
+    f_0 = yices_application1(f, yices_int32(0));
+    g_0 = yices_application1(g, yices_int32(0));
+    CHECK(f_0 != NULL_TERM && g_0 != NULL_TERM,
+          "failed to create Int -> Bool applications (non-sensitive id case)");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (non-sensitive id case)");
+    CHECK(yices_assert_formula(ctx, yices_not(f_0)) == 0,
+          "failed to assert f(0) (non-sensitive id case)");
+    CHECK(yices_assert_formula(ctx, yices_not(g_0)) == 0,
+          "failed to assert g(0) (non-sensitive id case)");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_SAT,
+          "expected SAT for non-sensitive id case");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_model") == 0,
+          "non-sensitive function ids created a model disequality record");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_distinct_id") == 0,
+          "non-sensitive function ids allocated distinct-id witnesses");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_witnesses") == 0,
+          "non-sensitive function ids allocated UF diff witnesses");
+    yices_free_context(ctx);
+  }
+
+  // Case 18: distinct function ids on a unit-range function type are a direct
+  // conflict even when no explicit function disequality was asserted.
+  {
+    type_t dom[1] = { yices_int_type() };
+    type_t fun_iu = yices_function_type(1, dom, unit);
+    type_t pred_dom[1] = { fun_iu };
+    type_t pred_type = yices_function_type(1, pred_dom, yices_bool_type());
+    term_t p, f, g, p_f, p_g;
+    context_t *ctx;
+
+    CHECK(fun_iu != NULL_TYPE, "failed to create Int -> Unit type (distinct-id unit case)");
+    CHECK(pred_type != NULL_TYPE, "failed to create predicate type (distinct-id unit case)");
+
+    p = yices_new_uninterpreted_term(pred_type);
+    f = yices_new_uninterpreted_term(fun_iu);
+    g = yices_new_uninterpreted_term(fun_iu);
+    CHECK(p != NULL_TERM && f != NULL_TERM && g != NULL_TERM,
+          "failed to create Int -> Unit functions (distinct-id unit case)");
+
+    p_f = yices_application1(p, f);
+    p_g = yices_application1(p, g);
+    CHECK(p_f != NULL_TERM && p_g != NULL_TERM,
+          "failed to create higher-order unit applications (distinct-id unit case)");
+
+    ctx = make_mcsat_context();
+    CHECK(ctx != NULL, "failed to create mcsat context (distinct-id unit case)");
+    CHECK(yices_assert_formula(ctx, p_f) == 0,
+          "failed to assert p(f) (distinct-id unit case)");
+    CHECK(yices_assert_formula(ctx, yices_not(p_g)) == 0,
+          "failed to assert not p(g) (distinct-id unit case)");
+    CHECK(yices_check_context(ctx, NULL) == YICES_STATUS_UNSAT,
+          "expected UNSAT for unit-range distinct-id case");
+    CHECK(mcsat_stat_value(ctx, "mcsat::uf::fun_diseq_witnesses") == 0,
+          "unit-range distinct-id conflict allocated a UF diff witness");
     yices_free_context(ctx);
   }
 

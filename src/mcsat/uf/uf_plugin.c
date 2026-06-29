@@ -73,11 +73,11 @@ typedef struct {
 } uf_fun_model_diseq_t;
 
 typedef enum {
-  UF_EXPLICIT_DISEQ_NO_CHANGE,
-  UF_EXPLICIT_DISEQ_ADDED_WITNESS,
-  UF_EXPLICIT_DISEQ_CONFLICT,
-  UF_EXPLICIT_DISEQ_CAP_REACHED,
-} uf_explicit_diseq_result_t;
+  UF_FUN_DISEQ_NO_CHANGE,
+  UF_FUN_DISEQ_ADDED_WITNESS,
+  UF_FUN_DISEQ_CONFLICT,
+  UF_FUN_DISEQ_CAP_REACHED,
+} uf_fun_diseq_result_t;
 
 
 typedef struct {
@@ -154,6 +154,7 @@ typedef struct {
 } uf_plugin_t;
 
 static void uf_plugin_bump_terms_and_reset(uf_plugin_t* uf, int_mset_t* to_bump);
+static term_t uf_plugin_distinct_id_diseq_literal(uf_plugin_t* uf, term_t lhs, term_t rhs);
 
 static void uf_plugin_free_fun_diseq_entries_from(uf_plugin_t* uf, uint32_t old_size) {
   while (uf->fun_diseq_entries.size > old_size) {
@@ -404,14 +405,12 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
   pvector_push(&uf->fun_diseq_entries, entry);
   (*uf->stats.fun_diseq_witnesses) += arity;
 
-  if (uf->fun_diseq_entries.size < UF_FUN_DISEQ_WITNESS_CAP) {
-    type_t range = function_type_range(types, tau);
-    if (uf_type_needs_search_diff(uf, range) &&
-        uf_plugin_find_fun_diseq_entry(uf, entry->lhs_app, entry->rhs_app) == NULL) {
-      term_t child_guard = _o_yices_eq(entry->lhs_app, entry->rhs_app);
-      uf_plugin_ensure_diff_witnesses(uf, entry->lhs_app, entry->rhs_app,
-                                      UF_FUN_DISEQ_EXPLICIT, child_guard);
-    }
+  type_t range = function_type_range(types, tau);
+  if (uf_type_needs_search_diff(uf, range) &&
+      uf_plugin_find_fun_diseq_entry(uf, entry->lhs_app, entry->rhs_app) == NULL) {
+    term_t child_guard = _o_yices_eq(entry->lhs_app, entry->rhs_app);
+    uf_plugin_ensure_diff_witnesses(uf, entry->lhs_app, entry->rhs_app,
+                                    UF_FUN_DISEQ_EXPLICIT, child_guard);
   }
 
   return entry;
@@ -441,14 +440,28 @@ static bool uf_plugin_term_has_function_id(const uf_plugin_t* uf, term_t t, int3
   return q_get32((rational_t*) &value->q, id);
 }
 
-static uf_explicit_diseq_result_t uf_plugin_add_explicit_fun_diseq_pair(uf_plugin_t* uf, term_t lhs, term_t rhs,
-                                                                        term_t guard) {
+static term_t uf_plugin_fun_diseq_literal_for_source(uf_plugin_t* uf, term_t lhs, term_t rhs,
+                                                     uf_fun_diseq_source_t source, term_t guard) {
+  switch (source) {
+  case UF_FUN_DISEQ_EXPLICIT:
+    assert(guard != NULL_TERM);
+    return opposite_term(guard);
+  case UF_FUN_DISEQ_DISTINCT_ID:
+    return uf_plugin_distinct_id_diseq_literal(uf, lhs, rhs);
+  default:
+    assert(false);
+    return NULL_TERM;
+  }
+}
+
+static uf_fun_diseq_result_t uf_plugin_add_fun_diseq_pair(uf_plugin_t* uf, term_t lhs, term_t rhs,
+                                                          uf_fun_diseq_source_t source, term_t guard) {
   term_table_t* terms = uf->ctx->terms;
   type_table_t* types = uf->ctx->types;
   type_t tau;
 
   if (lhs == rhs) {
-    return UF_EXPLICIT_DISEQ_NO_CHANGE;
+    return UF_FUN_DISEQ_NO_CHANGE;
   }
 
   tau = term_type(terms, lhs);
@@ -456,38 +469,38 @@ static uf_explicit_diseq_result_t uf_plugin_add_explicit_fun_diseq_pair(uf_plugi
       type_kind(types, tau) != FUNCTION_TYPE ||
       int_hset_member(&uf->diff_witness_terms, lhs) ||
       int_hset_member(&uf->diff_witness_terms, rhs)) {
-    return UF_EXPLICIT_DISEQ_NO_CHANGE;
+    return UF_FUN_DISEQ_NO_CHANGE;
   }
 
   assert(uf_type_is_equality_sensitive(uf, tau));
   if (!uf_type_is_equality_sensitive(uf, tau)) {
-    return UF_EXPLICIT_DISEQ_NO_CHANGE;
+    return UF_FUN_DISEQ_NO_CHANGE;
   }
 
   if (uf_type_has_unit_cardinality(types, function_type_range(types, tau))) {
-    assert(guard != NULL_TERM);
     ivector_reset(&uf->conflict);
-    ivector_push(&uf->conflict, opposite_term(guard));
-    return UF_EXPLICIT_DISEQ_CONFLICT;
+    ivector_push(&uf->conflict, uf_plugin_fun_diseq_literal_for_source(uf, lhs, rhs, source, guard));
+    return UF_FUN_DISEQ_CONFLICT;
   }
 
   if (uf_plugin_fun_pair_needs_search_diff(uf, lhs, rhs)) {
-    if (uf->fun_diseq_entries.size >= UF_FUN_DISEQ_WITNESS_CAP) {
-      return UF_EXPLICIT_DISEQ_CAP_REACHED;
+    if (source == UF_FUN_DISEQ_EXPLICIT &&
+        uf->fun_diseq_entries.size >= UF_FUN_DISEQ_WITNESS_CAP) {
+      return UF_FUN_DISEQ_CAP_REACHED;
     }
     if (uf_plugin_find_fun_diseq_entry(uf, lhs, rhs) == NULL &&
-        uf_plugin_ensure_diff_witnesses(uf, lhs, rhs, UF_FUN_DISEQ_EXPLICIT, guard) != NULL) {
-      return UF_EXPLICIT_DISEQ_ADDED_WITNESS;
+        uf_plugin_ensure_diff_witnesses(uf, lhs, rhs, source, guard) != NULL) {
+      return UF_FUN_DISEQ_ADDED_WITNESS;
     }
-    return UF_EXPLICIT_DISEQ_NO_CHANGE;
+    return UF_FUN_DISEQ_NO_CHANGE;
   }
 
   if (uf_type_needs_model_diseq_record(uf, tau) &&
       uf_plugin_find_fun_model_diseq_entry(uf, lhs, rhs) == NULL) {
-    uf_plugin_ensure_model_diseq_record(uf, lhs, rhs, UF_FUN_DISEQ_EXPLICIT, guard);
+    uf_plugin_ensure_model_diseq_record(uf, lhs, rhs, source, guard);
   }
 
-  return UF_EXPLICIT_DISEQ_NO_CHANGE;
+  return UF_FUN_DISEQ_NO_CHANGE;
 }
 
 static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
@@ -512,7 +525,7 @@ static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
     term_t t = variable_db_get_term(var_db, v);
     const mcsat_value_t* value;
     term_kind_t kind;
-    uf_explicit_diseq_result_t result;
+    uf_fun_diseq_result_t result;
 
     if (t == NULL_TERM) {
       continue;
@@ -531,14 +544,14 @@ static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
       }
       {
         composite_term_t* eq = eq_term_desc(terms, t);
-        result = uf_plugin_add_explicit_fun_diseq_pair(uf, eq->arg[0], eq->arg[1], t);
+        result = uf_plugin_add_fun_diseq_pair(uf, eq->arg[0], eq->arg[1], UF_FUN_DISEQ_EXPLICIT, t);
       }
-      if (result == UF_EXPLICIT_DISEQ_ADDED_WITNESS) {
+      if (result == UF_FUN_DISEQ_ADDED_WITNESS) {
         added = true;
-      } else if (result == UF_EXPLICIT_DISEQ_CONFLICT) {
+      } else if (result == UF_FUN_DISEQ_CONFLICT) {
         uf->fun_diseq_trail_scan_index = retry_index;
         return added;
-      } else if (result == UF_EXPLICIT_DISEQ_CAP_REACHED) {
+      } else if (result == UF_FUN_DISEQ_CAP_REACHED) {
         retry_index = retry_index < i ? retry_index : i;
       }
       break;
@@ -554,13 +567,14 @@ static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
 
         for (j = 0; j < distinct->arity; ++ j) {
           for (k = j + 1; k < distinct->arity; ++ k) {
-            result = uf_plugin_add_explicit_fun_diseq_pair(uf, distinct->arg[j], distinct->arg[k], guard);
-            if (result == UF_EXPLICIT_DISEQ_ADDED_WITNESS) {
+            result = uf_plugin_add_fun_diseq_pair(uf, distinct->arg[j], distinct->arg[k],
+                                                  UF_FUN_DISEQ_EXPLICIT, guard);
+            if (result == UF_FUN_DISEQ_ADDED_WITNESS) {
               added = true;
-            } else if (result == UF_EXPLICIT_DISEQ_CONFLICT) {
+            } else if (result == UF_FUN_DISEQ_CONFLICT) {
               uf->fun_diseq_trail_scan_index = retry_index;
               return added;
-            } else if (result == UF_EXPLICIT_DISEQ_CAP_REACHED) {
+            } else if (result == UF_FUN_DISEQ_CAP_REACHED) {
               retry_index = retry_index < i ? retry_index : i;
             }
           }
@@ -578,8 +592,43 @@ static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
 }
 
 static bool uf_plugin_add_distinct_id_fun_diseq_witnesses(uf_plugin_t* uf) {
-  (void) uf;
-  return false;
+  uint32_t i, j, n;
+  bool added = false;
+
+  if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
+    return false;
+  }
+
+  n = uf->active_fun_terms.size;
+  for (i = 0; i < n; ++ i) {
+    term_t lhs = uf->active_fun_terms.data[i];
+    type_t lhs_type = uf->active_fun_types.data[i];
+    int32_t lhs_id = uf->active_fun_ids.data[i];
+
+    if (int_hset_member(&uf->diff_witness_terms, lhs)) {
+      continue;
+    }
+
+    for (j = i + 1; j < n; ++ j) {
+      term_t rhs = uf->active_fun_terms.data[j];
+      uf_fun_diseq_result_t result;
+
+      if (lhs_type != (type_t) uf->active_fun_types.data[j] ||
+          lhs_id == uf->active_fun_ids.data[j] ||
+          int_hset_member(&uf->diff_witness_terms, rhs)) {
+        continue;
+      }
+
+      result = uf_plugin_add_fun_diseq_pair(uf, lhs, rhs, UF_FUN_DISEQ_DISTINCT_ID, NULL_TERM);
+      if (result == UF_FUN_DISEQ_ADDED_WITNESS) {
+        added = true;
+      } else if (result == UF_FUN_DISEQ_CONFLICT) {
+        return added;
+      }
+    }
+  }
+
+  return added;
 }
 
 static bool uf_plugin_can_create_distinct_id_witnesses(uf_plugin_t* uf, term_t t) {
@@ -1364,6 +1413,12 @@ void uf_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   uf_plugin_process_eq_graph_propagations(uf, prop);
   uf_plugin_rebuild_active_fun_ids(uf);
   added_fun_diseq_witnesses = uf_plugin_add_distinct_id_fun_diseq_witnesses(uf) || added_fun_diseq_witnesses;
+  if (uf->conflict.size > 0) {
+    prop->conflict(prop);
+    (*uf->stats.conflicts) ++;
+    statistic_avg_add(uf->stats.avg_conflict_size, uf->conflict.size);
+    return;
+  }
   if (added_fun_diseq_witnesses) {
     eq_graph_propagate_trail(&uf->eq_graph);
     uf_plugin_process_eq_graph_propagations(uf, prop);
