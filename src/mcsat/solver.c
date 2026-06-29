@@ -55,6 +55,7 @@
 #include "mcsat/utils/statistics.h"
 
 #include "terms/term_substitution.h"
+#include "terms/term_explorer.h"
 
 #include "utils/dprng.h"
 #include "model/model_queries.h"
@@ -175,6 +176,21 @@ struct mcsat_solver_s {
 
   /** Per-check assumption roots; reset after solving with assumptions. */
   ivector_t eqsens_assumption_roots;
+
+  /** Frozen equality-sensitive type ids. */
+  int_hset_t eqsens_types;
+
+  /** Worklist for equality-sensitive type closure. */
+  ivector_t eqsens_type_worklist;
+
+  /** Worklist for active-obligation DAG scanning. */
+  ivector_t eqsens_term_worklist;
+
+  /** Term ids already scanned for the current equality-sensitive generation. */
+  int_hset_t eqsens_scanned_terms;
+
+  /** Temporary vector for term children during equality-sensitivity scanning. */
+  ivector_t eqsens_term_children;
 
   /** Generation for invalidating future sensitivity-dependent caches. */
   uint32_t eqsens_generation;
@@ -378,6 +394,200 @@ void mcsat_eqsens_note_dirty(mcsat_solver_t* mcsat) {
     mcsat->eqsens_dirty = true;
     mcsat->eqsens_generation ++;
   }
+}
+
+static
+bool mcsat_eqsens_add_type(mcsat_solver_t* mcsat, type_t tau) {
+  if (tau == NULL_TYPE) {
+    return false;
+  }
+
+  if (int_hset_add(&mcsat->eqsens_types, tau)) {
+    ivector_push(&mcsat->eqsens_type_worklist, tau);
+    return true;
+  }
+  return false;
+}
+
+static
+void mcsat_eqsens_add_function_dependencies(mcsat_solver_t* mcsat, type_t tau) {
+  type_table_t* types = mcsat->types;
+  uint32_t i, n;
+
+  assert(type_kind(types, tau) == FUNCTION_TYPE);
+
+  n = function_type_arity(types, tau);
+  for (i = 0; i < n; ++ i) {
+    mcsat_eqsens_add_type(mcsat, function_type_domain(types, tau, i));
+  }
+  mcsat_eqsens_add_type(mcsat, function_type_range(types, tau));
+}
+
+static
+void mcsat_eqsens_close_type_worklist(mcsat_solver_t* mcsat) {
+  type_table_t* types = mcsat->types;
+
+  while (mcsat->eqsens_type_worklist.size > 0) {
+    type_t tau = ivector_pop2(&mcsat->eqsens_type_worklist);
+
+    switch (type_kind(types, tau)) {
+    case TUPLE_TYPE: {
+      uint32_t i, n;
+      n = tuple_type_arity(types, tau);
+      for (i = 0; i < n; ++ i) {
+        mcsat_eqsens_add_type(mcsat, tuple_type_component(types, tau, i));
+      }
+      break;
+    }
+
+    case FUNCTION_TYPE:
+      mcsat_eqsens_add_function_dependencies(mcsat, tau);
+      break;
+
+    default:
+      break;
+    }
+  }
+}
+
+static
+void mcsat_eqsens_push_child(mcsat_solver_t* mcsat, term_t child) {
+  if (child == NULL_TERM) {
+    return;
+  }
+
+  child = unsigned_term(child);
+  if (child != true_term && child != false_term) {
+    assert(good_term(mcsat->terms, child));
+    ivector_push(&mcsat->eqsens_term_worklist, child);
+  }
+}
+
+static
+void mcsat_eqsens_push_term_children(mcsat_solver_t* mcsat, term_t t) {
+  term_table_t* terms = mcsat->terms;
+  uint32_t i, n;
+
+  if (term_is_composite(terms, t)) {
+    ivector_reset(&mcsat->eqsens_term_children);
+    get_term_children(terms, t, &mcsat->eqsens_term_children);
+    n = mcsat->eqsens_term_children.size;
+    for (i = 0; i < n; ++ i) {
+      mcsat_eqsens_push_child(mcsat, mcsat->eqsens_term_children.data[i]);
+    }
+  } else if (term_is_projection(terms, t)) {
+    mcsat_eqsens_push_child(mcsat, proj_term_arg(terms, t));
+  } else if (term_is_sum(terms, t)) {
+    term_t child;
+    mpq_t q;
+
+    mpq_init(q);
+    n = term_num_children(terms, t);
+    for (i = 0; i < n; ++ i) {
+      sum_term_component(terms, t, i, q, &child);
+      mcsat_eqsens_push_child(mcsat, child);
+    }
+    mpq_clear(q);
+  } else if (term_is_bvsum(terms, t)) {
+    term_t child;
+    int32_t* coeff;
+
+    coeff = safe_malloc(term_bitsize(terms, t) * sizeof(int32_t));
+    n = term_num_children(terms, t);
+    for (i = 0; i < n; ++ i) {
+      bvsum_term_component(terms, t, i, coeff, &child);
+      mcsat_eqsens_push_child(mcsat, child);
+    }
+    safe_free(coeff);
+  } else if (term_kind(terms, t) == ARITH_FF_POLY) {
+    polynomial_t* p;
+
+    p = finitefield_poly_term_desc(terms, t);
+    n = p->nterms;
+    for (i = 0; i < n; ++ i) {
+      mcsat_eqsens_push_child(mcsat, p->mono[i].var == const_idx ? NULL_TERM : p->mono[i].var);
+    }
+  } else if (term_is_product(terms, t)) {
+    term_t child;
+    uint32_t exp;
+
+    n = term_num_children(terms, t);
+    for (i = 0; i < n; ++ i) {
+      product_term_component(terms, t, i, &child, &exp);
+      mcsat_eqsens_push_child(mcsat, child);
+    }
+  }
+}
+
+static
+void mcsat_eqsens_scan_term(mcsat_solver_t* mcsat, term_t root) {
+  term_table_t* terms = mcsat->terms;
+
+  if (root == NULL_TERM) {
+    return;
+  }
+
+  root = unsigned_term(root);
+  if (root == true_term || root == false_term) {
+    return;
+  }
+
+  ivector_push(&mcsat->eqsens_term_worklist, root);
+  while (mcsat->eqsens_term_worklist.size > 0) {
+    term_t t = unsigned_term(ivector_pop2(&mcsat->eqsens_term_worklist));
+    term_kind_t kind;
+    type_t tau;
+
+    if (t == true_term || t == false_term ||
+        !int_hset_add(&mcsat->eqsens_scanned_terms, t)) {
+      continue;
+    }
+
+    kind = term_kind(terms, t);
+    tau = term_type(terms, t);
+
+    if (type_kind(mcsat->types, tau) == FUNCTION_TYPE) {
+      mcsat_eqsens_add_function_dependencies(mcsat, tau);
+    }
+
+    if (term_constructor(terms, t) == YICES_EQ_TERM && term_num_children(terms, t) > 0) {
+      mcsat_eqsens_add_type(mcsat, term_type(terms, term_child(terms, t, 0)));
+    } else if (kind == DISTINCT_TERM) {
+      if (term_num_children(terms, t) > 0) {
+        mcsat_eqsens_add_type(mcsat, term_type(terms, term_child(terms, t, 0)));
+      }
+    }
+
+    mcsat_eqsens_push_term_children(mcsat, t);
+    mcsat_eqsens_close_type_worklist(mcsat);
+  }
+}
+
+static
+void mcsat_eqsens_recompute(mcsat_solver_t* mcsat) {
+  uint32_t i;
+
+  int_hset_reset(&mcsat->eqsens_types);
+  int_hset_reset(&mcsat->eqsens_scanned_terms);
+  ivector_reset(&mcsat->eqsens_type_worklist);
+  ivector_reset(&mcsat->eqsens_term_worklist);
+  ivector_reset(&mcsat->eqsens_term_children);
+
+  for (i = 0; i < mcsat->eqsens_obligation_roots.size; ++ i) {
+    mcsat_eqsens_scan_term(mcsat, mcsat->eqsens_obligation_roots.data[i]);
+  }
+  for (i = 0; i < mcsat->eqsens_assumption_roots.size; ++ i) {
+    mcsat_eqsens_scan_term(mcsat, mcsat->eqsens_assumption_roots.data[i]);
+  }
+  mcsat_eqsens_close_type_worklist(mcsat);
+}
+
+static
+bool mcsat_eqsens_type_is_sensitive(mcsat_solver_t* mcsat, type_t tau) {
+  if (tau == NULL_TYPE) {
+    return false;
+  }
+  return int_hset_member(&mcsat->eqsens_types, tau);
 }
 
 static
@@ -882,6 +1092,30 @@ void mcsat_plugin_context_register_term(plugin_context_t* self, term_t t) {
 }
 
 static
+bool mcsat_plugin_context_type_is_equality_sensitive(plugin_context_t* self, type_t tau) {
+  mcsat_plugin_context_t* mctx;
+
+  mctx = (mcsat_plugin_context_t*) self;
+  return mcsat_eqsens_type_is_sensitive(mctx->mcsat, tau);
+}
+
+static
+uint32_t mcsat_plugin_context_equality_sensitivity_generation(plugin_context_t* self) {
+  mcsat_plugin_context_t* mctx;
+
+  mctx = (mcsat_plugin_context_t*) self;
+  return mctx->mcsat->eqsens_generation;
+}
+
+static
+bool mcsat_plugin_context_equality_sensitivity_is_frozen(plugin_context_t* self) {
+  mcsat_plugin_context_t* mctx;
+
+  mctx = (mcsat_plugin_context_t*) self;
+  return mctx->mcsat->eqsens_frozen;
+}
+
+static
 void mcsat_plugin_context_decision_calls(plugin_context_t* self, type_kind_t type) {
   mcsat_plugin_context_t* mctx;
 
@@ -914,6 +1148,9 @@ void mcsat_plugin_context_construct(mcsat_plugin_context_t* ctx, mcsat_solver_t*
   ctx->ctx.hint_next_decision = mcsat_plugin_context_hint_next_decision;
   ctx->ctx.hint_value = mcsat_plugin_context_hint_value;
   ctx->ctx.register_term = mcsat_plugin_context_register_term;
+  ctx->ctx.type_is_equality_sensitive = mcsat_plugin_context_type_is_equality_sensitive;
+  ctx->ctx.equality_sensitivity_generation = mcsat_plugin_context_equality_sensitivity_generation;
+  ctx->ctx.equality_sensitivity_is_frozen = mcsat_plugin_context_equality_sensitivity_is_frozen;
   ctx->mcsat = mcsat;
   ctx->plugin_name = plugin_name;
 }
@@ -1021,6 +1258,11 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   init_ivector(&mcsat->assertions_tmp, 0);
   init_ivector(&mcsat->eqsens_obligation_roots, 0);
   init_ivector(&mcsat->eqsens_assumption_roots, 0);
+  init_int_hset(&mcsat->eqsens_types, 0);
+  init_ivector(&mcsat->eqsens_type_worklist, 0);
+  init_ivector(&mcsat->eqsens_term_worklist, 0);
+  init_int_hset(&mcsat->eqsens_scanned_terms, 0);
+  init_ivector(&mcsat->eqsens_term_children, 0);
   mcsat->eqsens_generation = 0;
   mcsat->eqsens_frozen = false;
   mcsat->eqsens_dirty = false;
@@ -1129,6 +1371,11 @@ void mcsat_destruct(mcsat_solver_t* mcsat) {
   delete_ivector(&mcsat->assertions_tmp);
   delete_ivector(&mcsat->eqsens_obligation_roots);
   delete_ivector(&mcsat->eqsens_assumption_roots);
+  delete_int_hset(&mcsat->eqsens_types);
+  delete_ivector(&mcsat->eqsens_type_worklist);
+  delete_ivector(&mcsat->eqsens_term_worklist);
+  delete_int_hset(&mcsat->eqsens_scanned_terms);
+  delete_ivector(&mcsat->eqsens_term_children);
   trail_destruct(mcsat->trail);
   safe_free(mcsat->trail);
   variable_db_destruct(mcsat->var_db);
@@ -1443,6 +1690,7 @@ static void mcsat_process_registration_queue(mcsat_solver_t* mcsat) {
 static
 void mcsat_prepare_search(mcsat_solver_t* mcsat) {
   mcsat_process_registration_queue(mcsat);
+  mcsat_eqsens_recompute(mcsat);
 
   mcsat->eqsens_frozen = true;
   mcsat->eqsens_dirty = false;
