@@ -37,7 +37,7 @@ jobs:
     name: ${{ matrix.os }}|${{ matrix.mode }}|${{ matrix.config-opt }}|${{ matrix.env }} (push)
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Dependencies
         uses: ./.github/actions/install-dependencies
       - name: Build
@@ -61,7 +61,7 @@ jobs:
         uses: ./.github/actions/coverage
       - name: Coveralls
         if: matrix.mode == 'gcov' && matrix.config-opt == '--enable-mcsat' && github.ref == 'refs/heads/master'
-        uses: coverallsapp/github-action@master
+        uses: coverallsapp/github-action@v2.3.6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: 'coverage.info'
@@ -107,7 +107,7 @@ jobs:
     name: ${{ matrix.os }}|${{ matrix.mode }}|${{ matrix.config-opt }}|${{ matrix.env }} (pr)
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Dependencies
         uses: ./.github/actions/install-dependencies
       - name: Build
@@ -128,7 +128,7 @@ jobs:
         uses: ./.github/actions/coverage
       - name: Coveralls
         if: matrix.mode == 'gcov' && matrix.config-opt == '--enable-mcsat'
-        uses: coverallsapp/github-action@master
+        uses: coverallsapp/github-action@v2.3.6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: 'coverage.info'
