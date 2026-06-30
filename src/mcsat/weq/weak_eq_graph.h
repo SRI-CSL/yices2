@@ -28,10 +28,6 @@
 
 #include "api/yices_api_lock_free.h"
 
-#ifndef WEQ_ENABLE_LEGACY_ARRAY_DIFF
-#define WEQ_ENABLE_LEGACY_ARRAY_DIFF 0
-#endif
-
 typedef struct weq_graph_s {
 
   /** The plugin context */
@@ -48,14 +44,6 @@ typedef struct weq_graph_s {
 
   /** Select terms */
   ivector_t select_terms;
-
-#if WEQ_ENABLE_LEGACY_ARRAY_DIFF
-  /** Map from types to diff symbols */
-  int_hmap_t type_to_diff;
-
-  /** Set of Diff Funs */
-  int_hset_t diff_funs;
-#endif
 
   /** Map: terms to fun_nodes */
   ptr_hmap_t fun_node_map;
@@ -103,14 +91,6 @@ void weq_graph_add_array_term(weq_graph_t* weq, term_t arr);
 
 /** add array select term */
 void weq_graph_add_select_term(weq_graph_t* weq, term_t sel);
-
-#if WEQ_ENABLE_LEGACY_ARRAY_DIFF
-/** add diff fun */
-void weq_graph_add_diff_fun(weq_graph_t* weq, term_t diff_fun);
-
-/** Contains diff fun */
-bool weq_graph_has_diff_fun(weq_graph_t* weq, term_t diff_fun);
-#endif
 
 /** Clear weq cache */
 void weq_graph_clear(weq_graph_t* weq);

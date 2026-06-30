@@ -216,11 +216,6 @@ static void uf_plugin_free_fun_model_diseq_entries_from(uf_plugin_t* uf, uint32_
   }
 }
 
-static bool uf_type_is_equality_sensitive(uf_plugin_t* uf, type_t tau) {
-  return uf->ctx->type_is_equality_sensitive == NULL ||
-    uf->ctx->type_is_equality_sensitive(uf->ctx, tau);
-}
-
 static void uf_plugin_invalidate_active_fun_ids(uf_plugin_t* uf) {
   uf->active_fun_ids_valid = false;
 }
@@ -249,13 +244,7 @@ static bool uf_function_types_have_supertype(uf_plugin_t* uf, type_t lhs_type, t
 }
 
 static void uf_plugin_assert_equality_sensitivity_frozen(uf_plugin_t* uf) {
-  assert(uf->ctx->equality_sensitivity_is_frozen == NULL ||
-         uf->ctx->equality_sensitivity_is_frozen(uf->ctx));
-}
-
-static bool uf_plugin_equality_sensitivity_is_frozen(uf_plugin_t* uf) {
-  return uf->ctx->equality_sensitivity_is_frozen == NULL ||
-    uf->ctx->equality_sensitivity_is_frozen(uf->ctx);
+  assert(mcsat_branch_equality_sensitivity_is_frozen(uf->ctx));
 }
 
 static void uf_plugin_refresh_equality_sensitivity_generation(uf_plugin_t* uf) {
@@ -283,7 +272,7 @@ static void uf_plugin_assert_generated_equality_sensitive(uf_plugin_t* uf, const
   type_t tau, lhs_type, rhs_type;
 
   (void) origin;
-  if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
+  if (!mcsat_branch_equality_sensitivity_is_frozen(uf->ctx)) {
     return;
   }
   lhs_type = term_type(uf->ctx->terms, lhs);
@@ -291,7 +280,7 @@ static void uf_plugin_assert_generated_equality_sensitive(uf_plugin_t* uf, const
   tau = super_type(uf->ctx->types, lhs_type, rhs_type);
   assert(tau != NULL_TYPE &&
          "UF generated equality on incompatible types");
-  assert(uf_type_is_equality_sensitive(uf, tau) &&
+  assert(mcsat_branch_type_is_equality_sensitive(uf->ctx, tau) &&
          "UF generated equality on non-sensitive type");
 }
 #endif
@@ -339,7 +328,7 @@ static bool uf_type_needs_search_diff(uf_plugin_t* uf, type_t tau) {
   uf_plugin_assert_equality_sensitivity_frozen(uf);
 
   return type_kind(uf->ctx->types, tau) == FUNCTION_TYPE &&
-    uf_type_is_equality_sensitive(uf, tau) &&
+    mcsat_branch_type_is_equality_sensitive(uf->ctx, tau) &&
     uf_type_is_risky(uf, tau);
 }
 
@@ -347,7 +336,7 @@ static bool uf_type_needs_model_diseq_record(uf_plugin_t* uf, type_t tau) {
   uf_plugin_assert_equality_sensitivity_frozen(uf);
 
   return type_kind(uf->ctx->types, tau) == FUNCTION_TYPE &&
-    uf_type_is_equality_sensitive(uf, tau) &&
+    mcsat_branch_type_is_equality_sensitive(uf->ctx, tau) &&
     !uf_type_is_risky(uf, tau);
 }
 
@@ -471,8 +460,8 @@ static uf_diff_witness_t* uf_plugin_ensure_diff_witness_cache(uf_plugin_t* uf, t
   if (!uf_plugin_fun_pair_super_type(uf, lhs, rhs, &tau)) {
     return NULL;
   }
-  assert(uf_plugin_equality_sensitivity_is_frozen(uf));
-  assert(uf_type_is_equality_sensitive(uf, tau));
+  assert(mcsat_branch_equality_sensitivity_is_frozen(uf->ctx));
+  assert(mcsat_branch_type_is_equality_sensitive(uf->ctx, tau));
   assert(uf_plugin_fun_pair_needs_search_diff(uf, lhs, rhs));
 
   arity = function_type_arity(types, tau);
@@ -489,7 +478,7 @@ static uf_diff_witness_t* uf_plugin_ensure_diff_witness_cache(uf_plugin_t* uf, t
     type_t sigma = function_type_domain(types, tau, i);
     char name[64];
 
-    assert(uf_type_is_equality_sensitive(uf, sigma));
+    assert(mcsat_branch_type_is_equality_sensitive(uf->ctx, sigma));
     witness->diff_terms[i] = new_uninterpreted_term(terms, sigma);
     snprintf(name, sizeof(name), "mcsat_diff_%"PRIu32"_%"PRIu32, index, i);
     set_term_name(terms, witness->diff_terms[i], clone_string(name));
@@ -534,8 +523,8 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
   if (!uf_plugin_fun_pair_super_type(uf, lhs, rhs, &tau)) {
     return NULL;
   }
-  assert(uf_plugin_equality_sensitivity_is_frozen(uf));
-  assert(uf_type_is_equality_sensitive(uf, tau));
+  assert(mcsat_branch_equality_sensitivity_is_frozen(uf->ctx));
+  assert(mcsat_branch_type_is_equality_sensitive(uf->ctx, tau));
   assert(uf_plugin_fun_pair_needs_search_diff(uf, lhs, rhs));
 
   arity = function_type_arity(types, tau);
@@ -570,7 +559,7 @@ uf_fun_diseq_t* uf_plugin_ensure_diff_witnesses(uf_plugin_t* uf, term_t lhs, ter
   type_t range = function_type_range(types, tau);
   if (uf_type_needs_search_diff(uf, range) &&
       uf_plugin_find_fun_diseq_entry(uf, entry->lhs_app, entry->rhs_app) == NULL) {
-    assert(uf_type_is_equality_sensitive(uf, range));
+    assert(mcsat_branch_type_is_equality_sensitive(uf->ctx, range));
 #ifndef NDEBUG
     uf_plugin_assert_generated_equality_sensitive(uf, "recursive diff witness guard",
                                                   entry->lhs_app, entry->rhs_app);
@@ -636,10 +625,10 @@ static uf_fun_diseq_result_t uf_plugin_add_fun_diseq_pair(uf_plugin_t* uf, term_
     return UF_FUN_DISEQ_NO_CHANGE;
   }
 
-  if (!uf_type_is_equality_sensitive(uf, tau)) {
+  if (!mcsat_branch_type_is_equality_sensitive(uf->ctx, tau)) {
     return UF_FUN_DISEQ_NO_CHANGE;
   }
-  assert(uf_type_is_equality_sensitive(uf, tau));
+  assert(mcsat_branch_type_is_equality_sensitive(uf->ctx, tau));
 
   if (uf_type_has_unit_cardinality(types, function_type_range(types, tau))) {
     ivector_reset(&uf->conflict);
@@ -682,7 +671,7 @@ static bool uf_plugin_add_explicit_fun_diseq_witnesses(uf_plugin_t* uf) {
   bool added = false;
   uint32_t i, n, retry_index;
 
-  if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
+  if (!mcsat_branch_equality_sensitivity_is_frozen(uf->ctx)) {
     return false;
   }
   uf_plugin_refresh_equality_sensitivity_generation(uf);
@@ -768,7 +757,7 @@ static bool uf_plugin_add_distinct_id_fun_diseq_witnesses(uf_plugin_t* uf) {
   uint32_t i, j, n;
   bool added = false;
 
-  if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
+  if (!mcsat_branch_equality_sensitivity_is_frozen(uf->ctx)) {
     return false;
   }
   uf_plugin_refresh_equality_sensitivity_generation(uf);
@@ -964,14 +953,6 @@ static bool uf_plugin_cached_function_id_is_allowed(uf_plugin_t* uf, term_t t, c
   return false;
 }
 
-static bool uf_plugin_bool_term_is_false(uf_plugin_t* uf, term_t t) {
-  return mcsat_branch_bool_term_is_false(uf->ctx, t);
-}
-
-static bool uf_plugin_bool_term_is_true(uf_plugin_t* uf, term_t t) {
-  return mcsat_branch_bool_term_is_true(uf->ctx, t);
-}
-
 static bool uf_plugin_literal_is_true_in_branch(uf_plugin_t* uf, term_t t) {
   term_table_t* terms = uf->ctx->terms;
   variable_db_t* var_db = uf->ctx->var_db;
@@ -985,10 +966,10 @@ static bool uf_plugin_literal_is_true_in_branch(uf_plugin_t* uf, term_t t) {
   if (t == false_term) {
     return false;
   }
-  if (uf_plugin_bool_term_is_true(uf, t)) {
+  if (mcsat_branch_bool_term_is_true(uf->ctx, t)) {
     return true;
   }
-  if (uf_plugin_bool_term_is_false(uf, t)) {
+  if (mcsat_branch_bool_term_is_false(uf->ctx, t)) {
     return false;
   }
 
@@ -1037,7 +1018,7 @@ static bool uf_plugin_fun_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_di
 
   switch (entry->source) {
   case UF_FUN_DISEQ_EXPLICIT:
-    active = entry->guard != NULL_TERM && uf_plugin_bool_term_is_false(uf, entry->guard);
+    active = entry->guard != NULL_TERM && mcsat_branch_bool_term_is_false(uf->ctx, entry->guard);
     break;
   case UF_FUN_DISEQ_DISTINCT_ID:
     active = uf_plugin_term_has_function_id(uf, entry->lhs, &lhs_id) &&
@@ -1049,8 +1030,8 @@ static bool uf_plugin_fun_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_di
     return false;
   }
 
-  assert(!active || !uf_plugin_equality_sensitivity_is_frozen(uf) ||
-         uf_type_is_equality_sensitive(uf, entry->type) ||
+  assert(!active || !mcsat_branch_equality_sensitivity_is_frozen(uf->ctx) ||
+         mcsat_branch_type_is_equality_sensitive(uf->ctx, entry->type) ||
          !"active UF diff entry on non-sensitive type");
   return active;
 }
@@ -1061,7 +1042,7 @@ static bool uf_plugin_fun_model_diseq_entry_is_active(uf_plugin_t* uf, const uf_
 
   switch (entry->source) {
   case UF_FUN_DISEQ_EXPLICIT:
-    active = entry->guard != NULL_TERM && uf_plugin_bool_term_is_false(uf, entry->guard);
+    active = entry->guard != NULL_TERM && mcsat_branch_bool_term_is_false(uf->ctx, entry->guard);
     break;
   case UF_FUN_DISEQ_DISTINCT_ID:
     active = uf_plugin_term_has_function_id(uf, entry->lhs, &lhs_id) &&
@@ -1073,8 +1054,8 @@ static bool uf_plugin_fun_model_diseq_entry_is_active(uf_plugin_t* uf, const uf_
     return false;
   }
 
-  assert(!active || !uf_plugin_equality_sensitivity_is_frozen(uf) ||
-         uf_type_is_equality_sensitive(uf, entry->type) ||
+  assert(!active || !mcsat_branch_equality_sensitivity_is_frozen(uf->ctx) ||
+         mcsat_branch_type_is_equality_sensitive(uf->ctx, entry->type) ||
          !"active UF model-diseq entry on non-sensitive type");
   return active;
 }
@@ -1164,7 +1145,7 @@ static bool uf_plugin_check_explicit_distinct_cardinality_conflict(uf_plugin_t* 
   const mcsat_trail_t* trail = uf->ctx->trail;
   uint32_t i, j, n;
 
-  if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
+  if (!mcsat_branch_equality_sensitivity_is_frozen(uf->ctx)) {
     return false;
   }
 
@@ -1193,7 +1174,7 @@ static bool uf_plugin_check_explicit_distinct_cardinality_conflict(uf_plugin_t* 
 
     tau = term_type(terms, distinct->arg[0]);
     if (type_kind(types, tau) != FUNCTION_TYPE ||
-        !uf_type_is_equality_sensitive(uf, tau) ||
+        !mcsat_branch_type_is_equality_sensitive(uf->ctx, tau) ||
         !uf_function_type_exact_cardinality(types, tau, &card) ||
         distinct->arity <= card) {
       continue;
@@ -1226,7 +1207,7 @@ static bool uf_plugin_check_distinct_id_cardinality_conflict(uf_plugin_t* uf) {
   uint32_t i, j, k, n;
   bool conflict_found = false;
 
-  if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
+  if (!mcsat_branch_equality_sensitivity_is_frozen(uf->ctx)) {
     return false;
   }
 
@@ -1409,10 +1390,10 @@ static bool uf_plugin_terms_are_equal_in_branch(uf_plugin_t* uf, term_t lhs, ter
   eq = _o_yices_eq(lhs, rhs);
   if (eq == NULL_TERM ||
       eq == false_term ||
-      uf_plugin_bool_term_is_false(uf, eq)) {
+      mcsat_branch_bool_term_is_false(uf->ctx, eq)) {
     return false;
   }
-  if (eq == true_term || uf_plugin_bool_term_is_true(uf, eq)) {
+  if (eq == true_term || mcsat_branch_bool_term_is_true(uf->ctx, eq)) {
     return true;
   }
 
@@ -1451,7 +1432,7 @@ static bool uf_plugin_add_terms_equal_reason(uf_plugin_t* uf, term_t lhs, term_t
   eq = _o_yices_eq(lhs, rhs);
   if (eq == NULL_TERM ||
       eq == false_term ||
-      uf_plugin_bool_term_is_false(uf, eq)) {
+      mcsat_branch_bool_term_is_false(uf->ctx, eq)) {
     return false;
   }
 
@@ -1459,7 +1440,7 @@ static bool uf_plugin_add_terms_equal_reason(uf_plugin_t* uf, term_t lhs, term_t
     return true;
   }
 
-  if (uf_plugin_bool_term_is_true(uf, eq)) {
+  if (mcsat_branch_bool_term_is_true(uf->ctx, eq)) {
     ivector_push(reason, eq);
     return true;
   }
@@ -1525,7 +1506,7 @@ static void uf_plugin_rebuild_active_fun_ids(uf_plugin_t* uf) {
   const mcsat_trail_t* trail = uf->ctx->trail;
   uint32_t i, n;
 
-  if (!uf_plugin_equality_sensitivity_is_frozen(uf)) {
+  if (!mcsat_branch_equality_sensitivity_is_frozen(uf->ctx)) {
     ivector_reset(&uf->active_fun_terms);
     ivector_reset(&uf->active_fun_types);
     ivector_reset(&uf->active_fun_type_keys);
@@ -1854,8 +1835,8 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     uint32_t i;
     for (i = 0; i < 2; ++ i) {
       if (is_function_term(terms, t_desc->arg[i]) &&
-	  (term_kind(terms, t_desc->arg[i]) == UNINTERPRETED_TERM ||
-	   term_kind(terms, t_desc->arg[i]) == UPDATE_TERM)) {
+          (term_kind(terms, t_desc->arg[i]) == UNINTERPRETED_TERM ||
+           term_kind(terms, t_desc->arg[i]) == UPDATE_TERM)) {
         weq_graph_add_array_term(&uf->weq_graph, t_desc->arg[i]);
       }
     }
@@ -1875,8 +1856,8 @@ void uf_plugin_add_to_eq_graph(uf_plugin_t* uf, term_t t, bool record) {
     if (trail_has_value(uf->ctx->trail, c_var)) {
       // we need to process it if we ignored it
       if (eq_graph_term_is_rep(&uf->eq_graph, unsigned_term(c))) {
-	eq_graph_propagate_trail_assertion(&uf->eq_graph, unsigned_term(c));
-	uf_plugin_invalidate_active_fun_ids(uf);
+        eq_graph_propagate_trail_assertion(&uf->eq_graph, unsigned_term(c));
+        uf_plugin_invalidate_active_fun_ids(uf);
       }
     }
   }
@@ -2204,7 +2185,7 @@ void uf_plugin_decide(plugin_t* plugin, variable_t x, trail_token_t* decide, boo
       assert(picked_value < DECIDE_FUNCTION_VALUE_START);
     } else {
       /* we pick different values for different functions. Equal
-	 functions get equal values via equality propagation. */
+         functions get equal values via equality propagation. */
       type_t tau = term_type(terms, x_term);
       type_t key = uf_function_type_key(uf, tau);
       bool picked_existing_function_value = false;
@@ -2737,7 +2718,7 @@ void uf_model_builder_apply_model_diseqs(uf_model_builder_t* builder) {
     value_t lhs_range_value, rhs_range_value;
 
     if (!uf_plugin_fun_model_diseq_entry_is_active(uf, entry) ||
-	!uf_plugin_get_function_id(uf, entry->lhs, &lhs_id) ||
+        !uf_plugin_get_function_id(uf, entry->lhs, &lhs_id) ||
         !uf_plugin_get_function_id(uf, entry->rhs, &rhs_id) ||
         lhs_id == rhs_id) {
       continue;
@@ -2758,7 +2739,7 @@ void uf_model_builder_apply_model_diseqs(uf_model_builder_t* builder) {
     lhs_range_value = null_value;
     rhs_range_value = null_value;
     if (!uf_model_builder_pick_distinct_range_values(builder, lhs_range, rhs_range,
-						     &lhs_range_value, &rhs_range_value)) {
+                                                     &lhs_range_value, &rhs_range_value)) {
       continue;
     }
 
@@ -2971,7 +2952,7 @@ void uf_model_builder_apply_search_diff_witnesses(uf_model_builder_t* builder) {
     rhs_app_value = uf_model_builder_get_reserved_app_value(builder, rhs_id, rhs_type, entry->rhs_app,
                                                            arguments.size, arguments.data);
     if (!uf_model_builder_pick_distinct_range_values(builder, lhs_range, rhs_range,
-						     &lhs_app_value, &rhs_app_value)) {
+                                                     &lhs_app_value, &rhs_app_value)) {
       continue;
     }
 

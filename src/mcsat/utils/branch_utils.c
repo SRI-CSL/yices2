@@ -50,3 +50,13 @@ bool mcsat_branch_bool_term_is_false(const plugin_context_t* ctx, term_t t) {
 
   return mcsat_branch_bool_term_value(ctx, t, &value) && !value;
 }
+
+bool mcsat_branch_type_is_equality_sensitive(plugin_context_t* ctx, type_t tau) {
+  return ctx->type_is_equality_sensitive == NULL ||
+    ctx->type_is_equality_sensitive(ctx, tau);
+}
+
+bool mcsat_branch_equality_sensitivity_is_frozen(plugin_context_t* ctx) {
+  return ctx->equality_sensitivity_is_frozen == NULL ||
+    ctx->equality_sensitivity_is_frozen(ctx);
+}
