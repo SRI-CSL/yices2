@@ -280,6 +280,9 @@ eq_node_id_t eq_graph_function_value_node(const eq_graph_t* eq, uint32_t i);
 /** Representative function term for value_node, or NULL_TERM. */
 term_t eq_graph_function_value_rep(const eq_graph_t* eq, eq_node_id_t value_node);
 
+/** Value stored in value_node. */
+const mcsat_value_t* eq_graph_value_node_value(const eq_graph_t* eq, eq_node_id_t value_node);
+
 /** Does value_node's current class contain a function-typed term? */
 bool eq_graph_value_class_has_function_term(const eq_graph_t* eq, eq_node_id_t value_node);
 

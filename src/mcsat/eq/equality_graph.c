@@ -1219,6 +1219,10 @@ term_t eq_graph_function_value_rep(const eq_graph_t* eq, eq_node_id_t value_node
   return eq->function_value_rep.data[value_node];
 }
 
+const mcsat_value_t* eq_graph_value_node_value(const eq_graph_t* eq, eq_node_id_t value_node) {
+  return eq_graph_get_value(eq, value_node);
+}
+
 bool eq_graph_value_class_has_function_term(const eq_graph_t* eq, eq_node_id_t value_node) {
   const eq_node_t* value = eq_graph_get_node_const(eq, value_node);
   assert(value->type == EQ_NODE_VALUE);
