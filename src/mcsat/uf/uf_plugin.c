@@ -85,7 +85,6 @@ typedef struct {
   term_t lhs;
   term_t rhs;
   type_t type;
-  uf_fun_diseq_source_t source;
   term_t guard;
 } uf_fun_model_diseq_t;
 
@@ -385,8 +384,7 @@ static bool uf_plugin_fun_pair_super_type(uf_plugin_t* uf, term_t lhs, term_t rh
                                           term_type(uf->ctx->terms, rhs), tau);
 }
 
-static uf_fun_model_diseq_t* uf_plugin_ensure_model_diseq_record(uf_plugin_t* uf, term_t lhs, term_t rhs,
-                                                                  uf_fun_diseq_source_t source, term_t guard) {
+static uf_fun_model_diseq_t* uf_plugin_ensure_model_diseq_record(uf_plugin_t* uf, term_t lhs, term_t rhs, term_t guard) {
   type_t tau;
   uf_fun_model_diseq_t* entry;
 
@@ -409,7 +407,6 @@ static uf_fun_model_diseq_t* uf_plugin_ensure_model_diseq_record(uf_plugin_t* uf
   entry->lhs = lhs;
   entry->rhs = rhs;
   entry->type = tau;
-  entry->source = source;
   entry->guard = guard;
   pvector_push(&uf->fun_model_diseq_entries, entry);
   (*uf->stats.fun_diseq_model) ++;
@@ -619,7 +616,6 @@ static uf_fun_diseq_result_t uf_plugin_add_fun_diseq_pair(uf_plugin_t* uf, term_
   }
 
   if (!uf_plugin_fun_pair_super_type(uf, lhs, rhs, &tau) ||
-      type_kind(types, tau) != FUNCTION_TYPE ||
       int_hset_member(&uf->diff_witness_terms, lhs) ||
       int_hset_member(&uf->diff_witness_terms, rhs)) {
     return UF_FUN_DISEQ_NO_CHANGE;
@@ -655,10 +651,8 @@ static uf_fun_diseq_result_t uf_plugin_add_fun_diseq_pair(uf_plugin_t* uf, term_
    * non-risky commitments are handled by assigning fresh function values for
    * distinct ids, so we do not enumerate all such pairs here.
    */
-  if (source == UF_FUN_DISEQ_EXPLICIT &&
-      uf_type_needs_model_diseq_record(uf, tau) &&
-      uf_plugin_find_fun_model_diseq_entry(uf, lhs, rhs) == NULL) {
-    uf_plugin_ensure_model_diseq_record(uf, lhs, rhs, source, guard);
+  if (source == UF_FUN_DISEQ_EXPLICIT) {
+    uf_plugin_ensure_model_diseq_record(uf, lhs, rhs, guard);
   }
 
   return UF_FUN_DISEQ_NO_CHANGE;
@@ -1037,22 +1031,9 @@ static bool uf_plugin_fun_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_di
 }
 
 static bool uf_plugin_fun_model_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_model_diseq_t* entry) {
-  int32_t lhs_id, rhs_id;
   bool active;
 
-  switch (entry->source) {
-  case UF_FUN_DISEQ_EXPLICIT:
-    active = entry->guard != NULL_TERM && mcsat_branch_bool_term_is_false(uf->ctx, entry->guard);
-    break;
-  case UF_FUN_DISEQ_DISTINCT_ID:
-    active = uf_plugin_term_has_function_id(uf, entry->lhs, &lhs_id) &&
-      uf_plugin_term_has_function_id(uf, entry->rhs, &rhs_id) &&
-      lhs_id != rhs_id;
-    break;
-  default:
-    assert(false);
-    return false;
-  }
+  active = entry->guard != NULL_TERM && mcsat_branch_bool_term_is_false(uf->ctx, entry->guard);
 
   assert(!active || !mcsat_branch_equality_sensitivity_is_frozen(uf->ctx) ||
          mcsat_branch_type_is_equality_sensitive(uf->ctx, entry->type) ||
