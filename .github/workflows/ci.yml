@@ -61,12 +61,12 @@ jobs:
         uses: ./.github/actions/coverage
       - name: Coveralls
         if: matrix.mode == 'gcov' && matrix.config-opt == '--enable-mcsat' && github.ref == 'refs/heads/master'
+        # Best-effort: don't fail CI on a Coveralls outage.
+        continue-on-error: true
         uses: coverallsapp/github-action@v2.3.6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: 'coverage.info'
-          # A Coveralls outage (e.g. a 502 on upload) must not fail CI.
-          fail-on-error: false
 
   build-pr:
     if: github.event_name == 'pull_request'
@@ -128,9 +128,9 @@ jobs:
         uses: ./.github/actions/coverage
       - name: Coveralls
         if: matrix.mode == 'gcov' && matrix.config-opt == '--enable-mcsat'
+        # Best-effort: don't fail CI on a Coveralls outage.
+        continue-on-error: true
         uses: coverallsapp/github-action@v2.3.6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           path-to-lcov: 'coverage.info'
-          # A Coveralls outage (e.g. a 502 on upload) must not fail CI.
-          fail-on-error: false
