@@ -236,6 +236,9 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
   scope_holder_construct(&eq->scope_holder);
 
   init_ivector(&eq->graph, 0);
+  init_ivector(&eq->function_value_nodes, 0);
+  init_ivector(&eq->function_value_rep, 0);
+  init_ivector(&eq->function_value_rep_updates, 0);
 
   init_pmap2(&eq->pair_to_rep);
   init_pmap2(&eq->eq_pair_to_rep);
@@ -290,6 +293,9 @@ void eq_graph_destruct(eq_graph_t* eq) {
   scope_holder_destruct(&eq->scope_holder);
 
   delete_ivector(&eq->graph);
+  delete_ivector(&eq->function_value_nodes);
+  delete_ivector(&eq->function_value_rep);
+  delete_ivector(&eq->function_value_rep_updates);
 
   delete_pmap2(&eq->pair_to_rep);
   delete_pmap2(&eq->eq_pair_to_rep);
@@ -395,6 +401,8 @@ eq_node_id_t eq_graph_new_node(eq_graph_t* eq, eq_node_type_t type, uint32_t ind
 
   // Add empty edge
   ivector_push(&eq->graph, eq_edge_null);
+  // Add empty function representative
+  ivector_push(&eq->function_value_rep, NULL_TERM);
   // Add empty uselist
   ivector_push(&eq->uselist, eq_uselist_null);
 
@@ -1126,6 +1134,140 @@ term_t eq_graph_get_term(const eq_graph_t* eq, eq_node_id_t n_id) {
   return eq->terms_list.data[n->index];
 }
 
+static bool eq_graph_term_has_function_type(const eq_graph_t* eq, term_t t) {
+  type_t tau = term_type(eq->ctx->terms, t);
+  return type_kind(eq->ctx->types, tau) == FUNCTION_TYPE;
+}
+
+static bool eq_graph_direct_trail_edge_exists(const eq_graph_t* eq, eq_node_id_t value_node, eq_node_id_t term_node) {
+  assert(eq_graph_get_node_const(eq, value_node)->type == EQ_NODE_VALUE);
+  assert(eq_graph_get_node_const(eq, term_node)->type == EQ_NODE_TERM);
+
+  eq_edge_id_t edge_id = eq->graph.data[value_node];
+  while (edge_id != eq_edge_null) {
+    const eq_edge_t* edge = eq->edges + edge_id;
+    if (edge->v == term_node && edge->reason.type == REASON_IS_IN_TRAIL) {
+      return true;
+    }
+    edge_id = edge->next;
+  }
+
+  return false;
+}
+
+static bool eq_graph_trail_function_value_edge(const eq_graph_t* eq, eq_node_id_t lhs, eq_node_id_t rhs,
+                                               eq_node_id_t* value_node, eq_node_id_t* term_node) {
+  const eq_node_t* lhs_node = eq_graph_get_node_const(eq, lhs);
+  const eq_node_t* rhs_node = eq_graph_get_node_const(eq, rhs);
+
+  if (lhs_node->type == EQ_NODE_VALUE && rhs_node->type == EQ_NODE_TERM) {
+    term_t t = eq_graph_get_term(eq, rhs);
+    if (eq_graph_term_has_function_type(eq, t)) {
+      *value_node = lhs;
+      *term_node = rhs;
+      return true;
+    }
+  }
+
+  if (rhs_node->type == EQ_NODE_VALUE && lhs_node->type == EQ_NODE_TERM) {
+    term_t t = eq_graph_get_term(eq, lhs);
+    if (eq_graph_term_has_function_type(eq, t)) {
+      *value_node = rhs;
+      *term_node = lhs;
+      return true;
+    }
+  }
+
+  return false;
+}
+
+static void eq_graph_record_function_value_rep(eq_graph_t* eq, eq_node_id_t value_node, eq_node_id_t term_node) {
+  assert(value_node < eq->function_value_rep.size);
+  assert(eq_graph_get_node_const(eq, value_node)->type == EQ_NODE_VALUE);
+  assert(eq_graph_get_node_const(eq, term_node)->type == EQ_NODE_TERM);
+  assert(eq_graph_term_has_function_type(eq, eq_graph_get_term(eq, term_node)));
+  assert(eq_graph_direct_trail_edge_exists(eq, value_node, term_node));
+
+  if (eq->function_value_rep.data[value_node] == NULL_TERM) {
+    ivector_push(&eq->function_value_rep_updates, value_node);
+    ivector_push(&eq->function_value_rep_updates, NULL_TERM);
+    eq->function_value_rep.data[value_node] = eq_graph_get_term(eq, term_node);
+    ivector_push(&eq->function_value_nodes, value_node);
+  }
+}
+
+eq_node_id_t eq_graph_value_id_if_exists(const eq_graph_t* eq, const mcsat_value_t* v) {
+  value_hmap_pair_t* find = value_hmap_find((value_hmap_t*) &eq->value_to_id, v);
+  if (find != NULL) {
+    return find->val;
+  }
+  return eq_node_null;
+}
+
+uint32_t eq_graph_function_value_node_count(const eq_graph_t* eq) {
+  return eq->function_value_nodes.size;
+}
+
+eq_node_id_t eq_graph_function_value_node(const eq_graph_t* eq, uint32_t i) {
+  assert(i < eq->function_value_nodes.size);
+  return eq->function_value_nodes.data[i];
+}
+
+term_t eq_graph_function_value_rep(const eq_graph_t* eq, eq_node_id_t value_node) {
+  assert(value_node < eq->function_value_rep.size);
+  assert(eq_graph_get_node_const(eq, value_node)->type == EQ_NODE_VALUE);
+  return eq->function_value_rep.data[value_node];
+}
+
+bool eq_graph_value_class_has_function_term(const eq_graph_t* eq, eq_node_id_t value_node) {
+  const eq_node_t* value = eq_graph_get_node_const(eq, value_node);
+  assert(value->type == EQ_NODE_VALUE);
+
+  eq_node_id_t root_id = value->find;
+  eq_node_id_t it_id = root_id;
+  do {
+    const eq_node_t* it = eq_graph_get_node_const(eq, it_id);
+    if (it->type == EQ_NODE_TERM &&
+        eq_graph_term_has_function_type(eq, eq_graph_get_term(eq, it_id))) {
+      return true;
+    }
+    it_id = it->next;
+  } while (it_id != root_id);
+
+  return false;
+}
+
+void eq_graph_foreach_value_class_term(const eq_graph_t* eq, eq_node_id_t value_node,
+                                       eq_graph_term_callback_t callback, void* aux) {
+  const eq_node_t* value = eq_graph_get_node_const(eq, value_node);
+  assert(value->type == EQ_NODE_VALUE);
+  assert(callback != NULL);
+
+  eq_node_id_t root_id = value->find;
+  eq_node_id_t it_id = root_id;
+  do {
+    const eq_node_t* it = eq_graph_get_node_const(eq, it_id);
+    if (it->type == EQ_NODE_TERM && !callback(eq_graph_get_term(eq, it_id), aux)) {
+      break;
+    }
+    it_id = it->next;
+  } while (it_id != root_id);
+}
+
+bool eq_graph_function_value_rep_has_trail_edge(const eq_graph_t* eq, eq_node_id_t value_node) {
+  term_t rep = eq_graph_function_value_rep(eq, value_node);
+  if (rep == NULL_TERM) {
+    return false;
+  }
+
+  eq_node_id_t rep_node = eq_graph_term_id_if_exists(eq, rep);
+  if (rep_node == eq_node_null) {
+    return false;
+  }
+
+  return eq_graph_direct_trail_edge_exists(eq, value_node, rep_node);
+}
+
 static
 void eq_graph_eq_assigned_to_value(eq_graph_t* eq, eq_node_id_t eq_id, eq_node_id_t v_id) {
   const mcsat_value_t* v = eq_graph_get_value(eq, v_id);
@@ -1186,6 +1328,10 @@ void eq_graph_propagate(eq_graph_t* eq) {
     const eq_node_t* n1 = eq_graph_get_node_const(eq, lhs);
     const eq_node_t* n2 = eq_graph_get_node_const(eq, rhs);
     eq_reason_t reason = merge->reason;
+    eq_node_id_t trail_value_node = eq_node_null;
+    eq_node_id_t trail_term_node = eq_node_null;
+    bool trail_function_value_edge = reason.type == REASON_IS_IN_TRAIL &&
+        eq_graph_trail_function_value_edge(eq, lhs, rhs, &trail_value_node, &trail_term_node);
     merge_queue_pop(&eq->merge_queue);
 
     if (ctx_trace_enabled(eq->ctx, "mcsat::eq::propagate")) {
@@ -1197,6 +1343,9 @@ void eq_graph_propagate(eq_graph_t* eq) {
 
     // Check if already equal
     if (n1->find == n2->find) {
+      if (trail_function_value_edge && eq->function_value_rep.data[trail_value_node] == NULL_TERM) {
+        assert(!eq_graph_value_class_has_function_term(eq, trail_value_node));
+      }
       continue;
     }
 
@@ -1213,6 +1362,9 @@ void eq_graph_propagate(eq_graph_t* eq) {
 
     // Add the edge (original nodes)
     eq_graph_add_edge(eq, lhs, rhs, reason);
+    if (trail_function_value_edge) {
+      eq_graph_record_function_value_rep(eq, trail_value_node, trail_term_node);
+    }
 
     // If we merge two same-type nodes that are constant we have a conflict
     if (n_from->type == EQ_NODE_VALUE && n_into->type == EQ_NODE_VALUE) {
@@ -1430,6 +1582,9 @@ void eq_graph_push(eq_graph_t* eq) {
       &eq->nodes_size,
       &eq->edges_size,
       &eq->graph.size,
+      &eq->function_value_nodes.size,
+      &eq->function_value_rep.size,
+      &eq->function_value_rep_updates.size,
       &eq->trail_i,
       &eq->uselist_nodes_size,
       &eq->uselist.size,
@@ -1466,6 +1621,9 @@ void eq_graph_pop(eq_graph_t* eq) {
   uint32_t nodes_size;
   uint32_t edges_size;
   uint32_t graph_size;
+  uint32_t function_value_nodes_size;
+  uint32_t function_value_rep_size;
+  uint32_t function_value_rep_updates_size;
   uint32_t uselist_nodes_size;
   uint32_t uselist_size;
   uint32_t uselist_updates_size;
@@ -1480,6 +1638,9 @@ void eq_graph_pop(eq_graph_t* eq) {
       &nodes_size,
       &edges_size,
       &graph_size,
+      &function_value_nodes_size,
+      &function_value_rep_size,
+      &function_value_rep_updates_size,
       &eq->trail_i,
       &uselist_nodes_size,
       &uselist_size,
@@ -1563,6 +1724,16 @@ void eq_graph_pop(eq_graph_t* eq) {
 
   // Pop the graph size
   ivector_shrink(&eq->graph, graph_size);
+
+  // Restore function-id representatives
+  while (eq->function_value_rep_updates.size > function_value_rep_updates_size) {
+    term_t old_rep = ivector_pop2(&eq->function_value_rep_updates);
+    eq_node_id_t value_node = ivector_pop2(&eq->function_value_rep_updates);
+    assert(value_node < eq->function_value_rep.size);
+    eq->function_value_rep.data[value_node] = old_rep;
+  }
+  ivector_shrink(&eq->function_value_nodes, function_value_nodes_size);
+  ivector_shrink(&eq->function_value_rep, function_value_rep_size);
 
   // Pop the pair maps
   pmap2_pop(&eq->pair_to_id);
