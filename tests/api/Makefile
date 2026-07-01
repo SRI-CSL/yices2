@@ -300,7 +300,11 @@ ifneq ($(STATIC_LIBPOLY_INCLUDE_DIR),)
   STATIC_CPP_LIBPOLY := -I$(STATIC_LIBPOLY_INCLUDE_DIR)
 endif
 
-STATIC_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(CPPFLAGS)
+ifneq ($(STATIC_DELEGATES_INCLUDE_DIR),)
+  STATIC_CPP_DELEGATES := -I$(STATIC_DELEGATES_INCLUDE_DIR)
+endif
+
+STATIC_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(STATIC_CPP_DELEGATES) $(CPPFLAGS)
 
 #
 # These are not needed for the tests -DNOYICES_DLL is already
@@ -324,7 +328,44 @@ STATIC_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(CPPFLAGS)
 # Also, we want $(STATIC_GMP) last in this list
 #
 NOGMP_LIBS := $(subst -lpoly,,$(subst -lgmp,,$(LIBS)))
-STATIC_LIBS := $(NOGMP_LIBS) $(STATIC_LIBPOLY) $(STATIC_GMP)
+
+KISSAT_REWRITE_SCRIPT := $(YICES_TOP_DIR)/scripts/rewrite-kissat-kitten-symbols.sh
+STATIC_NOGMP_LIBS := $(NOGMP_LIBS)
+static_delegate_deps :=
+static_delegate_guard :=
+
+ifeq ($(HAVE_CADICAL_DELEGATE):$(HAVE_KISSAT_DELEGATE),yes:yes)
+  ifneq ($(STATIC_KISSAT_RAW),)
+    static_delegate_deps := $(STATIC_KISSAT_YICES)
+    STATIC_NOGMP_LIBS := $(subst -lkissat,$(STATIC_KISSAT_YICES),$(STATIC_NOGMP_LIBS))
+    STATIC_NOGMP_LIBS := $(subst $(STATIC_KISSAT_RAW),$(STATIC_KISSAT_YICES),$(STATIC_NOGMP_LIBS))
+    STATIC_NOGMP_LIBS := $(subst ./libkissat.a,$(STATIC_KISSAT_YICES),$(STATIC_NOGMP_LIBS))
+    STATIC_NOGMP_LIBS := $(subst libkissat.a,$(STATIC_KISSAT_YICES),$(STATIC_NOGMP_LIBS))
+  else
+    static_delegate_guard := check-static-kissat-rewrite
+  endif
+endif
+
+STATIC_LIBS := $(STATIC_NOGMP_LIBS) $(STATIC_LIBPOLY) $(STATIC_GMP)
+
+.PHONY: check-static-kissat-rewrite
+
+check-static-kissat-rewrite:
+	@ echo "CaDiCaL and Kissat both export private kitten_* symbols."
+	@ echo "Static builds with both delegates must configure --with-static-delegates=DIR"
+	@ echo "so make can generate $(STATIC_DEPDIR)/libkissat_yices.a."
+	@ exit 1
+
+ifneq ($(STATIC_KISSAT_RAW),)
+$(STATIC_DEPDIR):
+	$(MKDIR_P) $@
+
+$(STATIC_KISSAT_YICES): $(STATIC_KISSAT_RAW) $(KISSAT_REWRITE_SCRIPT) | $(STATIC_DEPDIR)
+	$(KISSAT_REWRITE_SCRIPT) \
+	  --input $(STATIC_KISSAT_RAW) \
+	  --output $@ \
+	  --rename-file $(STATIC_DEPDIR)/kissat-kitten-renames.txt
+endif
 
 
 # Dependency file
@@ -400,7 +441,7 @@ all-static: $(static_tests)
 	@ echo
 	@ ./print_summary.sh tests.log
 
-$(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices)
+$(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices) $(static_delegate_guard) $(static_delegate_deps)
 	$(LNK) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ $<  $(static_libyices) $(STATIC_LIBS)
 
 

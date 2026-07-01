@@ -210,6 +210,52 @@ NOTE: the --with-pic-gmp is useful only if your want to build a static
       Yices distribution and if libgmp.a is not position-independent by
       default.
 
+For static executable builds that enable both the CaDiCaL and Kissat SAT
+delegates, Yices must not link the raw libkissat.a archive directly. CaDiCaL
+and Kissat both contain private global symbols named kitten_*, and these
+embedded implementations are not compatible. Give configure the location of
+the raw static delegate archives and headers:
+
+   --with-static-delegates=<directory containing libcadical.a, libkissat.a, ...>
+   --with-static-delegates-include-dir=<directory containing ccadical.h, kissat.h, ...>
+
+Then build the static executables with:
+
+   make static-bin
+
+Do not use a bare 'make' or 'make all' for this all-delegate static release
+configuration. Those targets also build dynamic libraries and dynamic
+executables, and Yices rejects raw dynamic CaDiCaL + Kissat builds by default
+because it cannot verify that the delegate shared libraries hide kitten_*.
+
+When both CaDiCaL and Kissat are enabled, make generates a rewritten Kissat
+archive named libkissat_yices.a under:
+
+   $(BUILD)/static_deps
+
+and links the static executables against that archive instead of raw
+-lkissat. The output directory can be changed with:
+
+   --with-static-dep-dir=<directory>
+
+This rewrite keeps the public Kissat API and kissat.h unchanged. Do not use
+-Wl,--allow-multiple-definition for the CaDiCaL/Kissat collision: it can
+silently bind one solver to the other's incompatible kitten_* implementation.
+
+For dynamic builds with both CaDiCaL and Kissat, the delegate shared libraries
+must hide or namespace their private kitten_* symbols (for example by building
+with -fvisibility=hidden and exporting only the public APIs). Yices does not
+verify this automatically, so raw dynamic targets with both delegates are
+rejected by default.
+
+If you have validated that both delegate shared libraries hide kitten_* while
+still exporting their public APIs, configure with:
+
+   --enable-dynamic-delegates-assuming-hidden-kitten
+
+This option is an assertion about the delegate shared libraries. It is not a
+fix for raw static archives.
+
 
 
 4) Alternative platforms
@@ -962,5 +1008,3 @@ Other ways to prevent these warnings:
 
 3) play with the parameters that control what GCC considers high enough frequency
    (e.g., add option --param hot-bb-frequency-fraction=2000)
-
-

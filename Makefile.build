@@ -102,6 +102,11 @@ apitestdir = tests/api
 #
 build_dir = build/$(ARCH)-$(YICES_MODE)
 
+static_test_lib_target = static-lib
+ifeq ($(HAVE_CADICAL_DELEGATE):$(HAVE_KISSAT_DELEGATE),yes:yes)
+  static_test_lib_target = static-bin
+endif
+
 #
 # Build subdirectories: we build two versions of Yices.  One is
 # compiled and statically linked with GMP. The other one does not
@@ -279,7 +284,7 @@ test: build_subdirs version
 
 static-test: static_build_subdirs version
 	@ echo "=== Building libraries with GMP ==="
-	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-lib
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) $(static_test_lib_target)
 	@ echo "=== Building tests ==="
 	@ $(MAKE) -C $(testdir) BUILD=../../$(build_dir) all-static
 
@@ -294,7 +299,7 @@ check-api: build_subdirs version
 
 static-check-api: static_build_subdirs version
 	@ echo "=== Building libraries with GMP ==="
-	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-lib
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) $(static_test_lib_target)
 	@ echo "=== Building tests ==="
 	@ $(MAKE) -C $(apitestdir) BUILD=../../$(build_dir) all-static
 
@@ -585,6 +590,8 @@ source-distribution: $(distributions) doc
 	cp Makefile Makefile.build make.include.in $(srcdist_dir)
 	$(MKDIR_P) $(srcdist_dir)/autoconf
 	cp autoconf/* $(srcdist_dir)/autoconf
+	$(MKDIR_P) $(srcdist_dir)/scripts
+	cp scripts/rewrite-kissat-kitten-symbols.sh $(srcdist_dir)/scripts
 	$(MKDIR_P) $(srcdist_dir)/configs
 	$(MKDIR_P) $(srcdist_dir)/etc
 	cp etc/README.source $(srcdist_dir)/README
@@ -708,6 +715,17 @@ show-details:
 	@ echo
 	@ echo "  PIC_LIBPOLY = $(PIC_LIBPOLY)"
 	@ echo "  PIC_LIBPOLY_INCLUDE_DIR = $(PIC_LIBPOLY_INCLUDE_DIR)"
+	@ echo
+	@ echo "  HAVE_CADICAL_DELEGATE = $(HAVE_CADICAL_DELEGATE)"
+	@ echo "  HAVE_CRYPTOMINISAT_DELEGATE = $(HAVE_CRYPTOMINISAT_DELEGATE)"
+	@ echo "  HAVE_KISSAT_DELEGATE = $(HAVE_KISSAT_DELEGATE)"
+	@ echo "  STATIC_DEPDIR = $(STATIC_DEPDIR)"
+	@ echo "  STATIC_DELEGATES_INCLUDE_DIR = $(STATIC_DELEGATES_INCLUDE_DIR)"
+	@ echo "  STATIC_CADICAL_RAW = $(STATIC_CADICAL_RAW)"
+	@ echo "  STATIC_CRYPTOMINISAT_RAW = $(STATIC_CRYPTOMINISAT_RAW)"
+	@ echo "  STATIC_KISSAT_RAW = $(STATIC_KISSAT_RAW)"
+	@ echo "  STATIC_KISSAT_YICES = $(STATIC_KISSAT_YICES)"
+	@ echo "  DYNAMIC_DELEGATES_ASSUME_HIDDEN_KITTEN = $(DYNAMIC_DELEGATES_ASSUME_HIDDEN_KITTEN)"
 	@ echo
 
 
