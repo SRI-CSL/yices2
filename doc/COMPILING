@@ -210,6 +210,8 @@ NOTE: the --with-pic-gmp is useful only if your want to build a static
       Yices distribution and if libgmp.a is not position-independent by
       default.
 
+4a) CaDiCaL and Kissat SAT delegates - static build
+
 For static executable builds that enable both the CaDiCaL and Kissat SAT
 delegates, Yices must not link the raw libkissat.a archive directly. CaDiCaL
 and Kissat both contain private global symbols named kitten_*, and these
@@ -242,6 +244,8 @@ This rewrite keeps the public Kissat API and kissat.h unchanged. Do not use
 -Wl,--allow-multiple-definition for the CaDiCaL/Kissat collision: it can
 silently bind one solver to the other's incompatible kitten_* implementation.
 
+4b) CaDiCaL and Kissat SAT delegates - dynamic build
+
 For dynamic builds with both CaDiCaL and Kissat, the delegate shared libraries
 must hide or namespace their private kitten_* symbols (for example by building
 with -fvisibility=hidden and exporting only the public APIs). Yices does not
@@ -256,9 +260,7 @@ still exporting their public APIs, configure with:
 This option is an assertion about the delegate shared libraries. It is not a
 fix for raw static archives.
 
-
-
-4) Alternative platforms
+5) Alternative platforms
 
 To set the platform to something else than the default, give option
 
