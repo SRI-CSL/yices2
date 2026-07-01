@@ -359,10 +359,3 @@ types are automatically serialized by an internal locking mechanism.
    It is not safe for distinct threads to operate on the same context
    or model concurrently. It you want to do that, you have to implement
    your own locking mechanism.
-
-
-.. note::
-
-   The ``--enable-thread-safety`` and ``--enable-mcsat`` options are
-   currently incompatible. It is not possible to build a Yices version
-   that is both thread-safe and support MCSAT.
