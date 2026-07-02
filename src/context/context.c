@@ -3867,7 +3867,7 @@ static bool mcsat_relax_check_zero_lemma(context_t *ctx, term_t t, term_t z, int
   thvar_t zx, fxi;
   literal_t lz, *lf, *lits;
   int_hmap_pair_t *done;
-  bool z_is_zero, added;
+  bool z_is_zero, some_factor_zero, added;
   int32_t forward_i, full_mask;
   uint32_t i, n;
 
@@ -3893,14 +3893,17 @@ static bool mcsat_relax_check_zero_lemma(context_t *ctx, term_t t, term_t z, int
   lf = alloc_istack_array(&ctx->istack, n);
   added = false;
   forward_i = -1;
+  some_factor_zero = false;
   for (i=0; i<n; i++) {
     if (!mcsat_relax_term_thvar(ctx, p->prod[i].var, &fxi) ||
         !mcsat_relax_cached_zero_atom(ctx, p->prod[i].var, lf+i)) {
       goto cleanup;
     }
-    if (!z_is_zero && forward_i < 0 && (done->val & (1 << i)) == 0 &&
-        simplex_var_is_zero_in_assignment(simplex, fxi)) {
-      forward_i = (int32_t) i;
+    if (simplex_var_is_zero_in_assignment(simplex, fxi)) {
+      if (!z_is_zero && forward_i < 0 && (done->val & (1 << i)) == 0) {
+        forward_i = (int32_t) i;
+      }
+      some_factor_zero = true;
     }
   }
 
@@ -3908,7 +3911,7 @@ static bool mcsat_relax_check_zero_lemma(context_t *ctx, term_t t, term_t z, int
     add_binary_clause(ctx->core, not(lf[forward_i]), lz);
     done->val |= (1 << forward_i);
     added = true;
-  } else if (z_is_zero && (done->val & (1 << 30)) == 0) {
+  } else if (z_is_zero && !some_factor_zero && (done->val & (1 << 30)) == 0) {
     lits = alloc_istack_array(&ctx->istack, n+1);
     lits[0] = not(lz);
     for (i=0; i<n; i++) {
