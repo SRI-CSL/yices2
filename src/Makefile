@@ -356,9 +356,11 @@ mcsat_src_c := \
 	mcsat/conflict.c \
 	mcsat/unit_info.c \
 	mcsat/gc.c \
+	mcsat/eq/equality_sensitivity.c \
 	mcsat/eq/equality_graph.c \
 	mcsat/eq/merge_queue.c \
 	mcsat/weq/weak_eq_graph.c \
+	mcsat/utils/branch_utils.c \
 	mcsat/utils/int_mset.c \
 	mcsat/utils/int_lset.c \
 	mcsat/utils/lp_data.c \

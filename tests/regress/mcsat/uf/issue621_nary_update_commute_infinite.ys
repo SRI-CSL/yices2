@@ -1,0 +1,12 @@
+(define f::(-> int int bool))
+(define i::int)
+(define j::int)
+(define k::int)
+(define l::int)
+(define u::(-> int int bool) (update (update f (i j) true) (k l) false))
+(define v::(-> int int bool) (update (update f (k l) false) (i j) true))
+
+(assert (/= i k))
+(assert (/= u v))
+
+(check)

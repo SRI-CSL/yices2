@@ -1,0 +1,20 @@
+(define f::(-> int int bool))
+(define i::int)
+(define j::int)
+(define k::int)
+(define m::int)
+
+(define u1::(-> int int bool) (update f (i j) true))
+(define u2::(-> int int bool) (update u1 (k j) false))
+(define u3::(-> int int bool) (update u2 (m j) true))
+
+(define v1::(-> int int bool) (update f (m j) true))
+(define v2::(-> int int bool) (update v1 (k j) false))
+(define v3::(-> int int bool) (update v2 (i j) true))
+
+(assert (/= i k))
+(assert (/= i m))
+(assert (/= k m))
+(assert (/= u3 v3))
+
+(check)

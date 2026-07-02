@@ -1,0 +1,10 @@
+(define f::(-> bool (-> bool bool)))
+(define g::(-> bool (-> bool bool)))
+
+(assert (/= f g))
+(assert (= ((f false) false) ((g false) false)))
+(assert (= ((f false) true) ((g false) true)))
+(assert (= ((f true) false) ((g true) false)))
+(assert (= ((f true) true) ((g true) true)))
+
+(check)

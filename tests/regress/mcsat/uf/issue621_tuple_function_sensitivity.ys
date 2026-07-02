@@ -1,0 +1,11 @@
+(define-type W (tuple (-> bool bool)))
+
+(define w0::W)
+(define w1::W)
+(define w2::W)
+(define w3::W)
+(define w4::W)
+
+(assert (distinct w0 w1 w2 w3 w4))
+
+(check)
