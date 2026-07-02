@@ -123,6 +123,18 @@ struct plugin_context_s {
   /** Add model value hint in the value cache */
   void (*hint_value) (plugin_context_t* self, variable_t x, const mcsat_value_t* val);
 
+  /** Register a generated term and notify its owners */
+  void (*register_term) (plugin_context_t* self, term_t t);
+
+  /** True if type tau is in the frozen equality-sensitive closure. */
+  bool (*type_is_equality_sensitive) (plugin_context_t* self, type_t tau);
+
+  /** Current equality-sensitivity generation. */
+  uint32_t (*equality_sensitivity_generation) (plugin_context_t* self);
+
+  /** True after equality sensitivity has been frozen for this search call. */
+  bool (*equality_sensitivity_is_frozen) (plugin_context_t* self);
+
 };
 
 /** Token to add entries to the trail */

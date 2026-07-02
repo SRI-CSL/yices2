@@ -1,0 +1,15 @@
+(define-type S (scalar s0 s1 s2))
+
+(define f0::(-> S bool))
+(define f1::(-> S bool))
+(define f2::(-> S bool))
+(define f3::(-> S bool))
+(define f4::(-> S bool))
+(define f5::(-> S bool))
+(define f6::(-> S bool))
+(define f7::(-> S bool))
+(define f8::(-> S bool))
+
+(assert (distinct f0 f1 f2 f3 f4 f5 f6 f7 f8))
+
+(check)

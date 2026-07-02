@@ -48,6 +48,8 @@ typedef struct {
   uint32_t capacity;
 } bfs_vector_t;
 
+typedef bool (*eq_graph_term_callback_t)(term_t t, void* aux);
+
 /** API calls */
 typedef enum {
   EQ_GRAPH_ADD_TERM, // Add a term (e.g. x)
@@ -130,6 +132,15 @@ typedef struct eq_graph_s {
 
   /** The graph itself (map from node to the last inserted edge) */
   ivector_t graph;
+
+  /** Function-id value nodes with a representative term */
+  ivector_t function_value_nodes;
+
+  /** Map from e-graph value node id to representative function term */
+  ivector_t function_value_rep;
+
+  /** Undo log for function_value_rep updates */
+  ivector_t function_value_rep_updates;
 
   /** The hash map of function pair representatives. */
   pmap2_t pair_to_rep;
@@ -256,6 +267,31 @@ bool eq_graph_are_equal(const eq_graph_t* eq, term_t t1, term_t t2);
 
 /** Does this term have a value in the graph? */
 bool eq_graph_term_has_value(const eq_graph_t* eq, term_t t);
+
+/** Return the id of value v, or eq_node_null if v is absent. */
+eq_node_id_t eq_graph_value_id_if_exists(const eq_graph_t* eq, const mcsat_value_t* v);
+
+/** Number of function-id value nodes with representatives. */
+uint32_t eq_graph_function_value_node_count(const eq_graph_t* eq);
+
+/** Function-id value node at index i in the representative enumeration. */
+eq_node_id_t eq_graph_function_value_node(const eq_graph_t* eq, uint32_t i);
+
+/** Representative function term for value_node, or NULL_TERM. */
+term_t eq_graph_function_value_rep(const eq_graph_t* eq, eq_node_id_t value_node);
+
+/** Value stored in value_node. */
+const mcsat_value_t* eq_graph_value_node_value(const eq_graph_t* eq, eq_node_id_t value_node);
+
+/** Does value_node's current class contain a function-typed term? */
+bool eq_graph_value_class_has_function_term(const eq_graph_t* eq, eq_node_id_t value_node);
+
+/** Traverse all term nodes in value_node's current class. */
+void eq_graph_foreach_value_class_term(const eq_graph_t* eq, eq_node_id_t value_node,
+                                       eq_graph_term_callback_t callback, void* aux);
+
+/** Debug check: representative is justified by a direct trail edge. */
+bool eq_graph_function_value_rep_has_trail_edge(const eq_graph_t* eq, eq_node_id_t value_node);
 
 /** Get the ID of a term (assumes that it exists) */
 eq_node_id_t eq_graph_term_id(const eq_graph_t* eq, term_t t);

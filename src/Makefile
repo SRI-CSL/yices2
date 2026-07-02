@@ -355,9 +355,11 @@ mcsat_src_c := \
 	mcsat/conflict.c \
 	mcsat/unit_info.c \
 	mcsat/gc.c \
+	mcsat/eq/equality_sensitivity.c \
 	mcsat/eq/equality_graph.c \
 	mcsat/eq/merge_queue.c \
 	mcsat/weq/weak_eq_graph.c \
+	mcsat/utils/branch_utils.c \
 	mcsat/utils/int_mset.c \
 	mcsat/utils/int_lset.c \
 	mcsat/utils/lp_data.c \
@@ -897,7 +899,11 @@ ifneq ($(STATIC_LIBPOLY_INCLUDE_DIR),)
   STATIC_CPP_LIBPOLY := -I$(STATIC_LIBPOLY_INCLUDE_DIR)
 endif
 
-STATIC_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(CPPFLAGS)
+ifneq ($(STATIC_DELEGATES_INCLUDE_DIR),)
+  STATIC_CPP_DELEGATES := -I$(STATIC_DELEGATES_INCLUDE_DIR)
+endif
+
+STATIC_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(STATIC_CPP_DELEGATES) $(CPPFLAGS)
 
 #
 # For building dll linked statically with libgmp.a
@@ -906,11 +912,11 @@ STATIC_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(CPPFLAGS)
 # we also add the NOYICES_DLL flag.
 #
 ifeq ($(POSIXOS),cygwin)
-  STATIC_DLL_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(CPPFLAGS)
+  STATIC_DLL_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(STATIC_CPP_DELEGATES) $(CPPFLAGS)
   STATIC_CPPFLAGS += -DNOYICES_DLL
 else
 ifeq ($(POSIXOS),mingw)
-  STATIC_DLL_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(CPPFLAGS)
+  STATIC_DLL_CPPFLAGS := $(STATIC_CPP_GMP) $(STATIC_CPP_LIBPOLY) $(STATIC_CPP_DELEGATES) $(CPPFLAGS)
   STATIC_CPPFLAGS += -DNOYICES_DLL
 endif
 endif
@@ -921,13 +927,35 @@ endif
 #
 # We need to remove -lgmp and -lpoly from LIBS in static mode, otherwise adding
 # $(STATIC_GMP) does not work on Darwin and cygwin
-# We also use $(NOGMP_LIBS) to build yices_sat.
+# We also use $(STATIC_NOGMP_LIBS) to build static yices_sat.
 #
 # Important: make sure the GMP library is last (if some
-# archives/libraries in NOGMP_LIBS depend on GMP).
+# archives/libraries in STATIC_NOGMP_LIBS depend on GMP).
 #
 NOGMP_LIBS := $(subst -lpoly,,$(subst -lgmp,,$(LIBS)))
-STATIC_LIBS := $(NOGMP_LIBS) $(STATIC_LIBPOLY) $(STATIC_GMP)
+
+KISSAT_REWRITE_SCRIPT := ../scripts/rewrite-kissat-kitten-symbols.sh
+STATIC_NOGMP_LIBS := $(NOGMP_LIBS)
+static_delegate_deps :=
+static_delegate_guard :=
+dynamic_delegate_guard :=
+
+ifeq ($(HAVE_CADICAL_DELEGATE):$(HAVE_KISSAT_DELEGATE),yes:yes)
+  ifneq ($(DYNAMIC_DELEGATES_ASSUME_HIDDEN_KITTEN),yes)
+    dynamic_delegate_guard := check-raw-cadical-kissat-dynamic
+  endif
+  ifneq ($(STATIC_KISSAT_RAW),)
+    static_delegate_deps := $(STATIC_KISSAT_YICES)
+    STATIC_NOGMP_LIBS := $(subst -lkissat,$(STATIC_KISSAT_YICES),$(STATIC_NOGMP_LIBS))
+    STATIC_NOGMP_LIBS := $(subst $(STATIC_KISSAT_RAW),$(STATIC_KISSAT_YICES),$(STATIC_NOGMP_LIBS))
+    STATIC_NOGMP_LIBS := $(subst ./libkissat.a,$(STATIC_KISSAT_YICES),$(STATIC_NOGMP_LIBS))
+    STATIC_NOGMP_LIBS := $(subst libkissat.a,$(STATIC_KISSAT_YICES),$(STATIC_NOGMP_LIBS))
+  else
+    static_delegate_guard := check-static-kissat-rewrite
+  endif
+endif
+
+STATIC_LIBS := $(STATIC_NOGMP_LIBS) $(STATIC_LIBPOLY) $(STATIC_GMP)
 PIC_LIBS := $(NOGMP_LIBS) $(PIC_LIBPOLY) $(PIC_GMP)
 
 
@@ -935,6 +963,33 @@ PIC_LIBS := $(NOGMP_LIBS) $(PIC_LIBPOLY) $(PIC_GMP)
 #################
 #  BUILD RULES  #
 #################
+
+.PHONY: check-static-kissat-rewrite check-raw-cadical-kissat-dynamic
+
+check-static-kissat-rewrite:
+	@ echo "CaDiCaL and Kissat both export private Kitten symbols."
+	@ echo "Static builds with both delegates must configure --with-static-delegates=DIR"
+	@ echo "so make can generate $(STATIC_DEPDIR)/libkissat_yices.a."
+	@ exit 1
+
+check-raw-cadical-kissat-dynamic:
+	@ echo "Raw dynamic CaDiCaL + Kissat builds are not supported."
+	@ echo "Both delegate libraries may export incompatible private Kitten symbols."
+	@ echo "Use make static-bin with --with-static-delegates=DIR for the release build,"
+	@ echo "or rebuild the delegate shared libraries with hidden/namespaced private Kitten symbols"
+	@ echo "and configure --enable-dynamic-delegates-assuming-hidden-kitten."
+	@ exit 1
+
+ifneq ($(STATIC_KISSAT_RAW),)
+$(STATIC_DEPDIR):
+	$(MKDIR_P) $@
+
+$(STATIC_KISSAT_YICES): $(STATIC_KISSAT_RAW) $(KISSAT_REWRITE_SCRIPT) | $(STATIC_DEPDIR)
+	$(KISSAT_REWRITE_SCRIPT) \
+	  --input $(STATIC_KISSAT_RAW) \
+	  --output $@ \
+	  --rename-file $(STATIC_DEPDIR)/kissat-kitten-renames.txt
+endif
 
 #
 # Dependency files
@@ -1056,29 +1111,29 @@ $(static_libyices):  $(static_obj) $(static_version_obj)
 #
 
 # for yices_sat: we don't need gmp
-$(bindir)/yices_sat$(EXEEXT): $(objdir)/frontend/yices_sat.o $(libyices)
+$(bindir)/yices_sat$(EXEEXT): $(objdir)/frontend/yices_sat.o $(libyices) $(dynamic_delegate_guard)
 	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
 	   -o $@ $< $(libyices) $(NOGMP_LIBS)
 
-$(static_bindir)/yices_sat$(EXEEXT): $(static_objdir)/frontend/yices_sat.o $(static_libyices)
+$(static_bindir)/yices_sat$(EXEEXT): $(static_objdir)/frontend/yices_sat.o $(static_libyices) $(static_delegate_guard) $(static_delegate_deps)
 	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
-	   -o $@ $< $(static_libyices) $(NOGMP_LIBS)
+	   -o $@ $< $(static_libyices) $(STATIC_NOGMP_LIBS)
 
-$(bindir)/yices_sat_new$(EXEEXT): $(objdir)/frontend/yices_sat_new.o $(libyices)
+$(bindir)/yices_sat_new$(EXEEXT): $(objdir)/frontend/yices_sat_new.o $(libyices) $(dynamic_delegate_guard)
 	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
 	   -o $@ $< $(libyices) $(NOGMP_LIBS)
 
-$(static_bindir)/yices_sat_new$(EXEEXT): $(static_objdir)/frontend/yices_sat_new.o $(static_libyices)
+$(static_bindir)/yices_sat_new$(EXEEXT): $(static_objdir)/frontend/yices_sat_new.o $(static_libyices) $(static_delegate_guard) $(static_delegate_deps)
 	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
-	   -o $@ $< $(static_libyices) $(NOGMP_LIBS)
+	   -o $@ $< $(static_libyices) $(STATIC_NOGMP_LIBS)
 
 
 # for all other executables
-$(bindir)/%$(EXEEXT): $(objdir)/frontend/%.o $(libyices)
+$(bindir)/%$(EXEEXT): $(objdir)/frontend/%.o $(libyices) $(dynamic_delegate_guard)
 	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) \
 	   -o $@ $< $(libyices) $(LIBS)
 
-$(static_bindir)/%$(EXEEXT): $(static_objdir)/frontend/%.o $(static_libyices)
+$(static_bindir)/%$(EXEEXT): $(static_objdir)/frontend/%.o $(static_libyices) $(static_delegate_guard) $(static_delegate_deps)
 	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) \
 	  -o $@ $< $(static_libyices) $(STATIC_LIBS)
 
@@ -1095,7 +1150,7 @@ $(static_bindir)/%$(EXEEXT): $(static_objdir)/frontend/%.o $(static_libyices)
 # list.  This flag causes problems on our Solaris 2.10
 # machine, unless we also give -lc.
 #
-$(libdir)/$(libyices_so): $(base_obj) $(version_obj)
+$(libdir)/$(libyices_so): $(base_obj) $(version_obj) $(dynamic_delegate_guard)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
 	$(base_obj) $(version_obj) $(LIBS) -lc
@@ -1103,7 +1158,7 @@ ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif
 
-$(static_libdir)/$(libyices_so): $(base_obj) $(version_obj)
+$(static_libdir)/$(libyices_so): $(base_obj) $(version_obj) $(dynamic_delegate_guard)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
 	$(base_obj) $(version_obj) $(PIC_LIBS) -lc
@@ -1125,7 +1180,7 @@ endif
 # build the DLLs in bindir or static_bindir, instead of libdir and
 # static_libdir.
 #
-$(bindir)/$(libyices_dll): $(base_obj) $(version_obj)
+$(bindir)/$(libyices_dll): $(base_obj) $(version_obj) $(dynamic_delegate_guard)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
 	-Wl,--no-undefined \
@@ -1134,7 +1189,7 @@ ifeq ($(YICES_MODE),release)
 	$(STRIP) $@
 endif
 
-$(static_bindir)/$(libyices_dll): $(static_dll_base_obj) $(static_dll_version_obj)
+$(static_bindir)/$(libyices_dll): $(static_dll_base_obj) $(static_dll_version_obj) $(dynamic_delegate_guard)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--no-undefined \
@@ -1157,7 +1212,7 @@ endif
 # Change: 2013/07/12: added  -static-libgcc (otherwise the DLLs
 # depend on libgcc_s_sjlj-1.dll)
 #
-$(bindir)/$(libyices_mingw_dll): $(base_obj) $(version_obj)
+$(bindir)/$(libyices_mingw_dll): $(base_obj) $(version_obj) $(dynamic_delegate_guard)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -static-libgcc -o $@ \
 	-Wl,--out-implib=$(libdir)/$(libyices_implib) \
 	-Wl,--output-def,$(libdir)/$(libyices_def) \
@@ -1167,7 +1222,7 @@ ifeq ($(YICES_MODE),release)
 	$(STRIP) $@
 endif
 
-$(static_bindir)/$(libyices_mingw_dll): $(static_dll_base_obj) $(static_dll_version_obj)
+$(static_bindir)/$(libyices_mingw_dll): $(static_dll_base_obj) $(static_dll_version_obj) $(dynamic_delegate_guard)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -static-libgcc -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--output-def,$(static_libdir)/$(libyices_def) \
@@ -1186,7 +1241,7 @@ endif
 # - option -headerpad_max_install_names allows users to
 #   safely change the install name using install_name_tool.
 #
-$(libdir)/$(libyices_dylib): $(base_obj) $(version_obj)
+$(libdir)/$(libyices_dylib): $(base_obj) $(version_obj) $(dynamic_delegate_guard)
 	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
 	-current_version $(libyices_curr_version) \
 	-compatibility_version $(libyices_compat_version) \
@@ -1198,7 +1253,7 @@ ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif
 
-$(static_libdir)/$(libyices_dylib): $(static_base_obj) $(static_version_obj)
+$(static_libdir)/$(libyices_dylib): $(static_base_obj) $(static_version_obj) $(dynamic_delegate_guard)
 	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
 	-current_version $(libyices_curr_version) \
 	-compatibility_version $(libyices_compat_version) \
@@ -1216,14 +1271,14 @@ obj: $(obj) $(bin_obj)
 static-obj: $(static_obj) $(static_bin_obj)
 
 # Binaries
-bin: $(binaries)
+bin: $(dynamic_delegate_guard) $(binaries)
 
-static-bin: $(static_binaries)
+static-bin: $(static_delegate_guard) $(static_delegate_deps) $(static_binaries)
 
 # Libraries
-lib: $(libyices) $(libyices_dynamic)
+lib: $(dynamic_delegate_guard) $(libyices) $(libyices_dynamic)
 
-static-lib: $(static_libyices) $(static_libyices_dynamic)
+static-lib: $(dynamic_delegate_guard) $(static_libyices) $(static_libyices_dynamic)
 
 
 .PHONY: obj static-obj bin static-bin lib static-lib
@@ -1358,3 +1413,13 @@ show-details:
 	@ echo "  STATIC_LIBPOLY_INCLUDE_DIR = $(STATIC_LIBPOLY_INCLUDE_DIR)"
 	@ echo "  PIC_LIBPOLY = $(PIC_LIBPOLY)"
 	@ echo "  PIC_LIBPOLY_INCLUDE_DIR = $(PIC_LIBPOLY_INCLUDE_DIR)"
+	@ echo "  HAVE_CADICAL_DELEGATE = $(HAVE_CADICAL_DELEGATE)"
+	@ echo "  HAVE_CRYPTOMINISAT_DELEGATE = $(HAVE_CRYPTOMINISAT_DELEGATE)"
+	@ echo "  HAVE_KISSAT_DELEGATE = $(HAVE_KISSAT_DELEGATE)"
+	@ echo "  STATIC_DEPDIR = $(STATIC_DEPDIR)"
+	@ echo "  STATIC_DELEGATES_INCLUDE_DIR = $(STATIC_DELEGATES_INCLUDE_DIR)"
+	@ echo "  STATIC_CADICAL_RAW = $(STATIC_CADICAL_RAW)"
+	@ echo "  STATIC_CRYPTOMINISAT_RAW = $(STATIC_CRYPTOMINISAT_RAW)"
+	@ echo "  STATIC_KISSAT_RAW = $(STATIC_KISSAT_RAW)"
+	@ echo "  STATIC_KISSAT_YICES = $(STATIC_KISSAT_YICES)"
+	@ echo "  DYNAMIC_DELEGATES_ASSUME_HIDDEN_KITTEN = $(DYNAMIC_DELEGATES_ASSUME_HIDDEN_KITTEN)"

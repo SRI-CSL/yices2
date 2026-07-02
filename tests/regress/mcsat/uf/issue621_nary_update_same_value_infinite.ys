@@ -1,0 +1,8 @@
+(define f::(-> int int bool))
+(define i::int)
+(define j::int)
+(define u::(-> int int bool) (update f (i j) (f i j)))
+
+(assert (/= u f))
+
+(check)

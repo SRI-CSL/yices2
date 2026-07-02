@@ -28,7 +28,6 @@
 
 #include "api/yices_api_lock_free.h"
 
-
 typedef struct weq_graph_s {
 
   /** The plugin context */
@@ -46,29 +45,23 @@ typedef struct weq_graph_s {
   /** Select terms */
   ivector_t select_terms;
 
-  /** Map from types to diff symbols */
-  int_hmap_t type_to_diff;
-
-  /** Set of Diff Funs */
-  int_hset_t diff_funs;
-
   /** Map: terms to fun_nodes */
   ptr_hmap_t fun_node_map;
 
   /** Value eq_node_id to term (one rep term) */
   int_hmap_t val_id_term_map;
 
-  /** not weakly equivalent cache [array, array, index] -> 1 */
-  tuple_hmap_t not_weak_eq_i_cache;
+  /** not weakly equivalent cache [array, array, index-vector] -> 1 */
+  tuple_hmap_t not_weak_eq_cache;
 
   /** Weak path equalities **/
   ivector_t path_cond;
 
-  /** Weak path indices **/
-  ivector_t path_indices1;
+  /** Weak path update edges **/
+  ivector_t path_edges1;
 
-  /** Weak path indices **/
-  ivector_t path_indices2;
+  /** Weak path update edges **/
+  ivector_t path_edges2;
 
   struct {
     statistic_int_t* array_check_calls;
@@ -98,12 +91,6 @@ void weq_graph_add_array_term(weq_graph_t* weq, term_t arr);
 
 /** add array select term */
 void weq_graph_add_select_term(weq_graph_t* weq, term_t sel);
-
-/** add diff fun */
-void weq_graph_add_diff_fun(weq_graph_t* weq, term_t diff_fun);
-
-/** Contains diff fun */
-bool weq_graph_has_diff_fun(weq_graph_t* weq, term_t diff_fun);
 
 /** Clear weq cache */
 void weq_graph_clear(weq_graph_t* weq);
