@@ -3804,6 +3804,10 @@ static thvar_t internalize_to_arith(context_t *ctx, term_t t) {
 
 
 
+/***************************************
+ *  CONVERSION TO BITVECTOR VARIABLES  *
+ **************************************/
+
 /*
  * Translate internalization code x to a bitvector variable
  * - if x is for an egraph term u, then we return the theory variable
