@@ -753,14 +753,49 @@ at \url{https://github.com/arminbiere/kissat}. To compile the code, follow these
 
 \subsection*{Configure Yices~2}
 
-If all third-party SAT solver are installed, you can configure Yices~2 as follows to use them:
+If all third-party SAT solvers are installed, you can configure Yices~2 as follows to use them:
 \begin{small}
 \begin{lstlisting}[language=sh]
   ./configure CPPFLAGS='-DHAVE_CADICAL -DHAVE_CRYPTOMINISAT -DHAVE_KISSAT' \
        LIBS='-lcryptominisat5 -lcadical -lkissat -lstdc++ -lm'
 \end{lstlisting}
 \end{small}
-After this, you can build and install Yices as usual:
+This form is for non-static builds. If both CaDiCaL and Kissat are built as
+shared libraries, their private \texttt{kitten\_*} symbols must be hidden or
+namespaced by the delegate builds; otherwise the dynamic linker may bind one
+solver to the other's incompatible embedded kitten implementation. The Yices
+Makefile does not verify this automatically, so raw dynamic targets with both
+delegates are rejected by default. If you have validated that both shared
+libraries hide \texttt{kitten\_*} while still exporting their public APIs, add
+\texttt{--enable-dynamic-delegates-assuming-hidden-kitten} to the configure command. This
+option is an assertion about shared libraries; it does not fix raw static
+archives.
+
+For a static Yices executable build with both CaDiCaL and Kissat, give
+\texttt{configure} the directory that contains the raw static delegate
+archives and headers:
+\begin{small}
+\begin{lstlisting}[language=sh]
+  ./configure CPPFLAGS="-I$DELEGATE_PREFIX/include -DHAVE_CADICAL -DHAVE_CRYPTOMINISAT -DHAVE_KISSAT" \
+       LDFLAGS="-L$DELEGATE_PREFIX/lib" \
+       LIBS="-lcryptominisat5 -lcadical -lkissat -lstdc++ -lm" \
+       --with-static-delegates="$DELEGATE_PREFIX/lib" \
+       --with-static-delegates-include-dir="$DELEGATE_PREFIX/include"
+  make static-bin
+\end{lstlisting}
+\end{small}
+In this case, \texttt{make static-bin} generates
+\texttt{libkissat\_yices.a} under \texttt{\$(BUILD)/static\_deps} and links the
+static executables against this rewritten archive. The public Kissat API and
+\texttt{kissat.h} are unchanged. Do not use
+\texttt{-Wl,--allow-multiple-definition} for this collision: it can silently
+bind one solver to the other's incompatible \texttt{kitten\_*} functions.
+Do not use a bare \texttt{make} or \texttt{make all} for this all-delegate
+static release configuration: those targets also build dynamic artifacts, and
+Yices rejects raw dynamic CaDiCaL + Kissat builds by default.
+
+After a non-static configure command that does not use the raw unsafe
+CaDiCaL + Kissat combination, you can build and install Yices as usual:
 \begin{small}
 \begin{lstlisting}[language=sh,deletekeywords={test}]
    make -j

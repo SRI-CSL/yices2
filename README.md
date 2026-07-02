@@ -248,8 +248,6 @@ each context and each model is restricted to a single thread, there should be no
 In particular separate threads can create their own contexts, and manipulate and check
 them without impeding another thread's progress.
 
-NOTE: `--enable-mcsat` and `--enable-thread-safety` are currently incompatible.
-
 #### Windows Builds
 
 We recommend compiling using Cygwin. If you want a version that works

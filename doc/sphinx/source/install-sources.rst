@@ -266,27 +266,61 @@ configure command in the top-level yices source directory:
 .. code-block:: sh
 
    ./configure CPPFLAGS='-DHAVE_CADICAL -DHAVE_CRYPTOMINISAT -DHAVE_KISSAT' \
-        LIBS=’-lcryptominisat5 -lcadical -lkissat -lstdc++ -lm’
+        LIBS='-lcryptominisat5 -lcadical -lkissat -lstdc++ -lm'
+
+This form is for non-static builds. If both CaDiCaL and Kissat are built as
+shared libraries, their private Kitten symbols must be hidden or namespaced by
+the delegate builds. Otherwise the dynamic linker may bind one solver to the
+other's incompatible embedded Kitten implementation. The Yices Makefile does
+not verify this automatically, so raw dynamic targets with both delegates are
+rejected by default. If you have validated that both shared libraries hide
+these private Kitten symbols while still exporting their public APIs, add
+``--enable-dynamic-delegates-assuming-hidden-kitten`` to the configure command. This
+option is an assertion about shared libraries; it does not fix raw static
+archives.
+
+For a static Yices executable build with both CaDiCaL and Kissat, give
+``configure`` the directory that contains the raw static delegate archives and
+headers:
+
+.. code-block:: sh
+
+   ./configure CPPFLAGS="-I$DELEGATE_PREFIX/include -DHAVE_CADICAL -DHAVE_CRYPTOMINISAT -DHAVE_KISSAT" \
+        LDFLAGS="-L$DELEGATE_PREFIX/lib" \
+        LIBS="-lcryptominisat5 -lcadical -lkissat -lstdc++ -lm" \
+        --with-static-delegates="$DELEGATE_PREFIX/lib" \
+        --with-static-delegates-include-dir="$DELEGATE_PREFIX/include"
+   make static-bin
+
+``make static-bin`` generates ``libkissat_yices.a`` under
+``$(BUILD)/static_deps`` and links the static executables against this
+rewritten archive. The public Kissat API and ``kissat.h`` are unchanged. Do not
+use ``-Wl,--allow-multiple-definition`` for this collision: it can silently bind
+one solver to the other's incompatible Kitten functions.
+Do not use a bare ``make`` or ``make all`` for this all-delegate static release
+configuration: those targets also build dynamic artifacts, and Yices rejects
+raw dynamic CaDiCaL + Kissat builds by default.
 
 If you want only CaDiCaL:
 
 .. code-block:: sh
 
-   ./configure CPPFLAGS=-DHAVE_CADICAL LIBS=’-lcadical -lstdc++ -lm’
+   ./configure CPPFLAGS=-DHAVE_CADICAL LIBS='-lcadical -lstdc++ -lm'
 
 If you want only CryptoMiniSAT:
 
 .. code-block:: sh
 
-   ./configure CPPFLAGS=-DHAVE_CRYPTOMINISAT LIBS=’-lcryptominisat5 -lstdc++’
+   ./configure CPPFLAGS=-DHAVE_CRYPTOMINISAT LIBS='-lcryptominisat5 -lstdc++'
 
 If you want only Kissat, use this command:
 
 .. code-block:: sh
 
-   ./configure CPPFLAGS=-DHAVE_KISSAT LIBS=’-lkissat -lm’
+   ./configure CPPFLAGS=-DHAVE_KISSAT LIBS='-lkissat -lm'
 
-After any of these ``configure`` commands, you can build Yices as usual:
+After a non-static configure command that does not use the raw unsafe
+CaDiCaL + Kissat combination, you can build Yices as usual:
 
 .. code-block:: sh
 
@@ -325,10 +359,3 @@ types are automatically serialized by an internal locking mechanism.
    It is not safe for distinct threads to operate on the same context
    or model concurrently. It you want to do that, you have to implement
    your own locking mechanism.
-
-
-.. note::
-
-   The ``--enable-thread-safety`` and ``--enable-mcsat`` options are
-   currently incompatible. It is not possible to build a Yices version
-   that is both thread-safe and support MCSAT.
