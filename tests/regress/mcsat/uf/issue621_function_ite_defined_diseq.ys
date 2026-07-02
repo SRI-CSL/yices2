@@ -1,0 +1,9 @@
+(define f::(-> int bool))
+(define g::(-> int bool))
+(define b::bool)
+(define h::(-> int bool) (if b f g))
+
+(assert b)
+(assert (/= h f))
+
+(check)

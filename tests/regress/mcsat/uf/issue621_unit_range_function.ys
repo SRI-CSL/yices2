@@ -1,0 +1,7 @@
+(define-type U (scalar u))
+(define f::(-> int U))
+(define g::(-> int U))
+
+(assert (/= f g))
+
+(check)
