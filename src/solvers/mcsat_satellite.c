@@ -632,6 +632,11 @@ static bool mcsat_satellite_propagate(void *solver) {
     return true;
   }
 
+  if (context_check_mcsat_relax_zero_lemmas(sat->ctx)) {
+    // lemma(s) queued; let the core re-propagate before the (expensive) exact check
+    return true;
+  }
+
   status = mcsat_satellite_check(sat, false, true);
   return status != YICES_STATUS_UNSAT;
 }
@@ -639,6 +644,10 @@ static bool mcsat_satellite_propagate(void *solver) {
 static fcheck_code_t mcsat_satellite_final_check(void *solver) {
   mcsat_satellite_t *sat = solver;
   smt_status_t status;
+
+  if (context_check_mcsat_relax_zero_lemmas(sat->ctx)) {
+    return FCHECK_CONTINUE;
+  }
 
   status = mcsat_satellite_check(sat, false, true);
   switch (status) {
