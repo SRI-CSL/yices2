@@ -412,10 +412,10 @@ AC_ARG_WITH([static-delegates-include-dir],
 dynamic_delegates_assume_hidden_kitten="no"
 AC_ARG_ENABLE([dynamic-delegates-assuming-hidden-kitten],
    [AS_HELP_STRING([--enable-dynamic-delegates-assuming-hidden-kitten],
-            [Allow dynamic CaDiCaL+Kissat targets assuming delegate shared libraries hide private kitten_* symbols])],
+            [Allow dynamic CaDiCaL+Kissat targets assuming delegate shared libraries hide private Kitten symbols])],
    [if test "$enableval" = yes ; then
       dynamic_delegates_assume_hidden_kitten="yes"
-      AC_MSG_NOTICE([Assuming dynamic delegate libraries hide private kitten_* symbols])
+      AC_MSG_NOTICE([Assuming dynamic delegate libraries hide private Kitten symbols])
     fi],
    [])
 
@@ -1012,7 +1012,7 @@ if test "x$static_delegates" != x ; then
    fi
 else
    if test $HAVE_CADICAL_DELEGATE = yes && test $HAVE_KISSAT_DELEGATE = yes ; then
-      AC_MSG_WARN([CaDiCaL and Kissat both export private kitten_* symbols. Static builds must configure --with-static-delegates=DIR so make can generate libkissat_yices.a.])
+      AC_MSG_WARN([CaDiCaL and Kissat both export private Kitten symbols. Static builds must configure --with-static-delegates=DIR so make can generate libkissat_yices.a.])
    fi
 fi
 

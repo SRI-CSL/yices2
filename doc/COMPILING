@@ -214,21 +214,68 @@ NOTE: the --with-pic-gmp is useful only if your want to build a static
 
 For static executable builds that enable both the CaDiCaL and Kissat SAT
 delegates, Yices must not link the raw libkissat.a archive directly. CaDiCaL
-and Kissat both contain private global symbols named kitten_*, and these
-embedded implementations are not compatible. Give configure the location of
-the raw static delegate archives and headers:
+and Kissat both contain private global symbols from embedded Kitten
+implementations, and these embedded implementations are not compatible.
 
-   --with-static-delegates=<directory containing libcadical.a, libkissat.a, ...>
-   --with-static-delegates-include-dir=<directory containing ccadical.h, kissat.h, ...>
+Install the delegate archives and headers in a common staging directory. For
+example:
 
-Then build the static executables with:
+   DELEGATE_PREFIX=/tmp/yices2-static-delegates
+
+The directory should contain at least:
+
+   $DELEGATE_PREFIX/lib/libcadical.a
+   $DELEGATE_PREFIX/lib/libkissat.a
+   $DELEGATE_PREFIX/include/ccadical.h
+   $DELEGATE_PREFIX/include/kissat.h
+
+Use a CaDiCaL build whose ccadical.h declares
+ccadical_declare_one_more_variable. Some system CaDiCaL packages are too old
+for this Yices delegate interface; if in doubt, build CaDiCaL from current
+source with CXXFLAGS=-fPIC and install its libcadical.a and ccadical.h into
+the delegate staging directory.
+
+Then configure Yices with both delegate macros, the delegate library search
+path, the raw static delegate archive directory, and an installation prefix
+that is not /usr/local:
+
+   YICES_PREFIX=/tmp/yices2-static-cadical-kissat
+
+   ./configure --prefix="$YICES_PREFIX" \
+      CPPFLAGS="-I$DELEGATE_PREFIX/include -DHAVE_CADICAL -DHAVE_KISSAT" \
+      LDFLAGS="-L$DELEGATE_PREFIX/lib" \
+      LIBS="-lcadical -lkissat -lstdc++ -lm" \
+      --with-static-delegates="$DELEGATE_PREFIX/lib" \
+      --with-static-delegates-include-dir="$DELEGATE_PREFIX/include"
+
+Build only the static executables:
 
    make static-bin
 
 Do not use a bare 'make' or 'make all' for this all-delegate static release
 configuration. Those targets also build dynamic libraries and dynamic
 executables, and Yices rejects raw dynamic CaDiCaL + Kissat builds by default
-because it cannot verify that the delegate shared libraries hide kitten_*.
+because it cannot verify that the delegate shared libraries hide their private
+Kitten symbols.
+
+Do not use 'make install' after 'make static-bin' for this workflow. The
+install target copies from the non-static distribution directory, not from the
+static_bin directory produced by 'make static-bin'. To install the tested static
+executables in the alternate prefix, copy them explicitly:
+
+   ARCH=$(./config.sub "$(./config.guess)")
+
+   mkdir -p "$YICES_PREFIX/bin"
+   install build/$ARCH-release/static_bin/yices "$YICES_PREFIX/bin/yices"
+   install build/$ARCH-release/static_bin/yices_smtcomp "$YICES_PREFIX/bin/yices-smt"
+   install build/$ARCH-release/static_bin/yices_smt2 "$YICES_PREFIX/bin/yices-smt2"
+   install build/$ARCH-release/static_bin/yices_sat "$YICES_PREFIX/bin/yices-sat"
+
+To make this static build the default Yices installation, set
+YICES_PREFIX=/usr/local before the copy step above and run the install commands
+with the required privileges. This replaces the default executables such as
+/usr/local/bin/yices, so verify the build from an alternate prefix first if you
+do not want to disrupt an existing installation.
 
 When both CaDiCaL and Kissat are enabled, make generates a rewritten Kissat
 archive named libkissat_yices.a under:
@@ -242,18 +289,18 @@ and links the static executables against that archive instead of raw
 
 This rewrite keeps the public Kissat API and kissat.h unchanged. Do not use
 -Wl,--allow-multiple-definition for the CaDiCaL/Kissat collision: it can
-silently bind one solver to the other's incompatible kitten_* implementation.
+silently bind one solver to the other's incompatible Kitten implementation.
 
 4b) CaDiCaL and Kissat SAT delegates - dynamic build
 
 For dynamic builds with both CaDiCaL and Kissat, the delegate shared libraries
-must hide or namespace their private kitten_* symbols (for example by building
+must hide or namespace their private Kitten symbols (for example by building
 with -fvisibility=hidden and exporting only the public APIs). Yices does not
 verify this automatically, so raw dynamic targets with both delegates are
 rejected by default.
 
-If you have validated that both delegate shared libraries hide kitten_* while
-still exporting their public APIs, configure with:
+If you have validated that both delegate shared libraries hide these private
+Kitten symbols while still exporting their public APIs, configure with:
 
    --enable-dynamic-delegates-assuming-hidden-kitten
 

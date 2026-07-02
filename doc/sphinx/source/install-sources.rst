@@ -269,12 +269,12 @@ configure command in the top-level yices source directory:
         LIBS='-lcryptominisat5 -lcadical -lkissat -lstdc++ -lm'
 
 This form is for non-static builds. If both CaDiCaL and Kissat are built as
-shared libraries, their private ``kitten_*`` symbols must be hidden or
-namespaced by the delegate builds. Otherwise the dynamic linker may bind one
-solver to the other's incompatible embedded kitten implementation. The Yices
-Makefile does not verify this automatically, so raw dynamic targets with both
-delegates are rejected by default. If you have validated that both shared
-libraries hide ``kitten_*`` while still exporting their public APIs, add
+shared libraries, their private Kitten symbols must be hidden or namespaced by
+the delegate builds. Otherwise the dynamic linker may bind one solver to the
+other's incompatible embedded Kitten implementation. The Yices Makefile does
+not verify this automatically, so raw dynamic targets with both delegates are
+rejected by default. If you have validated that both shared libraries hide
+these private Kitten symbols while still exporting their public APIs, add
 ``--enable-dynamic-delegates-assuming-hidden-kitten`` to the configure command. This
 option is an assertion about shared libraries; it does not fix raw static
 archives.
@@ -296,7 +296,7 @@ headers:
 ``$(BUILD)/static_deps`` and links the static executables against this
 rewritten archive. The public Kissat API and ``kissat.h`` are unchanged. Do not
 use ``-Wl,--allow-multiple-definition`` for this collision: it can silently bind
-one solver to the other's incompatible ``kitten_*`` functions.
+one solver to the other's incompatible Kitten functions.
 Do not use a bare ``make`` or ``make all`` for this all-delegate static release
 configuration: those targets also build dynamic artifacts, and Yices rejects
 raw dynamic CaDiCaL + Kissat builds by default.

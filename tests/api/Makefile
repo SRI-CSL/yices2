@@ -351,7 +351,7 @@ STATIC_LIBS := $(STATIC_NOGMP_LIBS) $(STATIC_LIBPOLY) $(STATIC_GMP)
 .PHONY: check-static-kissat-rewrite
 
 check-static-kissat-rewrite:
-	@ echo "CaDiCaL and Kissat both export private kitten_* symbols."
+	@ echo "CaDiCaL and Kissat both export private Kitten symbols."
 	@ echo "Static builds with both delegates must configure --with-static-delegates=DIR"
 	@ echo "so make can generate $(STATIC_DEPDIR)/libkissat_yices.a."
 	@ exit 1

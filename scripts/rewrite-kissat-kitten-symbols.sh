@@ -1,6 +1,6 @@
 #! /bin/sh
 #
-# Rewrite Kissat's private kitten_* symbols for Yices static builds.
+# Rewrite Kissat's private Kitten symbols for Yices static builds.
 
 set -eu
 
@@ -113,13 +113,17 @@ nm_output=$tmp/output-nm.txt
         print sym " yices_kissat_" sym
       } else if (sym ~ /^_kitten_/) {
         print sym " _yices_kissat_" substr(sym, 2)
+      } else if (sym == "new_learned_klause" || sym == "completely_backtrack_to_root_level") {
+        print sym " yices_kissat_" sym
+      } else if (sym == "_new_learned_klause" || sym == "_completely_backtrack_to_root_level") {
+        print sym " _yices_kissat_" substr(sym, 2)
       }
     }
   ' |
   sort -u > "$symbols"
 
 if [ ! -s "$symbols" ]; then
-  echo "rewrite-kissat-kitten-symbols: no global kitten_* symbols found in $input" >&2
+  echo "rewrite-kissat-kitten-symbols: no global Kitten symbols found in $input" >&2
   exit 1
 fi
 
@@ -177,6 +181,12 @@ fi
 if awk '{ if ($NF ~ /^_?kitten_/) found=1 } END { exit found ? 0 : 1 }' "$nm_output"; then
   echo "rewrite-kissat-kitten-symbols: raw kitten_* symbols remain in rewritten archive" >&2
   awk '{ if ($NF ~ /^_?kitten_/) print "  " $0 }' "$nm_output" >&2
+  exit 1
+fi
+
+if awk '{ if ($NF ~ /^_?(new_learned_klause|completely_backtrack_to_root_level)$/) found=1 } END { exit found ? 0 : 1 }' "$nm_output"; then
+  echo "rewrite-kissat-kitten-symbols: raw Kitten helper symbols remain in rewritten archive" >&2
+  awk '{ if ($NF ~ /^_?(new_learned_klause|completely_backtrack_to_root_level)$/) print "  " $0 }' "$nm_output" >&2
   exit 1
 fi
 

@@ -967,16 +967,16 @@ PIC_LIBS := $(NOGMP_LIBS) $(PIC_LIBPOLY) $(PIC_GMP)
 .PHONY: check-static-kissat-rewrite check-raw-cadical-kissat-dynamic
 
 check-static-kissat-rewrite:
-	@ echo "CaDiCaL and Kissat both export private kitten_* symbols."
+	@ echo "CaDiCaL and Kissat both export private Kitten symbols."
 	@ echo "Static builds with both delegates must configure --with-static-delegates=DIR"
 	@ echo "so make can generate $(STATIC_DEPDIR)/libkissat_yices.a."
 	@ exit 1
 
 check-raw-cadical-kissat-dynamic:
 	@ echo "Raw dynamic CaDiCaL + Kissat builds are not supported."
-	@ echo "Both delegate libraries may export incompatible private kitten_* symbols."
+	@ echo "Both delegate libraries may export incompatible private Kitten symbols."
 	@ echo "Use make static-bin with --with-static-delegates=DIR for the release build,"
-	@ echo "or rebuild the delegate shared libraries with hidden/namespaced kitten_* symbols"
+	@ echo "or rebuild the delegate shared libraries with hidden/namespaced private Kitten symbols"
 	@ echo "and configure --enable-dynamic-delegates-assuming-hidden-kitten."
 	@ exit 1
 
