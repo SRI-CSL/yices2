@@ -2632,6 +2632,9 @@ static bool check_good_substitution(term_manager_t *mngr, uint32_t n, const term
 /*
  * Support for incremental model construction
  */
+static model_t *clone_model_structure(model_t *src);
+static inline error_code_t yices_eval_error(int32_t v);
+
 // check that var is uninterpreted.
 static bool check_uninterpreted(term_table_t *terms, term_t var) {
   if (is_neg_term(var) || term_kind(terms, var) != UNINTERPRETED_TERM) {
@@ -2644,8 +2647,76 @@ static bool check_uninterpreted(term_table_t *terms, term_t var) {
   return true;
 }
 
-// check that var has no value in model
-static bool check_unassigned_in_model(model_t *model, term_t var) {
+static void clear_model_aliases(model_t *model) {
+  if (model->alias_map != NULL) {
+    delete_int_hmap(model->alias_map);
+    safe_free(model->alias_map);
+    model->alias_map = NULL;
+  }
+}
+
+static bool flatten_model_aliases(model_t *model) {
+  model_t *eval_model;
+  int_hmap_pair_t *r;
+  term_t *var;
+  value_t *eval_value;
+  vtbl_copy_t copy;
+  value_t v;
+  uint32_t i, n;
+
+  if (model->alias_map == NULL) {
+    return true;
+  }
+
+  n = model->alias_map->nelems;
+  if (n == 0) {
+    clear_model_aliases(model);
+    return true;
+  }
+
+  eval_model = clone_model_structure(model);
+  var = (term_t *) safe_malloc(n * sizeof(term_t));
+  eval_value = (value_t *) safe_malloc(n * sizeof(value_t));
+
+  i = 0;
+  r = int_hmap_first_record(model->alias_map);
+  while (r != NULL) {
+    assert(i < n);
+    v = model_get_term_value(eval_model, r->key);
+    if (v < 0) {
+      set_error_code(yices_eval_error(v));
+      safe_free(eval_value);
+      safe_free(var);
+      _o_yices_free_model(eval_model);
+      return false;
+    }
+    var[i] = r->key;
+    eval_value[i] = v;
+    i ++;
+    r = int_hmap_next_record(model->alias_map, r);
+  }
+  assert(i == n);
+
+  init_vtbl_copy(&copy, model_get_vtbl(eval_model), model_get_vtbl(model));
+  for (i=0; i<n; i++) {
+    model_map_term(model, var[i], vtbl_copy_value(&copy, eval_value[i]));
+  }
+  delete_vtbl_copy(&copy);
+  clear_model_aliases(model);
+
+  safe_free(eval_value);
+  safe_free(var);
+  _o_yices_free_model(eval_model);
+
+  return true;
+}
+
+// Flatten aliases, then check that var has no value in model.
+static bool prepare_model_append(model_t *model, term_t var) {
+  if (! flatten_model_aliases(model)) {
+    return false;
+  }
+
   if (model_find_term_value(model, var) != null_value) {
     error_report_t *error = get_yices_error();
     error->code = MDL_DUPLICATE_VAR;
@@ -10552,8 +10623,10 @@ EXPORTED int32_t yices_model_set_bool(model_t* model, term_t var, int32_t val) {
 int32_t _o_yices_model_set_bool(model_t* model, term_t var, int32_t val) {
   if (! check_good_term(__yices_globals.manager, var) ||
       ! check_uninterpreted(__yices_globals.terms, var) ||
-      ! check_boolean_term(__yices_globals.manager, var) ||
-      ! check_unassigned_in_model(model, var)) {
+      ! check_boolean_term(__yices_globals.manager, var)) {
+    return -1;
+  }
+  if (! prepare_model_append(model, var)) {
     return -1;
   }
   model_map_term(model, var, vtbl_mk_bool(&model->vtbl, val));
@@ -10580,8 +10653,10 @@ int32_t _o_yices_model_set_bool(model_t* model, term_t var, int32_t val) {
 static int32_t yices_model_set_q(model_t *model, term_t var, rational_t *q) {
   if (! check_good_term(__yices_globals.manager, var) ||
       ! check_uninterpreted(__yices_globals.terms, var) ||
-      ! check_var_match_rational(__yices_globals.terms, var, q) ||
-      ! check_unassigned_in_model(model, var)) {
+      ! check_var_match_rational(__yices_globals.terms, var, q)) {
+    return -1;
+  }
+  if (! prepare_model_append(model, var)) {
     return -1;
   }
   model_map_term(model, var, vtbl_mk_rational(&model->vtbl, q));
@@ -10663,14 +10738,16 @@ int32_t _o_yices_model_set_ff_mpz(model_t *model, term_t var, mpz_t val) {
 
   if (! check_good_term(__yices_globals.manager, var) ||
       ! check_uninterpreted(__yices_globals.terms, var) ||
-      ! check_arith_ff_term(__yices_globals.manager, var) ||
-      ! check_unassigned_in_model(model, var)) {
+      ! check_arith_ff_term(__yices_globals.manager, var)) {
     return -1;
   }
 
   tbl = __yices_globals.terms;
   tau = term_type(tbl, var);
   q_set_mpz(&r0, val);
+  if (! prepare_model_append(model, var)) {
+    return -1;
+  }
   model_map_term(model, var, vtbl_mk_finitefield(&model->vtbl, &r0, ff_type_size(tbl->types, tau)));
 
   return 0;
@@ -10704,7 +10781,6 @@ int32_t _o_yices_model_set_term(model_t *model, term_t var, term_t value) {
   type_t tau;
   if (! check_good_term(__yices_globals.manager, var) ||
       ! check_uninterpreted(__yices_globals.terms, var) ||
-      ! check_unassigned_in_model(model, var) ||
       ! check_good_term(__yices_globals.manager, value) ||
       ! is_constant_term(__yices_globals.terms, value)) {
     return -1;
@@ -10717,6 +10793,9 @@ int32_t _o_yices_model_set_term(model_t *model, term_t var, term_t value) {
   init_term_converter(&convert, __yices_globals.terms, &model->vtbl);
   v = convert_term_to_val(&convert, value);
   delete_term_converter(&convert);
+  if (! prepare_model_append(model, var)) {
+    return -1;
+  }
   model_map_term(model, var, v);
   return 0;
 }
@@ -10786,8 +10865,7 @@ int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) 
   type_t tau;
   
   if (! check_good_term(__yices_globals.manager, var) ||
-      ! check_uninterpreted(__yices_globals.terms, var) ||
-      ! check_unassigned_in_model(model, var)) {
+      ! check_uninterpreted(__yices_globals.terms, var)) {
     return -1;
   }
 
@@ -10802,6 +10880,9 @@ int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) 
     return -1;
   }
 
+  if (! prepare_model_append(model, var)) {
+    return -1;
+  }
   model_map_term(model, var, v);
   return 0;
 }
@@ -10963,8 +11044,7 @@ int32_t _o_yices_model_set_function(model_t *model, term_t var, uint32_t n, cons
   type_t tau;
 
   if (! check_good_term(__yices_globals.manager, var) ||
-      ! check_uninterpreted(__yices_globals.terms, var) ||
-      ! check_unassigned_in_model(model, var)) {
+      ! check_uninterpreted(__yices_globals.terms, var)) {
     return -1;
   }
 
@@ -10978,6 +11058,9 @@ int32_t _o_yices_model_set_function(model_t *model, term_t var, uint32_t n, cons
     return -1;
   }
 
+  if (! prepare_model_append(model, var)) {
+    return -1;
+  }
   model_map_term(model, var, fun.node_id);
   return 0;
 }
@@ -10991,12 +11074,14 @@ int32_t _o_yices_model_set_algebraic_number(model_t *model, term_t var, const lp
 
   if (! check_good_term(__yices_globals.manager, var) ||
       ! check_uninterpreted(__yices_globals.terms, var) ||
-      ! check_real_term(__yices_globals.manager, var) ||
-      ! check_unassigned_in_model(model, var)) {
+      ! check_real_term(__yices_globals.manager, var)) {
     return -1;
   }
 
   a_val = vtbl_mk_algebraic(&model->vtbl, (void*) val);
+  if (! prepare_model_append(model, var)) {
+    return -1;
+  }
   model_map_term(model, var, a_val);
 
   return 0;
@@ -11016,17 +11101,20 @@ int32_t _o_yices_model_set_algebraic_number(model_t *model, term_t var, const lp
 static uint32_t check_var_and_get_bitsize(model_t *model, term_t var) {
   if (! check_good_term(__yices_globals.manager, var) ||
       ! check_uninterpreted(__yices_globals.terms, var) ||
-      ! check_bitvector_term(__yices_globals.manager, var) ||
-      ! check_unassigned_in_model(model, var)) {
+      ! check_bitvector_term(__yices_globals.manager, var)) {
     return 0;
   }
 
   return term_bitsize(__yices_globals.terms, var);
 }
 
-static inline void yices_model_set_bvconstant(model_t *model, term_t var, bvconstant_t *b) {
+static inline int32_t yices_model_set_bvconstant(model_t *model, term_t var, bvconstant_t *b) {
   assert(term_bitsize(__yices_globals.terms, var) == b->bitsize);
+  if (! prepare_model_append(model, var)) {
+    return -1;
+  }
   model_map_term(model, var, vtbl_mk_bv_from_constant(&model->vtbl, b));
+  return 0;
 }
 
 EXPORTED int32_t yices_model_set_bv_int32(model_t *model, term_t var, int32_t val) {
@@ -11041,8 +11129,7 @@ int32_t _o_yices_model_set_bv_int32(model_t *model, term_t var, int32_t val) {
 
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set32_signed(bv0.data, bv0.width, val);
-  yices_model_set_bvconstant(model, var, &bv0);
-  return 0;
+  return yices_model_set_bvconstant(model, var, &bv0);
 }
 
 
@@ -11058,8 +11145,7 @@ int32_t _o_yices_model_set_bv_int64(model_t *model, term_t var, int64_t val) {
 
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set64_signed(bv0.data, bv0.width, val);
-  yices_model_set_bvconstant(model, var, &bv0);
-  return 0;
+  return yices_model_set_bvconstant(model, var, &bv0);
 }
 
 
@@ -11075,8 +11161,7 @@ int32_t _o_yices_model_set_bv_uint32(model_t *model, term_t var, uint32_t val) {
 
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set32(bv0.data, bv0.width, val);
-  yices_model_set_bvconstant(model, var, &bv0);
-  return 0;
+  return yices_model_set_bvconstant(model, var, &bv0);
 }
 
 
@@ -11092,8 +11177,7 @@ int32_t _o_yices_model_set_bv_uint64(model_t *model, term_t var, uint64_t val) {
 
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set64(bv0.data, bv0.width, val);
-  yices_model_set_bvconstant(model, var, &bv0);
-  return 0;
+  return yices_model_set_bvconstant(model, var, &bv0);
 }
 
 EXPORTED int32_t yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val) {
@@ -11123,9 +11207,7 @@ int32_t _o_yices_model_set_bv_mpz(model_t *model, term_t var, mpz_t val) {
     mpz_clear(aux);
   }
 
-  yices_model_set_bvconstant(model, var, &bv0);
-
-  return 0;
+  return yices_model_set_bvconstant(model, var, &bv0);
 }
 
 
@@ -11160,9 +11242,7 @@ int32_t _o_yices_model_set_bv_from_array(model_t *model, term_t var, uint32_t n,
 
   bvconstant_set_bitsize(&bv0, n);
   bvconst_set_array(bv0.data, a, n);
-  yices_model_set_bvconstant(model, var, &bv0);
-
-  return 0;
+  return yices_model_set_bvconstant(model, var, &bv0);
 }
 
 
@@ -11194,8 +11274,7 @@ int32_t _o_yices_model_set_scalar(model_t *model, term_t var, int32_t val) {
   type_t tau;
 
   if (! check_good_term(__yices_globals.manager, var) ||
-      ! check_uninterpreted(__yices_globals.terms, var) ||
-      ! check_unassigned_in_model(model, var)) {
+      ! check_uninterpreted(__yices_globals.terms, var)) {
     return -1;
   }
 
@@ -11204,6 +11283,9 @@ int32_t _o_yices_model_set_scalar(model_t *model, term_t var, int32_t val) {
     return -1;
   }
 
+  if (! prepare_model_append(model, var)) {
+    return -1;
+  }
   model_map_term(model, var, vtbl_mk_const(&model->vtbl, tau, val, NULL));
 
   return 0;

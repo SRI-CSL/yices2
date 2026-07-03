@@ -543,6 +543,137 @@ static void test_model_project_evaluation_failure(void) {
   yices_free_model(src);
 }
 
+static void test_model_set_flattens_alias_before_append(void) {
+  model_t *mdl;
+  term_vector_t v;
+  term_t x, y, x_plus_one;
+  int32_t value;
+
+  x = yices_new_uninterpreted_term(yices_int_type());
+  y = yices_new_uninterpreted_term(yices_int_type());
+  x_plus_one = yices_add(x, yices_int32(1));
+  check(x_plus_one != NULL_TERM, "failed to build setter alias RHS");
+
+  mdl = yices_new_model();
+  check(mdl != NULL, "failed to create setter alias model");
+  model_add_substitution(mdl, y, x_plus_one);
+
+  check(yices_model_set_int32(mdl, x, 7) == 0, "failed to append omitted alias dependency");
+  check(mdl->alias_map == NULL, "setter append did not clear aliases");
+  check(model_find_term_value(mdl, y) != null_value, "setter append did not materialize alias domain");
+  check(yices_get_int32_value(mdl, y, &value) == 0 && value == 1,
+        "setter append did not freeze alias value before append");
+  check(yices_get_int32_value(mdl, x, &value) == 0 && value == 7,
+        "setter append lost appended value");
+
+  yices_init_term_vector(&v);
+  yices_model_collect_defined_terms(mdl, &v);
+  check(v.size == 2 && vector_has_term(&v, x) && vector_has_term(&v, y),
+        "setter append has wrong flattened defined terms");
+  yices_delete_term_vector(&v);
+
+  yices_free_model(mdl);
+}
+
+static void test_model_set_rejects_alias_duplicate(void) {
+  model_t *mdl;
+  term_vector_t v;
+  term_t x, y, x_plus_one;
+  int32_t value;
+
+  x = yices_new_uninterpreted_term(yices_int_type());
+  y = yices_new_uninterpreted_term(yices_int_type());
+  x_plus_one = yices_add(x, yices_int32(1));
+  check(x_plus_one != NULL_TERM, "failed to build setter duplicate alias RHS");
+
+  mdl = yices_new_model();
+  check(mdl != NULL, "failed to create setter duplicate alias model");
+  model_add_substitution(mdl, y, x_plus_one);
+
+  check(yices_model_set_int32(mdl, y, 99) == -1, "setter overwrote alias-defined term");
+  check(yices_error_code() == MDL_DUPLICATE_VAR, "setter alias duplicate error is wrong");
+  check(mdl->alias_map == NULL, "setter duplicate did not clear aliases");
+  check(model_find_term_value(mdl, y) != null_value, "setter duplicate did not materialize alias domain");
+  check(model_find_term_value(mdl, x) == null_value, "setter duplicate materialized alias dependency");
+  check(yices_get_int32_value(mdl, y, &value) == 0 && value == 1,
+        "setter duplicate changed alias value");
+
+  yices_init_term_vector(&v);
+  yices_model_collect_defined_terms(mdl, &v);
+  check(v.size == 1 && vector_has_term(&v, y) && !vector_has_term(&v, x),
+        "setter duplicate has wrong flattened defined terms");
+  yices_delete_term_vector(&v);
+
+  check(yices_model_set_int32(mdl, x, 7) == 0, "failed to append omitted dependency after duplicate");
+  check(yices_get_int32_value(mdl, x, &value) == 0 && value == 7,
+        "setter duplicate follow-up append is wrong");
+
+  yices_free_model(mdl);
+}
+
+static void test_model_set_flatten_failure_is_atomic(void) {
+  model_t *mdl;
+  term_t x, y, var, quantified;
+  term_t vars[1];
+  uint32_t map_size, alias_size;
+
+  x = yices_new_uninterpreted_term(yices_int_type());
+  y = yices_new_uninterpreted_term(yices_bool_type());
+  var = yices_new_variable(yices_bool_type());
+  vars[0] = var;
+  quantified = yices_forall(1, vars, var);
+  check(quantified != NULL_TERM, "failed to build setter failure alias target");
+
+  mdl = yices_new_model();
+  check(mdl != NULL, "failed to create setter failure model");
+  model_add_substitution(mdl, y, quantified);
+  map_size = mdl->map.nelems;
+  alias_size = mdl->alias_map->nelems;
+
+  check(yices_model_set_int32(mdl, x, 4) == -1, "setter append ignored alias flatten failure");
+  check(yices_error_code() == EVAL_QUANTIFIER, "setter flatten failure error is wrong");
+  check(mdl->map.nelems == map_size, "setter flatten failure mutated map");
+  check(mdl->alias_map != NULL && mdl->alias_map->nelems == alias_size,
+        "setter flatten failure mutated alias map");
+  check(model_find_term_value(mdl, x) == null_value, "setter flatten failure appended target");
+  check(model_find_term_substitution(mdl, y) == quantified, "setter flatten failure lost alias");
+
+  yices_free_model(mdl);
+}
+
+static void test_model_set_invalid_value_does_not_flatten_alias(void) {
+  model_t *mdl;
+  term_t x, y, x_plus_one, bv;
+  int32_t bits[3];
+  uint32_t map_size, alias_size;
+
+  x = yices_new_uninterpreted_term(yices_int_type());
+  y = yices_new_uninterpreted_term(yices_int_type());
+  x_plus_one = yices_add(x, yices_int32(1));
+  check(x_plus_one != NULL_TERM, "failed to build setter invalid-value alias RHS");
+  bv = yices_new_uninterpreted_term(yices_bv_type(4));
+
+  bits[0] = 1;
+  bits[1] = 0;
+  bits[2] = 1;
+
+  mdl = yices_new_model();
+  check(mdl != NULL, "failed to create setter invalid-value model");
+  model_add_substitution(mdl, y, x_plus_one);
+  map_size = mdl->map.nelems;
+  alias_size = mdl->alias_map->nelems;
+
+  check(yices_model_set_bv_from_array(mdl, bv, 3, bits) == -1,
+        "setter accepted invalid bitvector value");
+  check(yices_error_code() == INCOMPATIBLE_BVSIZES, "setter invalid-value error is wrong");
+  check(mdl->map.nelems == map_size, "setter invalid value mutated map");
+  check(mdl->alias_map != NULL && mdl->alias_map->nelems == alias_size,
+        "setter invalid value flattened aliases");
+  check(model_find_term_substitution(mdl, y) == x_plus_one, "setter invalid value lost alias");
+
+  yices_free_model(mdl);
+}
+
 int main(void) {
   yices_init();
 
@@ -557,6 +688,10 @@ int main(void) {
   test_model_project_alias_and_defaults();
   test_model_project_domain_validation();
   test_model_project_evaluation_failure();
+  test_model_set_flattens_alias_before_append();
+  test_model_set_rejects_alias_duplicate();
+  test_model_set_flatten_failure_is_atomic();
+  test_model_set_invalid_value_does_not_flatten_alias();
 
   yices_exit();
 
