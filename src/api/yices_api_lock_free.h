@@ -692,6 +692,18 @@ extern int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t 
 
 extern int32_t _o_yices_model_export_value(model_t *src, model_t *dst, const yval_t *src_val, yval_t *dst_val);
 
+extern int32_t _o_yices_model_get_zero_rdiv_function(model_t *mdl, yval_t *fun);
+
+extern int32_t _o_yices_model_get_zero_idiv_function(model_t *mdl, yval_t *fun);
+
+extern int32_t _o_yices_model_get_zero_mod_function(model_t *mdl, yval_t *fun);
+
+extern int32_t _o_yices_model_set_zero_rdiv_function(model_t *mdl, const yval_t *fun);
+
+extern int32_t _o_yices_model_set_zero_idiv_function(model_t *mdl, const yval_t *fun);
+
+extern int32_t _o_yices_model_set_zero_mod_function(model_t *mdl, const yval_t *fun);
+
 extern int32_t _o_yices_model_make_tuple(model_t *model, uint32_t n, const yval_t elem[], yval_t *tuple);
 
 extern int32_t _o_yices_model_set_tuple(model_t *model, term_t var, uint32_t n, const yval_t elem[]);

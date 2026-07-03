@@ -2612,31 +2612,39 @@ void vtbl_set_zero_mod(value_table_t *table, value_t f) {
 
 /*
  * Set a default interpretation for the divide-by-zero functions.
- * The default is (rdiv x 0) = 0  (idiv x 0) = 0 and (mod x 0) = 0 for all real x.
+ * The default is (rdiv x 0) = 0 for all real x, and
+ * (idiv x 0) = 0 and (mod x 0) = 0 for all integer x.
  * - if any of the zero_div function is already assigned, it is kept.
  */
 void vtbl_set_default_zero_divide(value_table_t *table) {
   value_t f, z;
-  type_t tau;
+  type_t real, integer, tau;
 
   if (table->zero_rdiv_fun == null_value ||
       table->zero_idiv_fun == null_value ||
       table->zero_mod_fun == null_value) {
-    tau = real_type(table->type_table);
-    tau = function_type(table->type_table, tau, 1, &tau); // [real -> real]
-
     z = vtbl_mk_int32(table, 0);
-    f = vtbl_mk_constant_function(table, tau, z);
-    assert(is_plausible_div_by_zero(table, f));
 
     if (table->zero_rdiv_fun == null_value) {
+      real = real_type(table->type_table);
+      tau = function_type(table->type_table, real, 1, &real); // [real -> real]
+      f = vtbl_mk_constant_function(table, tau, z);
+      assert(is_plausible_div_by_zero(table, f));
       table->zero_rdiv_fun = f;
     }
-    if (table->zero_idiv_fun == null_value) {
-      table->zero_idiv_fun = f;
-    }
-    if (table->zero_mod_fun == null_value) {
-      table->zero_mod_fun = f;
+    if (table->zero_idiv_fun == null_value ||
+        table->zero_mod_fun == null_value) {
+      integer = int_type(table->type_table);
+      tau = function_type(table->type_table, integer, 1, &integer); // [int -> int]
+      f = vtbl_mk_constant_function(table, tau, z);
+      assert(is_plausible_div_by_zero(table, f));
+
+      if (table->zero_idiv_fun == null_value) {
+        table->zero_idiv_fun = f;
+      }
+      if (table->zero_mod_fun == null_value) {
+        table->zero_mod_fun = f;
+      }
     }
   }
 }

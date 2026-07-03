@@ -5269,6 +5269,40 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_yval(model_t *model, term_t var
 __YICES_DLLSPEC__ extern int32_t yices_model_export_value(model_t *src, model_t *dst, const yval_t *src_val, yval_t *dst_val);
 
 /*
+ * Get the model's interpretation for division by zero as function values.
+ * - rdiv has type [real -> real]
+ * - idiv has type [int -> int]
+ * - mod has type [int -> int]
+ *
+ * If the corresponding interpretation is not explicitly set, these functions
+ * return a default constant-zero function. They do not make the default
+ * interpretation explicit in model.
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.8.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_get_zero_rdiv_function(model_t *mdl, yval_t *fun);
+__YICES_DLLSPEC__ extern int32_t yices_model_get_zero_idiv_function(model_t *mdl, yval_t *fun);
+__YICES_DLLSPEC__ extern int32_t yices_model_get_zero_mod_function(model_t *mdl, yval_t *fun);
+
+/*
+ * Set the model's interpretation for division by zero.
+ * - fun must be a function or update value descriptor from the same model
+ * - rdiv expects type [real -> real]
+ * - idiv expects type [int -> int]
+ * - mod expects type [int -> int]
+ * - the corresponding interpretation must not already be explicitly set
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.8.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_zero_rdiv_function(model_t *mdl, const yval_t *fun);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_zero_idiv_function(model_t *mdl, const yval_t *fun);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_zero_mod_function(model_t *mdl, const yval_t *fun);
+
+/*
  * Build a tuple value from an array of yval_t descriptors.
  * - elem[0 ... n-1] must all refer to values from the same model
  * - tuple is set to a descriptor for the tuple value built in model

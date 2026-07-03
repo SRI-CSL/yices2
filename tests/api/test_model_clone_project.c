@@ -44,16 +44,73 @@ static void check_bool_yval(model_t *mdl, const yval_t *val, int32_t expected, c
   check(actual == expected, msg);
 }
 
-static value_t make_zero_div_function(model_t *mdl, int32_t value) {
+static value_t make_constant_function(model_t *mdl, type_t fun_type, int32_t value) {
   value_table_t *vtbl;
-  type_t real_type, fun_type;
   value_t def;
 
   vtbl = model_get_vtbl(mdl);
-  real_type = yices_real_type();
-  fun_type = yices_function_type1(real_type, real_type);
   def = vtbl_mk_int32(vtbl, value);
   return vtbl_mk_constant_function(vtbl, fun_type, def);
+}
+
+static value_t make_zero_div_function(model_t *mdl, int32_t value) {
+  type_t real_type;
+
+  real_type = yices_real_type();
+  return make_constant_function(mdl, yices_function_type1(real_type, real_type), value);
+}
+
+static value_t make_int_zero_div_function(model_t *mdl, int32_t value) {
+  type_t int_type;
+
+  int_type = yices_int_type();
+  return make_constant_function(mdl, yices_function_type1(int_type, int_type), value);
+}
+
+static void make_constant_function_yval(model_t *mdl, type_t fun_type, int32_t value, yval_t *fun) {
+  get_yval(model_get_vtbl(mdl), make_constant_function(mdl, fun_type, value), fun);
+}
+
+static void make_update_function_yval(model_t *mdl, type_t fun_type, int32_t default_value,
+                                      int32_t arg_value, int32_t mapped_value, yval_t *fun) {
+  value_table_t *vtbl;
+  value_t base, args[1], value;
+
+  vtbl = model_get_vtbl(mdl);
+  base = make_constant_function(mdl, fun_type, default_value);
+  args[0] = vtbl_mk_int32(vtbl, arg_value);
+  value = vtbl_mk_int32(vtbl, mapped_value);
+  get_yval(vtbl, vtbl_mk_update(vtbl, base, 1, args, value), fun);
+}
+
+static void check_constant_function_yval(model_t *mdl, const yval_t *fun, type_t expected_type,
+                                         int32_t expected_value, const char *msg) {
+  yval_vector_t mappings;
+  yval_t def;
+
+  check(yices_val_function_type(mdl, fun) == expected_type, msg);
+  yices_init_yval_vector(&mappings);
+  check(yices_val_expand_function(mdl, fun, &def, &mappings) == 0, msg);
+  check(mappings.size == 0, msg);
+  check_int_yval(mdl, &def, expected_value, msg);
+  yices_delete_yval_vector(&mappings);
+}
+
+static void check_unary_update_function_yval(model_t *mdl, const yval_t *fun, type_t expected_type,
+                                             int32_t expected_default, int32_t expected_arg,
+                                             int32_t expected_value, const char *msg) {
+  yval_vector_t mappings;
+  yval_t def, arg[1], value;
+
+  check(yices_val_function_type(mdl, fun) == expected_type, msg);
+  yices_init_yval_vector(&mappings);
+  check(yices_val_expand_function(mdl, fun, &def, &mappings) == 0, msg);
+  check(mappings.size == 1, msg);
+  check_int_yval(mdl, &def, expected_default, msg);
+  check(yices_val_expand_mapping(mdl, mappings.data, arg, &value) == 0, msg);
+  check_int_yval(mdl, arg, expected_arg, msg);
+  check_int_yval(mdl, &value, expected_value, msg);
+  yices_delete_yval_vector(&mappings);
 }
 
 static void test_collect_defined_terms_named_and_unnamed(void) {
@@ -350,8 +407,8 @@ static void test_model_clone_preserves_zero_division_slots(void) {
 
   src_vtbl = model_get_vtbl(src);
   vtbl_set_zero_rdiv(src_vtbl, make_zero_div_function(src, 17));
-  vtbl_set_zero_idiv(src_vtbl, make_zero_div_function(src, 23));
-  vtbl_set_zero_mod(src_vtbl, make_zero_div_function(src, 29));
+  vtbl_set_zero_idiv(src_vtbl, make_int_zero_div_function(src, 23));
+  vtbl_set_zero_mod(src_vtbl, make_int_zero_div_function(src, 29));
 
   clone = yices_model_clone(src);
   check(clone != NULL, "failed to clone zero-div model");
@@ -373,6 +430,187 @@ static void test_model_clone_preserves_zero_division_slots(void) {
         "clone zero-mod value is wrong");
 
   yices_free_model(clone);
+}
+
+static void test_model_zero_div_getters_default_non_mutating(void) {
+  model_t *mdl;
+  value_table_t *vtbl;
+  yval_t rdiv, idiv, mod, explicit_fun;
+  type_t real_type, int_type, rr_fun_type, ii_fun_type;
+
+  real_type = yices_real_type();
+  int_type = yices_int_type();
+  rr_fun_type = yices_function_type1(real_type, real_type);
+  ii_fun_type = yices_function_type1(int_type, int_type);
+
+  mdl = yices_new_model();
+  check(mdl != NULL, "failed to create zero-div getter model");
+  vtbl = model_get_vtbl(mdl);
+
+  check(yices_model_get_zero_rdiv_function(mdl, &rdiv) == 0, "failed to get default zero-rdiv");
+  check(yices_model_get_zero_idiv_function(mdl, &idiv) == 0, "failed to get default zero-idiv");
+  check(yices_model_get_zero_mod_function(mdl, &mod) == 0, "failed to get default zero-mod");
+
+  check(vtbl->zero_rdiv_fun == null_value, "zero-rdiv getter installed default");
+  check(vtbl->zero_idiv_fun == null_value, "zero-idiv getter installed default");
+  check(vtbl->zero_mod_fun == null_value, "zero-mod getter installed default");
+
+  check_constant_function_yval(mdl, &rdiv, rr_fun_type, 0, "default zero-rdiv function is wrong");
+  check_constant_function_yval(mdl, &idiv, ii_fun_type, 0, "default zero-idiv function is wrong");
+  check_constant_function_yval(mdl, &mod, ii_fun_type, 0, "default zero-mod function is wrong");
+
+  make_constant_function_yval(mdl, rr_fun_type, 17, &explicit_fun);
+  check(yices_model_set_zero_rdiv_function(mdl, &explicit_fun) == 0,
+        "zero-rdiv setter failed after getter");
+  check(vtbl->zero_rdiv_fun != null_value, "zero-rdiv setter did not install explicit function");
+
+  yices_free_model(mdl);
+}
+
+static void test_model_zero_div_installed_defaults_have_api_types(void) {
+  model_t *mdl;
+  value_table_t *vtbl;
+  yval_t rdiv, idiv, mod;
+  type_t real_type, int_type, rr_fun_type, ii_fun_type;
+
+  real_type = yices_real_type();
+  int_type = yices_int_type();
+  rr_fun_type = yices_function_type1(real_type, real_type);
+  ii_fun_type = yices_function_type1(int_type, int_type);
+
+  mdl = yices_new_model();
+  check(mdl != NULL, "failed to create zero-div default model");
+  vtbl = model_get_vtbl(mdl);
+
+  vtbl_set_default_zero_divide(vtbl);
+  check(vtbl->zero_rdiv_fun != null_value, "default helper did not set zero-rdiv");
+  check(vtbl->zero_idiv_fun != null_value, "default helper did not set zero-idiv");
+  check(vtbl->zero_mod_fun != null_value, "default helper did not set zero-mod");
+
+  check(yices_model_get_zero_rdiv_function(mdl, &rdiv) == 0, "failed to get installed zero-rdiv");
+  check(yices_model_get_zero_idiv_function(mdl, &idiv) == 0, "failed to get installed zero-idiv");
+  check(yices_model_get_zero_mod_function(mdl, &mod) == 0, "failed to get installed zero-mod");
+
+  check_constant_function_yval(mdl, &rdiv, rr_fun_type, 0, "installed zero-rdiv function is wrong");
+  check_constant_function_yval(mdl, &idiv, ii_fun_type, 0, "installed zero-idiv function is wrong");
+  check_constant_function_yval(mdl, &mod, ii_fun_type, 0, "installed zero-mod function is wrong");
+
+  yices_free_model(mdl);
+}
+
+static void test_model_zero_div_setters_and_getters(void) {
+  model_t *mdl;
+  value_table_t *vtbl;
+  yval_t rdiv, idiv, mod;
+  term_t div;
+  type_t real_type, int_type, rr_fun_type, ii_fun_type;
+  int32_t value;
+
+  real_type = yices_real_type();
+  int_type = yices_int_type();
+  rr_fun_type = yices_function_type1(real_type, real_type);
+  ii_fun_type = yices_function_type1(int_type, int_type);
+
+  mdl = yices_new_model();
+  check(mdl != NULL, "failed to create zero-div setter model");
+  vtbl = model_get_vtbl(mdl);
+
+  make_constant_function_yval(mdl, rr_fun_type, 17, &rdiv);
+  make_constant_function_yval(mdl, ii_fun_type, 23, &idiv);
+  make_constant_function_yval(mdl, ii_fun_type, 29, &mod);
+
+  check(yices_model_set_zero_rdiv_function(mdl, &rdiv) == 0, "failed to set zero-rdiv");
+  check(yices_model_set_zero_idiv_function(mdl, &idiv) == 0, "failed to set zero-idiv");
+  check(yices_model_set_zero_mod_function(mdl, &mod) == 0, "failed to set zero-mod");
+  check(vtbl->zero_rdiv_fun != null_value, "zero-rdiv slot is unset");
+  check(vtbl->zero_idiv_fun != null_value, "zero-idiv slot is unset");
+  check(vtbl->zero_mod_fun != null_value, "zero-mod slot is unset");
+
+  check(yices_model_get_zero_rdiv_function(mdl, &rdiv) == 0, "failed to get explicit zero-rdiv");
+  check(yices_model_get_zero_idiv_function(mdl, &idiv) == 0, "failed to get explicit zero-idiv");
+  check(yices_model_get_zero_mod_function(mdl, &mod) == 0, "failed to get explicit zero-mod");
+  check_constant_function_yval(mdl, &rdiv, rr_fun_type, 17, "explicit zero-rdiv function is wrong");
+  check_constant_function_yval(mdl, &idiv, ii_fun_type, 23, "explicit zero-idiv function is wrong");
+  check_constant_function_yval(mdl, &mod, ii_fun_type, 29, "explicit zero-mod function is wrong");
+
+  div = yices_division(yices_int32(5), yices_zero());
+  check(yices_get_int32_value(mdl, div, &value) == 0 && value == 17,
+        "zero-rdiv evaluation is wrong");
+  div = yices_idiv(yices_int32(5), yices_zero());
+  check(yices_get_int32_value(mdl, div, &value) == 0 && value == 23,
+        "zero-idiv evaluation is wrong");
+  div = yices_imod(yices_int32(5), yices_zero());
+  check(yices_get_int32_value(mdl, div, &value) == 0 && value == 29,
+        "zero-mod evaluation is wrong");
+
+  check(yices_model_set_zero_rdiv_function(mdl, &rdiv) == -1, "zero-rdiv setter overwrote slot");
+  check(yices_error_code() == MDL_DUPLICATE_VAR, "zero-rdiv overwrite error is wrong");
+
+  yices_free_model(mdl);
+}
+
+static void test_model_zero_div_setters_validate_function_type(void) {
+  model_t *mdl;
+  yval_t int_val, wrong_fun, good_fun;
+  type_t real_type, int_type, rr_fun_type, ii_fun_type;
+
+  real_type = yices_real_type();
+  int_type = yices_int_type();
+  rr_fun_type = yices_function_type1(real_type, real_type);
+  ii_fun_type = yices_function_type1(int_type, int_type);
+
+  mdl = yices_new_model();
+  check(mdl != NULL, "failed to create zero-div validation model");
+
+  get_yval(model_get_vtbl(mdl), vtbl_mk_int32(model_get_vtbl(mdl), 0), &int_val);
+  check(yices_model_set_zero_rdiv_function(mdl, &int_val) == -1,
+        "zero-rdiv setter accepted non-function value");
+  check(yices_error_code() == TYPE_MISMATCH, "zero-rdiv non-function error is wrong");
+  check(model_get_vtbl(mdl)->zero_rdiv_fun == null_value, "zero-rdiv invalid setter changed slot");
+
+  make_constant_function_yval(mdl, rr_fun_type, 13, &wrong_fun);
+  check(yices_model_set_zero_idiv_function(mdl, &wrong_fun) == -1,
+        "zero-idiv setter accepted wrong function type");
+  check(yices_error_code() == TYPE_MISMATCH, "zero-idiv wrong-type error is wrong");
+  check(model_get_vtbl(mdl)->zero_idiv_fun == null_value, "zero-idiv invalid setter changed slot");
+  check(yices_model_set_zero_mod_function(mdl, &wrong_fun) == -1,
+        "zero-mod setter accepted wrong function type");
+  check(yices_error_code() == TYPE_MISMATCH, "zero-mod wrong-type error is wrong");
+  check(model_get_vtbl(mdl)->zero_mod_fun == null_value, "zero-mod invalid setter changed slot");
+
+  make_constant_function_yval(mdl, ii_fun_type, 19, &good_fun);
+  check(yices_model_set_zero_idiv_function(mdl, &good_fun) == 0,
+        "zero-idiv setter rejected correct function type");
+
+  yices_free_model(mdl);
+}
+
+static void test_model_zero_div_setters_accept_updates(void) {
+  model_t *mdl;
+  yval_t update_fun, extracted;
+  term_t div;
+  type_t real_type, rr_fun_type;
+  int32_t value;
+
+  real_type = yices_real_type();
+  rr_fun_type = yices_function_type1(real_type, real_type);
+
+  mdl = yices_new_model();
+  check(mdl != NULL, "failed to create zero-div update model");
+
+  make_update_function_yval(mdl, rr_fun_type, 0, 5, 31, &update_fun);
+  check(yices_model_set_zero_rdiv_function(mdl, &update_fun) == 0,
+        "zero-rdiv setter rejected update value");
+  check(yices_model_get_zero_rdiv_function(mdl, &extracted) == 0,
+        "failed to get zero-rdiv update value");
+  check_unary_update_function_yval(mdl, &extracted, rr_fun_type, 0, 5, 31,
+                                   "zero-rdiv update function is wrong");
+
+  div = yices_division(yices_int32(5), yices_zero());
+  check(yices_get_int32_value(mdl, div, &value) == 0 && value == 31,
+        "zero-rdiv update evaluation is wrong");
+
+  yices_free_model(mdl);
 }
 
 static void test_model_project_materializes_domain(void) {
@@ -684,6 +922,11 @@ int main(void) {
   test_model_clone_defined_values_source_free();
   test_model_clone_preserves_alias_structure();
   test_model_clone_preserves_zero_division_slots();
+  test_model_zero_div_getters_default_non_mutating();
+  test_model_zero_div_installed_defaults_have_api_types();
+  test_model_zero_div_setters_and_getters();
+  test_model_zero_div_setters_validate_function_type();
+  test_model_zero_div_setters_accept_updates();
   test_model_project_materializes_domain();
   test_model_project_alias_and_defaults();
   test_model_project_domain_validation();

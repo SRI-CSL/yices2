@@ -10836,6 +10836,144 @@ static bool check_value_type(value_table_t *vtbl, value_t v, type_t tau) {
   return is_subtype(vtbl->type_table, sigma, tau);
 }
 
+/*
+ * Division-by-zero function slots
+ */
+typedef void (*zero_div_setter_t)(value_table_t *vtbl, value_t f);
+
+static type_t zero_rdiv_function_type(void) {
+  type_table_t *types;
+  type_t real;
+
+  types = __yices_globals.types;
+  real = real_type(types);
+  return function_type(types, real, 1, &real);
+}
+
+static type_t zero_idiv_function_type(void) {
+  type_table_t *types;
+  type_t integer;
+
+  types = __yices_globals.types;
+  integer = int_type(types);
+  return function_type(types, integer, 1, &integer);
+}
+
+static type_t zero_mod_function_type(void) {
+  return zero_idiv_function_type();
+}
+
+static value_t zero_div_default_function(model_t *mdl, type_t fun_type) {
+  value_table_t *vtbl;
+  value_t zero;
+
+  vtbl = model_get_vtbl(mdl);
+  zero = vtbl_mk_int32(vtbl, 0);
+  return vtbl_mk_constant_function(vtbl, fun_type, zero);
+}
+
+static int32_t yices_model_get_zero_div_function(model_t *mdl, value_t f, type_t fun_type, yval_t *fun) {
+  value_table_t *vtbl;
+
+  vtbl = model_get_vtbl(mdl);
+  if (f == null_value) {
+    f = zero_div_default_function(mdl, fun_type);
+  }
+
+  get_yval(vtbl, f, fun);
+  return 0;
+}
+
+static bool check_zero_div_function_yval(model_t *mdl, const yval_t *fun, type_t expected, value_t *f) {
+  value_table_t *vtbl;
+
+  vtbl = model_get_vtbl(mdl);
+  if (! check_model_yval(vtbl, fun, f)) {
+    return false;
+  }
+
+  if ((! object_is_function(vtbl, *f) && ! object_is_update(vtbl, *f)) ||
+      vtbl_function_type(vtbl, *f) != expected) {
+    set_error_code(TYPE_MISMATCH);
+    return false;
+  }
+
+  return true;
+}
+
+static int32_t yices_model_set_zero_div_function(model_t *mdl, value_t current, type_t expected,
+                                                 const yval_t *fun, zero_div_setter_t set) {
+  value_t f;
+
+  if (current != null_value) {
+    error_report_t *error = get_yices_error();
+    error->code = MDL_DUPLICATE_VAR;
+    error->term1 = NULL_TERM;
+    return -1;
+  }
+
+  if (! check_zero_div_function_yval(mdl, fun, expected, &f)) {
+    return -1;
+  }
+
+  set(model_get_vtbl(mdl), f);
+  return 0;
+}
+
+EXPORTED int32_t yices_model_get_zero_rdiv_function(model_t *mdl, yval_t *fun) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_get_zero_rdiv_function(mdl, fun));
+}
+
+int32_t _o_yices_model_get_zero_rdiv_function(model_t *mdl, yval_t *fun) {
+  return yices_model_get_zero_div_function(mdl, model_get_vtbl(mdl)->zero_rdiv_fun,
+                                           zero_rdiv_function_type(), fun);
+}
+
+EXPORTED int32_t yices_model_get_zero_idiv_function(model_t *mdl, yval_t *fun) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_get_zero_idiv_function(mdl, fun));
+}
+
+int32_t _o_yices_model_get_zero_idiv_function(model_t *mdl, yval_t *fun) {
+  return yices_model_get_zero_div_function(mdl, model_get_vtbl(mdl)->zero_idiv_fun,
+                                           zero_idiv_function_type(), fun);
+}
+
+EXPORTED int32_t yices_model_get_zero_mod_function(model_t *mdl, yval_t *fun) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_get_zero_mod_function(mdl, fun));
+}
+
+int32_t _o_yices_model_get_zero_mod_function(model_t *mdl, yval_t *fun) {
+  return yices_model_get_zero_div_function(mdl, model_get_vtbl(mdl)->zero_mod_fun,
+                                           zero_mod_function_type(), fun);
+}
+
+EXPORTED int32_t yices_model_set_zero_rdiv_function(model_t *mdl, const yval_t *fun) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_zero_rdiv_function(mdl, fun));
+}
+
+int32_t _o_yices_model_set_zero_rdiv_function(model_t *mdl, const yval_t *fun) {
+  return yices_model_set_zero_div_function(mdl, model_get_vtbl(mdl)->zero_rdiv_fun,
+                                           zero_rdiv_function_type(), fun, vtbl_set_zero_rdiv);
+}
+
+EXPORTED int32_t yices_model_set_zero_idiv_function(model_t *mdl, const yval_t *fun) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_zero_idiv_function(mdl, fun));
+}
+
+int32_t _o_yices_model_set_zero_idiv_function(model_t *mdl, const yval_t *fun) {
+  return yices_model_set_zero_div_function(mdl, model_get_vtbl(mdl)->zero_idiv_fun,
+                                           zero_idiv_function_type(), fun, vtbl_set_zero_idiv);
+}
+
+EXPORTED int32_t yices_model_set_zero_mod_function(model_t *mdl, const yval_t *fun) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_set_zero_mod_function(mdl, fun));
+}
+
+int32_t _o_yices_model_set_zero_mod_function(model_t *mdl, const yval_t *fun) {
+  return yices_model_set_zero_div_function(mdl, model_get_vtbl(mdl)->zero_mod_fun,
+                                           zero_mod_function_type(), fun, vtbl_set_zero_mod);
+}
+
 EXPORTED int32_t yices_model_export_value(model_t *src, model_t *dst, const yval_t *src_val, yval_t *dst_val) {
   MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_export_value(src, dst, src_val, dst_val));
 }
