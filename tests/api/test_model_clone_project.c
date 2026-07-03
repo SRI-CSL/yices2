@@ -2,9 +2,9 @@
  * Tests for model clone/project support and adjacent model-domain behavior.
  */
 
-#include <assert.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "api/yices_globals.h"
 #include "api/yval.h"
@@ -15,7 +15,7 @@ static void check(bool cond, const char *msg) {
   if (!cond) {
     fprintf(stderr, "%s\n", msg);
     yices_print_error(stderr);
-    assert(false);
+    exit(2);
   }
 }
 
