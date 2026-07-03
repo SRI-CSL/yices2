@@ -1334,6 +1334,10 @@ static smt_status_t ef_solver_test_exists_model(ef_solver_t *solver, term_t doma
     if (done)
       break;
 
+    if (status == YICES_STATUS_INTERRUPTED) {
+      break;
+    }
+
     uvar_cnstr_old = uvar_cnstr;
     generation++;
     context_pop(forall_ctx);
@@ -1622,3 +1626,5 @@ void ef_solver_check(ef_solver_t *solver, const param_t *parameters,
 
   ef_solver_search(solver);
 }
+
+
