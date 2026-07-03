@@ -123,6 +123,7 @@ case $exitcode in
 	echo FAIL
 	echo -n $black
 	cp $outfile ${shortname}.log
+	cat $outfile
 	echo FAIL $shortname >> tests.log
 	# Propagate the test's exit code
 	exit $exitcode
