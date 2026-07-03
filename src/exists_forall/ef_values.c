@@ -532,6 +532,27 @@ void fill_ef_table(ef_table_t *vtable, term_t *vars, value_t *values, uint32_t k
 
 /*
  * Post-process the value table
+ *
+ * Expected invariant:
+ * - for every uninterpreted value key in vtable->map, vtable->var_rep should
+ *   contain a representative term that denotes that value in the current
+ *   exists-side model.
+ *
+ * This pass tries to establish that invariant for function-application
+ * representatives. Atomic terms are handled when they are inserted; composite
+ * applications can only be assigned a generation once the generations of their
+ * arguments are known. If a value can be represented by f(a), and a already has
+ * a representative, then f(a) gets a generation and can become the var_rep for
+ * its value.
+ *
+ * The invariant is intentionally best-effort here. Function interpretations may
+ * describe values only through other values that are themselves represented by
+ * function applications. When those dependencies form a cycle, or when a model
+ * value appears as an argument without a generated atomic representative, this
+ * pass may drain the queue without finding a representative whose arguments are
+ * all already ranked. Older code treated the remaining missing var_rep entry as
+ * unreachable later in ef_get_value_rep(); issue #366 shows that timeout and
+ * cleanup paths can still ask for such a value.
  */
 void postprocess_ef_table(ef_table_t *vtable, bool check) {
   uint32_t i, j, n, m, gen, best_gen;
@@ -598,6 +619,14 @@ void postprocess_ef_table(ef_table_t *vtable, bool check) {
         }
 #endif
 
+        /*
+         * No queued value made progress over a full pass. Leave this value in
+         * vtable->map but without a var_rep entry. That means the table records
+         * that the model value exists, but it does not have a fully ranked term
+         * representative for it. ef_get_value_rep() must therefore be defensive:
+         * it may have to pick a syntactic fallback from the map or preserve an
+         * unreplaced argument instead of assuming this case is impossible.
+         */
 //        x = yices_new_uninterpreted_term(term_type(vtable->terms, tvalue));
 //        store_term_tvalue(vtable, x, tvalue);
 //        ivector_push(&vtable->new_vars, x);
@@ -687,6 +716,27 @@ static term_t term_substitution(ef_table_t *vtable, term_t *var, term_t *value, 
 
 /*
  * Get value representative helper
+ *
+ * This routine is used while building EF instantiations: given a term encoding
+ * a model value, choose a term that can be substituted for a universally
+ * quantified variable of that type.
+ *
+ * The strongest intended invariant would make this lookup trivial:
+ *   value is present in vtable->map  ==>  value is present in vtable->var_rep
+ *
+ * That invariant is established for atomic terms and for acyclic function
+ * applications whose arguments already have generations. It can fail for values
+ * that are only available through cyclic function-application dependencies, or
+ * through function map arguments that were converted to terms but never got an
+ * atomic representative/generation. In those cases vtable->map is still useful:
+ * it contains terms that evaluate to the requested value in the current model,
+ * even if none of them is the ranked representative that postprocess_ef_table()
+ * wanted to cache in var_rep.
+ *
+ * Falling back to such a term is not a claim that the EF search will make good
+ * progress on this benchmark. It is only the conservative recovery behavior:
+ * avoid crashing, return a well-typed instantiation term, and let the EF loop or
+ * the external timeout decide whether the search can finish.
  */
 term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hmap_t *requests) {
   ptr_hmap_pair_t *r;
@@ -710,6 +760,14 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hmap_t *requests) 
       best_x = p->val;
     }
     else {
+      /*
+       * Missing var_rep used to be guarded by assert(0) after selecting
+       * best_x. That assert encoded the stronger invariant above: if the value
+       * is in vtable->map, post-processing should already have selected and
+       * cached a representative. In practice, post-processing may leave cyclic
+       * or otherwise unranked function values unresolved. Pick the lowest
+       * generation term if one exists; otherwise pick the first mapped term.
+       */
       v = r->val;
       n = v->size;
       best_gen = UINT32_MAX;
@@ -755,12 +813,24 @@ term_t ef_get_value_rep(ef_table_t *vtable, term_t value, int_hmap_t *requests) 
 
       present = (int_hmap_find(requests, f) != NULL);
       if (present) {
-        // Keep f unchanged if representative construction is cyclic.
+        /*
+         * This argument is already on the representative-construction stack.
+         * Replacing it would re-enter the same dependency cycle. Preserve the
+         * original argument instead of recursing forever. This keeps the
+         * returned term well-typed but may leave it less canonical than a
+         * fully-ranked representative.
+         */
         frep = f;
       } else {
         frep = ef_get_value_rep(vtable, f, requests);
         if (frep == NULL_TERM) {
-          // No representative available: keep the original argument.
+          /*
+           * The argument value is not known to the EF value table. This can
+           * happen when function interpretations mention model values that were
+           * not stored as top-level terms. Preserve the original argument: it is
+           * still the term from best_x's application, so substitution remains
+           * type-correct and does not invent a fresh value silently.
+           */
           frep = f;
         }
       }
