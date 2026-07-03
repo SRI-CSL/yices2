@@ -27,6 +27,35 @@
 
 
 /*
+ * Fast path for aliases whose RHS is known not to be evaluable.
+ * This avoids entering the evaluator in cases where it would immediately
+ * report the same error via longjmp.
+ */
+static value_t direct_alias_eval_error(model_t *mdl, term_t t) {
+  term_t u;
+
+  t = unsigned_term(t);
+  if (mdl->has_alias && term_kind(mdl->terms, t) == UNINTERPRETED_TERM) {
+    u = model_find_term_substitution(mdl, t);
+    if (u != NULL_TERM) {
+      switch (term_kind(mdl->terms, unsigned_term(u))) {
+      case FORALL_TERM:
+        return MDL_EVAL_QUANTIFIER;
+
+      case LAMBDA_TERM:
+        return MDL_EVAL_LAMBDA;
+
+      default:
+        break;
+      }
+    }
+  }
+
+  return null_value;
+}
+
+
+/*
  * Get the value of t in mdl
  * - this function first tries a simple lookup in mdl. If that fails,
  *   it computes t's value in mdl (cf. model_eval.h).
@@ -44,9 +73,12 @@ value_t model_get_term_value(model_t *mdl, term_t t) {
 
   v = model_find_term_value(mdl, t);
   if (v == null_value) {
-    init_evaluator(&evaluator, mdl);
-    v = eval_in_model(&evaluator, t);
-    delete_evaluator(&evaluator);
+    v = direct_alias_eval_error(mdl, t);
+    if (v == null_value) {
+      init_evaluator(&evaluator, mdl);
+      v = eval_in_model(&evaluator, t);
+      delete_evaluator(&evaluator);
+    }
   }
 
   return v;
