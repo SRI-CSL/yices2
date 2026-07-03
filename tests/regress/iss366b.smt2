@@ -1,0 +1,6 @@
+(set-logic UF)
+(declare-fun v () Bool)
+(declare-sort S 0)
+(assert (or (forall ((q Bool)) (exists ((q2 S)) (forall ((q S)) (distinct v (not (= q2 q))))))))
+(assert (or (forall ((q2 S)) (exists ((q S)) (= q2 q)))))
+(check-sat)
