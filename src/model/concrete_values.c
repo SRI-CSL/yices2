@@ -22,6 +22,7 @@
  */
 
 #include <inttypes.h>
+#include <string.h>
 
 #include "model/concrete_values.h"
 #include "terms/bv64_constants.h"
@@ -831,6 +832,213 @@ void delete_value_table(value_table_t *table) {
   table->desc = NULL;
   table->type_cache = NULL;
   table->canonical = NULL;
+}
+
+
+
+/*****************
+ *  VALUE COPIER *
+ ****************/
+
+/*
+ * The copier is shared by API operations that move model-local value DAGs
+ * across value tables. It preserves sharing within one copy session.
+ */
+void init_vtbl_copy(vtbl_copy_t *copy, value_table_t *src, value_table_t *dst) {
+  assert(src->type_table == dst->type_table);
+
+  copy->src = src;
+  copy->dst = dst;
+  init_int_hmap(&copy->cache, 0);
+}
+
+void delete_vtbl_copy(vtbl_copy_t *copy) {
+  delete_int_hmap(&copy->cache);
+  copy->src = NULL;
+  copy->dst = NULL;
+}
+
+static void vtbl_copy_cache(vtbl_copy_t *copy, value_t src, value_t dst) {
+  int_hmap_add(&copy->cache, src, dst);
+}
+
+static value_t vtbl_copy_cached_value(vtbl_copy_t *copy, value_t src) {
+  int_hmap_pair_t *p;
+
+  p = int_hmap_find(&copy->cache, src);
+  if (p != NULL) {
+    return p->val;
+  }
+  return null_value;
+}
+
+static value_t vtbl_copy_bitvector(vtbl_copy_t *copy, value_bv_t *bv) {
+  uint32_t *data;
+  value_t v;
+
+  data = (uint32_t *) safe_malloc(bv->width * sizeof(uint32_t));
+  memcpy(data, bv->data, bv->width * sizeof(uint32_t));
+  v = vtbl_mk_bv_from_bv(copy->dst, bv->nbits, data);
+  safe_free(data);
+
+  return v;
+}
+
+static value_t vtbl_copy_tuple_value(vtbl_copy_t *copy, value_tuple_t *tuple) {
+  value_t *elem;
+  value_t v;
+  uint32_t i, n;
+
+  n = tuple->nelems;
+  elem = (value_t *) safe_malloc(n * sizeof(value_t));
+  for (i=0; i<n; i++) {
+    elem[i] = vtbl_copy_value(copy, tuple->elem[i]);
+  }
+
+  v = vtbl_mk_tuple(copy->dst, n, elem);
+  safe_free(elem);
+
+  return v;
+}
+
+static value_t vtbl_copy_map_value(vtbl_copy_t *copy, value_map_t *map) {
+  value_t *arg;
+  value_t val, v;
+  uint32_t i, n;
+
+  n = map->arity;
+  arg = (value_t *) safe_malloc(n * sizeof(value_t));
+  for (i=0; i<n; i++) {
+    arg[i] = vtbl_copy_value(copy, map->arg[i]);
+  }
+  val = vtbl_copy_value(copy, map->val);
+
+  v = vtbl_mk_map(copy->dst, n, arg, val);
+  safe_free(arg);
+
+  return v;
+}
+
+static value_t vtbl_copy_function_value(vtbl_copy_t *copy, value_fun_t *fun) {
+  value_t *map;
+  value_t def, v;
+  uint32_t i, n;
+
+  n = fun->map_size;
+  map = (value_t *) safe_malloc(n * sizeof(value_t));
+  for (i=0; i<n; i++) {
+    map[i] = vtbl_copy_value(copy, fun->map[i]);
+  }
+  def = vtbl_copy_value(copy, fun->def);
+
+  v = vtbl_mk_function(copy->dst, fun->type, n, map, def);
+  safe_free(map);
+
+  if (fun->name != NULL && object_is_function(copy->dst, v)) {
+    vtbl_set_function_name(copy->dst, v, fun->name);
+  }
+
+  return v;
+}
+
+static value_t vtbl_copy_update_value(vtbl_copy_t *copy, value_update_t *upd) {
+  value_map_t *map;
+  value_t *arg;
+  value_t fun, val, v;
+  uint32_t i, n;
+
+  fun = vtbl_copy_value(copy, upd->fun);
+  map = vtbl_map(copy->src, upd->map);
+  n = map->arity;
+
+  arg = (value_t *) safe_malloc(n * sizeof(value_t));
+  for (i=0; i<n; i++) {
+    arg[i] = vtbl_copy_value(copy, map->arg[i]);
+  }
+  val = vtbl_copy_value(copy, map->val);
+
+  v = vtbl_mk_update(copy->dst, fun, n, arg, val);
+  safe_free(arg);
+
+  return v;
+}
+
+value_t vtbl_copy_value(vtbl_copy_t *copy, value_t v) {
+  value_table_t *src;
+  value_t result;
+  value_ff_t *ff;
+  value_unint_t *unint;
+
+  src = copy->src;
+  assert(good_object(src, v));
+
+  result = vtbl_copy_cached_value(copy, v);
+  if (result >= 0) {
+    return result;
+  }
+
+  switch (object_kind(src, v)) {
+  case UNKNOWN_VALUE:
+    result = vtbl_mk_unknown(copy->dst);
+    break;
+
+  case BOOLEAN_VALUE:
+    result = vtbl_mk_bool(copy->dst, boolobj_value(src, v));
+    break;
+
+  case RATIONAL_VALUE:
+    result = vtbl_mk_rational(copy->dst, vtbl_rational(src, v));
+    break;
+
+  case ALGEBRAIC_VALUE:
+#ifdef HAVE_MCSAT
+    result = vtbl_mk_algebraic(copy->dst, vtbl_algebraic_number(src, v));
+#else
+    assert(false);
+    result = null_value;
+#endif
+    break;
+
+  case FINITEFIELD_VALUE:
+    ff = vtbl_finitefield(src, v);
+    result = vtbl_mk_finitefield(copy->dst, &ff->value, &ff->mod);
+    break;
+
+  case BITVECTOR_VALUE:
+    result = vtbl_copy_bitvector(copy, vtbl_bitvector(src, v));
+    break;
+
+  case TUPLE_VALUE:
+    result = vtbl_copy_tuple_value(copy, vtbl_tuple(src, v));
+    break;
+
+  case UNINTERPRETED_VALUE:
+    unint = vtbl_unint(src, v);
+    result = vtbl_mk_const(copy->dst, unint->type, unint->index, unint->name);
+    break;
+
+  case MAP_VALUE:
+    result = vtbl_copy_map_value(copy, vtbl_map(src, v));
+    break;
+
+  case FUNCTION_VALUE:
+    result = vtbl_copy_function_value(copy, vtbl_function(src, v));
+    break;
+
+  case UPDATE_VALUE:
+    result = vtbl_copy_update_value(copy, vtbl_update(src, v));
+    break;
+
+  default:
+    assert(false);
+    result = null_value;
+    break;
+  }
+
+  assert(result >= 0);
+  vtbl_copy_cache(copy, v, result);
+
+  return result;
 }
 
 /*

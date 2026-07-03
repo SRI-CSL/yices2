@@ -5229,6 +5229,18 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_term(model_t *model, term_t var
 __YICES_DLLSPEC__ extern int32_t yices_model_set_yval(model_t *model, term_t var, const yval_t *yval);
 
 /*
+ * Export a model-local value descriptor from src into dst.
+ * - src_val must be a value descriptor from src
+ * - dst_val is set to a descriptor for an equivalent value owned by dst
+ * - this does not bind any term in dst
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.8.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_export_value(model_t *src, model_t *dst, const yval_t *src_val, yval_t *dst_val);
+
+/*
  * Build a tuple value from an array of yval_t descriptors.
  * - elem[0 ... n-1] must all refer to values from the same model
  * - tuple is set to a descriptor for the tuple value built in model

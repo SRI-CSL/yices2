@@ -54,6 +54,7 @@
 #include "terms/rationals.h"
 #include "terms/types.h"
 #include "utils/bitvectors.h"
+#include "utils/int_hash_map.h"
 #include "utils/int_hash_tables.h"
 #include "utils/int_queues.h"
 #include "utils/int_vectors.h"
@@ -360,6 +361,18 @@ typedef struct value_table_s {
 } value_table_t;
 
 
+/*
+ * Copier for values stored in one value table into another value table.
+ * - src and dst must use the same type table
+ * - cache maps source value ids to destination value ids
+ */
+typedef struct vtbl_copy_s {
+  value_table_t *src;
+  value_table_t *dst;
+  int_hmap_t cache;
+} vtbl_copy_t;
+
+
 #define DEF_VALUE_TABLE_SIZE 200
 #define MAX_VALUE_TABLE_SIZE (UINT32_MAX/sizeof(value_desc_t))
 
@@ -386,6 +399,20 @@ extern void delete_value_table(value_table_t *table);
  * Reset: empty the table
  */
 extern void reset_value_table(value_table_t *table);
+
+
+/*
+ * Initialize/delete a value-table copier.
+ */
+extern void init_vtbl_copy(vtbl_copy_t *copy, value_table_t *src, value_table_t *dst);
+extern void delete_vtbl_copy(vtbl_copy_t *copy);
+
+/*
+ * Copy value v from copy->src to copy->dst.
+ * - v must be a valid object in copy->src
+ * - the returned value is a valid object in copy->dst
+ */
+extern value_t vtbl_copy_value(vtbl_copy_t *copy, value_t v);
 
 
 /*

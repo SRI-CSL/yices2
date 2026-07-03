@@ -10757,6 +10757,29 @@ static bool check_value_type(value_table_t *vtbl, value_t v, type_t tau) {
   return is_subtype(vtbl->type_table, sigma, tau);
 }
 
+EXPORTED int32_t yices_model_export_value(model_t *src, model_t *dst, const yval_t *src_val, yval_t *dst_val) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_yices_model_export_value(src, dst, src_val, dst_val));
+}
+
+int32_t _o_yices_model_export_value(model_t *src, model_t *dst, const yval_t *src_val, yval_t *dst_val) {
+  value_table_t *src_vtbl, *dst_vtbl;
+  vtbl_copy_t copy;
+  value_t v, dst_v;
+
+  src_vtbl = model_get_vtbl(src);
+  if (! check_model_yval(src_vtbl, src_val, &v)) {
+    return -1;
+  }
+
+  dst_vtbl = model_get_vtbl(dst);
+  init_vtbl_copy(&copy, src_vtbl, dst_vtbl);
+  dst_v = vtbl_copy_value(&copy, v);
+  delete_vtbl_copy(&copy);
+
+  get_yval(dst_vtbl, dst_v, dst_val);
+  return 0;
+}
+
 int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval) {
   value_table_t *vtbl;
   value_t v;

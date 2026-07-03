@@ -686,6 +686,8 @@ extern int32_t _o_yices_model_set_float(model_t *model, term_t var, float val);
 
 extern int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval);
 
+extern int32_t _o_yices_model_export_value(model_t *src, model_t *dst, const yval_t *src_val, yval_t *dst_val);
+
 extern int32_t _o_yices_model_make_tuple(model_t *model, uint32_t n, const yval_t elem[], yval_t *tuple);
 
 extern int32_t _o_yices_model_set_tuple(model_t *model, term_t var, uint32_t n, const yval_t elem[]);
