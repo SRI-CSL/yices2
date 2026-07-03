@@ -3784,6 +3784,34 @@ __YICES_DLLSPEC__ extern model_t *yices_new_model(void);
 
 
 /*
+ * Build a representation-preserving clone of src.
+ * - the result is a fresh model with destination-owned value storage
+ * - explicit term bindings, aliases/substitutions, and explicit division-by-zero
+ *   interpretations are copied
+ *
+ * The model must be deleted by calling yices_free_model when no longer used.
+ *
+ * Since 2.8.0.
+ */
+__YICES_DLLSPEC__ extern model_t *yices_model_clone(model_t *src);
+
+/*
+ * Project src onto a caller-provided domain of uninterpreted terms.
+ * - domain[0 ... n-1] must be positive uninterpreted terms with no duplicates
+ * - selected terms are evaluated in src and materialized as concrete bindings
+ *   in the returned model
+ * - selected terms need not be explicitly defined in src if normal model
+ *   evaluation can compute their values
+ * - aliases and explicit division-by-zero interpretations are not copied
+ *
+ * The model must be deleted by calling yices_free_model when no longer used.
+ *
+ * Since 2.8.0.
+ */
+__YICES_DLLSPEC__ extern model_t *yices_model_project(model_t *src, uint32_t n, const term_t domain[]);
+
+
+/*
  * Build a model from a term-to-term mapping:
  * - the mapping is defined by two arrays var[] and map[]
  * - every element of var must be an uninterpreted term

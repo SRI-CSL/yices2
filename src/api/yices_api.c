@@ -11766,6 +11766,140 @@ static inline error_code_t yices_eval_error(int32_t v) {
   return eval_error2code[-v];
 }
 
+/*
+ * Clone/project models
+ */
+static void clone_model_map(model_t *dst, model_t *src, vtbl_copy_t *copy) {
+  int_hmap_pair_t *r;
+  value_t v;
+
+  r = int_hmap_first_record(&src->map);
+  while (r != NULL) {
+    v = vtbl_copy_value(copy, r->val);
+    model_map_term(dst, r->key, v);
+    r = int_hmap_next_record(&src->map, r);
+  }
+}
+
+static void clone_model_alias_map(model_t *dst, model_t *src) {
+  int_hmap_pair_t *r;
+
+  if (src->alias_map != NULL) {
+    assert(src->has_alias && dst->has_alias);
+
+    r = int_hmap_first_record(src->alias_map);
+    while (r != NULL) {
+      model_add_substitution(dst, r->key, r->val);
+      r = int_hmap_next_record(src->alias_map, r);
+    }
+  }
+}
+
+static void clone_model_zero_division_slots(model_t *dst, model_t *src, vtbl_copy_t *copy) {
+  value_table_t *src_vtbl, *dst_vtbl;
+
+  src_vtbl = model_get_vtbl(src);
+  dst_vtbl = model_get_vtbl(dst);
+
+  if (src_vtbl->zero_rdiv_fun != null_value) {
+    vtbl_set_zero_rdiv(dst_vtbl, vtbl_copy_value(copy, src_vtbl->zero_rdiv_fun));
+  }
+  if (src_vtbl->zero_idiv_fun != null_value) {
+    vtbl_set_zero_idiv(dst_vtbl, vtbl_copy_value(copy, src_vtbl->zero_idiv_fun));
+  }
+  if (src_vtbl->zero_mod_fun != null_value) {
+    vtbl_set_zero_mod(dst_vtbl, vtbl_copy_value(copy, src_vtbl->zero_mod_fun));
+  }
+}
+
+static model_t *clone_model_structure(model_t *src) {
+  model_t *dst;
+  vtbl_copy_t copy;
+
+  dst = yices_new_model_internal(src->has_alias);
+  init_vtbl_copy(&copy, model_get_vtbl(src), model_get_vtbl(dst));
+  clone_model_map(dst, src, &copy);
+  clone_model_alias_map(dst, src);
+  clone_model_zero_division_slots(dst, src, &copy);
+  delete_vtbl_copy(&copy);
+
+  return dst;
+}
+
+EXPORTED model_t *yices_model_clone(model_t *src) {
+  MT_PROTECT(model_t *, __yices_globals.lock, _o_yices_model_clone(src));
+}
+
+model_t *_o_yices_model_clone(model_t *src) {
+  return clone_model_structure(src);
+}
+
+static bool check_project_domain(uint32_t n, const term_t domain[]) {
+  error_report_t *error;
+  uint32_t i;
+
+  if (domain == NULL) {
+    if (n == 0) {
+      return true;
+    }
+    error = get_yices_error();
+    error->code = INVALID_TERM;
+    error->term1 = NULL_TERM;
+    return false;
+  }
+
+  for (i=0; i<n; i++) {
+    if (! check_good_term(__yices_globals.manager, domain[i]) ||
+        ! check_uninterpreted(__yices_globals.terms, domain[i])) {
+      return false;
+    }
+  }
+
+  return check_all_distinct(__yices_globals.terms, n, domain);
+}
+
+EXPORTED model_t *yices_model_project(model_t *src, uint32_t n, const term_t domain[]) {
+  MT_PROTECT(model_t *, __yices_globals.lock, _o_yices_model_project(src, n, domain));
+}
+
+model_t *_o_yices_model_project(model_t *src, uint32_t n, const term_t domain[]) {
+  model_t *eval_src, *dst;
+  vtbl_copy_t copy;
+  value_t v, dst_v;
+  uint32_t i;
+
+  if (! check_project_domain(n, domain)) {
+    return NULL;
+  }
+
+  dst = yices_new_model_internal(false);
+  if (n == 0) {
+    return dst;
+  }
+
+  eval_src = clone_model_structure(src);
+  init_vtbl_copy(&copy, model_get_vtbl(eval_src), model_get_vtbl(dst));
+
+  for (i=0; i<n; i++) {
+    v = model_get_term_value(eval_src, domain[i]);
+    if (v < 0) {
+      set_error_code(yices_eval_error(v));
+      delete_vtbl_copy(&copy);
+      _o_yices_free_model(eval_src);
+      _o_yices_free_model(dst);
+      return NULL;
+    }
+
+    dst_v = vtbl_copy_value(&copy, v);
+    model_map_term(dst, domain[i], dst_v);
+  }
+
+  delete_vtbl_copy(&copy);
+  _o_yices_free_model(eval_src);
+
+  return dst;
+}
+
 
 /*
  * Value of boolean term t: returned as an integer val
