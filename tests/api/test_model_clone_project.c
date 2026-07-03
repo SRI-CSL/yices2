@@ -14,6 +14,7 @@
 static void check(bool cond, const char *msg) {
   if (!cond) {
     fprintf(stderr, "%s\n", msg);
+    fflush(stderr);
     yices_print_error(stderr);
     exit(2);
   }
@@ -767,20 +768,28 @@ static void test_model_project_evaluation_failure(void) {
   term_t vars[1], domain[1];
   uint32_t src_map_size, src_alias_size;
 
+  fprintf(stderr, "  build quantified alias\n");
+  fflush(stderr);
   y = yices_new_uninterpreted_term(yices_bool_type());
   var = yices_new_variable(yices_bool_type());
   vars[0] = var;
   quantified = yices_forall(1, vars, var);
   check(quantified != NULL_TERM, "failed to build quantified alias target");
 
+  fprintf(stderr, "  install quantified alias\n");
+  fflush(stderr);
   src = yices_new_model();
   check(src != NULL, "failed to create eval-failure project source");
   model_add_substitution(src, y, quantified);
   src_map_size = src->map.nelems;
   src_alias_size = src->alias_map->nelems;
 
+  fprintf(stderr, "  project quantified alias\n");
+  fflush(stderr);
   domain[0] = y;
   projected = yices_model_project(src, 1, domain);
+  fprintf(stderr, "  project returned %p error %d\n", (void *) projected, yices_error_code());
+  fflush(stderr);
   check(projected == NULL, "project accepted unevaluable alias target");
   check(yices_error_code() == EVAL_QUANTIFIER, "project eval-failure error is wrong");
   check(src->map.nelems == src_map_size && src->alias_map->nelems == src_alias_size,
