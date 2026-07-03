@@ -243,7 +243,8 @@ endif
 endif
 
 #
-# test_context_delegate_stats and issue_414_mcsat reach into internal
+# test_context_delegate_stats, issue_414_mcsat, and test_model_clone_project
+# reach into internal
 # headers to inspect solver-internal state. Those headers use zero-size
 # flexible-array idioms and signed/unsigned comparisons that are accepted when
 # compiled by the main src/ build but trip -Wpedantic / -Wextra under -Werror.
@@ -258,9 +259,13 @@ $(objdir)/test_context_delegate_stats.o: \
   CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
 $(objdir)/issue_414_mcsat.o: \
   CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
+$(objdir)/test_model_clone_project.o: \
+  CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
 $(static_objdir)/test_context_delegate_stats.o: \
   CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
 $(static_objdir)/issue_414_mcsat.o: \
+  CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
+$(static_objdir)/test_model_clone_project.o: \
   CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
 
 #
