@@ -75,6 +75,74 @@ Model Construction
    Since Yices 2.6.4.
 
 
+.. c:function:: model_t* yices_model_clone(model_t *src)
+
+   Builds a representation-preserving clone of model *src*.
+
+   The result is a fresh model with its own value storage. Explicit term
+   bindings, aliases/substitutions, and explicit division-by-zero
+   interpretations are copied. The source model is not modified.
+
+   The returned model must be deleted when it is no longer used by calling
+   :c:func:`yices_free_model`.
+
+   Since Yices 2.8.0.
+
+
+.. c:function:: model_t* yices_model_project(model_t *src, uint32_t n, const term_t domain[])
+
+   Builds a new model by projecting *src* onto a caller-provided domain.
+
+   **Parameters**
+
+   - *src*: source model
+
+   - *n*: number of terms in *domain*
+
+   - *domain*: array of *n* positive uninterpreted terms
+
+   The returned model contains concrete bindings for exactly the selected
+   terms. Each selected term is evaluated in *src* using normal model
+   evaluation, then the resulting value is copied into the returned model.
+   The selected terms do not have to be explicitly defined in *src* if normal
+   evaluation can compute their values. Aliases/substitutions and explicit
+   division-by-zero interpretations are not copied. The source model is not
+   modified.
+
+   The array *domain* must not contain duplicates. If *n* is zero, *domain*
+   may be :c:macro:`NULL`; the result is an empty model.
+
+   **Returns**
+
+   - the projected model on success
+   - :c:macro:`NULL` on error
+
+   **Error report**
+
+   - If *domain* is :c:macro:`NULL` and *n* is nonzero, or if any element of
+     *domain* is not a valid term:
+
+     -- error code: :c:enum:`INVALID_TERM`
+
+   - If any element of *domain* is not a positive uninterpreted term:
+
+     -- error code: :c:enum:`MDL_UNINT_REQUIRED`
+
+   - If *domain* contains duplicates:
+
+     -- error code: :c:enum:`MDL_DUPLICATE_VAR`
+
+   - If evaluation of a selected term fails:
+
+     -- error code: one of the evaluation errors listed in
+        :ref:`model-term-value`
+
+   The returned model must be deleted when it is no longer used by calling
+   :c:func:`yices_free_model`.
+
+   Since Yices 2.8.0.
+
+
 .. c:function:: model_t* yices_model_from_map(uint32_t n, const term_t var[], const term_t map[])
 
    Builds a model from a term-to-term mapping.
@@ -171,6 +239,12 @@ Model Construction
    These terms will not be defined in model *m* and will not be stored in
    vector *v*.
 
+   Term names are not relevant: named and unnamed uninterpreted terms are
+   collected the same way. A term is collected if it is explicitly defined by
+   the model, either as a stored binding or as an alias/substitution-domain
+   term. Terms that are merely evaluable by default completion are not added to
+   this vector.
+
 
 .. c:function::  model_t* yices_new_model(void)
 
@@ -192,13 +266,16 @@ Model Construction
    Deletes a model.
 
    This function deletes model *mdl*, which must be a pointer returned
-   by :c:func:`yices_get_model`, :c:func:`yices_model_from_map`, or
-   :c:func:`yices_new_model`.
+   by :c:func:`yices_get_model`, :c:func:`yices_model_from_map`,
+   :c:func:`yices_new_model`, :c:func:`yices_model_clone`, or
+   :c:func:`yices_model_project`.
 
    .. note:: If this function is not called, Yices will automatically free
              the model on a call to :c:func:`yices_exit` or :c:func:`yices_reset`.
 
 
+
+.. _model-term-value:
 
 Value of a Term in a Model
 --------------------------
@@ -246,7 +323,26 @@ Model Assignment
 ----------------
 
 The following functions allow assigning values to uninterpreted terms in a model.
-These functions are useful for creating custom models or modifying existing ones.
+These functions are useful for creating custom models or extending existing
+ones. The term-binding model-setter functions in this section are append-only:
+they fail if the selected uninterpreted term is already explicitly defined in
+the model. If the model contains aliases/substitutions, setters first account
+for those aliases before appending, so they can also fail if alias evaluation
+fails.
+
+Unless stated otherwise, error reports for these term-binding setters include:
+
+- If *var* is not a valid term:
+
+  -- error code: :c:enum:`INVALID_TERM`
+
+- If *var* is not an uninterpreted term:
+
+  -- error code: :c:enum:`MDL_UNINT_REQUIRED`
+
+- If *var* is already explicitly defined in the model:
+
+  -- error code: :c:enum:`MDL_DUPLICATE_VAR`
 
 .. c:function:: int32_t yices_model_set_scalar(model_t *model, term_t var, int32_t val)
 
@@ -273,7 +369,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -300,7 +396,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid Boolean uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -327,7 +423,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid integer uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -354,7 +450,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid integer uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -382,7 +478,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid real uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -411,7 +507,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid real uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -439,7 +535,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid integer uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -472,7 +568,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid real uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -504,7 +600,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid uninterpreted finite-field term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -539,7 +635,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid real uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -571,7 +667,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid bitvector uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -598,7 +694,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid bitvector uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -624,7 +720,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid bitvector uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -651,7 +747,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid bitvector uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -679,7 +775,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid bitvector uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -714,7 +810,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid bitvector uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -741,7 +837,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid real uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -768,7 +864,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid real uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -797,7 +893,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
 
@@ -826,9 +922,35 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is not a valid uninterpreted term or is already assigned:
+   - If *var* is not a valid term:
 
      -- error code: :c:enum:`INVALID_TERM`
+
+.. c:function:: int32_t yices_model_export_value(model_t *src, model_t *dst, const yval_t *src_val, yval_t *dst_val)
+
+   Copy a model-local value descriptor from *src* into *dst*.
+
+   The descriptor *src_val* must refer to a value in *src*. On success,
+   *dst_val* is set to a descriptor for an equivalent value stored in *dst*.
+   Composite values such as tuples, mappings, functions, and updates are copied
+   recursively, so *dst_val* remains valid after *src* is deleted.
+
+   This function does not bind any term in *dst*. To assign the exported value
+   to a term, pass *dst_val* to :c:func:`yices_model_set_yval` or to another
+   model-construction function that accepts a value descriptor.
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *src_val* is not a valid descriptor for *src*:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+   Since Yices 2.8.0.
 
 .. c:function:: int32_t yices_model_make_tuple(model_t *model, uint32_t n, const yval_t elem[], yval_t *tuple)
 
@@ -884,7 +1006,7 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is invalid/already assigned:
+   - If *var* is invalid:
 
      -- error code: :c:enum:`INVALID_TERM`
    - If one element in *elem* is invalid for *model* or tuple type is incompatible:
@@ -988,12 +1110,99 @@ These functions are useful for creating custom models or modifying existing ones
 
    **Error report**
 
-   - If *var* is invalid or already assigned:
+   - If *var* is invalid:
 
      -- error code: :c:enum:`INVALID_TERM`
    - If *var* does not have function type or *mappings*/*def* are invalid:
 
      -- error code: :c:enum:`TYPE_MISMATCH`
+
+   Since Yices 2.8.0.
+
+.. c:function:: int32_t yices_model_get_zero_rdiv_function(model_t *mdl, yval_t *fun)
+
+   Get the model's interpretation of real division by zero as a function of type
+   ``[real -> real]``.
+
+   If this interpretation is explicitly set in *mdl*, the stored function or
+   update value is returned. If it is not set, the function returns a default
+   constant-zero function descriptor without making that default explicit in
+   *mdl*. The returned descriptor is model-local and can be inspected with
+   :c:func:`yices_val_expand_function`.
+
+   Since Yices 2.8.0.
+
+
+.. c:function:: int32_t yices_model_get_zero_idiv_function(model_t *mdl, yval_t *fun)
+
+   Get the model's interpretation of integer division by zero as a function of
+   type ``[int -> int]``.
+
+   This follows the same conventions as
+   :c:func:`yices_model_get_zero_rdiv_function`.
+
+   Since Yices 2.8.0.
+
+
+.. c:function:: int32_t yices_model_get_zero_mod_function(model_t *mdl, yval_t *fun)
+
+   Get the model's interpretation of integer modulo by zero as a function of
+   type ``[int -> int]``.
+
+   This follows the same conventions as
+   :c:func:`yices_model_get_zero_rdiv_function`.
+
+   Since Yices 2.8.0.
+
+
+.. c:function:: int32_t yices_model_set_zero_rdiv_function(model_t *mdl, const yval_t *fun)
+
+   Set the model's interpretation of real division by zero.
+
+   The descriptor *fun* must refer to a function or update value in *mdl* of
+   type ``[real -> real]``. This setter is append-only: it fails if the real
+   division-by-zero interpretation is already explicitly set.
+
+   To use a function or update value from another model, first copy it into
+   *mdl* with :c:func:`yices_model_export_value`.
+
+   **Returns**
+
+   - 0 on success
+   - -1 on error
+
+   **Error report**
+
+   - If *fun* is not a valid function/update descriptor for *mdl* or has the
+     wrong type:
+
+     -- error code: :c:enum:`TYPE_MISMATCH`
+
+   - If the real division-by-zero interpretation is already explicitly set:
+
+     -- error code: :c:enum:`MDL_DUPLICATE_VAR`
+
+   Since Yices 2.8.0.
+
+
+.. c:function:: int32_t yices_model_set_zero_idiv_function(model_t *mdl, const yval_t *fun)
+
+   Set the model's interpretation of integer division by zero.
+
+   The descriptor *fun* must refer to a function or update value in *mdl* of
+   type ``[int -> int]``. This setter follows the same append-only and error
+   conventions as :c:func:`yices_model_set_zero_rdiv_function`.
+
+   Since Yices 2.8.0.
+
+
+.. c:function:: int32_t yices_model_set_zero_mod_function(model_t *mdl, const yval_t *fun)
+
+   Set the model's interpretation of integer modulo by zero.
+
+   The descriptor *fun* must refer to a function or update value in *mdl* of
+   type ``[int -> int]``. This setter follows the same append-only and error
+   conventions as :c:func:`yices_model_set_zero_rdiv_function`.
 
    Since Yices 2.8.0.
 

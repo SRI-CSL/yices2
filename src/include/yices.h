@@ -3784,6 +3784,34 @@ __YICES_DLLSPEC__ extern model_t *yices_new_model(void);
 
 
 /*
+ * Build a representation-preserving clone of src.
+ * - the result is a fresh model with destination-owned value storage
+ * - explicit term bindings, aliases/substitutions, and explicit division-by-zero
+ *   interpretations are copied
+ *
+ * The model must be deleted by calling yices_free_model when no longer used.
+ *
+ * Since 2.8.0.
+ */
+__YICES_DLLSPEC__ extern model_t *yices_model_clone(model_t *src);
+
+/*
+ * Project src onto a caller-provided domain of uninterpreted terms.
+ * - domain[0 ... n-1] must be positive uninterpreted terms with no duplicates
+ * - selected terms are evaluated in src and materialized as concrete bindings
+ *   in the returned model
+ * - selected terms need not be explicitly defined in src if normal model
+ *   evaluation can compute their values
+ * - aliases and explicit division-by-zero interpretations are not copied
+ *
+ * The model must be deleted by calling yices_free_model when no longer used.
+ *
+ * Since 2.8.0.
+ */
+__YICES_DLLSPEC__ extern model_t *yices_model_project(model_t *src, uint32_t n, const term_t domain[]);
+
+
+/*
  * Build a model from a term-to-term mapping:
  * - the mapping is defined by two arrays var[] and map[]
  * - every element of var must be an uninterpreted term
@@ -5227,6 +5255,52 @@ __YICES_DLLSPEC__ extern int32_t yices_model_set_term(model_t *model, term_t var
  * Since 2.7.0
  */
 __YICES_DLLSPEC__ extern int32_t yices_model_set_yval(model_t *model, term_t var, const yval_t *yval);
+
+/*
+ * Export a model-local value descriptor from src into dst.
+ * - src_val must be a value descriptor from src
+ * - dst_val is set to a descriptor for an equivalent value owned by dst
+ * - this does not bind any term in dst
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.8.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_export_value(model_t *src, model_t *dst, const yval_t *src_val, yval_t *dst_val);
+
+/*
+ * Get the model's interpretation for division by zero as function values.
+ * - rdiv has type [real -> real]
+ * - idiv has type [int -> int]
+ * - mod has type [int -> int]
+ *
+ * If the corresponding interpretation is not explicitly set, these functions
+ * return a default constant-zero function. They do not make the default
+ * interpretation explicit in model.
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.8.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_get_zero_rdiv_function(model_t *mdl, yval_t *fun);
+__YICES_DLLSPEC__ extern int32_t yices_model_get_zero_idiv_function(model_t *mdl, yval_t *fun);
+__YICES_DLLSPEC__ extern int32_t yices_model_get_zero_mod_function(model_t *mdl, yval_t *fun);
+
+/*
+ * Set the model's interpretation for division by zero.
+ * - fun must be a function or update value descriptor from the same model
+ * - rdiv expects type [real -> real]
+ * - idiv expects type [int -> int]
+ * - mod expects type [int -> int]
+ * - the corresponding interpretation must not already be explicitly set
+ *
+ * Returns 0 on success, -1 on error (sets error code).
+ *
+ * Since 2.8.0
+ */
+__YICES_DLLSPEC__ extern int32_t yices_model_set_zero_rdiv_function(model_t *mdl, const yval_t *fun);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_zero_idiv_function(model_t *mdl, const yval_t *fun);
+__YICES_DLLSPEC__ extern int32_t yices_model_set_zero_mod_function(model_t *mdl, const yval_t *fun);
 
 /*
  * Build a tuple value from an array of yval_t descriptors.

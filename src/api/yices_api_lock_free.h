@@ -644,6 +644,10 @@ extern model_t *_o_yices_model_from_map(uint32_t n, const term_t var[], const te
 
 extern model_t *_o_yices_new_model();
 
+extern model_t *_o_yices_model_clone(model_t *src);
+
+extern model_t *_o_yices_model_project(model_t *src, uint32_t n, const term_t domain[]);
+
 extern void _o_yices_free_model(model_t *mdl);
 
 extern int32_t _o_yices_model_set_bool(model_t *model, term_t var, int32_t val);
@@ -685,6 +689,20 @@ extern int32_t _o_yices_model_set_double(model_t *model, term_t var, double val)
 extern int32_t _o_yices_model_set_float(model_t *model, term_t var, float val);
 
 extern int32_t _o_yices_model_set_yval(model_t *model, term_t var, const yval_t *yval);
+
+extern int32_t _o_yices_model_export_value(model_t *src, model_t *dst, const yval_t *src_val, yval_t *dst_val);
+
+extern int32_t _o_yices_model_get_zero_rdiv_function(model_t *mdl, yval_t *fun);
+
+extern int32_t _o_yices_model_get_zero_idiv_function(model_t *mdl, yval_t *fun);
+
+extern int32_t _o_yices_model_get_zero_mod_function(model_t *mdl, yval_t *fun);
+
+extern int32_t _o_yices_model_set_zero_rdiv_function(model_t *mdl, const yval_t *fun);
+
+extern int32_t _o_yices_model_set_zero_idiv_function(model_t *mdl, const yval_t *fun);
+
+extern int32_t _o_yices_model_set_zero_mod_function(model_t *mdl, const yval_t *fun);
 
 extern int32_t _o_yices_model_make_tuple(model_t *model, uint32_t n, const yval_t elem[], yval_t *tuple);
 
