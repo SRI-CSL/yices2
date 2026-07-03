@@ -19,6 +19,14 @@ static void check(bool cond, const char *msg) {
   }
 }
 
+static void run_named_test(const char *name, void (*test)(void)) {
+  fprintf(stderr, "BEGIN %s\n", name);
+  fflush(stderr);
+  test();
+  fprintf(stderr, "END %s\n", name);
+  fflush(stderr);
+}
+
 static bool vector_has_term(const term_vector_t *v, term_t t) {
   uint32_t i;
 
@@ -915,26 +923,46 @@ static void test_model_set_invalid_value_does_not_flatten_alias(void) {
 int main(void) {
   yices_init();
 
-  test_collect_defined_terms_named_and_unnamed();
-  test_collect_defined_terms_ignores_negative_keys();
-  test_collect_defined_terms_alias_domain_only();
-  test_export_value_source_free_composites();
-  test_model_clone_defined_values_source_free();
-  test_model_clone_preserves_alias_structure();
-  test_model_clone_preserves_zero_division_slots();
-  test_model_zero_div_getters_default_non_mutating();
-  test_model_zero_div_installed_defaults_have_api_types();
-  test_model_zero_div_setters_and_getters();
-  test_model_zero_div_setters_validate_function_type();
-  test_model_zero_div_setters_accept_updates();
-  test_model_project_materializes_domain();
-  test_model_project_alias_and_defaults();
-  test_model_project_domain_validation();
-  test_model_project_evaluation_failure();
-  test_model_set_flattens_alias_before_append();
-  test_model_set_rejects_alias_duplicate();
-  test_model_set_flatten_failure_is_atomic();
-  test_model_set_invalid_value_does_not_flatten_alias();
+  run_named_test("test_collect_defined_terms_named_and_unnamed",
+                 test_collect_defined_terms_named_and_unnamed);
+  run_named_test("test_collect_defined_terms_ignores_negative_keys",
+                 test_collect_defined_terms_ignores_negative_keys);
+  run_named_test("test_collect_defined_terms_alias_domain_only",
+                 test_collect_defined_terms_alias_domain_only);
+  run_named_test("test_export_value_source_free_composites",
+                 test_export_value_source_free_composites);
+  run_named_test("test_model_clone_defined_values_source_free",
+                 test_model_clone_defined_values_source_free);
+  run_named_test("test_model_clone_preserves_alias_structure",
+                 test_model_clone_preserves_alias_structure);
+  run_named_test("test_model_clone_preserves_zero_division_slots",
+                 test_model_clone_preserves_zero_division_slots);
+  run_named_test("test_model_zero_div_getters_default_non_mutating",
+                 test_model_zero_div_getters_default_non_mutating);
+  run_named_test("test_model_zero_div_installed_defaults_have_api_types",
+                 test_model_zero_div_installed_defaults_have_api_types);
+  run_named_test("test_model_zero_div_setters_and_getters",
+                 test_model_zero_div_setters_and_getters);
+  run_named_test("test_model_zero_div_setters_validate_function_type",
+                 test_model_zero_div_setters_validate_function_type);
+  run_named_test("test_model_zero_div_setters_accept_updates",
+                 test_model_zero_div_setters_accept_updates);
+  run_named_test("test_model_project_materializes_domain",
+                 test_model_project_materializes_domain);
+  run_named_test("test_model_project_alias_and_defaults",
+                 test_model_project_alias_and_defaults);
+  run_named_test("test_model_project_domain_validation",
+                 test_model_project_domain_validation);
+  run_named_test("test_model_project_evaluation_failure",
+                 test_model_project_evaluation_failure);
+  run_named_test("test_model_set_flattens_alias_before_append",
+                 test_model_set_flattens_alias_before_append);
+  run_named_test("test_model_set_rejects_alias_duplicate",
+                 test_model_set_rejects_alias_duplicate);
+  run_named_test("test_model_set_flatten_failure_is_atomic",
+                 test_model_set_flatten_failure_is_atomic);
+  run_named_test("test_model_set_invalid_value_does_not_flatten_alias",
+                 test_model_set_invalid_value_does_not_flatten_alias);
 
   yices_exit();
 
