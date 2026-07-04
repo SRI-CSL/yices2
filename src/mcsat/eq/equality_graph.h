@@ -175,6 +175,9 @@ typedef struct eq_graph_s {
   /** Last processed trail index */
   uint32_t trail_i;
 
+  /** Monotone revision for class membership and trail-edge changes. */
+  uint32_t revision;
+
   /** The use-list data */
   eq_uselist_t* uselist_nodes;
 
@@ -270,6 +273,9 @@ bool eq_graph_term_has_value(const eq_graph_t* eq, term_t t);
 
 /** Return the id of value v, or eq_node_null if v is absent. */
 eq_node_id_t eq_graph_value_id_if_exists(const eq_graph_t* eq, const mcsat_value_t* v);
+
+/** Monotone revision for class membership and trail-edge changes. */
+uint32_t eq_graph_revision(const eq_graph_t* eq);
 
 /** Number of function-id value nodes with representatives. */
 uint32_t eq_graph_function_value_node_count(const eq_graph_t* eq);

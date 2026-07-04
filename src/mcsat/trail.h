@@ -94,6 +94,9 @@ struct mcsat_trail_s {
   /** Are we in conflict */
   bool inconsistent;
 
+  /** Monotone generation for assigned trail values. */
+  uint32_t value_generation;
+
 };
 
 /**
@@ -115,6 +118,12 @@ void trail_new_variable_notify(mcsat_trail_t* trail, variable_t x);
 static inline
 uint32_t trail_size(const mcsat_trail_t* trail) {
   return trail->elements.size;
+}
+
+/** Monotone generation for assigned trail values. */
+static inline
+uint32_t trail_value_generation(const mcsat_trail_t* trail) {
+  return trail->value_generation;
 }
 
 /** Is the trail consistent (no inconsistent propagation) */

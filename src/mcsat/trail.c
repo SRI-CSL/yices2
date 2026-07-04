@@ -38,6 +38,7 @@ void trail_construct(mcsat_trail_t* trail, const variable_db_t* var_db) {
   init_ivector(&trail->id, 0);
   init_ivector(&trail->unassigned, 0);
   trail->inconsistent = false;
+  trail->value_generation = 0;
 }
 
 static inline
@@ -64,6 +65,7 @@ void trail_construct_copy(mcsat_trail_t* trail, const mcsat_trail_t* from) {
   init_ivector_copy(&trail->id, &from->id);
   init_ivector_copy(&trail->unassigned, &from->unassigned);
   trail->inconsistent = from->inconsistent;
+  trail->value_generation = from->value_generation;
 }
 
 void trail_destruct(mcsat_trail_t* trail) {
@@ -200,6 +202,7 @@ void trail_set_value(mcsat_trail_t* trail, variable_t x, const mcsat_value_t* va
   // Set the value
   assert(value->type != VALUE_BOOLEAN || variable_db_is_boolean(trail->var_db, x));
   mcsat_model_set_value(&trail->model, x, value);
+  trail->value_generation ++;
 }
 
 static inline
@@ -209,6 +212,7 @@ void trail_undo_value(mcsat_trail_t* trail, variable_t x) {
   trail->level.data[x] = -1;
   trail->id.data[x] = -1;
   ivector_push(&trail->unassigned, x);
+  trail->value_generation ++;
 }
 
 void trail_add_decision(mcsat_trail_t* trail, variable_t x, const mcsat_value_t* value, uint32_t id) {

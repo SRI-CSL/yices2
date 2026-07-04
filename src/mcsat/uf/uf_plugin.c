@@ -34,6 +34,7 @@
 #include "utils/pair_hash_map.h"
 #include "utils/ptr_array_sort2.h"
 #include "utils/int_hash_sets.h"
+#include "utils/hash_functions.h"
 #include "utils/ptr_vectors.h"
 #include "utils/refcount_strings.h"
 
@@ -87,6 +88,25 @@ typedef struct {
   type_t type;
   term_t guard;
 } uf_fun_model_diseq_t;
+
+typedef struct {
+  uint32_t arity;
+  uint32_t hash;
+  mcsat_value_t* values;
+} uf_semantic_value_key_t;
+
+typedef struct {
+  uf_semantic_value_key_t* key;
+  bool unique_result;
+  mcsat_value_t result;
+} uf_semantic_binding_t;
+
+typedef struct {
+  uint32_t eq_revision;
+  uint32_t trail_generation;
+  type_t function_type_key;
+  pvector_t bindings;
+} uf_function_id_semantic_map_t;
 
 typedef enum {
   UF_FUN_DISEQ_NO_CHANGE,
@@ -153,6 +173,9 @@ typedef struct {
   uint32_t active_fun_generation;
   bool active_fun_ids_valid;
 
+  /** Semantic update bindings for function-id value classes, indexed by value node. */
+  pvector_t function_id_semantic_maps;
+
   /** Cached risky-function-type check, keyed by type id */
   int_hmap_t risky_function_type_cache;
 
@@ -170,6 +193,7 @@ typedef struct {
     statistic_int_t* fun_diseq_incompatible_id_merges;
     statistic_int_t* fun_diseq_witnesses;
     statistic_int_t* fun_diseq_cardinality_conflicts;
+    statistic_int_t* fun_id_semantic_reuse_rejects;
     statistic_int_t* propagations;
     statistic_int_t* conflicts;
     statistic_avg_t* avg_conflict_size;
@@ -209,6 +233,81 @@ static void uf_plugin_free_fun_model_diseq_entries_from(uf_plugin_t* uf, uint32_
   while (uf->fun_model_diseq_entries.size > old_size) {
     safe_free(pvector_pop2(&uf->fun_model_diseq_entries));
   }
+}
+
+static void uf_semantic_value_key_delete(uf_semantic_value_key_t* key) {
+  uint32_t i;
+
+  if (key == NULL) {
+    return;
+  }
+
+  for (i = 0; i < key->arity; ++ i) {
+    mcsat_value_destruct(&key->values[i]);
+  }
+  safe_free(key->values);
+  safe_free(key);
+}
+
+static bool uf_semantic_value_key_equal(const uf_semantic_value_key_t* lhs,
+                                        const uf_semantic_value_key_t* rhs) {
+  uint32_t i;
+
+  if (lhs->arity != rhs->arity || lhs->hash != rhs->hash) {
+    return false;
+  }
+
+  for (i = 0; i < lhs->arity; ++ i) {
+    if (!mcsat_value_eq(&lhs->values[i], &rhs->values[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+static void uf_semantic_binding_delete(uf_semantic_binding_t* binding) {
+  if (binding == NULL) {
+    return;
+  }
+  uf_semantic_value_key_delete(binding->key);
+  mcsat_value_destruct(&binding->result);
+  safe_free(binding);
+}
+
+static void uf_function_id_semantic_map_reset(uf_function_id_semantic_map_t* map) {
+  while (map->bindings.size > 0) {
+    uf_semantic_binding_delete(pvector_pop2(&map->bindings));
+  }
+}
+
+static uf_function_id_semantic_map_t* uf_function_id_semantic_map_new(void) {
+  uf_function_id_semantic_map_t* map;
+
+  map = safe_malloc(sizeof(uf_function_id_semantic_map_t));
+  map->eq_revision = UINT32_MAX;
+  map->trail_generation = UINT32_MAX;
+  map->function_type_key = NULL_TYPE;
+  init_pvector(&map->bindings, 0);
+  return map;
+}
+
+static void uf_function_id_semantic_map_delete(uf_function_id_semantic_map_t* map) {
+  if (map == NULL) {
+    return;
+  }
+  uf_function_id_semantic_map_reset(map);
+  delete_pvector(&map->bindings);
+  safe_free(map);
+}
+
+static void uf_plugin_free_function_id_semantic_maps(uf_plugin_t* uf) {
+  uint32_t i;
+
+  for (i = 0; i < uf->function_id_semantic_maps.size; ++ i) {
+    uf_function_id_semantic_map_delete(uf->function_id_semantic_maps.data[i]);
+  }
+  pvector_reset(&uf->function_id_semantic_maps);
 }
 
 static void uf_plugin_invalidate_active_fun_ids(uf_plugin_t* uf) {
@@ -809,43 +908,170 @@ static bool uf_plugin_forbidden_contains_id(const pvector_t* forbidden, int32_t 
   return false;
 }
 
-typedef struct {
-  uf_plugin_t* uf;
-  term_t candidate;
-  type_t candidate_type;
-  bool compatible;
-} uf_function_id_compat_t;
+static const mcsat_value_t* uf_plugin_propagated_term_value_if_available(uf_plugin_t* uf, term_t t) {
+  if (!eq_graph_has_term(&uf->eq_graph, t) ||
+      !eq_graph_has_propagated_term_value(&uf->eq_graph, t)) {
+    return NULL;
+  }
+  return eq_graph_get_propagated_term_value(&uf->eq_graph, t);
+}
 
-static bool uf_plugin_function_id_class_term_is_compatible(term_t active, void* aux) {
-  uf_function_id_compat_t* check = aux;
-  uf_plugin_t* uf = check->uf;
-  term_table_t* terms = uf->ctx->terms;
-  type_t active_type;
+static uint32_t uf_semantic_value_key_hash(const uf_semantic_value_key_t* key) {
+  uint32_t i, hash;
 
-  if (active == check->candidate ||
-      term_type_kind(terms, active) != FUNCTION_TYPE) {
-    return true;
+  hash = jenkins_hash_uint32(key->arity);
+  for (i = 0; i < key->arity; ++ i) {
+    hash = jenkins_hash_mix3(hash, mcsat_value_hash(&key->values[i]), i);
   }
 
-  active_type = term_type(terms, active);
-  if (compatible_types(uf->ctx->types, active_type, check->candidate_type) &&
-      disequal_terms(terms, active, check->candidate, true)) {
-    check->compatible = false;
+  return hash;
+}
+
+static bool uf_plugin_extract_update_semantic_binding(uf_plugin_t* uf, term_t t, type_t key,
+                                                      uf_semantic_value_key_t** out_key,
+                                                      mcsat_value_t* out_result) {
+  term_table_t* terms = uf->ctx->terms;
+  composite_term_t* update;
+  uf_semantic_value_key_t* semantic_key;
+  const mcsat_value_t* result_value;
+  uint32_t arity, i;
+
+  assert(out_key != NULL);
+
+  if (term_kind(terms, t) != UPDATE_TERM ||
+      term_type_kind(terms, t) != FUNCTION_TYPE ||
+      uf_function_type_key(uf, term_type(terms, t)) != key) {
     return false;
+  }
+
+  update = update_term_desc(terms, t);
+  arity = update->arity - 2;
+
+  for (i = 0; i < arity; ++ i) {
+    if (uf_plugin_propagated_term_value_if_available(uf, update->arg[i + 1]) == NULL) {
+      return false;
+    }
+  }
+
+  result_value = uf_plugin_propagated_term_value_if_available(uf, update->arg[update->arity - 1]);
+  if (result_value == NULL) {
+    return false;
+  }
+
+  semantic_key = safe_malloc(sizeof(uf_semantic_value_key_t));
+  semantic_key->arity = arity;
+  semantic_key->values = arity == 0 ? NULL : safe_malloc(arity * sizeof(mcsat_value_t));
+  for (i = 0; i < arity; ++ i) {
+    mcsat_value_construct_copy(&semantic_key->values[i],
+                               uf_plugin_propagated_term_value_if_available(uf, update->arg[i + 1]));
+  }
+  semantic_key->hash = uf_semantic_value_key_hash(semantic_key);
+
+  mcsat_value_construct_copy(out_result, result_value);
+  *out_key = semantic_key;
+  return true;
+}
+
+static uf_semantic_binding_t* uf_function_id_semantic_map_find(uf_function_id_semantic_map_t* map,
+                                                               const uf_semantic_value_key_t* key) {
+  uint32_t i;
+
+  for (i = 0; i < map->bindings.size; ++ i) {
+    uf_semantic_binding_t* binding = map->bindings.data[i];
+    if (uf_semantic_value_key_equal(binding->key, key)) {
+      return binding;
+    }
+  }
+
+  return NULL;
+}
+
+static void uf_function_id_semantic_map_add_binding(uf_function_id_semantic_map_t* map,
+                                                    uf_semantic_value_key_t* key,
+                                                    const mcsat_value_t* result) {
+  uf_semantic_binding_t* binding;
+
+  binding = uf_function_id_semantic_map_find(map, key);
+  if (binding == NULL) {
+    binding = safe_malloc(sizeof(uf_semantic_binding_t));
+    binding->key = key;
+    binding->unique_result = true;
+    mcsat_value_construct_copy(&binding->result, result);
+    pvector_push(&map->bindings, binding);
+    return;
+  }
+
+  if (!mcsat_value_eq(&binding->result, result)) {
+    binding->unique_result = false;
+  }
+  uf_semantic_value_key_delete(key);
+}
+
+typedef struct {
+  uf_plugin_t* uf;
+  uf_function_id_semantic_map_t* map;
+  type_t key;
+} uf_semantic_map_build_t;
+
+static bool uf_plugin_add_class_update_semantic_binding(term_t active, void* aux) {
+  uf_semantic_map_build_t* build = aux;
+  uf_semantic_value_key_t* key;
+  mcsat_value_t result;
+
+  if (uf_plugin_extract_update_semantic_binding(build->uf, active, build->key, &key, &result)) {
+    uf_function_id_semantic_map_add_binding(build->map, key, &result);
+    mcsat_value_destruct(&result);
   }
 
   return true;
 }
 
-static bool uf_plugin_function_id_is_term_compatible(uf_plugin_t* uf, term_t t, type_t key, int32_t id) {
+static void uf_plugin_build_function_id_semantic_map(uf_plugin_t* uf,
+                                                     uf_function_id_semantic_map_t* map,
+                                                     eq_node_id_t value_node,
+                                                     type_t key) {
+  uf_semantic_map_build_t build;
+
+  uf_function_id_semantic_map_reset(map);
+  map->eq_revision = eq_graph_revision(&uf->eq_graph);
+  map->trail_generation = trail_value_generation(uf->ctx->trail);
+  map->function_type_key = key;
+
+  build.uf = uf;
+  build.map = map;
+  build.key = key;
+  eq_graph_foreach_value_class_term(&uf->eq_graph, value_node,
+                                    uf_plugin_add_class_update_semantic_binding, &build);
+}
+
+static uf_function_id_semantic_map_t* uf_plugin_get_function_id_semantic_map(uf_plugin_t* uf,
+                                                                             eq_node_id_t value_node,
+                                                                             type_t key) {
+  uf_function_id_semantic_map_t* map;
+
+  while (uf->function_id_semantic_maps.size <= value_node) {
+    pvector_push(&uf->function_id_semantic_maps, NULL);
+  }
+
+  map = uf->function_id_semantic_maps.data[value_node];
+  if (map == NULL) {
+    map = uf_function_id_semantic_map_new();
+    uf->function_id_semantic_maps.data[value_node] = map;
+  }
+
+  if (map->eq_revision != eq_graph_revision(&uf->eq_graph) ||
+      map->trail_generation != trail_value_generation(uf->ctx->trail) ||
+      map->function_type_key != key) {
+    uf_plugin_build_function_id_semantic_map(uf, map, value_node, key);
+  }
+
+  return map;
+}
+
+static eq_node_id_t uf_plugin_function_id_value_node(uf_plugin_t* uf, int32_t id) {
   rational_t q;
   mcsat_value_t value;
   eq_node_id_t value_node;
-  term_t rep;
-  type_t rep_key;
-  uf_function_id_compat_t check;
-
-  assert(eq_graph_is_trail_propagated(&uf->eq_graph));
 
   q_init(&q);
   q_set32(&q, id);
@@ -854,6 +1080,16 @@ static bool uf_plugin_function_id_is_term_compatible(uf_plugin_t* uf, term_t t, 
 
   value_node = eq_graph_value_id_if_exists(&uf->eq_graph, &value);
   mcsat_value_destruct(&value);
+  return value_node;
+}
+
+static bool uf_plugin_function_id_type_is_term_compatible(uf_plugin_t* uf, type_t key,
+                                                          eq_node_id_t value_node) {
+  term_t rep;
+  type_t rep_key;
+
+  assert(eq_graph_is_trail_propagated(&uf->eq_graph));
+
   if (value_node == eq_node_null) {
     return true;
   }
@@ -865,18 +1101,42 @@ static bool uf_plugin_function_id_is_term_compatible(uf_plugin_t* uf, term_t t, 
   }
 
   rep_key = uf_function_type_key(uf, term_type(uf->ctx->terms, rep));
-  if (rep_key != key) {
-    return false;
+  return rep_key == key;
+}
+
+static bool uf_plugin_function_id_semantic_reuse_is_allowed(uf_plugin_t* uf, term_t t, type_t key,
+                                                            eq_node_id_t value_node) {
+  uf_semantic_value_key_t* candidate_key;
+  mcsat_value_t candidate_result;
+  uf_function_id_semantic_map_t* semantic_map;
+  uf_semantic_binding_t* binding;
+  bool compatible;
+
+  assert(eq_graph_is_trail_propagated(&uf->eq_graph));
+  assert(uf_type_needs_search_diff(uf, key));
+
+  if (value_node == eq_node_null) {
+    return true;
   }
 
-  check.uf = uf;
-  check.candidate = t;
-  check.candidate_type = term_type(uf->ctx->terms, t);
-  check.compatible = true;
-  eq_graph_foreach_value_class_term(&uf->eq_graph, value_node,
-                                    uf_plugin_function_id_class_term_is_compatible, &check);
+  if (!uf_plugin_extract_update_semantic_binding(uf, t, key, &candidate_key, &candidate_result)) {
+    return true;
+  }
 
-  return check.compatible;
+  semantic_map = uf_plugin_get_function_id_semantic_map(uf, value_node, key);
+  binding = uf_function_id_semantic_map_find(semantic_map, candidate_key);
+  compatible = binding == NULL ||
+      !binding->unique_result ||
+      mcsat_value_eq(&binding->result, &candidate_result);
+
+  uf_semantic_value_key_delete(candidate_key);
+  mcsat_value_destruct(&candidate_result);
+
+  if (!compatible) {
+    (*uf->stats.fun_id_semantic_reuse_rejects) ++;
+  }
+
+  return compatible;
 }
 
 static bool uf_plugin_fun_diseq_entry_is_active(uf_plugin_t* uf, const uf_fun_diseq_t* entry);
@@ -938,6 +1198,7 @@ static bool uf_plugin_pick_active_function_id(uf_plugin_t* uf, term_t t, type_t 
 
   uf_plugin_rebuild_active_fun_ids(uf);
   for (i = 0; i < uf->active_fun_terms.size; ++ i) {
+    eq_node_id_t value_node;
     int32_t id;
 
     if (key != (type_t) uf->active_fun_type_keys.data[i]) {
@@ -945,8 +1206,10 @@ static bool uf_plugin_pick_active_function_id(uf_plugin_t* uf, term_t t, type_t 
     }
 
     id = uf->active_fun_ids.data[i];
+    value_node = uf_plugin_function_id_value_node(uf, id);
     if (!uf_plugin_forbidden_contains_id(forbidden, id) &&
-        uf_plugin_function_id_is_term_compatible(uf, t, key, id) &&
+        uf_plugin_function_id_type_is_term_compatible(uf, key, value_node) &&
+        uf_plugin_function_id_semantic_reuse_is_allowed(uf, t, key, value_node) &&
         !uf_plugin_active_diseq_blocks_function_id(uf, t, id)) {
       *picked_id = id;
       return true;
@@ -960,6 +1223,7 @@ static bool uf_plugin_cached_function_id_is_allowed(uf_plugin_t* uf, term_t t, c
                                                     const mcsat_value_t* candidate) {
   type_t tau;
   type_t key;
+  eq_node_id_t value_node;
   int32_t id, active_id;
 
   if (candidate == NULL ||
@@ -972,7 +1236,13 @@ static bool uf_plugin_cached_function_id_is_allowed(uf_plugin_t* uf, term_t t, c
 
   tau = term_type(uf->ctx->terms, t);
   key = uf_function_type_key(uf, tau);
-  if (!uf_plugin_function_id_is_term_compatible(uf, t, key, id)) {
+  value_node = uf_plugin_function_id_value_node(uf, id);
+  if (!uf_plugin_function_id_type_is_term_compatible(uf, key, value_node)) {
+    return false;
+  }
+
+  if (uf_type_needs_search_diff(uf, key) &&
+      !uf_plugin_function_id_semantic_reuse_is_allowed(uf, t, key, value_node)) {
     return false;
   }
 
@@ -1591,6 +1861,8 @@ void uf_plugin_stats_init(uf_plugin_t* uf) {
   uf->stats.fun_diseq_incompatible_id_merges = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_incompatible_id_merges");
   uf->stats.fun_diseq_witnesses = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_witnesses");
   uf->stats.fun_diseq_cardinality_conflicts = statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_diseq_cardinality_conflicts");
+  uf->stats.fun_id_semantic_reuse_rejects =
+      statistics_new_int(uf->ctx->stats, "mcsat::uf::fun_id_semantic_reuse_rejects");
   uf->stats.avg_conflict_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_conflict_size");
   uf->stats.avg_explanation_size = statistics_new_avg(uf->ctx->stats, "mcsat::uf::avg_explanation_size");
 }
@@ -1632,6 +1904,7 @@ void uf_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   uf->active_fun_value_node_count = 0;
   uf->active_fun_generation = 0;
   uf->active_fun_ids_valid = false;
+  init_pvector(&uf->function_id_semantic_maps, 0);
   init_int_hmap(&uf->risky_function_type_cache, 0);
   uf->equality_sensitivity_generation = 0;
   int_mset_construct(&uf->tmp, NULL_TERM);
@@ -1682,6 +1955,8 @@ void uf_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&uf->active_fun_types);
   delete_ivector(&uf->active_fun_type_keys);
   delete_ivector(&uf->active_fun_ids);
+  uf_plugin_free_function_id_semantic_maps(uf);
+  delete_pvector(&uf->function_id_semantic_maps);
   delete_int_hmap(&uf->risky_function_type_cache);
   int_mset_destruct(&uf->tmp);
 

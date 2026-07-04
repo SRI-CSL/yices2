@@ -221,6 +221,7 @@ void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name)
   eq->in_propagate = false;
 
   eq->trail_i = 0;
+  eq->revision = 0;
 
   init_int_hmap(&eq->kind_to_id, 0);
   init_int_hmap(&eq->term_to_id, 0);
@@ -1204,6 +1205,10 @@ eq_node_id_t eq_graph_value_id_if_exists(const eq_graph_t* eq, const mcsat_value
   return eq_node_null;
 }
 
+uint32_t eq_graph_revision(const eq_graph_t* eq) {
+  return eq->revision;
+}
+
 uint32_t eq_graph_function_value_node_count(const eq_graph_t* eq) {
   return eq->function_value_nodes.size;
 }
@@ -1366,6 +1371,7 @@ void eq_graph_propagate(eq_graph_t* eq) {
 
     // Add the edge (original nodes)
     eq_graph_add_edge(eq, lhs, rhs, reason);
+    eq->revision ++;
     if (trail_function_value_edge) {
       eq_graph_record_function_value_rep(eq, trail_value_node, trail_term_node);
     }
@@ -1655,6 +1661,23 @@ void eq_graph_pop(eq_graph_t* eq) {
   );
 
   uint32_t i;
+  bool changed;
+
+  changed = kind_list_size != eq->kind_list.size ||
+      term_list_size != eq->terms_list.size ||
+      value_list_size != eq->values_list.size ||
+      pair_list_size != eq->pair_list.size ||
+      nodes_size != eq->nodes_size ||
+      edges_size != eq->edges_size ||
+      graph_size != eq->graph.size ||
+      function_value_nodes_size != eq->function_value_nodes.size ||
+      function_value_rep_size != eq->function_value_rep.size ||
+      function_value_rep_updates_size != eq->function_value_rep_updates.size ||
+      uselist_nodes_size != eq->uselist_nodes_size ||
+      uselist_size != eq->uselist.size ||
+      uselist_updates_size != eq->uselist_updates.size ||
+      children_list_size != eq->children_list.size ||
+      merges_size != eq->merges.size;
 
   // Remove any added edges
   if (eq->edges_size > 0) {
@@ -1762,6 +1785,10 @@ void eq_graph_pop(eq_graph_t* eq) {
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq::detail")) {
     ctx_trace_printf(eq->ctx, "eq_graph_pop[%s](): after\n", eq->name);
     eq_graph_print(eq, ctx_trace_out(eq->ctx));
+  }
+
+  if (changed) {
+    eq->revision ++;
   }
 }
 
