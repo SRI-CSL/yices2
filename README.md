@@ -16,7 +16,7 @@ and bindings for [Java](https://github.com/SRI-CSL/yices2_java_bindings), [Pytho
 This repository includes the source of Yices 2, documentation, tests,
 and examples.
 
-Yices 2 is developed by Bruno Dutertre, Dejan Jovanovic, Stéphane Graham-Lengrand, and Ian A. Mason
+Yices 2 is developed by Bruno Dutertre, Dejan Jovanovic, Stéphane Graham-Lengrand, Ian A. Mason, and Ahmed Irfan
 at the Computer Science Laboratory, SRI International. To contact us,
 or to get more information about Yices, please visit our
 [website](https://yices.csl.sri.com).
