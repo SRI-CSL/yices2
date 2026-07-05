@@ -9045,10 +9045,10 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
    * Try bound strengthening + integrality test + diophantine check
    */
   nbounds = solver->bstack.top;
-  if (false && !simplex_intfeas_strengthening(solver)) return false;
+  if (!simplex_intfeas_strengthening(solver)) return false;
   if (!simplex_intfeas_integrality_constraints(solver)) return false;
-  if (false && !simplex_intfeas_diophantine_check(solver)) return false;
-  if (false && !simplex_intfeas_strengthening(solver)) return false;
+  if (!simplex_intfeas_diophantine_check(solver)) return false;
+  if (!simplex_intfeas_strengthening(solver)) return false;
 
   /*
    * TRY OUR LUCK
@@ -9065,7 +9065,7 @@ static bool simplex_make_integer_feasible(simplex_solver_t *solver) {
    * If we've learned new bounds in the previous phases,
    * try more rounds of bound strengthening.
    */
-  if (false && solver->bstack.top > nbounds && !simplex_intfeas_strengthening(solver)) {
+  if (solver->bstack.top > nbounds && !simplex_intfeas_strengthening(solver)) {
     return false;
   }
 
