@@ -1,0 +1,7 @@
+(set-logic QF_LIA)
+(declare-fun a () Int)
+(declare-fun b () Int)
+(assert (not (and (<= (mod b (- 968)) (mod b 53)) (= (mod a 533) (- a b)))))
+(assert (not (and (<= (div b 432) (div a 492)) (< (- b b) (mod b (- 554))))))
+(check-sat)
+(exit)
