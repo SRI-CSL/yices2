@@ -732,7 +732,7 @@ static void init_cmd_stats(smt2_cmd_stats_t *stats) {
  */
 static const char *yices_name = "Yices";
 static const char *yices_authors = "Bruno Dutertre, Dejan Jovanović, Ian A. Mason, Stéphane Graham-Lengrand";
-static const char *error_behavior = "immediate-exit";
+static const char *error_behavior = "continued-execution";
 
 /*
  * GLOBAL OBJECTS
@@ -7200,9 +7200,28 @@ void smt2_get_model(void) {
 
 /*
  * Print s on the output channel
+ *
+ * The SMT-LIB standard requires (echo s) to print the string literal s back
+ * "as is", including the surrounding double quotes. The lexer has stripped
+ * the quotes and decoded the escapes, so we reconstruct a valid literal,
+ * escaping embedded characters the same way the lexer reads them:
+ * - SMT-LIB 2.5/2.6: a double quote is escaped by doubling it ("")
+ * - SMT-LIB 2.0: '"' is escaped as \" and '\' as \\
  */
 void smt2_echo(const char *s) {
-  print_out("%s\n", s);
+  bool v25 = __smt2_globals.smtlib_version >= 2500;
+
+  print_out("\"");
+  for (; *s != '\0'; s++) {
+    if (*s == '"') {
+      print_out(v25 ? "\"\"" : "\\\"");
+    } else if (*s == '\\' && !v25) {
+      print_out("\\\\");
+    } else {
+      print_out("%c", *s);
+    }
+  }
+  print_out("\"\n");
   flush_out();
 }
 
