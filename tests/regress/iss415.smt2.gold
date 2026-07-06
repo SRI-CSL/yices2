@@ -1,0 +1,3 @@
+(:error-behavior continued-execution)
+(error "no logic set")
+(:error-behavior continued-execution)
