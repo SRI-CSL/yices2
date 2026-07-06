@@ -6511,15 +6511,13 @@ void smt2_set_info(const char *name, aval_t value) {
     break;
 
   case SMT2_KW_SMT_LIB_VERSION:
-    // quick hack to switch parser if 2.5 is selected
+    // recorded for (get-info :smt-lib-version); string parsing always
+    // follows SMT-LIB 2.6 regardless of the declared version.
     if (g->smtlib_version != 0) {
       print_error("can't set :smt-lib-version twice");
     } else if (aval_is_known_version(g->avtbl, value, &version)) {
       assert(version == 2000 || version == 2500 || version == 2600);
       g->smtlib_version = version;
-      if (version >= 2500) {
-        smt2_lexer_activate_two_dot_five();
-      }
       report_success();
     } else {
       print_error("unsupported :smt-lib-version");
@@ -7202,21 +7200,15 @@ void smt2_get_model(void) {
  * Print s on the output channel
  *
  * The SMT-LIB standard requires (echo s) to print the string literal s back
- * "as is", including the surrounding double quotes. The lexer has stripped
- * the quotes and decoded the escapes, so we reconstruct a valid literal,
- * escaping embedded characters the same way the lexer reads them:
- * - SMT-LIB 2.5/2.6: a double quote is escaped by doubling it ("")
- * - SMT-LIB 2.0: '"' is escaped as \" and '\' as \\
+ * "as is", including the surrounding double quotes (§4.2.9). The lexer has
+ * stripped the quotes and decoded the escapes, so we reconstruct a valid
+ * literal: per §3.1 a double quote is escaped by doubling it ("").
  */
 void smt2_echo(const char *s) {
-  bool v25 = __smt2_globals.smtlib_version >= 2500;
-
   print_out("\"");
   for (; *s != '\0'; s++) {
     if (*s == '"') {
-      print_out(v25 ? "\"\"" : "\\\"");
-    } else if (*s == '\\' && !v25) {
-      print_out("\\\\");
+      print_out("\"\"");
     } else {
       print_out("%c", *s);
     }

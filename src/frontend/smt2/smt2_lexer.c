@@ -260,11 +260,6 @@ static const char * const smt2_symbol_string[NUM_SMT2_SYMBOLS] = {
 
 static uint8_t active_symbol[NUM_SMT2_SYMBOLS];
 
-/*
- * FLAG TO SELECT 2.5 SYNTAX
- */
-static bool two_dot_five_variant = false;
-
 
 /*
  * Activate all default symbols:
@@ -457,14 +452,6 @@ void smt2_lexer_reset_logic(void) {
 
 
 /*
- * Switch to version 2.5
- */
-void smt2_lexer_activate_two_dot_five(void) {
-  two_dot_five_variant = true;
-}
-
-
-/*
  * Lexer initialization
  */
 int32_t init_smt2_file_lexer(lexer_t *lex, const char *filename) {
@@ -522,27 +509,20 @@ const char *smt2_keyword_to_string(smt2_keyword_t kw) {
 /*
  * Read a string literal
  * - current char is "
- * - read all characters until the closing " or any non-printable
- *   character
- * - replace escape sequences \" by " and \\ by \
+ * - read all characters up to the closing "
  *
- * Result: the lexer's buffer contains the string literal
- * without the delimiting quotes.
- * - return code:
+ * Per the SMT-LIB 2.6 standard (§3.1), a double quote is the only character
+ * that must be escaped inside a string literal, and it is escaped by
+ * doubling it: the sequence "" denotes a single ". The buffer ends up with
+ * the string contents, without the delimiting quotes.
+ *
+ * Return code:
  *   SMT2_TK_STRING if the string is valid
- *   SMT2_TK_INVALID_STRING if the string is terminated by
- *   a non-printable character
+ *   SMT2_TK_INVALID_STRING if it contains a control byte (< 32) that is
+ *     not whitespace
  *
- * NOTE: this is not strictly compliant with the SMT-LIB 2.0
- * standard as we may include non-ascii printable characters
- * in the string.
- *
- * NOTE2: the SMT-LIB2 standard says 'a string is any sequence of
- * printable ASCII characters delimited by double quotes ...' But it
- * does not define 'printable ASCII character'. Several benchmarks in
- * SMT-LIB include line breaks inside a string (which are not
- * printable characters), so I've changed the loop below to allow both
- * printable characters and spaces.
+ * NOTE: for compatibility with existing benchmarks we allow any character
+ * that is printable or a space, including non-ASCII bytes and line breaks.
  */
 static smt2_token_t smt2_read_string(lexer_t *lex) {
   reader_t *rd;
@@ -557,57 +537,10 @@ static smt2_token_t smt2_read_string(lexer_t *lex) {
   for (;;) {
     c = reader_next_char(rd);
     if (c == '"') {
-      // consume the closing quote
-      reader_next_char(rd);
-      tk = SMT2_TK_STRING;
-      break;
-    }
-
-    if (!isprint(c) && !isspace(c)) {
-      // error
-      tk = SMT2_TK_INVALID_STRING;
-      break;
-    }
-
-    if (c == '\\') {
-      c = reader_next_char(rd);
-      if (c != '"' && c != '\\') {
-        // keep the backslash
-        string_buffer_append_char(buffer, '\\');
-      }
-    }
-    string_buffer_append_char(buffer, c);
-  }
-
-  string_buffer_close(buffer);
-
-  return tk;
-}
-
-
-/*
- * String literal for SMT-LIB 2.5
- *
- * Gratuitous change to the escape sequence:
- * - replace "" inside the string by "
- */
-static smt2_token_t smt2_read_string_var(lexer_t *lex) {
-  reader_t *rd;
-  string_buffer_t *buffer;
-  int c;
-  smt2_token_t tk;
-
-  rd = &lex->reader;
-  buffer = lex->buffer;
-  assert(reader_current_char(rd) == '"');
-
-  for (;;) {
-    c = reader_next_char(rd);
-    if (c == '"') {
       c = reader_next_char(rd);
       if (c != '"') {
-	tk = SMT2_TK_STRING;
-	break;
+        tk = SMT2_TK_STRING;
+        break;
       }
     }
     if (c < 32 && !isspace(c)) {
@@ -1031,11 +964,7 @@ smt2_token_t next_smt2_token(lexer_t *lex) {
     goto done;
 
   case '"':
-    if (two_dot_five_variant) {
-      tk = smt2_read_string_var(lex);
-    } else {
-      tk = smt2_read_string(lex);
-    }
+    tk = smt2_read_string(lex);
     goto done;
 
   case '#':
