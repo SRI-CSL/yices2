@@ -7598,6 +7598,7 @@ static value_t egraph_concretize_value(egraph_t *egraph, value_table_t *vtbl, pa
   pstore_t *pstore;
   value_t v;
   elabel_t l;
+  type_t tau;
 
   pstore = egraph->mdl.pstore;
   v = particle_concrete_value(pstore, x);
@@ -7618,7 +7619,15 @@ static value_t egraph_concretize_value(egraph_t *egraph, value_table_t *vtbl, pa
       break;
 
     case FRESH_PARTICLE:
-      v = make_fresh_value(egraph->mdl.fval_maker, fresh_particle_type(pstore, x));
+      tau = fresh_particle_type(pstore, x);
+      v = make_fresh_value(egraph->mdl.fval_maker, tau);
+      if (v == null_value) {
+        // tau is finite and all its values are already used: no fresh value
+        // exists. Fall back to an arbitrary one. This particle is a function's
+        // default (its value outside the explicit domain), where any value of
+        // type tau is fine; distinctness is enforced separately (fun_solver.c).
+        v = vtbl_make_object(vtbl, tau);
+      }
       break;
 
     default:
