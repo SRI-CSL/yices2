@@ -12673,6 +12673,15 @@ bool simplex_value_in_model(simplex_solver_t *solver, int32_t x, rational_t *v) 
 }
 
 
+/*
+ * Check whether x is 0 in the solver's current (mid-search) candidate
+ * assignment, without requiring a built model.
+ */
+bool simplex_var_is_zero_in_assignment(simplex_solver_t *solver, thvar_t x) {
+  return xq_is_zero(arith_var_value(&solver->vtbl, x));
+}
+
+
 
 /*
  * Get the type of variable x
