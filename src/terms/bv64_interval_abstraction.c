@@ -50,7 +50,8 @@ static inline bool fits_k_bits(int64_t x, uint32_t k) {
 static inline int64_t opposite(int64_t x, uint32_t k, bool *overflow) {
   assert(fits_k_bits(x, k));
   *overflow = (x == min_int(k));
-  return -x;
+  // negate in the unsigned domain: -x is undefined when x == INT64_MIN
+  return (int64_t)(- (uint64_t) x);
 }
 
 // sum: x + y
@@ -59,7 +60,9 @@ static int64_t sum(int64_t x, int64_t y, uint32_t k, bool *overflow) {
 
   assert(fits_k_bits(x, k) && fits_k_bits(y, k));
 
-  s = x + y;
+  // add via unsigned: signed overflow is UB, which lets the compiler drop
+  // the sign-based overflow test below (miscompiled by gcc -O2/-O3)
+  s = (int64_t)((uint64_t) x + (uint64_t) y);
   if (k < 64) {
     *overflow = !fits_k_bits(s, k);
   } else {
@@ -73,7 +76,8 @@ static int64_t diff(int64_t x, int64_t y, uint32_t k, bool *overflow) {
   int64_t d;
 
   assert(fits_k_bits(x, k) && fits_k_bits(y, k));
-  d = x - y;
+  // subtract in the unsigned domain (see sum): signed overflow is undefined
+  d = (int64_t)((uint64_t) x - (uint64_t) y);
   if (k < 64) {
     *overflow = !fits_k_bits(d, k);
   } else {
@@ -120,8 +124,9 @@ static int64_t mul(int64_t x, int64_t y, bool *overflow) {
   uint64_t abs_x, abs_y, c, d;
   uint32_t x0, x1, y0, y1;
 
-  abs_x = (x < 0) ? (uint64_t) (- x) : x;
-  abs_y = (y < 0) ? (uint64_t) (- y) : y;
+  // take absolute values in the unsigned domain: -x is undefined when x == INT64_MIN
+  abs_x = (x < 0) ? - (uint64_t) x : (uint64_t) x;
+  abs_y = (y < 0) ? - (uint64_t) y : (uint64_t) y;
 
   x0 = abs_x & 0xFFFFFFFF;
   x1 = abs_x >> 32;
@@ -148,7 +153,8 @@ static int64_t mul(int64_t x, int64_t y, bool *overflow) {
     // we use the fact that -INT64_MIN == INT64_MIN
     // (assuming 2s complement arithmetic)
     *overflow = (d != 0) || (c > (uint64_t) INT64_MIN);
-    return - (int64_t) c;
+    // negate in the unsigned domain: -(int64_t) c is undefined when c == 2^63
+    return (int64_t)(- c);
   }
 }
 
@@ -499,7 +505,8 @@ void bv64_abs_negate(bv64_abs_t *a) {
 
   k = a->nbits;
 
-  low = - a->high;
+  // negate in the unsigned domain: -a->high is undefined when a->high == INT64_MIN
+  low = (int64_t)(- (uint64_t) a->high);
   high = opposite(a->low, k, &overflow);
   if (overflow && k >= 64) {
     bv64_top_abs(a);
@@ -778,7 +785,8 @@ void bv64_abs_power(bv64_abs_t *a, uint32_t d) {
       ovlow = false;
       // set high to either L or H, whichever has largest absolute value
       // then compute high^d
-      abs_l = - a->low;
+      // negate in the unsigned domain: -a->low is undefined when a->low == INT64_MIN
+      abs_l = - (uint64_t) a->low;
       high = (abs_l < (uint64_t) a->high) ? a->high : a->low;
       high = power(high, d, &ovhigh);
     }
