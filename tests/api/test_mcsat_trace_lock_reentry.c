@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * Regression test for MCSAT trace checks under THREAD_SAFE builds.
  *
  * Before the lock-free trace-check fix, these traces could re-enter lock-taking

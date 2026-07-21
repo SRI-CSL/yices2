@@ -1,4 +1,9 @@
 #!/bin/sh
+#
+# Copyright (c) 2026, SRI International
+# SPDX-License-Identifier: BSD-3-Clause
+#
+
 if eval 'uname > /dev/null 2> /dev/null'; then
   case `uname -s` in
     Linux*)

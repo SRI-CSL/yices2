@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /* Commit ID: a083255e3ee132988baacd7f3f1bc83121a842ef
  *
  * Achieves the following additional coverage:

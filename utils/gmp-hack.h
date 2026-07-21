@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * For compilation on MacOS X versions that support the -m32 and -m64 options.
  * We build and install the GMP libraries:
  * - for 32bits: GMP is configured using ABI=32

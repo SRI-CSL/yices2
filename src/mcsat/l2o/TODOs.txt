@@ -1,3 +1,8 @@
+#
+# Copyright (c) 2026, SRI International
+# SPDX-License-Identifier: BSD-3-Clause
+#
+
 
 * When setting the model for the trail, round doubles to gmp integers.
 ** For NRA, convert to rationals (with a cap on num/dem)

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 #include "yices.h"
 
 #include <stdbool.h>

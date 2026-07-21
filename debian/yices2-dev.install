@@ -1,4 +1,9 @@
 #! /usr/bin/dh-exec
+#
+# Copyright (c) 2026, SRI International
+# SPDX-License-Identifier: BSD-3-Clause
+#
+
 
 debian/tmp/usr/lib/${DEB_HOST_MULTIARCH}/*.so usr/lib/${DEB_HOST_MULTIARCH}
 debian/tmp/usr/include/* usr/include

@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * Tests for model clone/project support and adjacent model-domain behavior.
  */
 

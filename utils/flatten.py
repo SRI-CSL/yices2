@@ -1,5 +1,10 @@
 #!/usr/bin/env python
 #
+# Copyright (c) 2026, SRI International
+# SPDX-License-Identifier: BSD-3-Clause
+#
+
+#
 # This flattens the annnoying tree structure from star exec
 #
 #  flatten.py  dir0 will turn all files of the form

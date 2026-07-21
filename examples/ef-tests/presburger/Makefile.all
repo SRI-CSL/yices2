@@ -1,3 +1,8 @@
+#
+# Copyright (c) 2026, SRI International
+# SPDX-License-Identifier: BSD-3-Clause
+#
+
 #VALGRIND=valgrind --leak-check=full --show-leak-kinds=all
 VALGRIND=
 YICES_SMT2=${VALGRIND} ../../../build/x86_64-apple-darwin13.4.0-debug/bin/yices_smt2

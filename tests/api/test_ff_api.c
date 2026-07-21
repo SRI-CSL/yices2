@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * API coverage test for finite-field constructors, deconstructors, and model accessors.
  */
 

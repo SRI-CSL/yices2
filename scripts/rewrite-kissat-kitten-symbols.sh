@@ -1,5 +1,10 @@
 #! /bin/sh
 #
+# Copyright (c) 2026, SRI International
+# SPDX-License-Identifier: BSD-3-Clause
+#
+
+#
 # Rewrite Kissat's private Kitten symbols for Yices static builds.
 
 set -eu

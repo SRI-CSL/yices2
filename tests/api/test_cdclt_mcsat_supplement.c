@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * API coverage for CDCL(T) with supplementary MCSAT.
  *
  * This test intentionally forces top-level solver-type=dpllt and exercises:

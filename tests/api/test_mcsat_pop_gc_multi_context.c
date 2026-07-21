@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * Regression test exercising MCSAT pop + garbage collection across multiple
  * live MCSAT contexts.
  *

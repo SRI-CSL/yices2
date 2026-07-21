@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /* Achieves the following additional coverage:
  * terms/rba_buffer_terms.c:rba_buffer_mul_term_power(), case POWER_PRODUCT
  */

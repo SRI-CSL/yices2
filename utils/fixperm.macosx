@@ -1,4 +1,9 @@
 #!/bin/sh
+#
+# Copyright (c) 2026, SRI International
+# SPDX-License-Identifier: BSD-3-Clause
+#
+
 
 # Fix access permissions for /Library/Application Support/Yices
 

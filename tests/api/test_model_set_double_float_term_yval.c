@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * Test yices_model_set_double, yices_model_set_float, yices_model_set_term, yices_model_set_yval
  */
 
