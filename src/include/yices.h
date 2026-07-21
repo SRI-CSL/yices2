@@ -1,19 +1,6 @@
 /*
- * This file is part of the Yices SMT Solver.
- * Copyright (C) 2017 SRI International.
- *
- * Yices is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Yices is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 /*
@@ -57,7 +44,8 @@
  * STATUS_INTERRUPTED is a defined symbol in windows. 
  * We have renamed the symbol in yices_types.h and here 
  * we redefine the STATUS_INTERRUPTED symbol to be backward compatible.
- * This will be removed in the non-backward compatible release (Yices 2.8).
+ * This compatibility alias may be removed in a future release that permits
+ * breaking API changes.
  */
 #if !defined(MINGW) || !defined(THREAD_SAFE)
 #define STATUS_INTERRUPTED YICES_STATUS_INTERRUPTED
@@ -92,7 +80,7 @@ extern "C" {
  ********************/
 
 #define __YICES_VERSION            2
-#define __YICES_VERSION_MAJOR      7
+#define __YICES_VERSION_MAJOR      8
 #define __YICES_VERSION_PATCHLEVEL 0
 
 

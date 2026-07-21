@@ -1,3 +1,10 @@
+yices2 (2.8.0-0ubuntu1) jammy; urgency=medium
+
+  * Yices 2.8.0 release.
+  * Relicense SRI-owned sources under the BSD 3-Clause License.
+
+ -- Ahmed Irfan <ahmed.irfan@sri.com>  Fri, 31 Jul 2026 12:00:00 +0000
+
 yices2 (2.7.0-0ubuntu1) jammy; urgency=medium
 
   * Yices2.7.0 Release

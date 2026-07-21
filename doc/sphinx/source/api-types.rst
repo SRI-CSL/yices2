@@ -174,12 +174,6 @@ Yices Terms
 
       Rational constants
 
-   .. c:enum:: YICES_FF_CONSTANT
-
-      Finite-field constants
-
-      Since Yices 2.8.0.
-
    .. c:enum:: YICES_BV_CONSTANT
 
       Bitvector constants
@@ -566,12 +560,6 @@ Models
 
       Algebraic numbers
 
-   .. c:enum:: YVAL_FINITEFIELD
-
-      Finite-field constants
-
-      Since Yices 2.8.0.
-
    .. c:enum:: YVAL_BV
 
       Bitvector constants
@@ -699,15 +687,6 @@ Models
       formula at the model, then projects that flat conjunction. Projection is
       a hybrid of Fourier-Motzkin elimination and a model-based variant of
       virtual term substitution.
-
-   .. c:enum:: YICES_GEN_BY_PROJ_WIDE
-
-      Wide generalization by projection. This projects several model-true
-      implicant cubes and returns the union of the projected cubes. This mode
-      is selected explicitly and accepts a cube budget through
-      :c:func:`yices_generalize_model_with_budget`.
-
-      Since Yices 2.8.0.
 
    .. c:enum:: YICES_GEN_BY_PROJ_WIDE
 

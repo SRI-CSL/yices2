@@ -1,4 +1,4 @@
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![License: BSD 3-Clause](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](LICENSE.txt)
 [![CI](https://github.com/SRI-CSL/yices2/actions/workflows/ci.yml/badge.svg)](https://github.com/SRI-CSL/yices2/actions/workflows/ci.yml)
 [![Coverity Scan Build Status](https://scan.coverity.com/projects/12768/badge.svg)](https://scan.coverity.com/projects/sri-csl-yices2)
 [![Coverage Status](https://coveralls.io/repos/github/SRI-CSL/yices2/badge.svg?branch=master)](https://coveralls.io/github/SRI-CSL/yices2?branch=master)
@@ -15,6 +15,12 @@ and bindings for [Java](https://github.com/SRI-CSL/yices2_java_bindings), [Pytho
 
 This repository includes the source of Yices 2, documentation, tests,
 and examples.
+
+## License
+
+Yices 2.8.0 and later are distributed under the
+[BSD 3-Clause License](LICENSE.txt). Earlier releases remain available
+under the license that accompanied each release.
 
 Yices 2 is developed by Bruno Dutertre, Dejan Jovanovic, Stéphane Graham-Lengrand, Ian A. Mason, and Ahmed Irfan
 at the Computer Science Laboratory, SRI International. To contact us,
