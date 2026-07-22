@@ -83,6 +83,18 @@ extern term_t term_child(term_table_t *table, term_t t, uint32_t i);
 
 
 /*
+ * i-th subterm of t, for a generic recursive term traversal.
+ * - t must be a valid term in table; i must be in [0 ... n-1] where
+ *   n = term_num_children(table, t)
+ * Unlike term_child, this also handles the kinds that term_num_children counts
+ * but term_child does not: arithmetic/bitvector sums, products, and projections
+ * (select/bit). For every other kind it behaves exactly like term_child.
+ * - returns NULL_TERM for the constant monomial of a sum (no subterm there)
+ */
+extern term_t term_ith_subterm(term_table_t *table, term_t t, uint32_t i);
+
+
+/*
  * All children of t:
  * - t must be a valid term in table
  * - t must be a composite term

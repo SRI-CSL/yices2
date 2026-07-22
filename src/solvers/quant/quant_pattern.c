@@ -175,7 +175,8 @@ void quant_process_pattern_term(term_table_t *terms, term_t t, ivector_t *pv, iv
   // process all children (if any)
   n = term_num_children(terms, x);
   for(i=0; i<n; i++) {
-    u = term_child(terms, x, i);
+    u = term_ith_subterm(terms, x, i);
+    if (u == NULL_TERM) continue;  // constant monomial of a sum: nothing to recurse into
     quant_process_pattern_term(terms, u, pv, f, fa, c);
   }
 
@@ -236,9 +237,9 @@ void quant_process_pattern_term(term_table_t *terms, term_t t, ivector_t *pv, iv
     break;
 
   default:
-//    printf("Unsupported term (kind %d): ", kind);
-//    yices_pp_term(stdout, x, 120, 1, 0);
-    assert(false);
+    // arithmetic/bitvector operators and atoms and other interpreted terms:
+    // nothing to collect here; their leaves are gathered via the recursion above
+    break;
   }
 }
 
@@ -270,7 +271,8 @@ static bool quant_infer_single_fapps(term_table_t *terms, term_t t, int_hmap_t *
   if (n != 0) {
     init_int_hmap(childMap, 0);
     for(i=0; i<n; i++) {
-      u = term_child(terms, x, i);
+      u = term_ith_subterm(terms, x, i);
+      if (u == NULL_TERM) continue;  // constant monomial of a sum
       int_hmap_reset(childMap);
       skip |= quant_infer_single_fapps(terms, u, childMap, nuvars, out);
 
@@ -304,9 +306,8 @@ static bool quant_infer_single_fapps(term_table_t *terms, term_t t, int_hmap_t *
         break;
 
       default:
-//        printf("Unsupported term (kind %d): ", kind);
-//        yices_pp_term(stdout, x, 120, 1, 0);
-        assert(false);
+        // interpreted operator/atom: do not propagate its variables upward
+        break;
       }
 
     }
@@ -356,9 +357,9 @@ static bool quant_infer_single_fapps(term_table_t *terms, term_t t, int_hmap_t *
     break;
 
   default:
-//    printf("Unsupported term (kind %d): ", kind);
-//    yices_pp_term(stdout, x, 120, 1, 0);
-    assert(false);
+    // interpreted operator/atom: cannot serve as a single-fapp pattern
+    skip = true;
+    break;
   }
 
 #if TRACE
@@ -412,7 +413,8 @@ static bool quant_infer_multi_fapps(term_table_t *terms, term_t t, ptr_hmap_t *u
   n = term_num_children(terms, x);
   if (n != 0) {
     for(i=0; i<n; i++) {
-      u = term_child(terms, x, i);
+      u = term_ith_subterm(terms, x, i);
+      if (u == NULL_TERM) continue;  // constant monomial of a sum
       skip |= quant_infer_multi_fapps(terms, u, uv2fapp, fapp2uv);
     }
   }
@@ -507,9 +509,9 @@ static bool quant_infer_multi_fapps(term_table_t *terms, term_t t, ptr_hmap_t *u
     break;
 
   default:
-//    printf("Unsupported term (kind %d): ", kind);
-//    yices_pp_term(stdout, x, 120, 1, 0);
-    assert(false);
+    // interpreted operator/atom: cannot host multi-fapp mappings
+    skip = true;
+    break;
   }
 
   return skip;

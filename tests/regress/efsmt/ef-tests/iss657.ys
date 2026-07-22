@@ -1,0 +1,8 @@
+;; Issue #657: ef-solve on a problem with an uninterpreted-function
+;; existential (cryWidthUnknown) and an arithmetic universal (x).
+;; This combination is not supported by the projection-based ef-solver, so
+;; the expected answer is 'unknown'. It used to crash / report a spurious bug.
+(define cryWidthUnknown::(-> int int))
+(define k_2_to_64::int 18446744073709551616)
+(assert (forall (x::int) (or (> (cryWidthUnknown x) 64) (< x k_2_to_64))))
+(ef-solve)
