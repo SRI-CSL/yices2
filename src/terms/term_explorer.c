@@ -485,6 +485,48 @@ term_t term_child(term_table_t *table, term_t t, uint32_t i) {
 
 
 /*
+ * i-th subterm of t (see header): like term_child, but also supports the
+ * arithmetic/bitvector sums, products, and projections that term_num_children
+ * counts. Reads their components straight from the descriptor (no coefficient
+ * is materialized). Returns NULL_TERM for a sum's constant monomial.
+ */
+term_t term_ith_subterm(term_table_t *table, term_t t, uint32_t i) {
+  term_t v;
+
+  assert(good_term(table, t) && i < term_num_children(table, t));
+
+  if (is_neg_term(t)) {
+    return term_child(table, t, i); // (not u): a single child u
+  }
+
+  switch (term_kind(table, t)) {
+  case ARITH_POLY:
+    v = poly_term_desc(table, t)->mono[i].var;
+    break;
+  case ARITH_FF_POLY:
+    v = finitefield_poly_term_desc(table, t)->mono[i].var;
+    break;
+  case BV64_POLY:
+    v = bvpoly64_term_desc(table, t)->mono[i].var;
+    break;
+  case BV_POLY:
+    v = bvpoly_term_desc(table, t)->mono[i].var;
+    break;
+  case POWER_PRODUCT:
+    return pprod_term_desc(table, t)->prod[i].var;
+  case SELECT_TERM:
+  case BIT_TERM:
+    return proj_term_arg(table, t);
+  default:
+    return term_child(table, t, i);
+  }
+
+  // sums store their constant with variable const_idx: no subterm to recurse into
+  return (v == const_idx) ? NULL_TERM : v;
+}
+
+
+/*
  * All children of t:
  * - t must be a valid term in table
  * - t must be a composite term
