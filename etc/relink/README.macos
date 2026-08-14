@@ -1,0 +1,204 @@
+Yices macOS relink kit
+======================
+
+You do not need this kit to install or run Yices
+-------------------------------------------------
+
+Use the normal Yices distribution archive to install Yices. This separate kit
+contains the Yices object code, the exact dependency archives, the link
+commands needed to relink the four command-line tools and the dynamic library
+after modifying GMP or LibPoly, and the license texts and notices for the
+components it redistributes.
+
+The kit is self-contained. It does not need a Yices source or build tree.
+
+
+Contents
+--------
+
+  README                         this file
+  BUILDINFO                      production identity and five link commands
+  MANIFEST.sha256                checksum for every other shipped file
+  LICENSE                        Yices' own license terms
+  NOTICES                        the components in this kit and their notices
+  executables/                   four front-end object files
+  deps/                          Yices and dependency archives
+  licenses/                      license texts that accompany this kit
+  relink-executables.sh          rebuilds the four tools
+  relink-library.sh              rebuilds libyices.2.dylib
+  verify-manifest.sh             verifies the extracted kit
+
+The normal and PIC LibPoly archives have the same byte count on the official
+builders but different contents. The scripts select them by path. The three
+full front ends use deps/libpoly.a. The dynamic library uses
+deps/libpicpoly.a. yices-sat uses neither one and also uses no GMP archive.
+
+The GMP inventory is derived from the configured release inputs. An Apple
+Silicon kit contains deps/libgmp-static.a for the executables and a distinct
+deps/libgmp-pic.a for the dynamic library. The Intel release uses one fat PIC
+archive for both payloads, so its kit contains only deps/libgmp-static.a and
+the library script selects that same file. BUILDINFO and MANIFEST.sha256 record
+which arrangement the kit contains.
+
+All dependency archives are named explicitly and occur in the same order as in
+the production links. The scripts do not use -L or -l for those archives, so
+they cannot select a library from the machine running the relink.
+
+
+Requirements
+------------
+
+Run the scripts on macOS with command-line developer tools for the same native
+architecture as the kit. They require cc, codesign, lipo, otool, and either
+shasum or sha256sum. The scripts export MACOSX_DEPLOYMENT_TARGET=11.0 and link
+the C++ runtime as -lc++.
+
+Relinking with a different compiler or SDK from the production versions in
+BUILDINFO may change the output or fail. The kit promises relinkability, not a
+byte-identical result.
+
+
+Verify, relink, and inspect
+---------------------------
+
+From the extracted kit root:
+
+    ./verify-manifest.sh
+    ./relink-executables.sh
+    ./relink-library.sh
+
+The output defaults to ./relinked. Each script prints its full link command.
+The outputs are ad hoc signed because modern macOS requires a valid signature
+after a link changes Mach-O contents.
+
+Inspect the four executables:
+
+    for f in relinked/yices relinked/yices-sat \
+             relinked/yices-smt relinked/yices-smt2; do
+        "$f" --version
+        lipo -info "$f"
+        otool -L "$f"
+        otool -l "$f" | grep -A3 LC_BUILD_VERSION
+    done
+
+Inspect the dynamic library:
+
+    otool -D relinked/libyices.2.dylib
+    otool -L relinked/libyices.2.dylib
+    lipo -info relinked/libyices.2.dylib
+    otool -l relinked/libyices.2.dylib | grep -A3 LC_BUILD_VERSION
+
+The install name must be exactly @rpath/libyices.2.dylib. The only load
+dependencies must be /usr/lib/libSystem.B.dylib and
+/usr/lib/libc++.1.dylib. Every LC_BUILD_VERSION must report minos 11.0.
+
+
+Replace a library
+-----------------
+
+Either replace the corresponding file under deps/ or provide an environment
+override. For example:
+
+    GMP_A=/path/to/libgmp.a SKIP_VERIFY=1 ./relink-executables.sh
+    LIBPOLY_A=/path/to/libpicpoly.a SKIP_VERIFY=1 ./relink-library.sh
+
+Set SKIP_VERIFY=1 after intentionally changing an input, because the original
+manifest should and will reject changed bytes. The library-side GMP and
+LibPoly inputs must be position-independent.
+
+These are the inputs relink-executables.sh accepts, besides the test hook
+described under "Archive order guard" below.
+
+    CC             compiler driver, default cc
+    CFLAGS         compile and link flags, see below
+    LIBYICES_A     default deps/libyices.a
+    GMP_A          default deps/libgmp-static.a
+    LIBPOLY_A      default deps/libpoly.a
+    CUDD_A         default deps/libcudd.a
+    CADICAL_A      default deps/libcadical.a
+    CMS_A          default deps/libcryptominisat5.a
+    KISSAT_A       default deps/libkissat_yices.a
+    SKIP_VERIFY    set to 1 to bypass the manifest check
+
+The first argument is the output directory. It defaults to ./relinked.
+
+relink-library.sh accepts the same set with three differences. Its LIBPOLY_A
+defaults to deps/libpicpoly.a. Its GMP_A defaults to deps/libgmp-pic.a when
+the kit contains that file and to deps/libgmp-static.a otherwise, which is the
+arrangement described above. It adds LIBNAME, default libyices.2.dylib, and
+INSTALL_NAME, default @rpath/libyices.2.dylib.
+
+There is no input for a C library, and there is none in deps/. macOS supplies
+the C library as part of the operating system, so no C library is built into
+these binaries and none is replaced here.
+
+BUILDINFO records, for each output, a link command assembled from the same
+variables the production rules used. It is not a capture of the command line
+the linker received. Treat the corresponding link-* entry as the reference
+command. The command a script prints is not identical to it. These are the
+differences.
+
+  CC defaults to cc, while BUILDINFO records gcc as the driver. Both resolve
+  to the same Apple toolchain compiler on a normal macOS installation.
+
+  CFLAGS defaults to
+  -fvisibility=hidden -O3 -fomit-frame-pointer -fno-stack-protector.
+  BUILDINFO records those same four flags with -Wall and -Wredundant-decls
+  inserted after -fvisibility=hidden. Those two control diagnostics and do not
+  change the generated code.
+
+  Every link-* entry in BUILDINFO begins with MACOSX_DEPLOYMENT_TARGET=11.0.
+  The scripts export that variable instead of printing it, so it does not
+  appear in the printed command.
+
+  The scripts resolve the kit to an absolute path and print an absolute
+  pathname for every object file and archive. BUILDINFO records the same files
+  as kit-relative paths, such as executables/yices.o and deps/libcudd.a.
+
+  The scripts write into the output directory, so the printed command ends
+  with an output path such as -o ./relinked/yices. BUILDINFO records -o yices.
+
+Setting CC and CFLAGS to the values BUILDINFO records closes the first two
+differences. The last three remain. The deployment target is already exported
+with the value BUILDINFO records, and the two path differences follow from
+where you unpacked the kit and where you sent the output. Compare the two
+commands input by input rather than as strings.
+
+
+Archive order guard
+-------------------
+
+GMP must remain the final archive in the full executable and dynamic-library
+lists. Both scripts enforce that ordering before checking files or invoking the
+compiler. The test hook below deliberately moves a non-archive argument after
+GMP and must fail with exit status 1:
+
+    RELINK_TEST_GMP_NOT_LAST=1 SKIP_VERIFY=1 ./relink-executables.sh
+    RELINK_TEST_GMP_NOT_LAST=1 SKIP_VERIFY=1 ./relink-library.sh
+
+This hook changes no normal invocation. It exists so the guard itself can be
+tested rather than merely inspected.
+
+
+License texts and notices
+-------------------------
+
+GMP and LibPoly are distributed in this release under the GNU Lesser General
+Public License version 3 or later. That license incorporates the GNU General
+Public License version 3 by reference, so licenses/ carries both full texts.
+
+There is no glibc archive in a macOS Yices binary. The macOS kits therefore do
+not carry LGPL version 2.1 terms.
+
+The BSD, MIT and Apache License 2.0 texts are present because components in
+deps/ are distributed under them, and NOTICES records which component each
+applies to. licenses/ is not a complete set of the terms that apply to those
+components. Where a component's terms are not in licenses/, NOTICES reproduces
+them instead, as it does for CUDD.
+
+CUDD, CaDiCaL, Kissat, and CryptoMiniSat are here because their archives are
+necessary for relinking. This kit publishes no relinking material for them.
+Their notices are here because this kit redistributes those archives.
+
+NOTICES, in this kit, records each third-party component the kit redistributes, where it
+came from, and the terms its own authors distribute it under.

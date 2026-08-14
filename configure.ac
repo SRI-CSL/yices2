@@ -47,6 +47,19 @@ if test "$POSIXOS" = unknown ; then
    AC_MSG_ERROR([Unknown operating system])
 fi
 
+AC_SUBST(YICES_PC_PRIVATE_LIBS)
+case "${host_os:-$build_os}" in
+  linux*)
+    YICES_PC_PRIVATE_LIBS="-lcudd -lm -lcryptominisat5 -lcadical -lkissat_yices -lstdc++ -lm -lpthread -lpoly -lgmp"
+    ;;
+  darwin*)
+    YICES_PC_PRIVATE_LIBS="-lcudd -lm -lcryptominisat5 -lcadical -lkissat_yices -lc++ -lm -lpoly -lgmp"
+    ;;
+  *)
+    YICES_PC_PRIVATE_LIBS=""
+    ;;
+esac
+
 
 dnl
 dnl define SET_MAKE if needed
@@ -62,6 +75,12 @@ dnl
 AC_PROG_SED
 AC_PROG_LN_S
 AC_PROG_MKDIR_P
+case "$MKDIR_P" in
+  ./*)
+    MKDIR_P="$ac_pwd/${MKDIR_P#./}"
+    AC_MSG_NOTICE([using absolute MKDIR_P: $MKDIR_P])
+    ;;
+esac
 AC_PROG_INSTALL
 
 AC_PROG_CC
@@ -993,14 +1012,19 @@ if test "x$static_delegates" != x ; then
    fi
 
    if test $HAVE_KISSAT_DELEGATE = yes ; then
-      CSL_CHECK_STATIC_DELEGATE_ARCHIVE([$static_delegates],[libkissat.a])
-      STATIC_KISSAT_RAW=$testlib
-      STATIC_KISSAT_YICES='$(STATIC_DEPDIR)/libkissat_yices.a'
+      if test -f "$static_delegates/libkissat_yices.a" ; then
+         AC_MSG_NOTICE([using supplied namespaced Kissat archive $static_delegates/libkissat_yices.a])
+         STATIC_KISSAT_YICES="$static_delegates/libkissat_yices.a"
+      else
+         CSL_CHECK_STATIC_DELEGATE_ARCHIVE([$static_delegates],[libkissat.a])
+         STATIC_KISSAT_RAW=$testlib
+         STATIC_KISSAT_YICES='$(STATIC_DEPDIR)/libkissat_yices.a'
+      fi
       CSL_CHECK_HEADER([kissat.h],$static_include_delegates,--with-static-delegates-include-dir)
    fi
 else
    if test $HAVE_CADICAL_DELEGATE = yes && test $HAVE_KISSAT_DELEGATE = yes ; then
-      AC_MSG_WARN([CaDiCaL and Kissat both export private Kitten symbols. Static builds must configure --with-static-delegates=DIR so make can generate libkissat_yices.a.])
+      AC_MSG_WARN([CaDiCaL and Kissat both export private Kitten symbols. Static builds must configure --with-static-delegates=DIR so the build can use or generate a namespaced libkissat_yices.a.])
    fi
 fi
 
@@ -1025,21 +1049,6 @@ if test $use_mcsat = yes ; then
    AC_CHECK_LIB([cudd],[Cudd_Init], [], [AC_MSG_ERROR([*** CUDD library not found. Try to set LDFLAGS ***])])   
 fi
 
-
-#
-# Fix MKDIR_P to an absolute path if it's set to './install-sh -c -d'
-# because the Makefiles import its definition via ./configs/make.include.
-# This may be unreliable (it won't handle spaces in directory names).
-#
-# case "$MKDIR_P" in
-#   ./install-sh*)
-#      curdir=`pwd`
-#      new_mkdir_p="$curdir/$MKDIR_P"
-#     AC_MSG_WARN([*** MKDIR_P is relative: converting $MKDIR_P to $new_mkdir_p ***])
-#     MKDIR_P=$new_mkdir_p
-#     ;;
-# esac
-#
 
 #
 # THREAD-SAFE OPTION
@@ -1079,7 +1088,7 @@ CFLAGS=$saved_cflags
 #
 # Store config data in ./configs/make.include.$(ARCH)
 #
-AC_CONFIG_FILES([make.include])
+AC_CONFIG_FILES([make.include yices.pc])
 AC_OUTPUT
 
 if test ! -d configs ; then

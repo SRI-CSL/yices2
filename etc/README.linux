@@ -4,6 +4,8 @@ Yices SMT Solver
 Copyright (c) 2026, SRI International
 SPDX-License-Identifier: BSD-3-Clause
 
+This applies to the Yices source. Other components in this distribution are
+covered by their own terms; NOTICES reproduces the required notices.
 
 Content
 -------
@@ -66,4 +68,4 @@ as argument to the shell script:
 
 
 
-For more information about Yices, please visit http://yices.csl.sri.com.
+For more information about Yices, please visit https://yices.csl.sri.com.

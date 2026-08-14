@@ -56,7 +56,7 @@ static void print_help(char *progname) {
 	 "  --dump <file>           Dump all internal tables into the given <file>\n"
 	 "    or -d <file>          or to stdout if no <file> is given\n"
 	 "\n"
-	 "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
+	 "For bug reporting and other information, please see https://yices.csl.sri.com/\n");
   fflush(stdout);
 }
 

@@ -7,6 +7,10 @@ Source: https://github.com/SRI-CSL/yices2
 Files: *
 Copyright: 2026 SRI International
 License: BSD-3-Clause
+Comment: Some files in the Yices source carry third-party material that this
+ paragraph does not enumerate. etc/NOTICES sections 1 and 2 record each item
+ and where it came from, and state where the applicable terms could not be
+ established.
 
 Files: autoconf/config.guess config.guess config.sub
 Copyright: 1992-2016 Free Software Foundation, Inc.

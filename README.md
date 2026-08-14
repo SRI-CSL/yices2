@@ -18,7 +18,7 @@ and examples.
 
 ## License
 
-Yices 2.8.0 and later are distributed under the
+The Yices source is distributed under the
 [BSD 3-Clause License](LICENSE.txt). Earlier releases remain available
 under the license that accompanied each release.
 
@@ -148,7 +148,7 @@ This will install the full mcsat-enabled version of Yices, including dynamic lib
 
 #### Apt
 
-To install Yices on Ubuntu or Debian, do the following:
+We provide APT packages for Ubuntu through a Launchpad PPA:
 ```
 sudo add-apt-repository ppa:sri-csl/formal-methods
 sudo apt-get update
@@ -159,6 +159,11 @@ the last step with:
 ```
 sudo apt-get install yices2-dev
 ```
+
+The PPA provides packages for Ubuntu 22.04 (Jammy) on amd64. It may lag the
+current release. Check with `apt-cache policy yices2`. For the current
+release, use the binary distributions at https://yices.csl.sri.com or build
+from source.
 
 
 ## Building From Source

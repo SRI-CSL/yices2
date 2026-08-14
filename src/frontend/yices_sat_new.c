@@ -522,7 +522,7 @@ static void print_help(char *progname) {
 	 "   --stats                 Print statistics at the end of the search\n"
 	 "   --data                  Store conflict data in 'xxxx.data'\n"
          "\n"
-         "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
+         "For bug reporting and other information, please see https://yices.csl.sri.com/\n");
   fflush(stdout);
 }
 

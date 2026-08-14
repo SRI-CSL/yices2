@@ -1,0 +1,59 @@
+# Copyright (c) 2026, SRI International
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# pkg-config metadata for the Yices SMT solver.
+#
+# Two things about this file are worth knowing before editing it.
+#
+# Libs.private is load-bearing, not decorative. libyices.a contains Yices
+# object code only, with no third-party library code in it, and carries
+# unresolved references to its configured private dependencies. A static
+# consumer must supply every one of them, and the list below is where
+# `pkg-config --static --libs yices` gets it from. If the list is wrong or
+# incomplete, a static link fails with undefined symbols in somebody else's
+# code and the cause is not obvious.
+#
+# Order matters. GMP must come last, because the other libraries depend on it
+# and a static linker resolves left to right. The generated static link rules
+# keep GMP last for this reason.
+#
+# Kissat and CaDiCaL: a caution for static consumers.
+#
+# CaDiCaL and Kissat each embed a copy of Kitten and each exports its private
+# symbols. Linking stock builds of both into one program can bind one solver's
+# internal calls to the other's Kitten. It is silent rather than a link error,
+# which is what makes it worth a comment.
+#
+# This is a hazard between those two libraries. It is not created by Yices,
+# and it does not affect Yices' own use of Kissat: Yices calls only the public
+# kissat_* API, which the workaround below does not touch.
+#
+# The Yices release build avoids the collision by renaming Kissat's private
+# Kitten symbols before linking. The script that does it,
+# scripts/rewrite-kissat-kitten-symbols.sh, is included in the Yices source
+# distribution, so it is available to you as well.
+#
+# Link order does not isolate two libraries' same-named private symbols. It
+# only determines which definition satisfies both libraries' references, so
+# a collision can occur without a link error.
+#
+# The libkissat_yices and libcryptominisat5 entries below refer to the
+# SRI-patched forks pinned for this release at commits 7e08e870 and b8c0e44b,
+# respectively. Stock upstream archives are not equivalent static link inputs.
+#
+# If you link statically and pull in both solvers, you have two options:
+#   - apply the same renaming with that script;
+#   - link only one of the two.
+
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: Yices
+Description: The Yices 2 SMT solver
+URL: https://yices.csl.sri.com
+Version: 2.8.0
+Cflags: -I${includedir}
+Libs: -L${libdir} -lyices
+Libs.private: @YICES_PC_PRIVATE_LIBS@

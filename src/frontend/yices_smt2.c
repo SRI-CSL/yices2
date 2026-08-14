@@ -254,7 +254,11 @@ static void print_version(void) {
    "Copyright Free Software Foundation, Inc.\n"
          "Build date: %s\n"
          "Platform: %s (%s)\n"
-         "Revision: %s\n",
+         "Revision: %s\n"
+         "Includes components from the Free Software Foundation and others.\n"
+         "See the NOTICES file for those components, and the LICENSES\n"
+         "directory for copies of the GNU Lesser General Public License and\n"
+         "the GNU General Public License that apply to some of them.\n",
          yices_version, gmp_version,
          yices_build_date, yices_build_arch, yices_build_mode, yices_rev);
   fflush(stdout);
@@ -286,7 +290,7 @@ static void print_help(const char *progname) {
 	 "    --nthreads=<number of threads>  Specify the number of threads (default = 0 = main thread only)\n"
 	 "    -n <number of threads>\n"
          "\n"
-         "For bug reports and other information, please see http://yices.csl.sri.com/\n");
+         "For bug reports and other information, please see https://yices.csl.sri.com/\n");
   fflush(stdout);
 }
 

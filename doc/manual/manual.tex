@@ -158,12 +158,11 @@ If you use homebrew on Mac OS~X, you can easily install Yices as follows:
 executables, library, and include files.
 
 
-\subsubsection{Debian Package}
+\subsubsection{Ubuntu Package}
 
-For Ubuntu or Debian (or any other Linux distribution that uses
-\texttt{apt}), we provide APT packages. To install them, you must
-first add our PPA to your list of repositories then install package
-\texttt{yices2}:
+We provide APT packages for Ubuntu through a Launchpad PPA. To install
+them, you must first add our PPA to your list of repositories then
+install package \texttt{yices2}:
 \begin{small}
 \begin{lstlisting}[language=sh]
   sudo add-apt-repository ppa:sri-csl/formal-methods
@@ -177,6 +176,10 @@ You can also install the library and development files as follows:
   sudo apt-get install yices2-dev libyices2.8
 \end{lstlisting}
 \end{small}
+The PPA provides packages for Ubuntu 22.04 (Jammy) on amd64. It may lag
+the current release. Check with \texttt{apt-cache policy yices2}. For the
+current release, use the binary distributions at
+\url{https://yices.csl.sri.com} or build from source.
 
 
 \subsection{Source Distribution}
@@ -4264,8 +4267,7 @@ model we started from, namely, $a=0$, $b=0$, $c=1$.
 
 
 %% Similar commands are available in other solvers such
-%% as MathSAT~5\footnote{\url{http://mathsat.fbk.eu/smt2examples.html}} and
-%% Z3\footnote{\url{http://rise4fun.com/z3/tutorial/guide}}.
+%% as MathSAT~5\footnote{\url{http://mathsat.fbk.eu/smt2examples.html}}.
 
 %% \medskip\noindent When Yices is run in incremental mode, a
 %% \texttt{(reset)} command is available to remove all assertions,
@@ -4441,7 +4443,7 @@ python3 utils/yices2_parallel.py --help
 %% which includes all the API. The API functions are documented in this
 %% header file. More complete and detailed documentation on the Yices~2
 %% API will be provided at the Yices website
-%% \url{http://yices.csl.sri.com/}.
+%% \url{https://yices.csl.sri.com/}.
 
 You can use Yices in your software via a C-API. The main header file
 is \texttt{yices.h} which includes all the API. The API functions are

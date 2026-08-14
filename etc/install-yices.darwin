@@ -18,6 +18,8 @@
 #     binaries      in <location>/bin
 #     libraries     in <location>/lib
 #     include files in <location>/include
+#     legal record  in <location>/share/doc/yices-2.8.0 and
+#                   <location>/share/licenses/yices-2.8.0
 #
 # If no <location> is given, Yices will be installed in /usr/local.
 #
@@ -38,6 +40,8 @@ This copies binaries, libraries, and header files as follows:
    binaries      in <directory>/bin
    libraries     in <directory>/lib
    include files in <directory>/include
+   legal record  in <directory>/share/doc/yices-2.8.0 and
+                 <directory>/share/licenses/yices-2.8.0
 
 If the <directory> is not given, this script will attempt to install
 Yices in the default location, that is, in /usr/local. To use this
@@ -123,6 +127,8 @@ else
    exit 1
 fi
 
+version=2.8.0
+
 
 #
 # Set install dir and local_install flag
@@ -176,6 +182,8 @@ fi
 bindir="$install_dir/bin"
 libdir="$install_dir/lib"
 includedir="$install_dir/include"
+docdir="$install_dir/share/doc/yices-$version"
+licensesdir="$install_dir/share/licenses/yices-$version"
 
 
 #
@@ -184,10 +192,14 @@ includedir="$install_dir/include"
 #
 if test "$local_install" = "no" ; then
   echo "Installing Yices in $install_dir"
-  { $install -d "$install_dir" "$bindir" "$libdir" "$includedir" \
+  { $install -d "$install_dir" "$bindir" "$libdir" "$includedir" "$docdir" "$licensesdir" \
     && $install -m 0644 ./include/*.h "$includedir" \
     && $install ./bin/* "$bindir" \
-    && $install ./lib/*.2.dylib "$libdir" ; } 2> /dev/null ||
+    && $install ./lib/*.2.dylib "$libdir" \
+    && $install -m 0644 ./LICENSE "$docdir" \
+    && $install -m 0644 ./NOTICES "$docdir" \
+    && $install -m 0644 ./PROVENANCE "$docdir" \
+    && $install -m 0644 ./LICENSES/* "$licensesdir" ; } 2> /dev/null ||
   { echo "$failure"
     echo "Could not create install directories or copy files"
     echo "Check that you have the right permissions"

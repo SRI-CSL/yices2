@@ -303,7 +303,18 @@ static void print_version(FILE *f) {
   fprintf(f,
           "Yices %s. Copyright (c) 2026, SRI International.\n"
           "Build date: %s\n"
-          "Platform: %s (%s)\n",
+          "Platform: %s (%s)\n"
+#if defined(__GLIBC__)
+          "Linked with the GNU C Library\n"
+          "Copyright Free Software Foundation, Inc.\n"
+          "See the NOTICES file for that component, and the LICENSES\n"
+          "directory for a copy of the GNU Lesser General Public License\n"
+          "that applies to it.\n"
+#else
+          "See the NOTICES file for the third-party components in this\n"
+          "distribution and the LICENSES directory for their license texts.\n"
+#endif
+          ,
           yices_version,
           yices_build_date,
           yices_build_arch,
@@ -320,7 +331,7 @@ static void print_help(char *progname) {
          "   --verbose, -v        Print statistics during the search\n"
 	 "   --stats              Print statistics at the end of the search\n"
          "\n"
-         "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
+         "For bug reporting and other information, please see https://yices.csl.sri.com/\n");
   fflush(stdout);
 }
 

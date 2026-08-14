@@ -4,6 +4,9 @@ Yices SMT Solver
 Copyright (c) 2026, SRI International
 SPDX-License-Identifier: BSD-3-Clause
 
+This applies to the Yices source. Other components in this distribution are
+covered by their own terms; NOTICES reproduces the required notices.
+
 Content
 -------
 
@@ -38,9 +41,12 @@ Yices to find it.
 Installation
 ------------
 
-The library's install name is '/usr/local/lib/__DYLIB__', so
-__DYLIB__ must be copied into /usr/local/lib.
-This distribution includes a shell script for this purpose.
+The library's install name is '@rpath/__DYLIB__'. A program that links against
+it must supply a run-path, normally with
+`-Wl,-rpath,/path/to/yices/lib` at link time, or set `DYLD_LIBRARY_PATH` at
+run time.
+This distribution includes a shell script to copy the files into an
+installation prefix.
 Just type
 
    sudo ./install-yices
@@ -52,5 +58,5 @@ Other installation choices are possible. Try ./install-yices --help
 for more explanations.
 
 
-For more information, please visit http://yices.csl.sri.com.
+For more information, please visit https://yices.csl.sri.com.
 

@@ -1,0 +1,101 @@
+# Copyright (c) 2026, SRI International
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# Template for the BUILDINFO file carried in the Yices relink kit.
+#
+# The production build fills every field. Do not hand-edit the generated file
+# and do not ship this template in place of it. Fields marked GENERATED must
+# come from the build environment at the moment the artifact is produced, not
+# from a person typing what they believe to be true.
+#
+# Format is one "key: value" per line. Values containing newlines are indented
+# by two spaces on continuation lines.
+
+# --- identity -------------------------------------------------------------
+
+yices-version:            2.8.0
+yices-commit:             GENERATED   git rev-parse HEAD
+yices-branch:             GENERATED   git rev-parse --abbrev-ref HEAD
+artifact:                 GENERATED   name of the binary tarball this kit corresponds to
+artifact-sha256:          GENERATED   sha256 of that tarball
+kit-built:                GENERATED   date -u +%Y-%m-%dT%H:%M:%SZ
+
+# --- target ---------------------------------------------------------------
+
+target-triple:            GENERATED   output of config.guess
+elf-class:                GENERATED   readelf -hW on a shipped executable
+build-host-os:            GENERATED   distribution name and version
+thread-safe:              GENERATED   yes or no, from THREAD_SAFE in make.include
+yices-mode:               release
+
+# The builder image, pinned by digest. A tag is NOT sufficient: manylinux
+# images are rebuilt under the same tag, so a tag does not identify the
+# package set that produced these objects. Nothing inside a container can
+# discover its own digest, so the invoker supplies it.
+#
+# Production value for the Linux x86-64 artifact:
+#   quay.io/pypa/manylinux_2_28_x86_64@sha256:e0b40ace8e818e96026eb47714b01998cbca022a6995797d0905474ce3e82ae8
+
+builder-image:            GENERATED   image reference including the digest
+builder-image-digest:     GENERATED   the sha256: digest alone
+
+# --- toolchain that produced the published objects -------------------------
+#
+# A relinker whose toolchain differs from these may still succeed. See the
+# README. These are recorded so the difference can be seen.
+
+cc:                       GENERATED   value of CC
+cc-version:               GENERATED   first line of $CC --version
+cxx-runtime:              GENERATED   libstdc++ version linked, from the archive used
+ld-version:               GENERATED   first line of $LD --version
+ar-version:               GENERATED   first line of ar --version
+libc-runtime:             GENERATED   first line of ldd --version
+
+# --- flags, exactly as used ------------------------------------------------
+#
+# These are the values the production link used. The relink scripts have their
+# own defaults and do not read this file. The kit README lists where the two
+# differ. Encode the production values here rather than relying on the
+# scripts' defaults.
+
+cflags:                   GENERATED   final value of CFLAGS
+static-flag:              GENERATED   final value of STATIC
+bin-ldflags:              GENERATED   final value of BIN_LDFLAGS
+soname:                   libyices.so.2.8
+
+# --- production link commands, as reconstructed ---------------------------
+#
+# One field per output. The release build assembles each value from the same
+# variables the production rules use, then writes the dependency archives as
+# kit-relative paths in place of the -L and -l form those rules pass. A value
+# is not a capture of the command line the linker received. LDFLAGS has no
+# field here, and the release stripping that follows each link is not recorded
+# in this file. A relinker compares these against what the scripts print,
+# input by input rather than as strings.
+
+link-yices:               GENERATED
+link-yices-smt:           GENERATED
+link-yices-smt2:          GENERATED
+link-yices-sat:           GENERATED
+link-libyices-so:         GENERATED
+
+# --- LGPL source correspondence -------------------------------------------
+#
+# These fields identify the exact source packages published alongside this
+# kit. They are captured during the build, from the packages the build itself
+# used, rather than assembled afterward.
+
+glibc-binary-package:     GENERATED   name and exact version of the installed package
+glibc-source-package:     GENERATED   source package name and exact version
+glibc-source-asset:       GENERATED   filename of the published source asset
+glibc-source-sha256:      GENERATED   sha256 of that asset
+glibc-archive-sha256:     GENERATED   sha256 of the libc.a actually linked
+
+gmp-version:              6.3.0
+gmp-source-asset:         GENERATED
+gmp-source-sha256:        GENERATED
+gmp-license-election:     LGPL-3.0-or-later
+
+libpoly-commit:           GENERATED   locked commit
+libpoly-source-asset:     GENERATED
+libpoly-source-sha256:    GENERATED

@@ -4,6 +4,12 @@ Yices SMT Solver
 Copyright (c) 2026, SRI International
 SPDX-License-Identifier: BSD-3-Clause
 
+This applies to the Yices source. This archive also contains the GNU C
+Library, GMP, and LibPoly. These are covered by the GNU Lesser General
+Public License; NOTICES states which version applies to each and reproduces
+the required notices. A relink kit for rebuilding against your own versions
+of those libraries is published as a separate asset on the release page.
+
 Content
 -------
 
@@ -30,6 +36,19 @@ The binaries and library were linked statically against GMP version __GMP__,
 copyright Free Software Foundation (see NOTICES).
 
 
+pkg-config
+----------
+
+The file lib/pkgconfig/yices.pc supports `pkg-config --cflags` and
+`pkg-config --modversion` from the unpacked archive. The `--libs` and
+`--static --libs` results do not produce a working link from the archive as
+shipped. The archive has no unversioned shared-library link, so `-lyices`
+selects libyices.a, and the private dependency archives named by Libs.private
+are not included in lib/.
+
+The installer creates the unversioned shared-library link but does not install
+yices.pc.
+
 
 Installation
 ------------
@@ -51,8 +70,14 @@ Alternatively, you can install Yices in /usr/local as follows:
 
   sudo ./install-yices
 
-This will copy the binaries  /usr/local/bin, the header files in
-/usr/local/include, and the libraries in /usr/local/lib.
+This will copy the binaries in /usr/local/bin, the header files in
+/usr/local/include, and the libraries in /usr/local/lib. It also installs the
+legal record:
+
+  /usr/local/share/doc/yices-2.8.0/LICENSE
+  /usr/local/share/doc/yices-2.8.0/NOTICES
+  /usr/local/share/doc/yices-2.8.0/PROVENANCE
+  /usr/local/share/licenses/yices-2.8.0/     the license texts
 
 To install Yices in another location, give the installation directory
 as argument to the shell script:
@@ -63,4 +88,4 @@ as argument to the shell script:
 
 
 
-For more information about Yices, please visit http://yices.csl.sri.com.
+For more information about Yices, please visit https://yices.csl.sri.com.

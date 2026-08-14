@@ -545,6 +545,7 @@ static_dll_version_dep := $(version_c:%.c=$(static_dll_objdir)/%.d)
 #
 libyices := $(libdir)/libyices.a
 static_libyices := $(static_libdir)/libyices.a
+pic_libyices := $(libdir)/libyices-pic.a
 
 
 #
@@ -580,19 +581,12 @@ libyices_soname := libyices.so.$(MAJOR).$(MINOR)
 # Darwin
 # library name: libyices.2.dylib
 # version and compatibility numbers for Darwin
-# install name: /usr/local/lib/libyices.2.dylib
-#
-# 2014/10/22: changed install name to use the $(prefix)
-# set by configure.
-#
-# TODO?: we should use $(libdir) instead of $(prefix)/lib but
-# this clashes with the $(libdir) set at the beginning of this
-# Makefile.
+# install name: @rpath/libyices.2.dylib
 #
 libyices_dylib := libyices.$(MAJOR).dylib
 libyices_curr_version := $(MAJOR).$(MINOR).$(PATCH_LEVEL)
 libyices_compat_version := $(MAJOR).$(MINOR).0
-libyices_install_name := $(prefix)/lib/libyices.$(MAJOR).dylib
+libyices_install_name := @rpath/libyices.$(MAJOR).dylib
 
 #
 # Cygwin and mingw:
@@ -635,7 +629,7 @@ endif
 # Whether we have thread safety
 # If so on Unix systems, we must add -pthread to CFLAGS
 #
-PTRHEAD=
+PTHREAD=
 ifeq ($(THREAD_SAFE),1)
   CPPFLAGS += -DTHREAD_SAFE
   PTHREAD= -pthread
@@ -922,6 +916,7 @@ endif
 NOGMP_LIBS := $(subst -lpoly,,$(subst -lgmp,,$(LIBS)))
 
 KISSAT_REWRITE_SCRIPT := ../scripts/rewrite-kissat-kitten-symbols.sh
+KISSAT_NM ?= nm
 STATIC_NOGMP_LIBS := $(NOGMP_LIBS)
 static_delegate_deps :=
 static_delegate_guard :=
@@ -931,19 +926,20 @@ ifeq ($(HAVE_CADICAL_DELEGATE):$(HAVE_KISSAT_DELEGATE),yes:yes)
   ifneq ($(DYNAMIC_DELEGATES_ASSUME_HIDDEN_KITTEN),yes)
     dynamic_delegate_guard := check-raw-cadical-kissat-dynamic
   endif
-  ifneq ($(STATIC_KISSAT_RAW),)
+  static_delegate_guard := check-static-kissat-rewrite
+  ifneq ($(STATIC_KISSAT_YICES),)
     static_delegate_deps := $(STATIC_KISSAT_YICES)
     STATIC_NOGMP_LIBS := $(subst -lkissat,$(STATIC_KISSAT_YICES),$(STATIC_NOGMP_LIBS))
-    STATIC_NOGMP_LIBS := $(subst $(STATIC_KISSAT_RAW),$(STATIC_KISSAT_YICES),$(STATIC_NOGMP_LIBS))
+    ifneq ($(STATIC_KISSAT_RAW),)
+      STATIC_NOGMP_LIBS := $(subst $(STATIC_KISSAT_RAW),$(STATIC_KISSAT_YICES),$(STATIC_NOGMP_LIBS))
+    endif
     STATIC_NOGMP_LIBS := $(subst ./libkissat.a,$(STATIC_KISSAT_YICES),$(STATIC_NOGMP_LIBS))
     STATIC_NOGMP_LIBS := $(subst libkissat.a,$(STATIC_KISSAT_YICES),$(STATIC_NOGMP_LIBS))
-  else
-    static_delegate_guard := check-static-kissat-rewrite
   endif
 endif
 
 STATIC_LIBS := $(STATIC_NOGMP_LIBS) $(STATIC_LIBPOLY) $(STATIC_GMP)
-PIC_LIBS := $(NOGMP_LIBS) $(PIC_LIBPOLY) $(PIC_GMP)
+PIC_LIBS := $(STATIC_NOGMP_LIBS) $(PIC_LIBPOLY) $(PIC_GMP)
 
 
 
@@ -953,11 +949,68 @@ PIC_LIBS := $(NOGMP_LIBS) $(PIC_LIBPOLY) $(PIC_GMP)
 
 .PHONY: check-static-kissat-rewrite check-raw-cadical-kissat-dynamic
 
-check-static-kissat-rewrite:
-	@ echo "CaDiCaL and Kissat both export private Kitten symbols."
-	@ echo "Static builds with both delegates must configure --with-static-delegates=DIR"
-	@ echo "so make can generate $(STATIC_DEPDIR)/libkissat_yices.a."
-	@ exit 1
+check-static-kissat-rewrite: $(static_delegate_deps)
+	@ archive="$(STATIC_KISSAT_YICES)"; \
+	  remedy() { \
+	    echo "" >&2; \
+	    echo "Why this check exists. CaDiCaL and Kissat both export private Kitten" >&2; \
+	    echo "symbols. A static build that links both delegates must use a Kissat" >&2; \
+	    echo "archive whose private Kitten symbols have been renamed. Without that," >&2; \
+	    echo "one solver's internal calls can bind to the other's Kitten, and no" >&2; \
+	    echo "link error reports it." >&2; \
+	    echo "" >&2; \
+	    echo "How to fix it. Configure with" >&2; \
+	    echo "    --with-static-delegates=DIR" >&2; \
+	    echo "where DIR holds libcadical.a and libkissat.a. make then generates" >&2; \
+	    echo "libkissat_yices.a in that directory by running" >&2; \
+	    echo "scripts/rewrite-kissat-kitten-symbols.sh over the raw Kissat archive." >&2; \
+	    echo "" >&2; \
+	    echo "Current values." >&2; \
+	    echo "    STATIC_DEPDIR = $(STATIC_DEPDIR)" >&2; \
+	    echo "    STATIC_KISSAT_YICES = $(STATIC_KISSAT_YICES)" >&2; \
+	    echo "    KISSAT_NM = $(KISSAT_NM)" >&2; \
+	    echo "" >&2; \
+	    echo "Where to read more. doc/COMPILING, section 4a, CaDiCaL and Kissat SAT" >&2; \
+	    echo "delegates, has the full configure invocation." >&2; \
+	  }; \
+	  if test -z "$$archive"; then \
+	    echo "Kissat namespacing check failed: no archive was selected for the static link." >&2; \
+	    echo "Expected STATIC_KISSAT_YICES to name a supplied or generated libkissat_yices.a." >&2; \
+	    remedy; \
+	    exit 1; \
+	  fi; \
+	  if test ! -f "$$archive"; then \
+	    echo "Kissat namespacing check failed: selected archive not found: $$archive" >&2; \
+	    remedy; \
+	    exit 1; \
+	  fi; \
+	  if ! command -v "$(KISSAT_NM)" >/dev/null 2>&1; then \
+	    echo "Kissat namespacing check failed: symbol reader not found: $(KISSAT_NM)" >&2; \
+	    echo "Set KISSAT_NM to a symbol reader that can list archive symbols." >&2; \
+	    remedy; \
+	    exit 1; \
+	  fi; \
+	  if ! "$(KISSAT_NM)" -g "$$archive" | awk '{ name=$$NF; if (name ~ /^_?yices_kissat_kitten_/) found=1 } END { exit found ? 0 : 1 }'; then \
+	    echo "Kissat namespacing check failed: no yices_kissat_kitten_* symbols in $$archive" >&2; \
+	    echo "That archive is a raw Kissat build, not a renamed one." >&2; \
+	    remedy; \
+	    exit 1; \
+	  fi; \
+	  if "$(KISSAT_NM)" -g "$$archive" | awk '{ name=$$NF; if (name ~ /^_?kitten_/) found=1 } END { exit found ? 0 : 1 }'; then \
+	    echo "Kissat namespacing check failed: raw kitten_* symbols survive in $$archive" >&2; \
+	    "$(KISSAT_NM)" -g "$$archive" | awk '{ name=$$NF; if (name ~ /^_?kitten_/) print name }' >&2; \
+	    echo "The rename step ran but did not cover the symbols listed above." >&2; \
+	    remedy; \
+	    exit 1; \
+	  fi; \
+	  if "$(KISSAT_NM)" -g "$$archive" | awk '{ name=$$NF; if (name ~ /^_?(new_learned_klause|completely_backtrack_to_root_level)$$/) found=1 } END { exit found ? 0 : 1 }'; then \
+	    echo "Kissat namespacing check failed: raw private Kitten helpers survive in $$archive" >&2; \
+	    "$(KISSAT_NM)" -g "$$archive" | awk '{ name=$$NF; if (name ~ /^_?(new_learned_klause|completely_backtrack_to_root_level)$$/) print name }' >&2; \
+	    echo "The rename step ran but did not cover the symbols listed above." >&2; \
+	    remedy; \
+	    exit 1; \
+	  fi; \
+	  echo "Verified namespaced Kissat archive: $$archive"
 
 check-raw-cadical-kissat-dynamic:
 	@ echo "Raw dynamic CaDiCaL + Kissat builds are not supported."
@@ -1092,6 +1145,14 @@ $(static_libyices):  $(static_obj) $(static_version_obj)
 	$(AR) cr $(static_libyices) $(static_obj) $(static_version_obj)
 	$(RANLIB) $(static_libyices)
 
+# Relink-kit payload for the shared library.  This must contain exactly the
+# position-independent object set used by the shared-library rule, not the
+# larger static libyices.a object set.
+$(pic_libyices): $(base_obj) $(version_obj)
+	@ rm -f $(pic_libyices)
+	$(AR) cr $(pic_libyices) $(base_obj) $(version_obj)
+	$(RANLIB) $(pic_libyices)
+
 
 #
 # Executables
@@ -1145,7 +1206,7 @@ ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif
 
-$(static_libdir)/$(libyices_so): $(base_obj) $(version_obj) $(dynamic_delegate_guard)
+$(static_libdir)/$(libyices_so): $(base_obj) $(version_obj) $(static_delegate_guard) $(static_delegate_deps)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,-soname,$(libyices_soname) -Wl,--no-undefined \
 	$(base_obj) $(version_obj) $(PIC_LIBS) -lc
@@ -1176,7 +1237,7 @@ ifeq ($(YICES_MODE),release)
 	$(STRIP) $@
 endif
 
-$(static_bindir)/$(libyices_dll): $(static_dll_base_obj) $(static_dll_version_obj) $(dynamic_delegate_guard)
+$(static_bindir)/$(libyices_dll): $(static_dll_base_obj) $(static_dll_version_obj) $(static_delegate_guard) $(static_delegate_deps)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--no-undefined \
@@ -1209,7 +1270,7 @@ ifeq ($(YICES_MODE),release)
 	$(STRIP) $@
 endif
 
-$(static_bindir)/$(libyices_mingw_dll): $(static_dll_base_obj) $(static_dll_version_obj) $(dynamic_delegate_guard)
+$(static_bindir)/$(libyices_mingw_dll): $(static_dll_base_obj) $(static_dll_version_obj) $(static_delegate_guard) $(static_delegate_deps)
 	$(CC) $(CFLAGS) $(LDFLAGS) -shared -static-libgcc -o $@ \
 	-Wl,--out-implib=$(static_libdir)/$(libyices_implib) \
 	-Wl,--output-def,$(static_libdir)/$(libyices_def) \
@@ -1224,7 +1285,7 @@ endif
 # Special dynamic tricks for Mac OS X:
 # - the compatibility version is MAJOR.MINOR.0
 # - the current version is MAJOR.MINOR.PATCH_LEVEL
-# - install name: /usr/local/lib/libyices.MAJOR.dylib
+# - install name: @rpath/libyices.MAJOR.dylib
 # - option -headerpad_max_install_names allows users to
 #   safely change the install name using install_name_tool.
 #
@@ -1240,7 +1301,7 @@ ifeq ($(YICES_MODE),release)
 	$(STRIP) -x $@
 endif
 
-$(static_libdir)/$(libyices_dylib): $(static_base_obj) $(static_version_obj) $(dynamic_delegate_guard)
+$(static_libdir)/$(libyices_dylib): $(static_base_obj) $(static_version_obj) $(static_delegate_guard) $(static_delegate_deps)
 	$(CC) $(CFLAGS) $(LDFLAGS) -dynamiclib -o $@ \
 	-current_version $(libyices_curr_version) \
 	-compatibility_version $(libyices_compat_version) \
@@ -1265,10 +1326,12 @@ static-bin: $(static_delegate_guard) $(static_delegate_deps) $(static_binaries)
 # Libraries
 lib: $(dynamic_delegate_guard) $(libyices) $(libyices_dynamic)
 
-static-lib: $(dynamic_delegate_guard) $(static_libyices) $(static_libyices_dynamic)
+static-lib: $(static_delegate_guard) $(static_delegate_deps) $(static_libyices) $(static_libyices_dynamic)
+
+pic-lib: $(pic_libyices)
 
 
-.PHONY: obj static-obj bin static-bin lib static-lib
+.PHONY: obj static-obj bin static-bin lib static-lib pic-lib
 
 
 

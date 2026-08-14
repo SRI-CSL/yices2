@@ -61,7 +61,23 @@ tempfile=`$mktemp_cmd` || { echo "Can't create temporary file" ; exit 1 ; }
 # Date and git commit
 #
 now=`date +"%Y-%m-%d"`
-rev=`git rev-parse HEAD 2>/dev/null || echo "unknown"`
+
+#
+# Revision.
+#
+# YICES_SOURCE_REVISION, if set, wins. The release build sets it so that a
+# build from a source tarball reports the real release commit. Without it a
+# tarball build has no .git directory, git rev-parse fails, and the binary
+# reports "unknown", which is useless to anyone trying to reproduce it.
+#
+# Fall back to git for ordinary development builds, and only then to
+# "unknown".
+#
+if test -n "$YICES_SOURCE_REVISION" ; then
+  rev="$YICES_SOURCE_REVISION"
+else
+  rev=`git rev-parse HEAD 2>/dev/null || echo "unknown"`
+fi
 
 
 #

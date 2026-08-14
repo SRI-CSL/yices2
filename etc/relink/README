@@ -1,0 +1,249 @@
+Yices relink kit
+================
+
+You do not need this kit to install or run Yices
+-------------------------------------------------
+
+If you want to use Yices, download the normal Yices distribution archive and
+follow the instructions in its README. Nothing in this kit is required to
+install Yices, to run the command-line tools, or to link a program against the
+Yices library. You can ignore it entirely.
+
+This kit exists for one purpose. Some of the libraries built into the Yices
+binaries are distributed under the GNU Lesser General Public License, which
+gives you the right to modify those libraries and rebuild the Yices programs
+against your modified versions. The kit contains the material you need to do
+that: the Yices object code, the dependency archives in deps/, taken from the
+official build, the link commands, and the license texts and notices for the
+components the kit redistributes.
+
+The kit does not carry every input the official link used. The C library, the
+startup object files and the compiler runtime archives come from the machine
+you relink on. See "What this kit does not do" below.
+
+
+What is in the kit
+------------------
+
+  README                     this file
+  MANIFEST.sha256            checksum for every other shipped file
+  BUILDINFO                  toolchain, flags, and the production link
+                             commands as they were recorded
+  LICENSE                    Yices' own license terms
+  NOTICES                    the components in this kit and their notices
+  licenses/                  license texts that accompany this kit
+  executables/               Yices object code for the command-line tools
+  library/                   Yices object code for the shared library
+  deps/                      the dependency archives used in the official build
+  verify-manifest.sh         checks the kit is intact
+  relink-executables.sh      rebuilds the four command-line tools
+  relink-library.sh          rebuilds the shared library
+
+
+Which libraries this concerns
+-----------------------------
+
+  GNU C Library    Built into the four command-line executables. The shared
+                   library does not contain it; it loads the system copy at
+                   run time. The scripts take the C library from the machine
+                   you relink on. See "What this kit does not do" below.
+
+  GMP              Built into yices, yices-smt, yices-smt2, and the shared
+                   library. Not present in yices-sat.
+
+  LibPoly          Built into yices, yices-smt, yices-smt2, and the shared
+                   library. Not present in yices-sat.
+
+CUDD, CaDiCaL, Kissat, and CryptoMiniSat are also built into the Yices
+binaries. This kit publishes no relinking material for them, and replacing
+them is not what it is for. Their archives are here because you cannot relink
+anything without them, and their notices are here because this kit
+redistributes those archives. NOTICES in this kit records what each component
+is and the terms its own authors distribute it under.
+
+
+What you need before you start
+------------------------------
+
+A C compiler driver and a linker for the same target as the published
+binaries. The target and the toolchain used for the official build are
+recorded in BUILDINFO. A static C library is required for the executables,
+which on most distributions is a separate package from the shared one.
+
+The scripts do not require a particular compiler version. They take CC from
+the environment and default to cc. Relinking published object files with a
+different compiler from the one that produced them usually works on x86-64
+Linux for C code, but it is not guaranteed, and the kit contains C++ archives
+where the risk is higher. If a link fails in a way that mentions symbol
+versions or standard library internals, try matching the compiler recorded in
+BUILDINFO.
+
+You do not need the Yices source tree, a build directory, or make. The scripts
+work from the extracted kit alone.
+
+
+What this kit does not do
+-------------------------
+
+There is no input for a C library. The scripts have no variable for a libc
+archive, for startup object files, or for a sysroot, and they read no C library
+from deps/. The link uses the C library, the startup files, and the toolchain
+directories of the machine you run them on. Relinking against a C library you
+built yourself is outside what these scripts do.
+
+
+Step 1: verify the kit
+
+    ./verify-manifest.sh
+
+Do this before you change anything, so that a later failure is clearly your
+change and not a bad download.
+
+
+Step 2: replace a library
+
+Build your modified version of GMP or LibPoly as a static archive, then either
+drop it into deps/ under the existing name or point the script at it. For
+example:
+
+    GMP_A=/path/to/my/libgmp.a ./relink-executables.sh
+
+Once you replace a file in deps/, the manifest check will fail, which is
+correct and expected. Set SKIP_VERIFY=1 to continue.
+
+These are the inputs relink-executables.sh accepts. It reads nothing else from
+the environment.
+
+    CC             compiler driver, default cc
+    CFLAGS         compile and link flags, see Step 3
+    STATIC_FLAG    default -static
+    BIN_LDFLAGS    extra link flags, empty by default
+    LIBYICES_A     default executables/libyices.a
+    GMP_A          default deps/libgmp-static.a
+    LIBPOLY_A      default deps/libpoly.a
+    CUDD_A         default deps/libcudd.a
+    CADICAL_A      default deps/libcadical.a
+    CMS_A          default deps/libcryptominisat5.a
+    KISSAT_A       default deps/libkissat_yices.a
+    SKIP_VERIFY    set to 1 to bypass the manifest check
+
+The first argument is the output directory. It defaults to ./relinked.
+
+relink-library.sh accepts the same set with four differences. It has no
+STATIC_FLAG and no BIN_LDFLAGS. It reads LIBYICES_PIC_A rather than
+LIBYICES_A, defaulting to library/libyices-pic.a. Its GMP_A and LIBPOLY_A
+default to the position-independent archives deps/libgmp-pic.a and
+deps/libpicpoly.a. It adds SONAME, default libyices.so.2.8, and LIBNAME,
+default libyices.so.2.8.0.
+
+
+Step 3: relink
+
+    ./relink-executables.sh            builds into ./relinked
+    ./relink-library.sh                builds into ./relinked
+
+Each script prints the command it runs before running it. Treat the
+corresponding link-* entry in BUILDINFO as the reference command. The printed
+command is not identical to that entry. These are the differences.
+
+  CC defaults to cc, while BUILDINFO records gcc as the driver that produced
+  the published binaries.
+
+  CFLAGS defaults to
+  -fvisibility=hidden -O3 -fomit-frame-pointer -fno-stack-protector.
+  BUILDINFO records those same four flags with -Wall and -Wredundant-decls
+  inserted after -fvisibility=hidden, the whole preceded by -O2 and by a
+  -ffile-prefix-map option, which rewrote the source paths recorded in the
+  object files when they were compiled. The two warning flags control
+  diagnostics and do not change the generated code. BUILDINFO carries the
+  -ffile-prefix-map value that was used.
+
+  The scripts resolve the kit to an absolute path and print an absolute
+  pathname for every object file and archive. BUILDINFO records the same
+  files as kit-relative paths, such as executables/yices.o and
+  deps/libcudd.a.
+
+  The scripts write into the output directory, so the printed command ends
+  with an output path such as -o ./relinked/yices. BUILDINFO records -o yices.
+
+Setting CC and CFLAGS to the values BUILDINFO records closes the first two
+differences. The last two remain. They follow from where you unpacked the kit
+and where you sent the output, and no setting changes them, so compare the two
+commands input by input rather than as strings. -ffile-prefix-map affects
+compilation rather than linking, so passing it here changes nothing in the
+output.
+
+
+Two things that are easy to get wrong
+--------------------------------------
+
+The kit contains two GMP archives and they are not interchangeable.
+deps/libgmp-static.a is an optimized build used by the command-line
+executables. deps/libgmp-pic.a is a position-independent build with the
+assembly routines disabled, used by the shared library. The executables also
+use the normal deps/libpoly.a archive, while the shared library uses
+deps/libpicpoly.a. These normal and PIC archives are not interchangeable.
+GMP's x86-64 assembly code is not position-independent and cannot be linked
+into a shared object. If you supply your own GMP or LibPoly for the shared
+library, configure it for position-independent code.
+
+yices-sat is linked differently from the other three tools. It contains
+neither GMP nor LibPoly, so if you modified only one of those, yices-sat is
+unaffected and the published binary remains correct. Its link list still names
+the CUDD, CryptoMiniSat, CaDiCaL and Kissat archives, because the production
+rule for that binary names them too. A static linker takes only the archive
+members that something refers to, and the published yices-sat carries code
+from none of those four. NOTICES section 3.1 records that placement. The C
+library is built into yices-sat as it is into the other three, and the scripts
+take it from the machine you relink on. relink-executables.sh rebuilds all
+four whichever library you replaced.
+
+
+The shared library
+------------------
+
+relink-library.sh sets the shared object name to libyices.so.2.8 and creates
+the two symbolic links a normal installation expects:
+
+    libyices.so.2.8   -> libyices.so.2.8.0
+    libyices.so       -> libyices.so.2.8
+
+Check the result with:
+
+    readelf -dW relinked/libyices.so.2.8.0 | grep -E 'SONAME|NEEDED'
+
+The shared library incorporates the PIC static CUDD archive supplied in this
+kit. It does not require a CUDD shared library at run time.
+
+
+Installing what you built
+-------------------------
+
+Copy the relinked files over the ones in an unpacked Yices distribution, or
+place them ahead of the installed copies on your path or library search path.
+The kit does not install anything and does not modify your system.
+
+
+License texts and notices
+-------------------------
+
+The licenses/ directory holds license texts for some of the components this kit
+redistributes. It is not a complete set. Where a component's terms are not in
+licenses/, NOTICES reproduces them instead, as it does for CUDD. Version 3 of
+the Lesser General Public License incorporates the General Public License by
+reference, which is why both of those are present. The MIT and Apache
+License 2.0 texts are present because components in deps/ are distributed under
+them, and NOTICES records which component each applies to. The BSD text is
+Yices' own license, which this kit also carries as LICENSE.
+
+The set depends on the platform. A kit for a build that contains the GNU C
+Library also carries the Lesser General Public License version 2.1; a kit for a
+platform whose C library comes from the operating system does not, because no
+C library is built in.
+
+NOTICES, in this kit, records each third-party component the kit redistributes, where it
+came from, and the terms its own authors distribute it under. It reproduces
+the copyright notices supplied by CUDD, CaDiCaL, Kissat, and CryptoMiniSat,
+whose archives are in deps/. For GMP and LibPoly it records that the source
+carries copyright notices in individual files rather than one notice for the
+project.

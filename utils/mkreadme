@@ -84,7 +84,7 @@ fi
 #
 # Get GMP version
 #
-tmp=` $yices --version | awk '/GMP/ { print $4 }' | tr -d '\015' `
+tmp=` $yices --version | awk '/^Linked with GMP / { print $4 ; exit }' | tr -d '\015' `
 case $tmp in
   *.*.* )
     gmp_version=$tmp
@@ -99,7 +99,7 @@ esac
 #
 # Get Yices version
 #
-tmp=` $yices --version | awk '/Yices/ { print $2 }' | tr -d '\015' `
+tmp=` $yices --version | awk '/^Yices / { print $2 ; exit }' | tr -d '\015' `
 case $tmp in
   *.*.* )
     yices_version=$tmp

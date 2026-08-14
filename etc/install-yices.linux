@@ -18,6 +18,8 @@
 #     binaries      in <directory>/bin
 #     libraries     in <directory>/lib
 #     include files in <directory>/include
+#     legal record  in <directory>/share/doc/yices-2.8.0 and
+#                   <directory>/share/licenses/yices-2.8.0
 #
 # If no <directory> is given, Yices will be installed in /usr/local.
 #
@@ -36,6 +38,8 @@ The first form installs Yices in the specified by <directory> as follows:
    binaries      in <directory>/bin
    libraries     in <directory>/lib
    include files in <directory>/include
+   legal record  in <directory>/share/doc/yices-2.8.0 and
+                 <directory>/share/licenses/yices-2.8.0
 
 The second form installs Yices locally. No files are copied, but
 symbolic links are created in ./lib.
@@ -112,6 +116,8 @@ else
    exit 1
 fi
 
+version=${sofile#libyices.so.}
+
 
 #
 # Set install dir and local_install flag
@@ -158,6 +164,8 @@ fi
 bindir="$install_dir/bin"
 libdir="$install_dir/lib"
 includedir="$install_dir/include"
+docdir="$install_dir/share/doc/yices-$version"
+licensesdir="$install_dir/share/licenses/yices-$version"
 
 
 
@@ -166,10 +174,14 @@ includedir="$install_dir/include"
 #
 if test "$local_install" = "no" ; then
   echo "Installing Yices in $install_dir"
-  {  $install -d "$install_dir" "$bindir" "$libdir" "$includedir" \
+  {  $install -d "$install_dir" "$bindir" "$libdir" "$includedir" "$docdir" "$licensesdir" \
      && $install -m 0644 ./include/*.h "$includedir"  \
      && $install ./bin/* "$bindir"  \
-     && $install ./lib/*.so.2.*.* "$libdir" ; } 2> /dev/null ||
+     && $install ./lib/*.so.2.*.* "$libdir" \
+     && $install -m 0644 ./LICENSE "$docdir" \
+     && $install -m 0644 ./NOTICES "$docdir" \
+     && $install -m 0644 ./PROVENANCE "$docdir" \
+     && $install -m 0644 ./LICENSES/* "$licensesdir" ; } 2> /dev/null ||
   { echo "$failure"
     echo "Could not create the directories or copy files."
     echo "Check that you have the right permissions (try sudo)."

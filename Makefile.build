@@ -133,6 +133,29 @@ static_dll_objsubdirs := $(srcsubdirs:%=$(static_dll_objdir)/%)
 dist_dir = $(build_dir)/dist
 static_dist_dir = $(build_dir)/static_dist
 
+# Release provenance and relink-kit output.
+provenance_dir = $(build_dir)/provenance
+provenance_file = $(provenance_dir)/PROVENANCE
+
+relink_work_dir = $(build_dir)/relink-kit
+relink_kit_name = yices-$(YICES_VERSION)-relink-kit
+relink_kit_dir = $(relink_work_dir)/$(relink_kit_name)
+relink_kit_tarfile = yices-$(YICES_VERSION)-$(ARCH)-relink-kit.tar.gz
+pic_libyices = $(dyn_libdir)/libyices-pic.a
+
+# The CUDD archive is deliberately staged outside the common dependency
+# directory so -lcudd cannot select a shared object.  Override this variable
+# for a non-release dependency layout.
+RELINK_CUDD ?= $(STATIC_DEPDIR)/../cudd-static/libcudd.a
+
+# The macOS configure wrapper guarantees that the first -L entry contains
+# only the static CUDD archive. Derive the archive from that configured value
+# instead of encoding either builder's dependency layout here.
+MACOS_RELINK_CUDD ?= \
+  $(patsubst -L%,%,$(firstword $(filter -L%,$(LDFLAGS))))/libcudd.a
+macos_release_cflags = $(strip $(CFLAGS) -fvisibility=hidden -Wall \
+  -Wredundant-decls -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR))
+
 
 #
 # Directories and temporary file to build tarfiles
@@ -148,14 +171,15 @@ static_dist_dir = $(build_dir)/static_dist
 # All tarfiles are stored in ./distributions
 #
 distributions = ./distributions
-bindist_dir = yices-$(YICES_VERSION)
+bindist_name = yices-$(YICES_VERSION)
+bindist_dir = $(build_dir)/$(bindist_name)
 
 ifeq ($(YICES_MODE),debug)
-  bindist_tarfile = $(bindist_dir)-$(ARCH)-dbg.tar.gz
-  static_bindist_tarfile = $(bindist_dir)-$(ARCH)-static-gmp-dbg.tar.gz
+  bindist_tarfile = $(bindist_name)-$(ARCH)-dbg.tar.gz
+  static_bindist_tarfile = $(bindist_name)-$(ARCH)-static-gmp-dbg.tar.gz
 else
-  bindist_tarfile = $(bindist_dir)-$(ARCH).tar.gz
-  static_bindist_tarfile = $(bindist_dir)-$(ARCH)-static-gmp.tar.gz
+  bindist_tarfile = $(bindist_name)-$(ARCH).tar.gz
+  static_bindist_tarfile = $(bindist_name)-$(ARCH)-static-gmp.tar.gz
 endif
 
 
@@ -237,6 +261,10 @@ static-lib: static_build_subdirs build_subdirs version
 	@ echo "=== Building libraries with GMP ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-lib
 
+pic-lib: build_subdirs version
+	@ echo "=== Building PIC archive for the relink kit ==="
+	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) pic-lib
+
 bin: build_subdirs version
 	@ echo "=== Building binaries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) bin
@@ -244,6 +272,29 @@ bin: build_subdirs version
 static-bin: static_build_subdirs version
 	@ echo "=== Building static binaries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-bin
+
+# On macOS, capture hashes from the staged, stripped files that are packaged.
+# On Linux, retain the build-tree inputs used by the libxcrypt symbol gate.
+ifeq ($(POSIXOS),darwin)
+release_provenance_deps = static-dist
+release_provenance_bindir = $(static_dist_dir)/bin
+release_provenance_libdir = $(static_dist_dir)/lib
+else
+release_provenance_deps = static-bin static-lib
+release_provenance_bindir = $(static_bindir)
+release_provenance_libdir = $(static_libdir)
+endif
+
+release-provenance: $(release_provenance_deps)
+	@ if test "$(POSIXOS)" = linux; then \
+	    test -n "$(BUILDER_IMAGE_DIGEST)" || \
+	      { echo "BUILDER_IMAGE_DIGEST is required for Linux release provenance" >&2; exit 1; }; \
+	  fi
+	rm -f -r $(provenance_dir)
+	BUILDER_IMAGE_DIGEST="$(BUILDER_IMAGE_DIGEST)" \
+	YICES_BIN_DIR="$(abspath $(release_provenance_bindir))" \
+	YICES_LIB_DIR="$(abspath $(release_provenance_libdir))" \
+	  scripts/capture-release-provenance.sh $(provenance_dir)
 
 
 #
@@ -340,7 +391,7 @@ static-mcsat-regress: static_build_subdirs version
 	+@ $(regressdir)/check.sh $(regressdir_mcsat) $(build_dir)/static_bin
 
 
-.PHONY: all obj static-obj lib static-lib bin static-bin test static-test \
+.PHONY: all obj static-obj lib static-lib pic-lib bin static-bin release-provenance test static-test \
     regress delegate-regress static-regress static-delegate-regress \
     check delegate-check static-check static-delegate-check \
     check-api static-check-api
@@ -414,12 +465,18 @@ static-dist: static_build_subdirs build_subdirs version $(static_dist_dir)
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-dist
 
 
-tarfile: $(distributions) doc
+tarfile: dist $(distributions) doc release-provenance
 	@ echo "=== Building $(bindist_tarfile) ==="
+	@ test -s doc/manual/manual.pdf && test doc/manual/manual.pdf -nt doc/manual/manual.tex || \
+	  { echo "ERROR: doc/manual/manual.pdf is missing or older than doc/manual/manual.tex" >&2; exit 1; }
 	rm -f -r $(bindist_dir)
 	$(MKDIR_P) $(bindist_dir)
 	cp -r $(dist_dir)/* $(bindist_dir)
+	$(MKDIR_P) $(bindist_dir)/lib/pkgconfig
+	$(SED) 's|^prefix=.*|prefix=$${pcfiledir}/../..|' yices.pc > $(bindist_dir)/lib/pkgconfig/yices.pc
 	cp etc/NOTICES $(bindist_dir)
+	cp -R LICENSES $(bindist_dir)
+	cp $(provenance_file) $(bindist_dir)/PROVENANCE
 	cp LICENSE.txt $(bindist_dir)/LICENSE
 	$(MKREADME) $(dist_dir) etc/README.$(POSIXOS) > $(bindist_dir)/README
 	if test -f etc/install-yices.$(POSIXOS) ; then \
@@ -436,16 +493,22 @@ tarfile: $(distributions) doc
 	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
 	cp doc/manual/manual.pdf $(bindist_dir)/doc
 	chmod -R og+rX $(bindist_dir)
-	COPYFILE_DISABLE=1 tar -czf $(distributions)/$(bindist_tarfile) $(bindist_dir)
+	COPYFILE_DISABLE=1 tar -czf $(abspath $(distributions)/$(bindist_tarfile)) -C $(build_dir) $(bindist_name)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(bindist_dir)
 
-static-tarfile: $(distributions) doc
+static-tarfile: static-dist $(distributions) doc release-provenance
 	@ echo "=== Building $(static_bindist_tarfile) ==="
+	@ test -s doc/manual/manual.pdf && test doc/manual/manual.pdf -nt doc/manual/manual.tex || \
+	  { echo "ERROR: doc/manual/manual.pdf is missing or older than doc/manual/manual.tex" >&2; exit 1; }
 	rm -f -r $(bindist_dir)
 	$(MKDIR_P) $(bindist_dir)
 	cp -r $(static_dist_dir)/* $(bindist_dir)
+	$(MKDIR_P) $(bindist_dir)/lib/pkgconfig
+	$(SED) 's|^prefix=.*|prefix=$${pcfiledir}/../..|' yices.pc > $(bindist_dir)/lib/pkgconfig/yices.pc
 	cp etc/NOTICES $(bindist_dir)
+	cp -R LICENSES $(bindist_dir)
+	cp $(provenance_file) $(bindist_dir)/PROVENANCE
 	cp LICENSE.txt $(bindist_dir)/LICENSE
 	$(MKREADME) $(static_dist_dir) etc/README.static.$(POSIXOS) > $(bindist_dir)/README
 	if test -f etc/install-yices.$(POSIXOS) ; then \
@@ -462,13 +525,254 @@ static-tarfile: $(distributions) doc
 	cp doc/YICES-LANGUAGE $(bindist_dir)/doc
 	cp doc/manual/manual.pdf $(bindist_dir)/doc
 	chmod -R og+rX $(bindist_dir)
-	COPYFILE_DISABLE=1 tar -czf $(distributions)/$(static_bindist_tarfile) $(bindist_dir)
+	COPYFILE_DISABLE=1 tar -czf $(abspath $(distributions)/$(static_bindist_tarfile)) -C $(build_dir) $(bindist_name)
 	chmod -R og+rX $(distributions)
 	rm -f -r $(bindist_dir)
 
 
 .PHONY: binary-distribution static-distribution dist static-dist \
 	tarfile static-tarfile
+
+
+#
+# Linux relink kit
+#
+# The kit is one release asset with separate executable and shared-library
+# payload directories.  The executable payload uses the optimized non-PIC GMP
+# and normal LibPoly archives; the shared-library payload uses the PIC builds.
+#
+relink-kit: static-tarfile pic-lib
+	@ test "$(POSIXOS)" = linux || \
+	  { echo "The relink-kit target currently supports the Linux release build only" >&2; exit 1; }
+	@ set -eu; for file in \
+	  "$(STATIC_GMP)" "$(PIC_GMP)" "$(STATIC_LIBPOLY)" "$(PIC_LIBPOLY)" \
+	  "$(RELINK_CUDD)" "$(STATIC_CADICAL_RAW)" "$(STATIC_CRYPTOMINISAT_RAW)" \
+	  "$(STATIC_KISSAT_YICES)" "$(pic_libyices)" "$(provenance_file)"; do \
+	    test -f "$$file" || { echo "Missing relink-kit input: $$file" >&2; exit 1; }; \
+	  done
+	rm -f -r $(relink_work_dir)
+	$(MKDIR_P) $(relink_kit_dir)/executables $(relink_kit_dir)/library \
+	  $(relink_kit_dir)/deps $(relink_kit_dir)/licenses
+	cp etc/relink/README $(relink_kit_dir)/README
+	cp etc/NOTICES $(relink_kit_dir)/NOTICES
+	cp LICENSE.txt $(relink_kit_dir)/LICENSE
+	cp etc/relink/relink-executables.sh etc/relink/relink-library.sh \
+	  etc/relink/verify-manifest.sh $(relink_kit_dir)
+	chmod ug+x $(relink_kit_dir)/relink-executables.sh \
+	  $(relink_kit_dir)/relink-library.sh $(relink_kit_dir)/verify-manifest.sh
+	cp $(static_objdir)/frontend/yices.o $(relink_kit_dir)/executables/yices.o
+	cp $(static_objdir)/frontend/yices_sat.o $(relink_kit_dir)/executables/yices_sat.o
+	cp $(static_objdir)/frontend/yices_smtcomp.o $(relink_kit_dir)/executables/yices_smtcomp.o
+	cp $(static_objdir)/frontend/yices_smt2.o $(relink_kit_dir)/executables/yices_smt2.o
+	cp $(static_libdir)/libyices.a $(relink_kit_dir)/executables/libyices.a
+	cp $(pic_libyices) $(relink_kit_dir)/library/libyices-pic.a
+	cp $(STATIC_GMP) $(relink_kit_dir)/deps/libgmp-static.a
+	cp $(PIC_GMP) $(relink_kit_dir)/deps/libgmp-pic.a
+	cp $(STATIC_LIBPOLY) $(relink_kit_dir)/deps/libpoly.a
+	cp $(PIC_LIBPOLY) $(relink_kit_dir)/deps/libpicpoly.a
+	cp $(RELINK_CUDD) $(relink_kit_dir)/deps/libcudd.a
+	cp $(STATIC_CADICAL_RAW) $(relink_kit_dir)/deps/libcadical.a
+	cp $(STATIC_CRYPTOMINISAT_RAW) $(relink_kit_dir)/deps/libcryptominisat5.a
+	cp $(STATIC_KISSAT_YICES) $(relink_kit_dir)/deps/libkissat_yices.a
+	cp LICENSES/LGPL-2.1-or-later.txt $(relink_kit_dir)/licenses/LGPL-2.1-or-later.txt
+	cp LICENSES/LGPL-3.0-or-later.txt $(relink_kit_dir)/licenses/LGPL-3.0-or-later.txt
+	cp LICENSES/GPL-3.0-or-later.txt $(relink_kit_dir)/licenses/GPL-3.0-or-later.txt
+	cp LICENSES/MIT.txt $(relink_kit_dir)/licenses/MIT.txt
+	cp LICENSES/Apache-2.0.txt $(relink_kit_dir)/licenses/Apache-2.0.txt
+	cp LICENSES/BSD-3-Clause.txt $(relink_kit_dir)/licenses/BSD-3-Clause.txt
+	cp etc/relink/BUILDINFO.template $(relink_kit_dir)/BUILDINFO
+	@ set -eu; \
+	  get_prov() { $(SED) -n "s/^$$1: //p" $(provenance_file) | head -1; }; \
+	  replace() { key=$$1; value=$$2; $(SED) -i "s|^$$key:.*|$$key: $$value|" $(relink_kit_dir)/BUILDINFO; }; \
+	  revision=$${YICES_SOURCE_REVISION:-$$(git rev-parse HEAD 2>/dev/null || echo unknown)}; \
+	  branch=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown); \
+	  artifact=$(static_bindist_tarfile); \
+	  artifact_sha=$$(sha256sum $(distributions)/$(static_bindist_tarfile) | cut -d' ' -f1); \
+	  builder="$(BUILDER_IMAGE_DIGEST)"; builder_digest=$${builder##*@}; \
+	  test "$$builder_digest" != "$$builder" || builder_digest=$$builder; \
+	  os=$$(if test -r /etc/os-release; then . /etc/os-release; echo "$${PRETTY_NAME:-unknown}"; else uname -sr; fi); \
+	  elf=$$(readelf -hW $(static_bindir)/yices | awk -F: '/Class:/{gsub(/^[ \t]+/,"",$$2); c=$$2} /OS\/ABI:/{gsub(/^[ \t]+/,"",$$2); a=$$2} /Machine:/{gsub(/^[ \t]+/,"",$$2); m=$$2} END{print c ", " m ", " a}'); \
+	  thread_safe=no; test "$(THREAD_SAFE)" = 1 && thread_safe=yes || true; \
+	  cxx_archive=$$($(CC) -print-file-name=libstdc++.a); \
+	  cxx_runtime=$$(rpm -qf --qf '%{NEVRA}' "$$cxx_archive" 2>/dev/null || echo "$$cxx_archive"); \
+	  glibc_source=$$(get_prov glibc-source-rpm); \
+	  glibc_file=$$(find $(provenance_dir)/glibc -type f -name '*.src.rpm' -print | head -1); \
+	  gmp_asset=$$(get_prov gmp-source-file); \
+	  libpoly_asset=$$(get_prov libpoly-source-file); \
+	  replace yices-commit "$$revision"; \
+	  replace yices-branch "$$branch"; \
+	  replace artifact "$$artifact"; \
+	  replace artifact-sha256 "$$artifact_sha"; \
+	  replace kit-built "$$(date -u +%Y-%m-%dT%H:%M:%SZ)"; \
+	  replace target-triple "$(ARCH)"; \
+	  replace elf-class "$$elf"; \
+	  replace build-host-os "$$os"; \
+	  replace thread-safe "$$thread_safe"; \
+	  replace builder-image "$$builder"; \
+	  replace builder-image-digest "$$builder_digest"; \
+	  replace cc "$(CC)"; \
+	  replace cc-version "$$($(CC) --version | head -1)"; \
+	  replace cxx-runtime "$$cxx_runtime"; \
+	  replace ld-version "$$($(LD) --version | head -1)"; \
+	  replace ar-version "$$($(AR) --version | head -1)"; \
+	  replace libc-runtime "$$(ldd --version | head -1)"; \
+	  replace cflags "$(strip $(CFLAGS) -fvisibility=hidden -Wall -Wredundant-decls $(if $(filter 1,$(THREAD_SAFE)),-pthread) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR))"; \
+	  replace static-flag "-static"; \
+	  replace bin-ldflags "$(if $(filter 1,$(THREAD_SAFE)),-pthread)"; \
+	  replace link-yices "$(CC) $(strip $(CFLAGS) -fvisibility=hidden -Wall -Wredundant-decls $(if $(filter 1,$(THREAD_SAFE)),-pthread) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)) $(if $(filter 1,$(THREAD_SAFE)),-pthread) -static -o yices executables/yices.o executables/libyices.a deps/libcudd.a -lm deps/libcryptominisat5.a deps/libcadical.a deps/libkissat_yices.a -lstdc++ -lm -lpthread deps/libpoly.a deps/libgmp-static.a"; \
+	  replace link-yices-smt "$(CC) $(strip $(CFLAGS) -fvisibility=hidden -Wall -Wredundant-decls $(if $(filter 1,$(THREAD_SAFE)),-pthread) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)) $(if $(filter 1,$(THREAD_SAFE)),-pthread) -static -o yices-smt executables/yices_smtcomp.o executables/libyices.a deps/libcudd.a -lm deps/libcryptominisat5.a deps/libcadical.a deps/libkissat_yices.a -lstdc++ -lm -lpthread deps/libpoly.a deps/libgmp-static.a"; \
+	  replace link-yices-smt2 "$(CC) $(strip $(CFLAGS) -fvisibility=hidden -Wall -Wredundant-decls $(if $(filter 1,$(THREAD_SAFE)),-pthread) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)) $(if $(filter 1,$(THREAD_SAFE)),-pthread) -static -o yices-smt2 executables/yices_smt2.o executables/libyices.a deps/libcudd.a -lm deps/libcryptominisat5.a deps/libcadical.a deps/libkissat_yices.a -lstdc++ -lm -lpthread deps/libpoly.a deps/libgmp-static.a"; \
+	  replace link-yices-sat "$(CC) $(strip $(CFLAGS) -fvisibility=hidden -Wall -Wredundant-decls $(if $(filter 1,$(THREAD_SAFE)),-pthread) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)) $(if $(filter 1,$(THREAD_SAFE)),-pthread) -static -o yices-sat executables/yices_sat.o executables/libyices.a deps/libcudd.a -lm deps/libcryptominisat5.a deps/libcadical.a deps/libkissat_yices.a -lstdc++ -lm -lpthread"; \
+	  replace link-libyices-so "$(CC) $(strip $(CFLAGS) -fvisibility=hidden -Wall -Wredundant-decls $(if $(filter 1,$(THREAD_SAFE)),-pthread) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)) -shared -o libyices.so.$(YICES_VERSION) -Wl,-soname,libyices.so.$(MAJOR).$(MINOR) -Wl,--no-undefined -Wl,--whole-archive library/libyices-pic.a -Wl,--no-whole-archive deps/libcudd.a -lm deps/libcryptominisat5.a deps/libcadical.a deps/libkissat_yices.a -lstdc++ -lm -lpthread deps/libpicpoly.a deps/libgmp-pic.a -lc"; \
+	  replace glibc-binary-package "$$(get_prov glibc-binary-package) $$(get_prov glibc-binary-nevr)"; \
+	  replace glibc-source-package "$$glibc_source"; \
+	  replace glibc-source-asset "$$(basename "$$glibc_file")"; \
+	  replace glibc-source-sha256 "$$(sha256sum "$$glibc_file" | cut -d' ' -f1)"; \
+	  replace glibc-archive-sha256 "$$(get_prov glibc-archive-sha256)"; \
+	  replace gmp-source-asset "$$gmp_asset"; \
+	  replace gmp-source-sha256 "$$(get_prov gmp-source-sha256)"; \
+	  replace libpoly-commit "$$(get_prov libpoly-commit)"; \
+	  replace libpoly-source-asset "$$libpoly_asset"; \
+	  replace libpoly-source-sha256 "$$(get_prov libpoly-source-sha256)"
+	( cd $(relink_kit_dir) && \
+	  find . -type f ! -name MANIFEST.sha256 -print0 | LC_ALL=C sort -z | \
+	  xargs -0 sha256sum > MANIFEST.sha256 )
+	chmod -R og+rX $(relink_kit_dir)
+	COPYFILE_DISABLE=1 tar -C $(relink_work_dir) -czf \
+	  $(distributions)/$(relink_kit_tarfile) $(relink_kit_name)
+	chmod og+r $(distributions)/$(relink_kit_tarfile)
+	@ echo "=== Built $(distributions)/$(relink_kit_tarfile) ==="
+
+.PHONY: relink-kit
+
+
+#
+# macOS relink kit
+#
+# The configured paths determine whether the kit contains one GMP archive or
+# separate executable and dynamic-library archives. The Intel release uses
+# one archive for both; Apple Silicon uses two.
+#
+macos-relink-kit: static-tarfile
+	@ test "$(POSIXOS)" = darwin || \
+	  { echo "The macos-relink-kit target requires a macOS release configuration" >&2; exit 1; }
+	@ set -eu; for file in \
+	  "$(static_objdir)/frontend/yices.o" \
+	  "$(static_objdir)/frontend/yices_sat.o" \
+	  "$(static_objdir)/frontend/yices_smtcomp.o" \
+	  "$(static_objdir)/frontend/yices_smt2.o" \
+	  "$(static_libdir)/libyices.a" "$(STATIC_GMP)" "$(PIC_GMP)" \
+	  "$(STATIC_LIBPOLY)" "$(PIC_LIBPOLY)" "$(MACOS_RELINK_CUDD)" \
+	  "$(STATIC_CADICAL_RAW)" "$(STATIC_CRYPTOMINISAT_RAW)" \
+	  "$(STATIC_KISSAT_YICES)" "$(provenance_file)"; do \
+	    test -f "$$file" || { echo "Missing macOS relink-kit input: $$file" >&2; exit 1; }; \
+	  done
+	rm -f -r $(relink_work_dir)
+	$(MKDIR_P) $(relink_kit_dir)/executables $(relink_kit_dir)/deps \
+	  $(relink_kit_dir)/licenses
+	cp etc/relink/README.macos $(relink_kit_dir)/README
+	cp etc/NOTICES $(relink_kit_dir)/NOTICES
+	cp LICENSE.txt $(relink_kit_dir)/LICENSE
+	cp etc/relink/relink-executables-macos.sh \
+	  $(relink_kit_dir)/relink-executables.sh
+	cp etc/relink/relink-library-macos.sh \
+	  $(relink_kit_dir)/relink-library.sh
+	cp etc/relink/verify-manifest.sh $(relink_kit_dir)
+	chmod ug+x $(relink_kit_dir)/relink-executables.sh \
+	  $(relink_kit_dir)/relink-library.sh $(relink_kit_dir)/verify-manifest.sh
+	cp $(static_objdir)/frontend/yices.o $(relink_kit_dir)/executables/yices.o
+	cp $(static_objdir)/frontend/yices_sat.o $(relink_kit_dir)/executables/yices_sat.o
+	cp $(static_objdir)/frontend/yices_smtcomp.o $(relink_kit_dir)/executables/yices_smtcomp.o
+	cp $(static_objdir)/frontend/yices_smt2.o $(relink_kit_dir)/executables/yices_smt2.o
+	cp $(static_libdir)/libyices.a $(relink_kit_dir)/deps/libyices.a
+	cp $(MACOS_RELINK_CUDD) $(relink_kit_dir)/deps/libcudd.a
+	cp $(STATIC_CRYPTOMINISAT_RAW) $(relink_kit_dir)/deps/libcryptominisat5.a
+	cp $(STATIC_CADICAL_RAW) $(relink_kit_dir)/deps/libcadical.a
+	cp $(STATIC_KISSAT_YICES) $(relink_kit_dir)/deps/libkissat_yices.a
+	cp $(STATIC_LIBPOLY) $(relink_kit_dir)/deps/libpoly.a
+	cp $(PIC_LIBPOLY) $(relink_kit_dir)/deps/libpicpoly.a
+	cp $(STATIC_GMP) $(relink_kit_dir)/deps/libgmp-static.a
+	@ if test "$(PIC_GMP)" != "$(STATIC_GMP)"; then \
+	    cp "$(PIC_GMP)" $(relink_kit_dir)/deps/libgmp-pic.a; \
+	  fi
+	cp LICENSES/LGPL-3.0-or-later.txt $(relink_kit_dir)/licenses/LGPL-3.0-or-later.txt
+	cp LICENSES/GPL-3.0-or-later.txt $(relink_kit_dir)/licenses/GPL-3.0-or-later.txt
+	cp LICENSES/MIT.txt $(relink_kit_dir)/licenses/MIT.txt
+	cp LICENSES/Apache-2.0.txt $(relink_kit_dir)/licenses/Apache-2.0.txt
+	cp LICENSES/BSD-3-Clause.txt $(relink_kit_dir)/licenses/BSD-3-Clause.txt
+	@ set -eu; \
+	  sha_file() { \
+	    if command -v sha256sum >/dev/null 2>&1; then sha256sum "$$1" | awk '{print $$1}'; \
+	    else shasum -a 256 "$$1" | awk '{print $$1}'; fi; \
+	  }; \
+	  get_prov() { $(SED) -n "s/^$$1: //p" $(provenance_file) | head -1; }; \
+	  revision=$${YICES_SOURCE_REVISION:-$$(git rev-parse HEAD 2>/dev/null || echo unknown)}; \
+	  branch=$$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown); \
+	  artifact=$(static_bindist_tarfile); \
+	  artifact_sha=$$(sha_file $(distributions)/$(static_bindist_tarfile)); \
+	  archive_count=$$(find $(relink_kit_dir)/deps -type f -name '*.a' -print | wc -l | tr -d ' '); \
+	  if test -f $(relink_kit_dir)/deps/libgmp-pic.a; then \
+	    gmp_layout='separate normal and PIC archives'; \
+	    dylib_gmp=deps/libgmp-pic.a; \
+	  else \
+	    gmp_layout='one fat PIC archive for both payloads'; \
+	    dylib_gmp=deps/libgmp-static.a; \
+	  fi; \
+	  ar_version=$$(ar -V 2>&1 | head -1); \
+	  case "$$ar_version" in \
+	    ""|usage:*|Usage:*|ar:\ *) ar_version=version-unavailable ;; \
+	  esac; \
+	  { \
+	    printf '%s\n' '# Yices macOS relink-kit build record'; \
+	    printf 'yices-version: %s\n' '$(YICES_VERSION)'; \
+	    printf 'yices-commit: %s\n' "$$revision"; \
+	    printf 'yices-branch: %s\n' "$$branch"; \
+	    printf 'artifact: %s\n' "$$artifact"; \
+	    printf 'artifact-sha256: %s\n' "$$artifact_sha"; \
+	    printf 'kit-built: %s\n' "$$(date -u +%Y-%m-%dT%H:%M:%SZ)"; \
+	    printf 'target-triple: %s\n' '$(ARCH)'; \
+	    printf 'build-host-os: %s\n' "$$(sw_vers -productName) $$(sw_vers -productVersion)"; \
+	    printf 'thread-safe: no\n'; \
+	    printf 'yices-mode: release\n'; \
+	    printf 'cc: %s\n' '$(CC)'; \
+	    printf 'cc-version: %s\n' "$$($(CC) --version 2>/dev/null | head -1)"; \
+	    printf 'ld-version: %s\n' "$$(ld -v 2>&1 | head -1)"; \
+	    printf 'ar-version: %s\n' "$$ar_version"; \
+	    printf 'sdk-path: %s\n' "$$(xcrun --show-sdk-path)"; \
+	    printf 'deployment-target: 11.0\n'; \
+	    printf 'cxx-runtime: -lc++\n'; \
+	    printf 'cflags: %s\n' '$(macos_release_cflags)'; \
+	    printf 'dependency-archive-count: %s\n' "$$archive_count"; \
+	    printf 'gmp-layout: %s\n' "$$gmp_layout"; \
+	    printf 'link-yices: %s\n' 'MACOSX_DEPLOYMENT_TARGET=11.0 $(CC) $(macos_release_cflags) -o yices executables/yices.o deps/libyices.a deps/libcudd.a -lm deps/libcryptominisat5.a deps/libcadical.a deps/libkissat_yices.a -lc++ -lm deps/libpoly.a deps/libgmp-static.a'; \
+	    printf 'link-yices-smt: %s\n' 'MACOSX_DEPLOYMENT_TARGET=11.0 $(CC) $(macos_release_cflags) -o yices-smt executables/yices_smtcomp.o deps/libyices.a deps/libcudd.a -lm deps/libcryptominisat5.a deps/libcadical.a deps/libkissat_yices.a -lc++ -lm deps/libpoly.a deps/libgmp-static.a'; \
+	    printf 'link-yices-smt2: %s\n' 'MACOSX_DEPLOYMENT_TARGET=11.0 $(CC) $(macos_release_cflags) -o yices-smt2 executables/yices_smt2.o deps/libyices.a deps/libcudd.a -lm deps/libcryptominisat5.a deps/libcadical.a deps/libkissat_yices.a -lc++ -lm deps/libpoly.a deps/libgmp-static.a'; \
+	    printf 'link-yices-sat: %s\n' 'MACOSX_DEPLOYMENT_TARGET=11.0 $(CC) $(macos_release_cflags) -o yices-sat executables/yices_sat.o deps/libyices.a deps/libcudd.a -lm deps/libcryptominisat5.a deps/libcadical.a deps/libkissat_yices.a -lc++ -lm'; \
+	    printf 'link-libyices-dylib: %s\n' "MACOSX_DEPLOYMENT_TARGET=11.0 $(CC) $(macos_release_cflags) -dynamiclib -current_version 2.8.0 -compatibility_version 2.8.0 -Wl,-install_name,@rpath/libyices.2.dylib -Wl,-headerpad_max_install_names -Wl,-dead_strip -Wl,-force_load,deps/libyices.a -o libyices.2.dylib deps/libcudd.a -lm deps/libcryptominisat5.a deps/libcadical.a deps/libkissat_yices.a -lc++ -lm deps/libpicpoly.a $$dylib_gmp"; \
+	    printf 'gmp-version: %s\n' "$$(get_prov gmp-version)"; \
+	    printf 'gmp-source-asset: %s\n' "$$(get_prov gmp-source-file)"; \
+	    printf 'gmp-source-sha256: %s\n' "$$(get_prov gmp-source-sha256)"; \
+	    printf 'gmp-license-election: LGPL-3.0-or-later\n'; \
+	    printf 'libpoly-commit: %s\n' "$$(get_prov libpoly-commit)"; \
+	    printf 'libpoly-source-asset: %s\n' "$$(get_prov libpoly-source-file)"; \
+	    printf 'libpoly-source-sha256: %s\n' "$$(get_prov libpoly-source-sha256)"; \
+	  } > $(relink_kit_dir)/BUILDINFO
+	@ set -eu; cd $(relink_kit_dir); \
+	  if command -v sha256sum >/dev/null 2>&1; then sha='sha256sum'; \
+	  else sha='shasum -a 256'; fi; \
+	  find . -type f ! -name MANIFEST.sha256 -print | LC_ALL=C sort | \
+	  while IFS= read -r file; do \
+	    hash=$$($$sha "$$file" | awk '{print $$1}'); \
+	    printf '%s  %s\n' "$$hash" "$$file"; \
+	  done > MANIFEST.sha256
+	chmod -R og+rX $(relink_kit_dir)
+	COPYFILE_DISABLE=1 tar -C $(relink_work_dir) -czf \
+	  $(distributions)/$(relink_kit_tarfile) $(relink_kit_name)
+	chmod og+r $(distributions)/$(relink_kit_tarfile)
+	@ count=$$(find $(relink_kit_dir)/deps -type f -name '*.a' -print | wc -l | tr -d ' '); \
+	  echo "=== Built $(distributions)/$(relink_kit_tarfile) with $$count archives ==="
+
+.PHONY: macos-relink-kit
 
 
 
@@ -504,9 +808,14 @@ install-default:
 	$(MKDIR_P) $(DESTDIR)$(bindir)
 	$(MKDIR_P) $(DESTDIR)$(libdir)
 	$(MKDIR_P) $(DESTDIR)$(includedir)
+	$(MKDIR_P) $(DESTDIR)$(prefix)/share/doc/yices-$(YICES_VERSION)
+	$(MKDIR_P) $(DESTDIR)$(prefix)/share/licenses/yices-$(YICES_VERSION)
 	$(INSTALL) -m 664 $(dist_dir)/include/* $(DESTDIR)$(includedir)
 	$(INSTALL) $(dist_dir)/bin/* $(DESTDIR)$(bindir)
 	$(INSTALL) $(dist_dir)/lib/* $(DESTDIR)$(libdir)
+	$(INSTALL) -m 664 LICENSE.txt $(DESTDIR)$(prefix)/share/doc/yices-$(YICES_VERSION)/LICENSE
+	$(INSTALL) -m 664 etc/NOTICES $(DESTDIR)$(prefix)/share/doc/yices-$(YICES_VERSION)/NOTICES
+	$(INSTALL) -m 664 LICENSES/* $(DESTDIR)$(prefix)/share/licenses/yices-$(YICES_VERSION)
 
 install-darwin: install-default
 	(cd $(DESTDIR)$(libdir) && $(LN_S) -f libyices.$(MAJOR).dylib libyices.dylib)
@@ -571,20 +880,30 @@ srcdist_tarfile= yices-$(YICES_VERSION)-src.tar.gz
 #
 source-distribution: $(distributions) doc
 	@ echo "=== Building $(srcdist_tarfile) ==="
+	@ test -s doc/manual/manual.pdf && test doc/manual/manual.pdf -nt doc/manual/manual.tex || \
+	  { echo "ERROR: doc/manual/manual.pdf is missing or older than doc/manual/manual.tex" >&2; exit 1; }
 	rm -f -r $(srcdist_dir)
 	$(MKDIR_P) $(srcdist_dir)
-	cp install-sh config.guess configure configure.ac config.sub gmaketest $(srcdist_dir)
+	cp install-sh config.guess configure configure.ac config.sub gmaketest yices.pc.in \
+	  RELINKING.md $(srcdist_dir)
 	cp Makefile Makefile.build make.include.in $(srcdist_dir)
 	$(MKDIR_P) $(srcdist_dir)/autoconf
 	cp autoconf/* $(srcdist_dir)/autoconf
 	$(MKDIR_P) $(srcdist_dir)/scripts
-	cp scripts/rewrite-kissat-kitten-symbols.sh $(srcdist_dir)/scripts
+	cp scripts/rewrite-kissat-kitten-symbols.sh scripts/capture-release-provenance.sh \
+	  $(srcdist_dir)/scripts
 	$(MKDIR_P) $(srcdist_dir)/configs
 	$(MKDIR_P) $(srcdist_dir)/etc
 	cp etc/README.source $(srcdist_dir)/README
 	cp etc/NOTICES $(srcdist_dir)
 	cp LICENSE.txt $(srcdist_dir)/LICENSE
-	cp etc/* $(srcdist_dir)/etc
+	for file in etc/* ; do \
+	  if test -f "$$file" && test "$$file" != etc/NOTICES ; then \
+	    cp "$$file" $(srcdist_dir)/etc ; \
+	  fi ; \
+	done
+	cp -R etc/relink $(srcdist_dir)/etc
+	cp -R LICENSES $(srcdist_dir)
 	$(MKDIR_P) $(srcdist_dir)/src
 	rsync -R `find src/ -name "Makefile" -or -name "*.c" -or -name "*.h" -or -name "*.txt"` $(srcdist_dir)
 	$(MKDIR_P) $(srcdist_dir)/doc
@@ -610,11 +929,13 @@ source-distribution: $(distributions) doc
 	done || true
 	$(MKDIR_P) $(srcdist_dir)/tests
 	cp -R tests/unit $(srcdist_dir)/tests
+	cp -R tests/api $(srcdist_dir)/tests
+	find $(srcdist_dir)/tests/api -type f -name '*.log' -delete
 	$(MKDIR_P) $(srcdist_dir)/tests/regress
 	for t in regress/arrays regress/bv regress/efsmt regress/mantis regress/wd ; do \
 	   cp -R tests/$$t $(srcdist_dir)/tests/regress ; \
 	done
-	cp tests/regress/check.sh $(srcdist_dir)/tests/regress
+	cp tests/regress/check.sh tests/regress/run_test.sh $(srcdist_dir)/tests/regress
 	chmod -R og+rX $(srcdist_dir)
 	COPYFILE_DISABLE=1 tar -czf $(distributions)/$(srcdist_tarfile) $(srcdist_dir)
 	chmod -R og+rX $(distributions)
