@@ -23,7 +23,8 @@
 #
 # Usage: check.sh <test-dir> <bin-dir>
 #
-# tests-dir contains test files in the SMT1, SMT2, or Yices input language
+# tests-dir contains test files in the SMT1, SMT2, or Yices input language.
+# Several directories can be given as one space-separated argument.
 # bin-dir contains the Yices binaries for each of these languages
 #
 # For each test file, the expected results are stored in file.gold
@@ -224,10 +225,15 @@ if test $# "<" 2 ; then
     usage
 fi
 
-regress_dir=$1
+# The first argument may name several directories, separated by spaces
+read -r -a regress_dirs <<< "$1"
 bin_dir=$2
 shift 2
 all_tests="$@"
+
+if [ ${#regress_dirs[@]} -eq 0 ] ; then
+    usage
+fi
 
 # REGRESS_DELEGATE_MODE selects whether the regression run also fans out
 # into one extra pass per installed external SAT delegate (CaDiCaL,
@@ -305,7 +311,7 @@ fi
 
 if [ -z "$all_tests" ] ; then
     all_tests=$(
-    find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' |
+    find "${regress_dirs[@]}" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' |
       grep $REGRESS_FILTER | grep $MCSAT_FILTER | grep -v "$REGRESS_EXCLUDE_FILTER" |
       sort
     )
