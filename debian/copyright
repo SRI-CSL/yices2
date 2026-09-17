@@ -8,13 +8,20 @@ Files: *
 Copyright: 2026 SRI International
 License: BSD-3-Clause
 Comment: Some files in the Yices source carry third-party material that this
- paragraph does not enumerate. etc/NOTICES sections 1 and 2 record each item
- and where it came from, and state where the applicable terms could not be
- established.
+ paragraph does not enumerate. They are recorded in the Yices third-party
+ notices file, named NOTICES, whose sections 1 and 2 give each item, where it
+ came from, and where the applicable terms could not be established. NOTICES
+ is at etc/NOTICES in the Yices source tree and accompanies the Yices source
+ distribution and the published binary archives. That is a source-tree path,
+ not a path inside this package.
 
 Files: autoconf/config.guess config.guess config.sub
 Copyright: 1992-2016 Free Software Foundation, Inc.
+ 2026 SRI International
 License: GPL-3+ with Autoconf-exception
+Comment: Both config.guess copies contain an SRI International modification
+ dated 2026-09-14 that maps Darwin arm64 to canonical aarch64. config.sub is
+ unchanged.
 
 Files: install-sh
 Copyright: 1994 X Consortium
@@ -30,9 +37,15 @@ Copyright: Arto Bendiken
 License: public-domain
 
 Files: doc/sphinx/source/_extensions/cenum.py
-Copyright: 2007-2014 Sphinx team
+Copyright: none stated in the file; the holder is not established
 License: BSD-2-Clause
-Comment: This file is derived from the Sphinx C-domain implementation.
+Comment: This file carries no copyright notice and no license notice. Its
+ header records that the code is based on the Sphinx sources
+ sphinx/domains/__init__.py and sphinx/domains/c.py, and names no author,
+ holder or year. BSD-2-Clause is named above because Sphinx, from which that
+ header says the code is derived, is distributed by its authors under a
+ two-clause BSD license; the file itself states no license. The Yices
+ third-party notices file records the same finding in its entry 2.5.
 
 License: BSD-3-Clause
  Redistribution and use in source and binary forms, with or without

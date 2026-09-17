@@ -20,6 +20,8 @@ and the Yices libraries and header files
   bin/cygyices.dll
 
   lib/libyices.dll.a
+  lib/libyices.a
+  lib/pkgconfig/yices.pc
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -29,8 +31,8 @@ and the Yices libraries and header files
 Examples and documentation are in the examples and doc directories.
 
 
-The binaries and library require the GNU Multiprecision library (GMP)
-version __GMP__ or compatible. GMP must be installed as a DLL on Cygwin
+The Yices shared library and the binaries other than the sat solver require
+GMP version __GMP__ or compatible. GMP must be installed as a DLL on Cygwin
 for Yices to work. GMP is copyright Free Software Foundation (see NOTICES).
 
 

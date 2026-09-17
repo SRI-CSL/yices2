@@ -82,11 +82,12 @@ To discuss alternative license terms, please contact us at
 \section{Download and Installation}
 
 The latest stable version of Yices~2 can be downloaded at
-\url{https://yices.csl.sri.com}.  We provide pre-compiled binaries for
-the platforms and operating systems listed in Table~\ref{versions}. We
-also provide source code there. For MacOS and Linux, you can also
-install Yices~2 using package managers (i.e., homebrew for the Mac and
-apt for Debian/Ubuntu).
+\url{https://yices.csl.sri.com}. We provide pre-compiled binaries for
+the platforms and operating systems listed in Table~\ref{versions}, as
+well as the matching source distribution. These direct distributions
+identify the current release. On macOS and Linux, package managers such
+as Homebrew and APT are also available, but their packages may lag the
+current release; check the version they offer before installing.
 
 \medskip\noindent
 For the latest developments, you can clone our Git repository
@@ -103,11 +104,11 @@ For the latest developments, you can clone our Git repository
 \textbf{OS/Hardware} & \textbf{Notes} \\
 \hline
 \hline
-Linux 64 bits & Kernel 2.6.24 or more recent \\
+Linux (x86-64) & Linux kernel 3.2 or more recent \\
 \hline
-Mac~OS~X 64 bits &  Mac~OS~X El Capitan\\
+macOS (Intel x86-64) & macOS 11 or more recent\\
 \hline
-Windows (64 bits) & \\
+macOS (Apple silicon arm64) & macOS 11 or more recent\\
 \hline
 \end{tabular}
 \end{center}
@@ -134,7 +135,10 @@ this is fine for you, type
 \end{small}
 This will install the binaries in \texttt{/usr/local/bin}, the library
 in \texttt{/usr/local/lib}, and the header files in
-\texttt{/usr/local/include}.
+\texttt{/usr/local/include}. It also installs \texttt{LICENSE},
+\texttt{NOTICES}, and \texttt{PROVENANCE} under
+\texttt{/usr/local/share/doc/yices-2.8.0}, and the license texts under
+\texttt{/usr/local/share/licenses/yices-2.8.0}.
 
 \medskip\noindent
 To install Yices in a different location, you can type
@@ -154,8 +158,11 @@ If you use homebrew on Mac OS~X, you can easily install Yices as follows:
    brew install SRI-CSL/sri-csl/yices
 \end{lstlisting}
 \end{small}
-(you may need \texttt{sudo}). This will install the Yices~2
-executables, library, and include files.
+This will install the Yices~2 executables, library, and include files.
+The Homebrew formula may lag the current release. Check the version with
+\texttt{brew info SRI-CSL/sri-csl/yices}. For the current release, use
+the binary distributions at \url{https://yices.csl.sri.com} or build
+from source.
 
 
 \subsubsection{Ubuntu Package}
@@ -534,8 +541,8 @@ After this, compiling and installing Yices use standard steps.
 If you downloaded the Yices~2 source from \url{https://yices.csl.sri.com}. Follow these steps:
 \begin{small}
 \begin{lstlisting}[language=sh,deletekeywords={cd}]
-   tar xvf yices-2.6.2-src.tgz
-   cd yices-2.6.2
+   tar xvf yices-2.8.0-src.tar.gz
+   cd yices-2.8.0
    ./configure
    make -j
    make check
@@ -794,6 +801,11 @@ static executables against this rewritten archive. The public Kissat API and
 \texttt{kissat.h} are unchanged. Do not use
 \texttt{-Wl,--allow-multiple-definition} for this collision: it can silently
 bind one solver to the other's incompatible \texttt{kitten\_*} functions.
+On macOS, set \texttt{KISSAT\_SOURCE\_DIR} before make to the configured
+Kissat source tree that produced the raw \texttt{libkissat.a}. The rewrite
+script builds the namespaced archive a second time from that source with a
+forced namespace header. It deliberately refuses binary objcopy rewriting on
+Mach-O because that can drop deployment metadata or damage relocations.
 Do not use a bare \texttt{make} or \texttt{make all} for this all-delegate
 static release configuration: those targets also build dynamic artifacts, and
 Yices rejects raw dynamic CaDiCaL + Kissat builds by default.
@@ -1571,7 +1583,7 @@ Section~\ref{full-api}).
 
 The Yices~2 distribution includes  a tool for processing input written
 in  the Yices~2  language.  This  tool is  called  \texttt{yices} (or
-\texttt{yices.exe}  in  the Windows  and  Cygwin distributions).   The
+\texttt{yices.exe} in Windows or Cygwin builds). The
 syntax  and  the  set  of  commands supported  by  \texttt{yices}  are
 explained  in  the file  \texttt{doc/YICES-LANGUAGE}  included in  the
 distribution. Several example specifications  are also included in the
@@ -1938,21 +1950,9 @@ options are supported.
 
 \item[--version, -V] Display version information then exit.
 
-  This  displays the  Yices version  number,  the version  of the  GMP
-  library  linked with  Yices, and  information about  build date  and
-  platform. For example,  here is the output for  Yices~2.2.0 built on
-  MacOS~X
-  \begin{small}
-  \begin{verbatim}
-     Yices 2.2.0
-     Copyright (c) 2026, SRI International.
-     Linked with GMP 5.1.3
-     Copyright Free Software Foundation, Inc.
-     Build date: 2013-12-21
-     Platform: x86_64-apple-darwin13.0.2 (release)
-  \end{verbatim}
-  \end{small}
-  \vspace*{-1em}
+  This displays the Yices version number, the version of the GMP library
+  linked with Yices, and information about the build date and platform.
+  The exact output is specific to the binary being run.
   If you ever have to report a bug, please include this version information
   in your bug report.
 
@@ -3736,7 +3736,7 @@ SMT-LIB~1.2 notations.
 
 To process SMT-LIB~2.x input, use the \texttt{yices-smt2} solver
 instead of \texttt{yices}. This tool is included in the \texttt{bin}
-directory in the distribution. In the Windows or Cygwin distribution,
+directory in the distribution. In a Windows or Cygwin build,
 it is called \texttt{yices-smt2.exe}.
 
 \medskip\noindent The SMT-LIB~2.6 language is defined
@@ -4335,10 +4335,10 @@ model we started from, namely, $a=0$, $b=0$, $c=1$.
 \section{SMT-LIB 1.2}
 
 Another tool included in the distribution can process input written in
-the SMT-LIB~1.2 notation. This tool is called \texttt{yices-smt} (or
-\texttt{yices-smt.exe} on Windows or Cygwin). It is included in the
-\texttt{bin} directory.  This tool can process SMT problems written in
-version~1.2 of SMT-LIB, which is documented
+the SMT-LIB~1.2 notation. In a Windows or Cygwin build, this tool is called
+\texttt{yices-smt.exe}; otherwise it is called \texttt{yices-smt}. It is
+included in the \texttt{bin} directory. This tool can process problems
+written in version~1.2 of SMT-LIB, which is documented
 in~\cite{SMTLIB12:2006}. This version of SMT-LIB was used in the SMT
 competitions before 2010.  Since 2010, the competitions have used
 SMT-LIB~2.0.
@@ -4535,19 +4535,23 @@ following command:
    gcc minimal.c -o minimal -lyices
 \end{lstlisting}
 \end{small}
+On macOS, the distributed shared library has install name
+\texttt{@rpath/libyices.2.dylib}. Add a run-path such as
+\texttt{-Wl,-rpath,/usr/local/lib} when linking, or set
+\texttt{DYLD\_LIBRARY\_PATH} at run time.
 Other compilers than GCC can be used. If Yices is installed in a
 non-standard location, then give appropriate flags to the compilation
 command. For example, if Yices is installed in your home directory:
 \begin{small}
 \begin{lstlisting}[language=sh]
-   gcc minimal.c -o minimal -I${HOME}/yices-2.2.0/include \
-        -L${HOME}/yices-2.2.0/lib -lyices
+   gcc minimal.c -o minimal -I${HOME}/yices-2.8.0/include \
+        -L${HOME}/yices-2.8.0/lib -lyices
 \end{lstlisting}
 \end{small}
 Running the program should print something like this:
 \begin{small}
 \begin{verbatim}
-   Testing Yices 2.2.0 (x86_64-unknown-linux-gnu, release)
+   Testing Yices 2.8.0 (x86_64-pc-linux-gnu, release)
 \end{verbatim}
 \end{small}
 If you have built a version of Yices that's dynamically linked against

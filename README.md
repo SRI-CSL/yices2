@@ -205,9 +205,11 @@ make
 sudo make install
 ```
 
-This will install binaries and libraries in `/usr/local/`. You can
-change the installation location by giving option `--prefix=...` to
-the `./configure` script.
+This will install binaries and libraries in `/usr/local/`. It also
+installs `LICENSE` and `NOTICES` in `/usr/local/share/doc/yices-2.8.0`,
+and the license texts in `/usr/local/share/licenses/yices-2.8.0`. You
+can change the installation location by giving option `--prefix=...`
+to the `./configure` script.
 
 For more explanations, please check `doc/COMPILING`.
 

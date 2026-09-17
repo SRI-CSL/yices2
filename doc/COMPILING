@@ -278,6 +278,12 @@ This rewrite keeps the public Kissat API and kissat.h unchanged. Do not use
 -Wl,--allow-multiple-definition for the CaDiCaL/Kissat collision: it can
 silently bind one solver to the other's incompatible Kitten implementation.
 
+On macOS, set KISSAT_SOURCE_DIR before make to the configured Kissat source
+tree that produced the raw libkissat.a. The rewrite script builds the
+namespaced archive a second time from that source with a forced namespace
+header. It deliberately refuses binary objcopy rewriting on Mach-O because
+that can drop deployment metadata or damage relocations.
+
 4b) CaDiCaL and Kissat SAT delegates - dynamic build
 
 For dynamic builds with both CaDiCaL and Kissat, the delegate shared libraries

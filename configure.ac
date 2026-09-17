@@ -388,7 +388,7 @@ AC_ARG_WITH([static-dep-dir],
 static_delegates=""
 AC_ARG_WITH([static-delegates],
    [AS_HELP_STRING([--with-static-delegates=<directory>],
-            [Directory containing raw static delegate archives])],
+            [Directory containing static delegate archives])],
    [if test "x$withval" = x; then
       AC_MSG_WARN([--with-static-delegates was used but no directory was given. Ignoring])
     else
@@ -919,13 +919,13 @@ fi
 # Position-independent static version of LIBPOLY
 #
 PIC_LIBPOLY="$STATIC_LIBPOLY"
-PIB_LIBPOLY_INCLUDE_DIR="$STATIC_LIBPOLY_INCLUDE_DIR"
+PIC_LIBPOLY_INCLUDE_DIR="$STATIC_LIBPOLY_INCLUDE_DIR"
 AC_SUBST(PIC_LIBPOLY)
 AC_SUBST(PIC_LIBPOLY_INCLUDE_DIR)
 if test $use_mcsat = yes ; then
   if test "x$pic_lpoly" != x ; then
      CSL_CHECK_HEADER([poly/polynomial.h],$pic_includelpoly,--with-pic-libpoly-include-dir)
-     CSL_CHECK_LIB_PATH($pic_lpoly,--with-pic-lpoly)
+     CSL_CHECK_LIB_PATH($pic_lpoly,--with-pic-libpoly)
      if test "x$PIC_GMP" != x ; then
         auxlibs="$PIC_GMP"
      else
@@ -935,7 +935,7 @@ if test $use_mcsat = yes ; then
          auxlibs="-lgmp"
        fi
      fi
-     CSL_CHECK_STATIC_LIBPOLY($pic_lpoly,$pic_includelpoly,$auxlibs)
+     CSL_CHECK_LIBPOLY($testlib,$testincludedir,$auxlibs)
      if test $run_ok = yes; then
        PIC_LIBPOLY=$testlib
        PIC_LIBPOLY_INCLUDE_DIR=$testincludedir
@@ -973,6 +973,7 @@ STATIC_CADICAL_RAW=""
 STATIC_CRYPTOMINISAT_RAW=""
 STATIC_KISSAT_RAW=""
 STATIC_KISSAT_YICES=""
+STATIC_KISSAT_YICES_GENERATED=no
 DYNAMIC_DELEGATES_ASSUME_HIDDEN_KITTEN="$dynamic_delegates_assume_hidden_kitten"
 
 AC_SUBST(HAVE_CADICAL_DELEGATE)
@@ -984,6 +985,7 @@ AC_SUBST(STATIC_CADICAL_RAW)
 AC_SUBST(STATIC_CRYPTOMINISAT_RAW)
 AC_SUBST(STATIC_KISSAT_RAW)
 AC_SUBST(STATIC_KISSAT_YICES)
+AC_SUBST(STATIC_KISSAT_YICES_GENERATED)
 AC_SUBST(DYNAMIC_DELEGATES_ASSUME_HIDDEN_KITTEN)
 
 if test "x$static_include_delegates" != x ; then
@@ -1015,10 +1017,14 @@ if test "x$static_delegates" != x ; then
       if test -f "$static_delegates/libkissat_yices.a" ; then
          AC_MSG_NOTICE([using supplied namespaced Kissat archive $static_delegates/libkissat_yices.a])
          STATIC_KISSAT_YICES="$static_delegates/libkissat_yices.a"
+         if test -f "$static_delegates/libkissat.a" ; then
+            STATIC_KISSAT_RAW="$static_delegates/libkissat.a"
+         fi
       else
          CSL_CHECK_STATIC_DELEGATE_ARCHIVE([$static_delegates],[libkissat.a])
          STATIC_KISSAT_RAW=$testlib
          STATIC_KISSAT_YICES='$(STATIC_DEPDIR)/libkissat_yices.a'
+         STATIC_KISSAT_YICES_GENERATED=yes
       fi
       CSL_CHECK_HEADER([kissat.h],$static_include_delegates,--with-static-delegates-include-dir)
    fi

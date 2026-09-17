@@ -54,12 +54,22 @@ Which libraries this concerns
   LibPoly          Built into yices, yices-smt, yices-smt2, and the shared
                    library. Not present in yices-sat.
 
-CUDD, CaDiCaL, Kissat, and CryptoMiniSat are also built into the Yices
-binaries. This kit publishes no relinking material for them, and replacing
-them is not what it is for. Their archives are here because you cannot relink
-anything without them, and their notices are here because this kit
-redistributes those archives. NOTICES in this kit records what each component
-is and the terms its own authors distribute it under.
+CUDD, CaDiCaL, Kissat, and CryptoMiniSat are also built into yices, yices-smt,
+yices-smt2, and the shared library. This kit publishes no relinking material
+for them, and replacing them is not what it is for. Their archives are here
+because you cannot relink anything without them, and their notices are here
+because this kit redistributes those archives. NOTICES in this kit records
+what each component is and the terms its own authors distribute it under
+where the repository evidence establishes them, and records the gap where it
+does not.
+
+The published shared library statically incorporates GMP, LibPoly, CUDD,
+CaDiCaL, Kissat, and CryptoMiniSat, and its current link exports those
+libraries' global symbols alongside the Yices API. A process that loads
+libyices together with another copy of one of those libraries can silently
+interpose one copy's symbols on the other; dynamic linking does not isolate
+them. Only the interfaces declared in the installed Yices headers are Yices
+public API. Do not call or rely on the exported dependency symbols.
 
 
 What you need before you start
@@ -90,6 +100,17 @@ archive, for startup object files, or for a sysroot, and they read no C library
 from deps/. The link uses the C library, the startup files, and the toolchain
 directories of the machine you run them on. Relinking against a C library you
 built yourself is outside what these scripts do.
+
+The supplied object files can also be used in a separately constructed link
+command that names a recipient-built C library and matching startup and
+toolchain inputs. The convenience scripts do not restrict that use.
+
+One thing relinking does not change is the version text yices-sat prints. That
+text names the GNU C Library, and which text the program carries was settled
+when executables/yices_sat.o was compiled rather than when you link it. A
+yices-sat relinked on a system whose C library is not the GNU C Library still
+prints that text. The scripts link the object you were given; they do not
+compile it again.
 
 
 Step 1: verify the kit
@@ -146,14 +167,16 @@ Each script prints the command it runs before running it. Treat the
 corresponding link-* entry in BUILDINFO as the reference command. The printed
 command is not identical to that entry. These are the differences.
 
-  CC defaults to cc, while BUILDINFO records gcc as the driver that produced
-  the published binaries.
+  CC defaults to cc. BUILDINFO's cc field records the configure compiler
+  command gcc -std=gnu17. The script treats CC as one executable name, so set
+  CC=gcc rather than assigning that whole field to CC. Put -std=gnu17 at the
+  front of CFLAGS if you want the printed link command to retain it.
 
   CFLAGS defaults to
   -fvisibility=hidden -O3 -fomit-frame-pointer -fno-stack-protector.
   BUILDINFO records those same four flags with -Wall and -Wredundant-decls
-  inserted after -fvisibility=hidden, the whole preceded by -O2 and by a
-  -ffile-prefix-map option, which rewrote the source paths recorded in the
+  inserted after -fvisibility=hidden, the whole preceded by a -ffile-prefix-map
+  option, which rewrote the source paths recorded in the
   object files when they were compiled. The two warning flags control
   diagnostics and do not change the generated code. BUILDINFO carries the
   -ffile-prefix-map value that was used.
@@ -163,14 +186,16 @@ command is not identical to that entry. These are the differences.
   files as kit-relative paths, such as executables/yices.o and
   deps/libcudd.a.
 
-  The scripts write into the output directory, so the printed command ends
-  with an output path such as -o ./relinked/yices. BUILDINFO records -o yices.
+  The scripts write into the output directory, so the printed command gives an
+  output path under that directory, such as -o ./relinked/yices. BUILDINFO
+  records a bare output name, -o yices.
 
-Setting CC and CFLAGS to the values BUILDINFO records closes the first two
-differences. The last two remain. They follow from where you unpacked the kit
-and where you sent the output, and no setting changes them, so compare the two
-commands input by input rather than as strings. -ffile-prefix-map affects
-compilation rather than linking, so passing it here changes nothing in the
+Setting CC=gcc and setting CFLAGS to -std=gnu17 followed by the value in
+BUILDINFO's cflags field closes the first two groups of differences. The last
+two remain. They follow from where you unpacked the kit and where you sent the
+output, and no setting changes them, so compare the two commands input by
+input rather than as strings. -std=gnu17 and -ffile-prefix-map affect
+compilation rather than linking, so passing them here changes nothing in the
 output.
 
 
@@ -228,22 +253,29 @@ License texts and notices
 -------------------------
 
 The licenses/ directory holds license texts for some of the components this kit
-redistributes. It is not a complete set. Where a component's terms are not in
-licenses/, NOTICES reproduces them instead, as it does for CUDD. Version 3 of
+redistributes. It is not a complete set. licenses/ has no file for CUDD, and
+NOTICES reproduces CUDD's terms in full instead. Version 3 of
 the Lesser General Public License incorporates the General Public License by
 reference, which is why both of those are present. The MIT and Apache
 License 2.0 texts are present because components in deps/ are distributed under
-them, and NOTICES records which component each applies to. The BSD text is
-Yices' own license, which this kit also carries as LICENSE.
+them, and NOTICES records which component each applies to. The exact CPython
+3.4.0a3 license and copyright notice accompany the minimum-run sequence
+described in NOTICES section 1.4. The BSD text is Yices' own license, which
+this kit also carries as LICENSE.
+
+The GNU General Public License version 2 text is present for the GPL-2.0-only
+files in the separately published CryptoMiniSat source asset, not for any
+archive in deps/. NOTICES section 3.9 records that exact scope.
 
 The set depends on the platform. A kit for a build that contains the GNU C
 Library also carries the Lesser General Public License version 2.1; a kit for a
 platform whose C library comes from the operating system does not, because no
 C library is built in.
 
-NOTICES, in this kit, records each third-party component the kit redistributes, where it
-came from, and the terms its own authors distribute it under. It reproduces
-the copyright notices supplied by CUDD, CaDiCaL, Kissat, and CryptoMiniSat,
-whose archives are in deps/. For GMP and LibPoly it records that the source
-carries copyright notices in individual files rather than one notice for the
-project.
+NOTICES, in this kit, records each third-party component the kit
+redistributes, where it came from, and the terms its own authors distribute it
+under where the repository evidence establishes them, and records the gap
+where it does not. It reproduces the copyright notices supplied by CUDD,
+CaDiCaL, Kissat, and CryptoMiniSat, whose archives are in deps/. For GMP and
+LibPoly itself it records that the source carries copyright notices in
+individual files rather than one notice for the project.

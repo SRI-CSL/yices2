@@ -307,12 +307,13 @@ static void print_version(FILE *f) {
 #if defined(__GLIBC__)
           "Linked with the GNU C Library\n"
           "Copyright Free Software Foundation, Inc.\n"
-          "See the NOTICES file for that component, and the LICENSES\n"
-          "directory for a copy of the GNU Lesser General Public License\n"
-          "that applies to it.\n"
+          "See the NOTICES file for that component, the terms that apply to\n"
+          "it, and where to find the copy of the GNU Lesser General Public\n"
+          "License distributed with Yices.\n"
 #else
           "See the NOTICES file for the third-party components in this\n"
-          "distribution and the LICENSES directory for their license texts.\n"
+          "distribution, the terms that apply to them, and where to find\n"
+          "their license texts.\n"
 #endif
           ,
           yices_version,

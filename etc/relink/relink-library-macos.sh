@@ -19,7 +19,7 @@ depsdir=$kit/deps
 LIBNAME=${LIBNAME:-libyices.2.dylib}
 INSTALL_NAME=${INSTALL_NAME:-@rpath/libyices.2.dylib}
 
-LIBYICES_A=${LIBYICES_A:-$depsdir/libyices.a}
+LIBYICES_A=${LIBYICES_A:-$depsdir/libyices-dylib.a}
 CUDD_A=${CUDD_A:-$depsdir/libcudd.a}
 CMS_A=${CMS_A:-$depsdir/libcryptominisat5.a}
 CADICAL_A=${CADICAL_A:-$depsdir/libcadical.a}
@@ -33,19 +33,22 @@ else
 fi
 GMP_A=${GMP_A:-$default_gmp}
 
-# Archive order is load-bearing. GMP must be the final archive.
-libs="$CUDD_A -lm $CMS_A $CADICAL_A $KISSAT_A -lc++ -lm $LIBPOLY_A $GMP_A"
+# Archive order is load-bearing. GMP must be the final archive. Keep paths as
+# distinct arguments so the shell does not split a valid archive path that
+# contains whitespace.
+set -- "$CUDD_A" -lm "$CMS_A" "$CADICAL_A" "$KISSAT_A" \
+    -lc++ -lm "$LIBPOLY_A" "$GMP_A"
 
 # Test hook for the required negative test. It changes no normal invocation.
 if [ "${RELINK_TEST_GMP_NOT_LAST:-0}" = 1 ]; then
-    libs="$libs -lm"
+    set -- "$@" -lm
 fi
 
 assert_last() {
-    _list=$1
-    _expected=$2
+    _expected=$1
+    shift
     _last=
-    for _item in $_list; do
+    for _item do
         _last=$_item
     done
     if [ "$_last" != "$_expected" ]; then
@@ -56,7 +59,7 @@ assert_last() {
     fi
 }
 
-assert_last "$libs" "$GMP_A"
+assert_last "$GMP_A" "$@"
 
 if [ "$SKIP_VERIFY" != 1 ]; then
     "$kit/verify-manifest.sh" "$kit"
@@ -92,7 +95,7 @@ echo "relink: output $outdir/$LIBNAME"
 echo
 
 echo "relink: building $LIBNAME"
-echo "  $CC $CFLAGS -dynamiclib -current_version 2.8.0 -compatibility_version 2.8.0 -Wl,-install_name,$INSTALL_NAME -Wl,-headerpad_max_install_names -Wl,-dead_strip -Wl,-force_load,$LIBYICES_A -o $outdir/$LIBNAME $libs"
+echo "  $CC $CFLAGS -dynamiclib -current_version 2.8.0 -compatibility_version 2.8.0 -Wl,-install_name,$INSTALL_NAME -Wl,-headerpad_max_install_names -Wl,-dead_strip -Wl,-force_load,$LIBYICES_A -o $outdir/$LIBNAME $*"
 
 # shellcheck disable=SC2086
 "$CC" $CFLAGS -dynamiclib \
@@ -102,7 +105,7 @@ echo "  $CC $CFLAGS -dynamiclib -current_version 2.8.0 -compatibility_version 2.
     -Wl,-headerpad_max_install_names \
     -Wl,-dead_strip \
     -Wl,-force_load,"$LIBYICES_A" \
-    -o "$outdir/$LIBNAME" $libs
+    -o "$outdir/$LIBNAME" "$@"
 
 codesign -s - "$outdir/$LIBNAME"
 

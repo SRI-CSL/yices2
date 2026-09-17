@@ -18,6 +18,7 @@
 #     binaries      in <directory>/bin
 #     libraries     in <directory>/lib
 #     include files in <directory>/include
+#     pkg-config    in <directory>/lib/pkgconfig/yices.pc
 #     legal record  in <directory>/share/doc/yices-2.8.0 and
 #                   <directory>/share/licenses/yices-2.8.0
 #
@@ -38,6 +39,7 @@ The first form installs Yices in the specified by <directory> as follows:
    binaries      in <directory>/bin
    libraries     in <directory>/lib
    include files in <directory>/include
+   pkg-config    in <directory>/lib/pkgconfig/yices.pc
    legal record  in <directory>/share/doc/yices-2.8.0 and
                  <directory>/share/licenses/yices-2.8.0
 
@@ -92,13 +94,13 @@ done
 # subdirectory and get the dynamic libraries name.
 #
 local_dir=`pwd`
-if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a "$local_dir/include" ; then
+if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a -d "$local_dir/include" ; then
 
    sofile=`ls lib/*.so.2.*.* | sed -e 's+lib/++' 2>/dev/null`
 
    case "$sofile" in
      libyices.so.2.*.*)
-       break;;
+       ;;
 
      *) echo "$failure"
         echo "Can't find the Yices library libyices.so.2.x.y in ./lib"
@@ -130,13 +132,13 @@ if test -n "$location" ; then
 
     here) local_install="yes"
           install_dir="$local_dir"
-          break;;
+          ;;
 
     *) install_dir="$location"
        if test "$location" -ef "$local_dir" ; then
           local_install="yes"
        fi
-       break;;
+       ;;
 
   esac
 fi
@@ -163,6 +165,7 @@ fi
 #
 bindir="$install_dir/bin"
 libdir="$install_dir/lib"
+pkgconfigdir="$libdir/pkgconfig"
 includedir="$install_dir/include"
 docdir="$install_dir/share/doc/yices-$version"
 licensesdir="$install_dir/share/licenses/yices-$version"
@@ -174,10 +177,11 @@ licensesdir="$install_dir/share/licenses/yices-$version"
 #
 if test "$local_install" = "no" ; then
   echo "Installing Yices in $install_dir"
-  {  $install -d "$install_dir" "$bindir" "$libdir" "$includedir" "$docdir" "$licensesdir" \
+  {  $install -d "$install_dir" "$bindir" "$libdir" "$pkgconfigdir" "$includedir" "$docdir" "$licensesdir" \
      && $install -m 0644 ./include/*.h "$includedir"  \
      && $install ./bin/* "$bindir"  \
      && $install ./lib/*.so.2.*.* "$libdir" \
+     && $install -m 0644 ./lib/pkgconfig/yices.pc "$pkgconfigdir" \
      && $install -m 0644 ./LICENSE "$docdir" \
      && $install -m 0644 ./NOTICES "$docdir" \
      && $install -m 0644 ./PROVENANCE "$docdir" \

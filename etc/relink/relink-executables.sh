@@ -68,7 +68,7 @@ CMS_A=${CMS_A:-$depsdir/libcryptominisat5.a}
 KISSAT_A=${KISSAT_A:-$depsdir/libkissat_yices.a}
 
 # ---------------------------------------------------------------------------
-# Library lists.
+# Library arguments.
 #
 # ORDER IS LOAD-BEARING. GMP must come last: the other archives depend on it,
 # and a static linker resolves left to right. This is checked below rather
@@ -80,15 +80,26 @@ KISSAT_A=${KISSAT_A:-$depsdir/libkissat_yices.a}
 # Do not merge these two lists.
 # ---------------------------------------------------------------------------
 
-nogmp_libs="$CUDD_A -lm $CMS_A $CADICAL_A $KISSAT_A -lstdc++ -lm -lpthread"
-full_libs="$nogmp_libs $LIBPOLY_A $GMP_A"
+assert_last() {
+    _expected=$1
+    shift
+    _last=
+    for _item do
+        _last=$_item
+    done
+    if [ "$_last" != "$_expected" ]; then
+        echo "relink: internal error, GMP is not last in the archive list" >&2
+        echo "relink: expected final item: $_expected" >&2
+        echo "relink: actual final item: ${_last:-NONE}" >&2
+        exit 1
+    fi
+}
 
-case " $full_libs " in
-    *" $GMP_A ") : ;;   # good: GMP is the final element
-    *) echo "relink: internal error, GMP is not last in the archive list" >&2
-       echo "relink: refusing to run; see the comment above this check" >&2
-       exit 1 ;;
-esac
+# Keep paths as distinct arguments. Serializing them into a scalar would make
+# the shell split a valid archive path that contains whitespace.
+set -- "$CUDD_A" -lm "$CMS_A" "$CADICAL_A" "$KISSAT_A" \
+    -lstdc++ -lm -lpthread "$LIBPOLY_A" "$GMP_A"
+assert_last "$GMP_A" "$@"
 
 # ---------------------------------------------------------------------------
 # Preflight.
@@ -135,28 +146,31 @@ link() {
     shift 2
 
     echo "relink: building $_out"
-    # Print the exact command before running it, so it can be compared with
-    # the corresponding link-* field in BUILDINFO.
+    # Print the command before running it, so it can be compared with the
+    # corresponding link-* field in BUILDINFO. The invocation below preserves
+    # each fixed input as a distinct argument even when its path has whitespace.
     echo "  $CC $CFLAGS $BIN_LDFLAGS $STATIC_FLAG -o $outdir/$_out $_obj $LIBYICES_A $*"
 
     # shellcheck disable=SC2086
     "$CC" $CFLAGS $BIN_LDFLAGS $STATIC_FLAG \
-        -o "$outdir/$_out" "$_obj" "$LIBYICES_A" $*
+        -o "$outdir/$_out" "$_obj" "$LIBYICES_A" "$@"
 
     echo "  ok"
     echo
 }
 
 # The three front ends that use GMP and LibPoly.
-link yices      "$objdir/yices.o"          $full_libs
-link yices-smt  "$objdir/yices_smtcomp.o"  $full_libs
-link yices-smt2 "$objdir/yices_smt2.o"     $full_libs
+link yices      "$objdir/yices.o"          "$@"
+link yices-smt  "$objdir/yices_smtcomp.o"  "$@"
+link yices-smt2 "$objdir/yices_smt2.o"     "$@"
 
 # yices-sat: no GMP, no LibPoly. See the comment on the library lists.
 # If you modified only GMP or LibPoly, this binary is unaffected and you do
 # not need to replace the published one. The C library it links comes from
 # this machine rather than from the kit. See the README on yices-sat.
-link yices-sat  "$objdir/yices_sat.o"      $nogmp_libs
+link yices-sat "$objdir/yices_sat.o" \
+    "$CUDD_A" -lm "$CMS_A" "$CADICAL_A" "$KISSAT_A" \
+    -lstdc++ -lm -lpthread
 
 echo "relink: all four executables written to $outdir"
 echo "relink: smoke-test with:  $outdir/yices --version"

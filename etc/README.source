@@ -46,11 +46,28 @@ Do this:
   make
   sudo make install
 
-This will install binaries and libraries in /usr/local/
+This will install binaries and libraries in /usr/local/. It also
+installs LICENSE and NOTICES in /usr/local/share/doc/yices-2.8.0,
+and the license texts in /usr/local/share/licenses/yices-2.8.0.
 You can change the installation location by giving option 
   --prefix=... to the ./configure script.
 
 For more explanations, please check doc/COMPILING.
+
+
+SOURCE REVISION
+---------------
+
+The official release binaries record the full release commit. The release
+workflow supplies it through YICES_SOURCE_REVISION.
+
+A normal build from this extracted source archive has no Git metadata. It
+therefore reports "Revision: unknown" unless YICES_SOURCE_REVISION is set.
+This is intentional: a locally modified source tree must not silently claim
+to be the pristine release commit. For a byte-unmodified official source
+archive, you may set YICES_SOURCE_REVISION to the full commit recorded in the
+published YICES-SOURCE-RECEIPT before running make. Keep a separate record of
+any local modifications.
 
 
 

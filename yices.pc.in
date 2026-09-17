@@ -17,7 +17,18 @@
 # and a static linker resolves left to right. The generated static link rules
 # keep GMP last for this reason.
 #
-# Kissat and CaDiCaL: a caution for static consumers.
+# Shared-library visibility: a caution for dynamic consumers.
+#
+# The release shared library statically incorporates GMP, LibPoly, CUDD,
+# CaDiCaL, Kissat, and CryptoMiniSat. Its current link does not hide those
+# libraries' global symbols, so they are exported alongside the Yices API.
+# A process that loads libyices together with another copy of one of those
+# libraries can silently interpose one copy's symbols on the other. Dynamic
+# linking to libyices does not isolate them. Only the interfaces declared in
+# the installed Yices headers are Yices public API; do not call or rely on the
+# exported dependency symbols.
+#
+# Kissat and CaDiCaL: an additional caution for static consumers.
 #
 # CaDiCaL and Kissat each embed a copy of Kitten and each exports its private
 # symbols. Linking stock builds of both into one program can bind one solver's
@@ -32,6 +43,9 @@
 # Kitten symbols before linking. The script that does it,
 # scripts/rewrite-kissat-kitten-symbols.sh, is included in the Yices source
 # distribution, so it is available to you as well.
+# On macOS, pass --source-dir to that script or set KISSAT_SOURCE_DIR to the
+# configured Kissat source tree that produced the raw archive. The script
+# deliberately refuses binary rewriting of Mach-O archives.
 #
 # Link order does not isolate two libraries' same-named private symbols. It
 # only determines which definition satisfies both libraries' references, so

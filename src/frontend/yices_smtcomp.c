@@ -224,9 +224,9 @@ static void print_version(void) {
          "Build date: %s\n"
          "Platform: %s (%s)\n"
          "Includes components from the Free Software Foundation and others.\n"
-         "See the NOTICES file for those components, and the LICENSES\n"
-         "directory for copies of the GNU Lesser General Public License and\n"
-         "the GNU General Public License that apply to some of them.\n",
+         "See the NOTICES file for those components, the terms that apply to\n"
+         "them, and where to find the copies of the GNU Lesser General Public\n"
+         "License and the GNU General Public License distributed with Yices.\n",
          yices_version, gmp_version,
          yices_build_date, yices_build_arch, yices_build_mode);
   fflush(stdout);

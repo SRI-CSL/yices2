@@ -18,6 +18,7 @@
 #     binaries      in <location>/bin
 #     libraries     in <location>/lib
 #     include files in <location>/include
+#     pkg-config    in <location>/lib/pkgconfig/yices.pc
 #     legal record  in <location>/share/doc/yices-2.8.0 and
 #                   <location>/share/licenses/yices-2.8.0
 #
@@ -40,6 +41,7 @@ This copies binaries, libraries, and header files as follows:
    binaries      in <directory>/bin
    libraries     in <directory>/lib
    include files in <directory>/include
+   pkg-config    in <directory>/lib/pkgconfig/yices.pc
    legal record  in <directory>/share/doc/yices-2.8.0 and
                  <directory>/share/licenses/yices-2.8.0
 
@@ -67,7 +69,6 @@ Installation failed
 #
 install="/usr/bin/install"
 link="/bin/ln"
-install_name_tool="/usr/bin/install_name_tool"
 
 
 #
@@ -103,13 +104,13 @@ done
 # subdirectories and check the lib contains libyices.2.dylbib.
 #
 local_dir=`pwd`
-if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a "$local_dir/include" ; then
+if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a -d "$local_dir/include" ; then
 
    dylib_file=`ls lib/libyices.2.dylib | sed -e 's+lib/++' 2>/dev/null`
 
    case "$dylib_file" in
      libyices.2.dylib)
-       break;;
+       ;;
 
      *) echo "$failure"
         echo "Can't find the Yices library libyices.2.dylib in ./lib"
@@ -127,6 +128,8 @@ else
    exit 1
 fi
 
+# The dylib filename contains only the ABI major version, not the full release
+# version. Keep this literal synchronized with each Yices release.
 version=2.8.0
 
 
@@ -142,17 +145,17 @@ if test -n "$location" ; then
     here)
       local_install="yes"
       install_dir="$local_dir"
-      break;;
+      ;;
 
     /*)
       install_dir="$location"
       if test "$location" -ef "$local_dir" ; then
          local_install="yes"
       fi
-      break;;
+      ;;
 
     *)
-      echo "The directory must be givan as an absolute path"
+      echo "The directory must be given as an absolute path"
       exit 1;;
 
   esac
@@ -167,11 +170,6 @@ if test "$local_install" = "no" ; then
   { echo "$failure" ; echo "Can't find $install" ; echo "" ; exit 1 ; }
 fi
 
-if test "$install_dir" != "/usr/local" ; then
-  { test -f "$install_name_tool" -a -x "$install_name_tool" ; } ||
-  { echo "$failure" ; echo "Can't find $install_name_tool" ; echo "" ; exit 1 ; }
-fi
-
 { test -f "$link" -a -x "$link"; } ||
   { echo "$failure" ; echo "Can't find $link" ; echo "" ; exit 1 ; }
 
@@ -181,6 +179,7 @@ fi
 #
 bindir="$install_dir/bin"
 libdir="$install_dir/lib"
+pkgconfigdir="$libdir/pkgconfig"
 includedir="$install_dir/include"
 docdir="$install_dir/share/doc/yices-$version"
 licensesdir="$install_dir/share/licenses/yices-$version"
@@ -192,10 +191,11 @@ licensesdir="$install_dir/share/licenses/yices-$version"
 #
 if test "$local_install" = "no" ; then
   echo "Installing Yices in $install_dir"
-  { $install -d "$install_dir" "$bindir" "$libdir" "$includedir" "$docdir" "$licensesdir" \
+  { $install -d "$install_dir" "$bindir" "$libdir" "$pkgconfigdir" "$includedir" "$docdir" "$licensesdir" \
     && $install -m 0644 ./include/*.h "$includedir" \
     && $install ./bin/* "$bindir" \
     && $install ./lib/*.2.dylib "$libdir" \
+    && $install -m 0644 ./lib/pkgconfig/yices.pc "$pkgconfigdir" \
     && $install -m 0644 ./LICENSE "$docdir" \
     && $install -m 0644 ./NOTICES "$docdir" \
     && $install -m 0644 ./PROVENANCE "$docdir" \
@@ -210,18 +210,9 @@ fi
 
 
 #
-# If the install_dir is not /usr/local, fix the
-# library's install name.
-#
-if test "$install_dir" != "/usr/local" ; then
-   full_path_dylib="$libdir/$dylib_file"
-  { "$install_name_tool" -id "$full_path_dylib" "$full_path_dylib" ; }  ||
-   { echo "$failure"
-     echo "Could not fix the install name"
-     echo ""
-     exit 1 ; }
-fi
-
+# Preserve the packaged @rpath install name and signature state for every
+# destination. The copied dylib must remain byte-for-byte identical to the
+# validated release artifact; consumers select its location with rpath.
 #
 # Create the symbolic link to lib/liyices.2.dylib
 # on Mac OS, the symbolic link permissions matter.

@@ -18,6 +18,8 @@ This distribution includes four solvers
 and the Yices libraries and header files
 
   lib/__DYLIB__
+  lib/libyices.a
+  lib/pkgconfig/yices.pc
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -27,8 +29,8 @@ and the Yices libraries and header files
 Examples and documentation are in the examples and doc directories.
 
 
-The binaries and library require the GNU Multiprecision library (GMP)
-version __GMP__ or compatible. GMP must be installed as a dynamic
+The Yices shared library and the binaries other than the sat solver require
+GMP version __GMP__ or compatible. GMP must be installed as a dynamic
 library for Yices to work.  GMP is copyright Free Software Foundation
 (see NOTICES).
 
@@ -53,8 +55,8 @@ Alternatively, you can install Yices in /usr/local as follows:
 
   sudo ./install-yices
 
-This will copy the binaries  /usr/local/bin, the header files in
-/usr/local/include, and the libraries in /usr/local/lib.
+This will copy the binaries in /usr/local/bin, the header files in
+/usr/local/include, and the shared library in /usr/local/lib.
 
 To install Yices in another location, give the installation directory
 as argument to the shell script:

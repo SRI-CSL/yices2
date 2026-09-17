@@ -20,6 +20,8 @@ and the Yices libraries and header files
   bin/cygyices.dll
 
   lib/libyices.dll.a
+  lib/libyices.a
+  lib/pkgconfig/yices.pc
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -29,8 +31,9 @@ and the Yices libraries and header files
 Examples and documentation are in the examples and doc directories.
 
 
-The binaries and library were linked statically against GMP version __GMP__,
-copyright Free Software Foundation (see NOTICES).
+The Yices shared library and the binaries other than the sat solver were
+linked statically against GMP version __GMP__, copyright Free Software
+Foundation (see NOTICES).
 
 
 
@@ -45,7 +48,7 @@ Recommended Installation
 
 2) Copy libyices.dll.a in /usr/lib:
 
-   cp lib/libyices.ddl.a /usr/lib
+   cp lib/libyices.dll.a /usr/lib
 
 
 3) Copy the header files in /usr/include
@@ -53,4 +56,3 @@ Recommended Installation
 
 
 For more information, please visit https://yices.csl.sri.com.
-

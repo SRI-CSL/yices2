@@ -17,6 +17,8 @@ and the Yices libraries and header files
 
   lib/libyices.lib
   lib/libyices.dll.a        (for mingw only)
+  lib/libyices.a
+  lib/pkgconfig/yices.pc
 
   include/yices.h
   include/yices_types.h
@@ -27,8 +29,8 @@ and the Yices libraries and header files
 Examples and documentation are in the examples and doc directories.
 
 
-The binaries and library require the GNU Multiprecision library (GMP)
-version __GMP__ or compatible. GMP must be installed as a DLL for Yices
+The Yices shared library and the binaries other than the sat solver require
+GMP version __GMP__ or compatible. GMP must be installed as a DLL for Yices
 to work.  GMP is copyright Free Software Foundation (see NOTICES).
 Check the GMP website (http://gmplib.org) for instructions on how
 to install GMP on Windows.

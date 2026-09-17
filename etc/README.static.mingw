@@ -21,6 +21,8 @@ and the Yices libraries and header files
 
   lib/libyices.lib
   lib/libyices.dll.a        (for mingw only)
+  lib/libyices.a
+  lib/pkgconfig/yices.pc
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -30,8 +32,9 @@ and the Yices libraries and header files
 Examples and documentation are in the examples and doc directories.
 
 
-The binaries and library were linked statically against GMP version __GMP__,
-copyright Free Software Foundation (see NOTICES).
+The Yices shared library and the binaries other than the sat solver were
+linked statically against GMP version __GMP__, copyright Free Software
+Foundation (see NOTICES).
 
 
 For more information, please visit https://yices.csl.sri.com.

@@ -34,9 +34,18 @@ Other libraries in the build, namely CUDD, CaDiCaL, Kissat, and
 CryptoMiniSat, are distributed under permissive terms that carry no relinking
 requirement.
 
-The `NOTICES` file in every Yices distribution identifies third-party
-components, where they came from, and the terms their own authors distribute
-them under.
+The published shared libraries statically incorporate GMP, LibPoly, CUDD,
+CaDiCaL, Kissat, and CryptoMiniSat, and their current links export those
+libraries' global symbols alongside the Yices API. A process that loads
+libyices together with another copy of one of those libraries can silently
+interpose one copy's symbols on the other; dynamic linking does not isolate
+them. Only the interfaces declared in the installed Yices headers are Yices
+public API. Do not call or rely on the exported dependency symbols.
+
+The `NOTICES` file in the Yices 2.8.0 source archive, three binary archives,
+and three relink kits identifies third-party components, where they came from,
+and the terms their own authors distribute them under where the repository
+evidence establishes them, and records the gap where it does not.
 
 ## Where to get the kit
 
@@ -54,8 +63,10 @@ that was built in.
 ## What is in it
 
 - The Yices object code, for both the command-line executables and the shared
-  library. These are two separate payloads compiled with different options and
-  they are not interchangeable.
+  library. On Linux these are two payloads compiled with different options. On
+  macOS the dynamic-library payload contains exactly the subset of the same
+  objects used by the production dynamic-library rule. In both cases the two
+  payloads are not interchangeable.
 - The dependency archives used in the official build, with checksums.
 - Scripts that relink the published object code against the archives in the
   kit. They build their link command from their own defaults, which are close

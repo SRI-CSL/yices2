@@ -39,9 +39,9 @@ depsdir=$kit/deps
 # The Yices side of the shared library.
 #
 # This is NOT executables/libyices.a. The shared library is built from a
-# separate set of objects compiled with -fPIC; 31 of 300 objects differ from
-# their static counterparts and the object sets are not the same. Using
-# executables/libyices.a here will not reproduce the published library.
+# separate set of objects compiled with -fPIC. The static archive contains
+# additional objects, and many common-named objects differ byte for byte.
+# Using executables/libyices.a here will not reproduce the published library.
 # ---------------------------------------------------------------------------
 
 LIBYICES_PIC_A=${LIBYICES_PIC_A:-$libdir/libyices-pic.a}
@@ -65,14 +65,21 @@ KISSAT_A=${KISSAT_A:-$depsdir/libkissat_yices.a}
 # This prevents -lcudd from selecting a shared object and keeps CUDD out of
 # the shared library's DT_NEEDED list.
 
-# Order is load-bearing here too: GMP last.
-libs="$CUDD_A -lm $CMS_A $CADICAL_A $KISSAT_A -lstdc++ -lm -lpthread $LIBPOLY_A $GMP_A"
+# Order is load-bearing here too: GMP last. Keep paths as distinct arguments
+# so the shell does not split a valid archive path that contains whitespace.
+set -- "$CUDD_A" -lm "$CMS_A" "$CADICAL_A" "$KISSAT_A" \
+    -lstdc++ -lm -lpthread "$LIBPOLY_A" "$GMP_A"
 
-case " $libs " in
-    *" $GMP_A ") : ;;
-    *) echo "relink: internal error, GMP is not last in the archive list" >&2
-       exit 1 ;;
-esac
+_last=
+for _item do
+    _last=$_item
+done
+if [ "$_last" != "$GMP_A" ]; then
+    echo "relink: internal error, GMP is not last in the archive list" >&2
+    echo "relink: expected final item: $GMP_A" >&2
+    echo "relink: actual final item: ${_last:-NONE}" >&2
+    exit 1
+fi
 
 # ---------------------------------------------------------------------------
 # Preflight.
@@ -119,16 +126,14 @@ echo
 # The explicit -lc matches the production rule.
 # ---------------------------------------------------------------------------
 
-cmd="$CC $CFLAGS -shared -o $outdir/$LIBNAME -Wl,-soname,$SONAME -Wl,--no-undefined -Wl,--whole-archive $LIBYICES_PIC_A -Wl,--no-whole-archive $libs -lc"
-
 echo "relink: building $LIBNAME"
-echo "  $cmd"
+echo "  $CC $CFLAGS -shared -o $outdir/$LIBNAME -Wl,-soname,$SONAME -Wl,--no-undefined -Wl,--whole-archive $LIBYICES_PIC_A -Wl,--no-whole-archive $* -lc"
 
 # shellcheck disable=SC2086
 "$CC" $CFLAGS -shared -o "$outdir/$LIBNAME" \
     -Wl,-soname,"$SONAME" -Wl,--no-undefined \
     -Wl,--whole-archive "$LIBYICES_PIC_A" -Wl,--no-whole-archive \
-    $libs -lc
+    "$@" -lc
 
 echo "  ok"
 echo

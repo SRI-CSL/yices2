@@ -1,6 +1,10 @@
 #! /bin/sh
 # Attempt to guess a canonical system name.
 #   Copyright 1992-2016 Free Software Foundation, Inc.
+#   Copyright 2026 SRI International
+#
+# Local modification, 2026-09-14, SRI International:
+# Map Darwin's arm64 machine name to the canonical aarch64 CPU name.
 
 timestamp='2016-10-02'
 
@@ -41,13 +45,14 @@ Output the configuration name of the system \`$me' is run on.
 
 Operation modes:
   -h, --help         print this help, then exit
-  -t, --time-stamp   print date of last modification, then exit
+  -t, --time-stamp   print upstream base version date, then exit
   -v, --version      print version number, then exit
 
 Report bugs and patches to <config-patches@gnu.org>."
 
 version="\
 GNU config.guess ($timestamp)
+Locally modified 2026-09-14 by SRI International for Darwin arm64.
 
 Originally written by Per Bothner.
 Copyright 1992-2016 Free Software Foundation, Inc.
@@ -1299,6 +1304,9 @@ EOF
 	eval $set_cc_for_build
 	if test "$UNAME_PROCESSOR" = unknown ; then
 	    UNAME_PROCESSOR=powerpc
+	fi
+	if test "$UNAME_MACHINE" = arm64 ; then
+	    UNAME_PROCESSOR=aarch64
 	fi
 	if test `echo "$UNAME_RELEASE" | sed -e 's/\..*//'` -le 10 ; then
 	    if [ "$CC_FOR_BUILD" != no_compiler_found ]; then

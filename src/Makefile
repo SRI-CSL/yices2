@@ -505,15 +505,12 @@ bin_src_c := \
 version_c := api/yices_$(YICES_MODE)_version.c
 
 #
-# All auto-generated files
+# The gperf tables are generated files, but they are tracked release inputs.
+# Keeping them visible to Git binds the exact compiled bytes to the release
+# commit. Their derivation is checked by the release workflow. The clean target
+# removes only the mode-specific version source.
 #
-auto_generated := \
-	$(version_c) \
-	frontend/yices/yices_hash_keywords.h \
-	frontend/smt1/smt_hash_keywords.h \
-	frontend/smt2/smt2_hash_tokens.h \
-	frontend/smt2/smt2_hash_keywords.h \
-	frontend/smt2/smt2_hash_symbols.h
+auto_generated := $(version_c)
 
 #
 # Dependencies and object files
@@ -546,6 +543,8 @@ static_dll_version_dep := $(version_c:%.c=$(static_dll_objdir)/%.d)
 libyices := $(libdir)/libyices.a
 static_libyices := $(static_libdir)/libyices.a
 pic_libyices := $(libdir)/libyices-pic.a
+relink_libdir := $(BUILD)/relink_lib
+dylib_relink_libyices := $(relink_libdir)/libyices-dylib.a
 
 
 #
@@ -941,13 +940,27 @@ endif
 STATIC_LIBS := $(STATIC_NOGMP_LIBS) $(STATIC_LIBPOLY) $(STATIC_GMP)
 PIC_LIBS := $(STATIC_NOGMP_LIBS) $(PIC_LIBPOLY) $(PIC_GMP)
 
+# Structured release-record inputs.  Makefile.build queries these targets
+# when it constructs BUILDINFO so the recorded archive order comes from the
+# same fully expanded variables as the production link rules above.
+print-release-static-nogmp-libs:
+	@printf '%s\n' "$(strip $(STATIC_NOGMP_LIBS))"
+
+print-release-static-libs:
+	@printf '%s\n' "$(strip $(STATIC_LIBS))"
+
+print-release-pic-libs:
+	@printf '%s\n' "$(strip $(PIC_LIBS))"
+
 
 
 #################
 #  BUILD RULES  #
 #################
 
-.PHONY: check-static-kissat-rewrite check-raw-cadical-kissat-dynamic
+.PHONY: print-release-static-nogmp-libs print-release-static-libs \
+	print-release-pic-libs check-static-kissat-rewrite \
+	check-raw-cadical-kissat-dynamic
 
 check-static-kissat-rewrite: $(static_delegate_deps)
 	@ archive="$(STATIC_KISSAT_YICES)"; \
@@ -964,11 +977,14 @@ check-static-kissat-rewrite: $(static_delegate_deps)
 	    echo "where DIR holds libcadical.a and libkissat.a. make then generates" >&2; \
 	    echo "libkissat_yices.a in that directory by running" >&2; \
 	    echo "scripts/rewrite-kissat-kitten-symbols.sh over the raw Kissat archive." >&2; \
+	    echo "On macOS, set KISSAT_SOURCE_DIR to the configured Kissat source tree" >&2; \
+	    echo "that produced the raw archive; binary objcopy rewriting is unsafe there." >&2; \
 	    echo "" >&2; \
 	    echo "Current values." >&2; \
 	    echo "    STATIC_DEPDIR = $(STATIC_DEPDIR)" >&2; \
 	    echo "    STATIC_KISSAT_YICES = $(STATIC_KISSAT_YICES)" >&2; \
 	    echo "    KISSAT_NM = $(KISSAT_NM)" >&2; \
+	    echo "    KISSAT_SOURCE_DIR = $(KISSAT_SOURCE_DIR)" >&2; \
 	    echo "" >&2; \
 	    echo "Where to read more. doc/COMPILING, section 4a, CaDiCaL and Kissat SAT" >&2; \
 	    echo "delegates, has the full configure invocation." >&2; \
@@ -1020,7 +1036,7 @@ check-raw-cadical-kissat-dynamic:
 	@ echo "and configure --enable-dynamic-delegates-assuming-hidden-kitten."
 	@ exit 1
 
-ifneq ($(STATIC_KISSAT_RAW),)
+ifeq ($(STATIC_KISSAT_YICES_GENERATED),yes)
 $(STATIC_DEPDIR):
 	$(MKDIR_P) $@
 
@@ -1055,7 +1071,7 @@ $(static_dll_objdir)/%.d: %.c
 ifneq ($(MAKECMDGOALS),clean)
 
 static_goals := $(filter static-%,$(MAKECMDGOALS))
-dyn_goals := $(filter-out static-%,$(MAKECMDGOALS))
+dyn_goals := $(filter-out static-% print-release-%,$(MAKECMDGOALS))
 
 ifneq ($(dyn_goals),)
  include $(dep)
@@ -1152,6 +1168,16 @@ $(pic_libyices): $(base_obj) $(version_obj)
 	@ rm -f $(pic_libyices)
 	$(AR) cr $(pic_libyices) $(base_obj) $(version_obj)
 	$(RANLIB) $(pic_libyices)
+
+# Exact relink-kit payload for the static-input macOS dylib rule.
+$(dylib_relink_libyices): $(static_base_obj) $(static_version_obj)
+	@ test -n "$(BUILD)" && \
+	  test "$(dylib_relink_libyices)" = "$(BUILD)/relink_lib/libyices-dylib.a" || \
+	  { echo "Invalid dylib relink archive path: $(dylib_relink_libyices)" >&2; exit 1; }
+	@ mkdir -p $(dir $@)
+	@ rm -f $(dylib_relink_libyices)
+	$(AR) cr $(dylib_relink_libyices) $(static_base_obj) $(static_version_obj)
+	$(RANLIB) $(dylib_relink_libyices)
 
 
 #
@@ -1330,8 +1356,10 @@ static-lib: $(static_delegate_guard) $(static_delegate_deps) $(static_libyices) 
 
 pic-lib: $(pic_libyices)
 
+dylib-relink-lib: $(dylib_relink_libyices)
 
-.PHONY: obj static-obj bin static-bin lib static-lib pic-lib
+
+.PHONY: obj static-obj bin static-bin lib static-lib pic-lib dylib-relink-lib
 
 
 

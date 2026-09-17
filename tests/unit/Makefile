@@ -335,11 +335,14 @@ check-static-kissat-rewrite: $(static_delegate_deps)
 	    echo "where DIR holds libcadical.a and libkissat.a. make then generates" >&2; \
 	    echo "libkissat_yices.a in that directory by running" >&2; \
 	    echo "scripts/rewrite-kissat-kitten-symbols.sh over the raw Kissat archive." >&2; \
+	    echo "On macOS, set KISSAT_SOURCE_DIR to the configured Kissat source tree" >&2; \
+	    echo "that produced the raw archive; binary objcopy rewriting is unsafe there." >&2; \
 	    echo "" >&2; \
 	    echo "Current values." >&2; \
 	    echo "    STATIC_DEPDIR = $(STATIC_DEPDIR)" >&2; \
 	    echo "    STATIC_KISSAT_YICES = $(STATIC_KISSAT_YICES)" >&2; \
 	    echo "    KISSAT_NM = $(KISSAT_NM)" >&2; \
+	    echo "    KISSAT_SOURCE_DIR = $(KISSAT_SOURCE_DIR)" >&2; \
 	    echo "" >&2; \
 	    echo "Where to read more. doc/COMPILING, section 4a, CaDiCaL and Kissat SAT" >&2; \
 	    echo "delegates, has the full configure invocation." >&2; \
@@ -383,7 +386,7 @@ check-static-kissat-rewrite: $(static_delegate_deps)
 	  fi; \
 	  echo "Verified namespaced Kissat archive: $$archive"
 
-ifneq ($(STATIC_KISSAT_RAW),)
+ifeq ($(STATIC_KISSAT_YICES_GENERATED),yes)
 $(STATIC_DEPDIR):
 	$(MKDIR_P) $@
 

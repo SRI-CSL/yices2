@@ -6,9 +6,26 @@ SPDX-License-Identifier: BSD-3-Clause
 
 This applies to the Yices source. This archive also contains GMP and
 LibPoly. These are covered by the GNU Lesser General Public License; NOTICES
-states which version applies to each and reproduces the required notices. A
-relink kit for rebuilding against your own versions of those libraries is
-published as a separate asset on the release page.
+states which version applies to each. Both carry copyright notices in
+individual source files rather than one notice for the project, so NOTICES
+reproduces no copyright line for GMP or LibPoly itself. A relink kit for
+rebuilding against your own versions of those libraries is published as a
+separate asset on the release page.
+
+The `darwinNN.N.N` component in an archive filename identifies the build host.
+It is not the minimum supported macOS version: every Mach-O object in this
+archive has deployment target macOS 11.0.
+
+For Apple Silicon, the `aarch64` component identifies the 64-bit Arm
+architecture; every Mach-O object in that archive is `arm64`.
+
+The Apple Silicon archive's four executables and shared library carry ad hoc
+linker signatures. Their Intel counterparts are unsigned. Object files inside
+lib/libyices.a are unsigned on both architectures. Neither archive is signed
+with an Apple Developer ID or notarized.
+
+A browser download may carry macOS quarantine metadata and be subject to
+Gatekeeper approval before first use; an ad hoc signature is not notarization.
 
 
 Content
@@ -24,6 +41,8 @@ This distribution includes four solvers
 and the Yices libraries and header files
 
   lib/__DYLIB__
+  lib/libyices.a
+  lib/pkgconfig/yices.pc
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -33,8 +52,9 @@ and the Yices libraries and header files
 Examples and documentation are in the examples and doc directories.
 
 
-The binaries and library were linked statically against GMP version __GMP__,
-copyright Free Software Foundation (see NOTICES).
+The Yices shared library and the binaries other than the sat solver were
+linked statically against GMP version __GMP__, copyright Free Software
+Foundation (see NOTICES).
 
 
 pkg-config
@@ -47,8 +67,8 @@ shipped. The archive has no unversioned shared-library link, so `-lyices`
 selects libyices.a, and the private dependency archives named by Libs.private
 are not included in lib/.
 
-The installer creates the unversioned shared-library link but does not install
-yices.pc.
+The installer creates the unversioned shared-library link and installs
+yices.pc in <prefix>/lib/pkgconfig.
 
 
 Installation
@@ -65,8 +85,8 @@ Just type
    sudo ./install-yices
 
 from a terminal. This will copy the binaries in /usr/local/bin, the header
-files in /usr/local/include, and the libraries in /usr/local/lib. It also
-installs the legal record:
+files in /usr/local/include, and the shared library in /usr/local/lib. It
+also installs the legal record:
 
   /usr/local/share/doc/yices-2.8.0/LICENSE
   /usr/local/share/doc/yices-2.8.0/NOTICES
@@ -79,4 +99,3 @@ for more explanations.
 
 
 For more information, please visit https://yices.csl.sri.com.
-

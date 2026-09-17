@@ -28,20 +28,21 @@ GMP_A=${GMP_A:-$depsdir/libgmp-static.a}
 
 # Archive order is load-bearing. yices-sat deliberately has neither LibPoly
 # nor GMP. The other three put GMP last so circular GMP references resolve the
-# same way as in the production link.
-nogmp_libs="$CUDD_A -lm $CMS_A $CADICAL_A $KISSAT_A -lc++ -lm"
-full_libs="$nogmp_libs $LIBPOLY_A $GMP_A"
+# same way as in the production link. Keep paths as distinct arguments so the
+# shell does not split a valid archive path that contains whitespace.
+set -- "$CUDD_A" -lm "$CMS_A" "$CADICAL_A" "$KISSAT_A" \
+    -lc++ -lm "$LIBPOLY_A" "$GMP_A"
 
 # Test hook for the required negative test. It changes no normal invocation.
 if [ "${RELINK_TEST_GMP_NOT_LAST:-0}" = 1 ]; then
-    full_libs="$full_libs -lm"
+    set -- "$@" -lm
 fi
 
 assert_last() {
-    _list=$1
-    _expected=$2
+    _expected=$1
+    shift
     _last=
-    for _item in $_list; do
+    for _item do
         _last=$_item
     done
     if [ "$_last" != "$_expected" ]; then
@@ -52,7 +53,7 @@ assert_last() {
     fi
 }
 
-assert_last "$full_libs" "$GMP_A"
+assert_last "$GMP_A" "$@"
 
 if [ "$SKIP_VERIFY" != 1 ]; then
     "$kit/verify-manifest.sh" "$kit"
@@ -98,16 +99,17 @@ link() {
     echo "relink: building $_out"
     echo "  $CC $CFLAGS -o $outdir/$_out $_obj $LIBYICES_A $*"
     # shellcheck disable=SC2086
-    "$CC" $CFLAGS -o "$outdir/$_out" "$_obj" "$LIBYICES_A" $*
+    "$CC" $CFLAGS -o "$outdir/$_out" "$_obj" "$LIBYICES_A" "$@"
     codesign -s - "$outdir/$_out"
     echo "  ok"
     echo
 }
 
-link yices      "$objdir/yices.o"         $full_libs
-link yices-smt  "$objdir/yices_smtcomp.o" $full_libs
-link yices-smt2 "$objdir/yices_smt2.o"    $full_libs
-link yices-sat  "$objdir/yices_sat.o"     $nogmp_libs
+link yices      "$objdir/yices.o"         "$@"
+link yices-smt  "$objdir/yices_smtcomp.o" "$@"
+link yices-smt2 "$objdir/yices_smt2.o"    "$@"
+link yices-sat "$objdir/yices_sat.o" \
+    "$CUDD_A" -lm "$CMS_A" "$CADICAL_A" "$KISSAT_A" -lc++ -lm
 
 echo "relink: all four executables written to $outdir"
 echo "relink: verify with:"

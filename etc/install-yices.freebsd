@@ -88,13 +88,13 @@ done
 # subdirectory and get the dynamic libraries name.
 #
 local_dir=`pwd`
-if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a "$local_dir/include" ; then
+if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a -d "$local_dir/include" ; then
 
    sofile=`ls lib/*.so.2.* | sed -e 's+lib/++' 2>/dev/null`
 
    case "$sofile" in
      libyices.so.2.*)
-       break;;
+       ;;
 
      *) echo "$failure"
         echo "Can't find the Yices library libyices.so.2.x.y in ./lib"
@@ -124,13 +124,13 @@ if test -n "$location" ; then
 
     here) local_install="yes"
           install_dir="$local_dir"
-          break;;
+          ;;
 
     *) install_dir="$location"
        if test "$location" -ef "$local_dir" ; then
           local_install="yes"
        fi
-       break;;
+       ;;
 
   esac
 fi

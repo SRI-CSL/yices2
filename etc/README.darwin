@@ -5,7 +5,9 @@ Copyright (c) 2026, SRI International
 SPDX-License-Identifier: BSD-3-Clause
 
 This applies to the Yices source. Other components in this distribution are
-covered by their own terms; NOTICES reproduces the required notices.
+covered by their own terms; NOTICES identifies those components, reproduces
+a copyright notice for some of them, and records why it reproduces none for
+the others.
 
 Content
 -------
@@ -20,6 +22,8 @@ This distribution includes four solvers
 and the Yices libraries and header files
 
   lib/__DYLIB__
+  lib/libyices.a
+  lib/pkgconfig/yices.pc
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -29,8 +33,8 @@ and the Yices libraries and header files
 Examples and documentation are in the examples and doc directories.
 
 
-The binaries and library require the GNU Multiprecision library (GMP)
-version __GMP__ or compatible. GMP is copyright Free Software Foundation
+The Yices shared library and the binaries other than the sat solver require
+GMP version __GMP__ or compatible. GMP is copyright Free Software Foundation
 (see NOTICES).
 
 GMP must be installed as a dynamic library in /usr/local/lib for
@@ -51,12 +55,11 @@ Just type
 
    sudo ./install-yices
 
-from a terminal. This will copy the binaries /usr/local/bin, the
-header files in /usr/local/include, and the libraries in /usr/local/lib.
+from a terminal. This will copy the binaries in /usr/local/bin, the header
+files in /usr/local/include, and the shared library in /usr/local/lib.
 
 Other installation choices are possible. Try ./install-yices --help
 for more explanations.
 
 
 For more information, please visit https://yices.csl.sri.com.
-
