@@ -65,6 +65,14 @@ extern void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
  */
 extern int32_t context_attach_mcsat_supplement(context_t *ctx);
 
+/*
+ * Scan the MCSAT-relaxation abstraction variables against the live simplex
+ * assignment and add on-demand zero lemmas for any violated monomial
+ * (see context.c). Meant to be called from the MCSAT satellite's
+ * propagate/final_check hooks. Returns true if at least one clause was added.
+ */
+extern bool context_check_mcsat_relax_zero_lemmas(context_t *ctx);
+
 
 /*
  * Deletion
