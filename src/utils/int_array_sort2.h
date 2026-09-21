@@ -32,7 +32,9 @@
  * - the function is called as cmp(data, x, y) where
  *   data is a parameter given to the sort function
  *   x and y are two integers in the array.
- * - cmp(data, x, y) must return true if x < y in the ordering.
+ * - cmp(data, x, y) must return true iff x < y in the ordering.
+ *   It must be a strict weak ordering (like <, never <=) and
+ *   cmp(data, x, x) must be false.
  */
 typedef bool (* int_cmp_fun_t)(void *data, int32_t x, int32_t y);
 
