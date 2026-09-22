@@ -1538,9 +1538,28 @@ static void __attribute__((noreturn)) bad_status_bug(FILE *f) {
 /*
  * PRINT STATUS AND STATISTICS
  */
+
+/*
+ * With --check-status: compare a check-sat answer with the latest :status.
+ * An annotation covers the next check-sat only. On a contradiction, exit with
+ * an error.
+ */
+static void check_expected_status(smt2_globals_t *g, smt_status_t status) {
+  const smt_status_t expected = g->expected_status;
+  g->expected_status = YICES_STATUS_IDLE;
+  const bool expected_set = (expected == YICES_STATUS_SAT || expected == YICES_STATUS_UNSAT);
+  const bool status_set = (status == YICES_STATUS_SAT || status == YICES_STATUS_UNSAT);
+  if (g->check_status && expected_set && status_set && status != expected) {
+    print_error("check-sat returned %s but :status is %s", status2string[status], status2string[expected]);
+    flush_out();
+    exit(YICES_EXIT_ERROR);
+  }
+}
+
 static void show_status(smt_status_t status) {
   print_out("%s\n", status2string[status]);
   flush_out();
+  check_expected_status(&__smt2_globals, status);
 }
 
 
@@ -4750,6 +4769,8 @@ static void init_smt2_globals(smt2_globals_t *g) {
   init_ctx_params(&g->ctx_parameters);
   init_params_to_defaults(&g->parameters);
   g->dump_models = false;
+  g->check_status = false;
+  g->expected_status = YICES_STATUS_IDLE;
   g->nthreads = 0;
   g->timeout = 0;
   g->to = NULL;
@@ -4936,6 +4957,13 @@ void smt2_force_bvdecimal_format(void) {
 void smt2_export_to_dimacs(const char *filename) {
   __smt2_globals.export_to_dimacs = true;
   __smt2_globals.dimacs_file = filename;
+}
+
+/*
+ * Compare check-sat answers with (set-info :status ...)
+ */
+void smt2_enable_status_check(void) {
+  __smt2_globals.check_status = true;
 }
 
 /*
@@ -6501,6 +6529,22 @@ void smt2_set_option(const char *name, aval_t value) {
 
 
 /*
+ * Status given by the value of (set-info :status ...)
+ * - YICES_STATUS_IDLE unless the value is the symbol sat, unsat, or unknown
+ */
+static smt_status_t aval_to_status(attr_vtbl_t *avtbl, aval_t value) {
+  const char *s;
+
+  if (value != AVAL_NULL && aval_tag(avtbl, value) == ATTR_SYMBOL) {
+    s = aval_symbol(avtbl, value);
+    if (strcmp(s, "sat") == 0) return YICES_STATUS_SAT;
+    if (strcmp(s, "unsat") == 0) return YICES_STATUS_UNSAT;
+    if (strcmp(s, "unknown") == 0) return YICES_STATUS_UNKNOWN;
+  }
+  return YICES_STATUS_IDLE;
+}
+
+/*
  * Set some info field
  * - same conventions as set_option
  */
@@ -6537,6 +6581,13 @@ void smt2_set_info(const char *name, aval_t value) {
     } else {
       print_error("unsupported :smt-lib-version");
     }
+    break;
+
+  case SMT2_KW_STATUS:
+    // kept as info like any other field, and remembered for --check-status
+    g->expected_status = aval_to_status(g->avtbl, value);
+    add_info(g, name, value);
+    report_success();
     break;
 
   default:
