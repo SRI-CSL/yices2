@@ -1037,8 +1037,6 @@ static
 void na_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   na_plugin_t* na = (na_plugin_t*) plugin;
 
-  variable_t var;
-
   assert(na_plugin_check_assignment(na));
   assert(!na_plugin_is_conflict_pending(na));
 
@@ -1054,14 +1052,15 @@ void na_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   // Propagate
   while (trail_is_consistent(trail) && na->trail_i < trail_size(trail)) {
     // Current trail element
-    var = trail_at(trail, na->trail_i);
+    const variable_t var = trail_at(trail, na->trail_i);
     na->trail_i ++;
+    // only boolean constraints can be in the unit_info data structure.
+    assert(!constraint_unit_info_has(&na->unit_info, var) || variable_db_is_boolean(var_db, var));
     if (variable_db_is_real(var_db, var) || variable_db_is_int(var_db, var)) {
-      // Real variables, detect if the constraint is unit
+      // real or integer variables, detect if the constraint is unit
       na_plugin_process_variable_assignment(na, prop, var);
-    }
-    if (constraint_unit_info_has(&na->unit_info, var)) {
-      constraint_unit_state_t info = constraint_unit_info_get(&na->unit_info, var);
+    } else if (constraint_unit_info_has(&na->unit_info, var)) {
+      const constraint_unit_state_t info = constraint_unit_info_get(&na->unit_info, var);
       switch (info) {
       case CONSTRAINT_UNIT:
         // Process any unit constraints

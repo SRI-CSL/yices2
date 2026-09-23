@@ -73,9 +73,6 @@ struct feasible_set_db_struct {
   /** Size of the fixed variables array, for backtracking */
   uint32_t fixed_variable_size;
 
-  /** Index into the fixed variables */
-  uint32_t fixed_variables_i;
-
   /** Scope for push/pop */
   scope_holder_t scope;
 
@@ -174,12 +171,9 @@ feasible_set_db_t* feasible_set_db_new(na_plugin_t* na) {
   init_ivector(&db->fixed_variables, 0);
 
   db->fixed_variable_size = 0;
-  db->fixed_variables_i = 0;
-
   db->updates_size = 0;
 
   scope_holder_construct(&db->scope);
-
   db->plugin = na;
 
   return db;
@@ -318,7 +312,6 @@ void feasible_set_db_push(feasible_set_db_t* db) {
   scope_holder_push(&db->scope,
     &db->updates_size,
     &db->fixed_variable_size,
-    &db->fixed_variables_i,
     NULL
   );
 }
@@ -333,7 +326,6 @@ void feasible_set_db_pop(feasible_set_db_t* db) {
   scope_holder_pop(&db->scope,
       &db->updates_size,
       &db->fixed_variable_size,
-      &db->fixed_variables_i,
       NULL
   );
 
@@ -659,16 +651,6 @@ void feasible_set_db_gc_mark(feasible_set_db_t* db, gc_info_t* gc_vars) {
       }
     }
   }
-}
-
-variable_t feasible_set_db_get_fixed(feasible_set_db_t* db) {
-  for (; db->fixed_variables_i < db->fixed_variables.size; ++ db->fixed_variables_i) {
-    variable_t var = db->fixed_variables.data[db->fixed_variables_i];
-    if (!trail_has_value(db->plugin->ctx->trail, var)) {
-      return var;
-    }
-  }
-  return variable_null;
 }
 
 void feasible_set_db_approximate_value(feasible_set_db_t* db, variable_t x, lp_interval_t* result) {
