@@ -3162,8 +3162,20 @@ static void check_bind(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   }
 }
 
-static void eval_bind(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+// Push a new binding element on top of the stack.
+// set_binding_result overwrites the current top element.
+// This adds a new element instead.
+static void push_binding_result(tstack_t *stack, term_t t, char *symbol, loc_t loc) {
   stack_elem_t *e;
+
+  e = tstack_get_topelem(stack);
+  e->tag = TAG_BINDING;
+  e->val.binding.term = t;
+  e->val.binding.symbol = symbol;
+  e->loc = loc;
+}
+
+static void eval_bind(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   term_t *values;
   char **names;
   char *name;
@@ -3190,18 +3202,10 @@ static void eval_bind(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 
   // Push each binding as its own stack element.
   // Popping the LET frame later removes each bound name.
-  // The frame pop leaves one free slot. Reuse it for binding 0.
-  // Get a fresh slot for each other binding.
-  e = stack->elem + (stack->top - 1);
-  loc = e->loc;
-  for (i=0; i<nb; i++) {
-    if (i > 0) {
-      e = tstack_get_topelem(stack);
-    }
-    e->tag = TAG_BINDING;
-    e->val.binding.term = values[i];
-    e->val.binding.symbol = names[i];
-    e->loc = loc;
+  loc = stack->elem[stack->top - 1].loc;
+  set_binding_result(stack, values[0], names[0]);
+  for (i=1; i<nb; i++) {
+    push_binding_result(stack, values[i], names[i], loc);
   }
 }
 
