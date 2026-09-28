@@ -3163,10 +3163,12 @@ static void check_bind(tstack_t *stack, stack_elem_t *f, uint32_t n) {
 }
 
 static void eval_bind(tstack_t *stack, stack_elem_t *f, uint32_t n) {
+  stack_elem_t *e;
   term_t *values;
   char **names;
   char *name;
   term_t t;
+  loc_t loc;
   uint32_t i, j, nb;
 
   nb = n/2;
@@ -3186,9 +3188,20 @@ static void eval_bind(tstack_t *stack, stack_elem_t *f, uint32_t n) {
   }
   tstack_pop_frame(stack);
 
-  // push back the bindings
-  for (i=0; i<nb; i++) {
-    set_binding_result(stack, values[i], names[i]);
+  // Push back all nb bindings into the enclosing LET frame. Each one
+  // must appear as a separate stack element so that, when the LET frame
+  // is later popped, every bound name is removed from the symbol table
+  // (see tstack_free_val for TAG_BINDING). set_binding_result overwrites
+  // the top element (the leftover BIND operator slot), so it can only be
+  // used for the first binding; the rest are pushed as new elements.
+  loc = stack->elem[stack->top - 1].loc;
+  set_binding_result(stack, values[0], names[0]);
+  for (i=1; i<nb; i++) {
+    e = tstack_get_topelem(stack);
+    e->tag = TAG_BINDING;
+    e->val.binding.term = values[i];
+    e->val.binding.symbol = names[i];
+    e->loc = loc;
   }
 }
 
