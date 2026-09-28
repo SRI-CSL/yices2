@@ -855,13 +855,10 @@ endif
 endif
 
 #
-# Final CFLAGS: our flags, then the user's CFLAGS, then the C standard.
-# The user's CFLAGS come from configure or from the make command line.
-# The user's flags are after our flags, so the user's flags win.
-#
 # If CFLAGS is on the make command line, make ignores a plain CFLAGS
-# assignment. Thus we put our flags in YICES_CFLAGS. Keep this line
-# after all YICES_CFLAGS assignments.
+# assignment. Thus we put our flags in YICES_CFLAGS. The user's CFLAGS
+# (from configure or from the command line) come after our flags, so
+# the user's flags win. Keep this line after all YICES_CFLAGS assignments.
 #
 override CFLAGS := $(YICES_CFLAGS) $(CFLAGS) $(C_STD)
 
