@@ -88,14 +88,14 @@ static_libyices := $(static_libdir)/libyices.a
 # Whether we are building for a big endian architecture
 #
 ifeq ($(WORDS_BIGENDIAN),yes)
-  CPPFLAGS += -DWORDS_BIGENDIAN
+  YICES_CPPFLAGS += -DWORDS_BIGENDIAN
 endif
 
 #
 # Whether we have support for mcsat
 #
 ifeq ($(ENABLE_MCSAT),yes)
-  CPPFLAGS+=-DHAVE_MCSAT
+  YICES_CPPFLAGS+=-DHAVE_MCSAT
 endif
 
 #
@@ -104,7 +104,7 @@ endif
 #
 PTRHEAD=
 ifeq ($(THREAD_SAFE),1)
-  CPPFLAGS += -DTHREAD_SAFE
+  YICES_CPPFLAGS += -DTHREAD_SAFE
   PTHREAD= -pthread
 endif
 
@@ -121,38 +121,38 @@ endif
 # So we use -DNOYICES_DLL on cygwin and mingw
 #
 ifeq ($(POSIXOS),cygwin)
-  CPPFLAGS := $(CPPFLAGS) -DCYGWIN -DNOYICES_DLL
+  YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DCYGWIN -DNOYICES_DLL
   PIC=
   STATIC=-static -static-libgcc
-  LDFLAGS += -Wl,--stack,8388608
+  BIN_LDFLAGS = -Wl,--stack,8388608
 else
 ifeq ($(POSIXOS),mingw)
-  CPPFLAGS := $(CPPFLAGS) -DMINGW -DNOYICES_DLL -D__USE_MINGW_ANSI_STDIO
+  YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DMINGW -DNOYICES_DLL -D__USE_MINGW_ANSI_STDIO
   PIC=
   STATIC=-static
-  LDFLAGS += -Wl,--stack,8388608
+  BIN_LDFLAGS = -Wl,--stack,8388608
 else
 ifeq ($(POSIXOS),darwin)
-  CPPFLAGS := $(CPPFLAGS) -DMACOSX
+  YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DMACOSX
   YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=
 else
 ifeq ($(POSIXOS),sunos)
-  CPPFLAGS := $(CPPFLAGS) -DSOLARIS
+  YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DSOLARIS
   YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=
 else
 ifeq ($(POSIXOS),linux)
-  CPPFLAGS := $(CPPFLAGS) -DLINUX
+  YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DLINUX
   YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=-static
-  LIBS+=$(PTHREAD)
+  YICES_LIBS+=$(PTHREAD)
 else
 ifeq ($(POSIXOS),freebsd)
-  CPPFLAGS := $(CPPFLAGS) -DFREEBSD
+  YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DFREEBSD
   YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=-static
@@ -160,7 +160,7 @@ else
 ifeq ($(POSIXOS),netbsd)
   PIC=-fPIC
   STATIC=-static
-  CPPFLAGS := $(CPPFLAGS) -DNETBSD
+  YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DNETBSD
   YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
@@ -169,7 +169,7 @@ else
 ifeq ($(POSIXOS),unix)
   PIC=-fPIC
   STATIC=-static
-  CPPFLAGS := $(CPPFLAGS) -DLINUX
+  YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DLINUX
   YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
@@ -200,35 +200,35 @@ endif
 #
 ifeq ($(YICES_MODE),release)
   YICES_CFLAGS := $(YICES_CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
-  CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+  YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),devel)
   YICES_CFLAGS := $(YICES_CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
-  CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+  YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),profile)
   YICES_CFLAGS := $(YICES_CFLAGS) -O3 -pg
-  CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+  YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gcov)
   YICES_CFLAGS := $(YICES_CFLAGS) -fprofile-arcs -ftest-coverage
-  CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+  YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),sanitize)
 YICES_CFLAGS := $(YICES_CFLAGS) -O3 -g -fsanitize=address,undefined -fno-omit-frame-pointer
-CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DNDEBUG
 else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
   YICES_CFLAGS := $(YICES_CFLAGS) -O3 -g
-  CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+  YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gperftools)
 YICES_CFLAGS := $(YICES_CFLAGS) -O3 -g
-CPPFLAGS := $(CPPFLAGS) -DNDEBUG
+YICES_CPPFLAGS := $(YICES_CPPFLAGS) -DNDEBUG
 ifeq ($(POSIXOS),linux)
-  LIBS += -Wl,--no-as-needed -lprofiler
+  YICES_LIBS += -Wl,--no-as-needed -lprofiler
 else
-  LIBS += -lprofiler
+  YICES_LIBS += -lprofiler
 endif
 else
 #
@@ -290,10 +290,17 @@ endif
 
 
 #
-# Include path: -I../../src must be first in case there
-# are other -I in CPPFLAGS
+# Final CPPFLAGS: the include directories (-I../../src first), then the
+# user's CPPFLAGS, then our flags. Keep this line after all
+# YICES_CPPFLAGS assignments.
 #
-CPPFLAGS := -I../../src -I../../src/include $(CPPFLAGS)
+override CPPFLAGS := -I../../src -I../../src/include $(CPPFLAGS) $(YICES_CPPFLAGS)
+
+#
+# Final LIBS: the user's LIBS, then our libraries. This is the old order.
+# Keep this line after all YICES_LIBS assignments.
+#
+override LIBS := $(LIBS) $(YICES_LIBS)
 
 
 #
@@ -437,7 +444,7 @@ all: $(tests)
 	@ ./print_summary.sh tests.log
 
 $(bindir)/%$(EXEEXT): $(objdir)/%.o $(libyices)
-	$(LNK) $(CFLAGS) $(LDFLAGS) -o $@ $<  $(libyices) $(LIBS)
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) -o $@ $<  $(libyices) $(LIBS)
 
 
 # Test binaries compiled statically
@@ -449,7 +456,7 @@ all-static: $(static_tests)
 	@ ./print_summary.sh tests.log
 
 $(static_bindir)/%$(EXEEXT): $(static_objdir)/%.o $(static_libyices) $(static_delegate_guard) $(static_delegate_deps)
-	$(LNK) $(CFLAGS) $(LDFLAGS) $(STATIC) -o $@ $<  $(static_libyices) $(STATIC_LIBS)
+	$(LNK) $(CFLAGS) $(LDFLAGS) $(BIN_LDFLAGS) $(STATIC) -o $@ $<  $(static_libyices) $(STATIC_LIBS)
 
 
 .PHONY: all all-static
