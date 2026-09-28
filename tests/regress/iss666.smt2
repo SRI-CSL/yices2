@@ -1,9 +1,8 @@
 (set-logic QF_LRA)
 (declare-fun x () Real)
-; The let binds a LOCAL x (and u) whose scope is only the let body.
-; Since x is not the last binding, it must still be removed from the
-; symbol table when the let is closed. The outer x is unconstrained by
-; the (tautological) first assertion, so (> x 3.0) is satisfiable.
+; The let binds a local x. Its scope is only the let body.
+; x is not the last binding. The let must still remove it.
+; The outer x stays unconstrained, so the result is sat.
 (assert (let ((x 0.0) (u 1.0)) (< u 2.0)))
 (assert (> x 3.0))
 (check-sat)
