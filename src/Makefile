@@ -855,16 +855,13 @@ endif
 endif
 
 #
-# Final CFLAGS: our flags, then the user's CFLAGS (from configure or from
-# the make command line), then the C standard.
+# Final CFLAGS: our flags, then the user's CFLAGS, then the C standard.
+# The user's CFLAGS come from configure or from the make command line.
+# The user's flags are after our flags, so the user's flags win.
 #
-# GNU make ignores a plain assignment to a variable that comes from the
-# command line (for example 'make CFLAGS=-O2'). Thus we collect our flags
-# in YICES_CFLAGS and use 'override' only here. The user's flags come
-# after our flags, so that the user's -O2 wins against our -O3.
-#
-# Keep this line below every YICES_CFLAGS assignment. Make ignores a
-# plain CFLAGS assignment after this line.
+# If CFLAGS is on the make command line, make ignores a plain CFLAGS
+# assignment. Thus we put our flags in YICES_CFLAGS. Keep this line
+# after all YICES_CFLAGS assignments.
 #
 override CFLAGS := $(YICES_CFLAGS) $(CFLAGS) $(C_STD)
 
