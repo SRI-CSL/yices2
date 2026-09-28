@@ -134,33 +134,33 @@ ifeq ($(POSIXOS),mingw)
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
-  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=
 else
 ifeq ($(POSIXOS),sunos)
   CPPFLAGS := $(CPPFLAGS) -DSOLARIS
-  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=
 else
 ifeq ($(POSIXOS),linux)
   CPPFLAGS := $(CPPFLAGS) -DLINUX
-  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=-static
   LIBS+=$(PTHREAD)
 else
 ifeq ($(POSIXOS),freebsd)
   CPPFLAGS := $(CPPFLAGS) -DFREEBSD
-  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=-static
 ifeq ($(POSIXOS),netbsd)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DNETBSD
-  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -169,7 +169,7 @@ ifeq ($(POSIXOS),unix)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DLINUX
-  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -188,9 +188,9 @@ endif
 #
 # Warning levels
 #
-CFLAGS += -Wall -Wredundant-decls -Wextra -Wpedantic
+YICES_CFLAGS += -Wall -Wredundant-decls -Wextra -Wpedantic
 ifeq ($(POSIXOS),mingw)
-  CFLAGS += -Wno-format
+  YICES_CFLAGS += -Wno-format
 endif
 
 
@@ -198,31 +198,31 @@ endif
 # Compilation flags dependent on MODE
 #
 ifeq ($(YICES_MODE),release)
-  CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
+  YICES_CFLAGS := $(YICES_CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),devel)
-  CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
+  YICES_CFLAGS := $(YICES_CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),profile)
-  CFLAGS := $(CFLAGS) -O3 -pg
+  YICES_CFLAGS := $(YICES_CFLAGS) -O3 -pg
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gcov)
-  CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage
+  YICES_CFLAGS := $(YICES_CFLAGS) -fprofile-arcs -ftest-coverage
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),sanitize)
-CFLAGS := $(CFLAGS) -O3 -g -fsanitize=address,undefined -fno-omit-frame-pointer
+YICES_CFLAGS := $(YICES_CFLAGS) -O3 -g -fsanitize=address,undefined -fno-omit-frame-pointer
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
-  CFLAGS := $(CFLAGS) -O3 -g
+  YICES_CFLAGS := $(YICES_CFLAGS) -O3 -g
   CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gperftools)
-CFLAGS := $(CFLAGS) -O3 -g
+YICES_CFLAGS := $(YICES_CFLAGS) -O3 -g
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 ifeq ($(POSIXOS),linux)
   LIBS += -Wl,--no-as-needed -lprofiler
@@ -233,7 +233,7 @@ else
 #
 # debug mode
 #
-CFLAGS := $(CFLAGS) -g
+YICES_CFLAGS := $(YICES_CFLAGS) -g
 endif
 endif
 endif
@@ -243,13 +243,18 @@ endif
 endif
 
 #
-# C standard
+# Final CFLAGS: our flags, then the user's CFLAGS (from configure or from
+# the make command line), then the C standard.
 #
-# 'override' also sets the origin of CFLAGS to "override", after which any
-# later plain assignment to CFLAGS is ignored, so this line must stay below
-# the mode-dependent flags above or it would silently drop -O3 and friends.
+# GNU make ignores a plain assignment to a variable that comes from the
+# command line (for example 'make CFLAGS=-O2'). Thus we collect our flags
+# in YICES_CFLAGS and use 'override' only here. The user's flags come
+# after our flags, so that the user's -O2 wins against our -O3.
 #
-override CFLAGS += $(C_STD)
+# Keep this line below every YICES_CFLAGS assignment. Make ignores a
+# plain CFLAGS assignment after this line.
+#
+override CFLAGS := $(YICES_CFLAGS) $(CFLAGS) $(C_STD)
 
 #
 # test_context_delegate_stats, issue_414_mcsat, and test_model_clone_project
@@ -260,7 +265,7 @@ override CFLAGS += $(C_STD)
 # Relax those two warnings for these test objects so the test binaries can
 # still link against the regular libyices.{a,so} and run via run_test.sh.
 #
-# Placed after the mode-specific CFLAGS additions above so that the
+# Placed after the final 'override CFLAGS' line above so that the
 # per-target := evaluation captures the fully assembled flag set
 # (e.g., -O3 / -g) and only strips the two pedantic warning options.
 #
