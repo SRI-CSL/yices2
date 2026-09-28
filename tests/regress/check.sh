@@ -29,13 +29,24 @@
 # For each test file, the expected results are stored in file.gold
 # and command-line options are stored in file.options.
 #
+# An input is run once per option set, so that a variant needs a sidecar rather
+# than a copy: file.<tag>.options makes one more run of the test, compared
+# against file.<tag>.gold, or against file.gold when the tag has no gold of its
+# own. See run_test.sh, which counts one result per option set. The tests in
+# regress/both use the tags mcsat and dpllt for the two solver modes.
+#
+# -x disables tags, as in -x dpllt for an MCSAT-only run. REGRESS_DISABLE_TAGS
+# gives the same list, for the make targets.
+#
 # This scripts calls the appropriate binary on each test file, passing it
 # the command-line options if any, then check whether the output matches
 # what's expected.
 #
 
 usage() {
-   echo "Usage: $0 <test-directory> <bin-directory> [test1] [test2] ..."
+   echo "Usage: $0 [-j] [-s <smt2-options>] [-x <tags>] <test-directory> <bin-directory> [test1] [test2] ..."
+   echo "       <test-directory> may list several directories: \"dir1 dir2\""
+   echo "       -x skips the given option-set tags, e.g. -x dpllt"
    exit
 }
 
@@ -57,14 +68,14 @@ run_test_batch() {
 
     case "$parallel_tool" in
         more)
-            parallel -i $j_param bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$local_smt2_options" {} "$bin_dir" "$run_logdir" -- $test_set
+            parallel -i $j_param bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$local_smt2_options" -x "$disabled_tags" {} "$bin_dir" "$run_logdir" -- $test_set
             ;;
         gnu)
-            parallel -q $j_param bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$local_smt2_options" {} "$bin_dir" "$run_logdir" ::: $test_set
+            parallel -q $j_param bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$local_smt2_options" -x "$disabled_tags" {} "$bin_dir" "$run_logdir" ::: $test_set
             ;;
         *)
             for file in $test_set; do
-                bash "${BASH_SOURCE%/*}"/run_test.sh $color_flag -s "$local_smt2_options" "$file" "$bin_dir" "$run_logdir"
+                bash "${BASH_SOURCE%/*}"/run_test.sh $color_flag -s "$local_smt2_options" -x "$disabled_tags" "$file" "$bin_dir" "$run_logdir"
             done
             ;;
     esac
@@ -189,11 +200,15 @@ filter_supported_option_delegate_tests() {
 
 smt2_options=
 j_option=
+disabled_tags=$REGRESS_DISABLE_TAGS
 
-while getopts "js:" o; do
+while getopts "js:x:" o; do
     case "$o" in
     s)
       smt2_options=${OPTARG}
+      ;;
+    x)
+      disabled_tags=${OPTARG}
       ;;
     j)
       j_option=yes
