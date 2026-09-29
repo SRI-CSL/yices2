@@ -156,6 +156,7 @@ ifeq ($(POSIXOS),freebsd)
   YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=-static
+else
 ifeq ($(POSIXOS),netbsd)
   PIC=-fPIC
   STATIC=-static
