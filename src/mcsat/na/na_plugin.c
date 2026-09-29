@@ -2164,6 +2164,7 @@ void na_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
   }
 }
 
+static
 bool na_plugin_simplify_conflict_literal(plugin_t* plugin, term_t lit, ivector_t* output) {
   na_plugin_t* na = (na_plugin_t*) plugin;
 
