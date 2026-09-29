@@ -1739,13 +1739,12 @@ term_t na_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
 
   // We currently only propagate evaluations, and we explain them using the literal itself
   // The only other propagations are at 0-level, and those we explain with the value and no reasons
-  term_t atom = variable_db_get_term(na->ctx->var_db, var);
-  if (ctx_trace_enabled(na->ctx, "na::conflict")) {
-    ctx_trace_printf(na->ctx, "na_plugin_explain_propagation():\n");
-    ctx_trace_term(na->ctx, atom);
-  }
+  const term_t atom = variable_db_get_term(na->ctx->var_db, var);
   const mcsat_value_t* value = trail_get_value(na->ctx->trail, var);
+
   if (ctx_trace_enabled(na->ctx, "na::conflict")) {
+    ctx_trace_printf(na->ctx, "na_plugin_explain_propagation():\nvariable: ");
+    ctx_trace_term(na->ctx, atom);
     ctx_trace_printf(na->ctx, "assigned to: ");
     mcsat_value_print(value, ctx_trace_out(na->ctx));
     ctx_trace_printf(na->ctx, "\n");

@@ -304,13 +304,7 @@ term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct,
     int_hmap_add(&disjunct_frontier, x_term, 1);
   }
 
-  // Substitute
-  substitution_t subst;
-  substitution_construct(&subst, tm, conflict->tracer);
   const term_t var_term = variable_db_get_term(var_db, var);
-  substitution_add(&subst, var_term, substitution);
-  term_t disjunct_subst = substitution_run_fwd(&subst, disjunct_pos, &disjunct_frontier);
-  substitution_destruct(&subst);
 
   if (trace_enabled(conflict->tracer, "mcsat::conflict::subst")) {
     mcsat_trace_printf(conflict->tracer, "disjunct_pos = ");
@@ -319,9 +313,20 @@ term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct,
     trace_term_ln(conflict->tracer, conflict->terms, var_term);
     mcsat_trace_printf(conflict->tracer, "substitution = ");
     trace_term_ln(conflict->tracer, conflict->terms, substitution);
+  }
+
+  // Substitute
+  substitution_t subst;
+  substitution_construct(&subst, tm, conflict->tracer);
+  substitution_add(&subst, var_term, substitution);
+  term_t disjunct_subst = substitution_run_fwd(&subst, disjunct_pos, &disjunct_frontier);
+  substitution_destruct(&subst);
+
+  if (trace_enabled(conflict->tracer, "mcsat::conflict::subst")) {
     mcsat_trace_printf(conflict->tracer, "disjunct_subst = ");
     trace_term_ln(conflict->tracer, conflict->terms, disjunct_subst);
   }
+
   // This could happen for propagation due to evaluation
   // assert(disjunct_pos != disjunct_subst);
   if (disjunct_pos != disjunct) {
