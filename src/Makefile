@@ -686,7 +686,7 @@ ifeq ($(POSIXOS),mingw)
 else
 ifeq ($(POSIXOS),darwin)
   CPPFLAGS := $(CPPFLAGS) -DMACOSX
-  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   PIC=-fPIC
   STATIC=
   BIN_LDFLAGS=
@@ -701,7 +701,7 @@ ifeq ($(POSIXOS),darwin)
   #
   ifeq ($(THREAD_SAFE),1)
     ifeq ($(shell $(CC) -v 2>&1 | grep -c "clang version"), 1)
-       CFLAGS += -Qunused-arguments
+       YICES_CFLAGS += -Qunused-arguments
     endif
   endif
 else
@@ -709,7 +709,7 @@ ifeq ($(POSIXOS),sunos)
   PIC=-fPIC
   STATIC=
   CPPFLAGS := $(CPPFLAGS) -DSOLARIS
-  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -718,7 +718,7 @@ ifeq ($(POSIXOS),linux)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DLINUX -U_FORTIFY_SOURCE
-  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS= $(PTHREAD)
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -727,7 +727,7 @@ ifeq ($(POSIXOS),freebsd)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DFREEBSD
-  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -736,7 +736,7 @@ ifeq ($(POSIXOS),netbsd)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DNETBSD
-  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -746,7 +746,7 @@ ifeq ($(POSIXOS),unix)
   PIC=-fPIC
   STATIC=-static
   CPPFLAGS := $(CPPFLAGS) -DLINUX
-  CFLAGS += -fvisibility=hidden $(PTHREAD)
+  YICES_CFLAGS += -fvisibility=hidden $(PTHREAD)
   BIN_LDFLAGS=
   libyices_dynamic=$(libdir)/$(libyices_so)
   static_libyices_dynamic=$(static_libdir)/$(libyices_so)
@@ -770,13 +770,13 @@ CPPFLAGS := -I. -Iinclude $(CPPFLAGS)
 # Warning levels: dropped the flag -Winiline in all build modes.
 # Can't keep up with gcc/clang.
 #
-CFLAGS += -Wall -Wredundant-decls
+YICES_CFLAGS += -Wall -Wredundant-decls
 
 #
 # Format string issues on Windows/mingw
 #
 ifeq ($(POSIXOS),mingw)
-  CFLAGS += -Wno-format
+  YICES_CFLAGS += -Wno-format
 endif
 
 
@@ -810,31 +810,31 @@ endif
 #
 #
 ifeq ($(YICES_MODE),release)
-CFLAGS := $(CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
+YICES_CFLAGS := $(YICES_CFLAGS) -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR)
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),devel)
-CFLAGS := $(CFLAGS) -O3 -g -fomit-frame-pointer $(NO_STACK_PROTECTOR)
+YICES_CFLAGS := $(YICES_CFLAGS) -O3 -g -fomit-frame-pointer $(NO_STACK_PROTECTOR)
 CPPFLAGS := $(CPPFLAGS)
 else
 ifeq ($(YICES_MODE),profile)
-CFLAGS := $(CFLAGS) -O3 -pg
+YICES_CFLAGS := $(YICES_CFLAGS) -O3 -pg
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gcov)
-CFLAGS := $(CFLAGS) -fprofile-arcs -ftest-coverage -g -O0
+YICES_CFLAGS := $(YICES_CFLAGS) -fprofile-arcs -ftest-coverage -g -O0
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),sanitize)
-CFLAGS := $(CFLAGS) -O3 -g -fsanitize=address,undefined -fno-omit-frame-pointer
+YICES_CFLAGS := $(YICES_CFLAGS) -O3 -g -fsanitize=address,undefined -fno-omit-frame-pointer
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(findstring $(YICES_MODE),valgrind quantify purify),$(YICES_MODE))
-CFLAGS := $(CFLAGS) -O3 -g
+YICES_CFLAGS := $(YICES_CFLAGS) -O3 -g
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 else
 ifeq ($(YICES_MODE),gperftools)
-CFLAGS := $(CFLAGS) -O3 -g
+YICES_CFLAGS := $(YICES_CFLAGS) -O3 -g
 CPPFLAGS := $(CPPFLAGS) -DNDEBUG
 ifeq ($(POSIXOS),linux)
   LIBS += -Wl,--no-as-needed -lprofiler
@@ -845,7 +845,7 @@ else
 #
 # debug mode
 #
-CFLAGS := $(CFLAGS) -g
+YICES_CFLAGS := $(YICES_CFLAGS) -g
 endif
 endif
 endif
@@ -855,13 +855,12 @@ endif
 endif
 
 #
-# C standard
+# If CFLAGS is on the make command line, make ignores a plain CFLAGS
+# assignment. Thus we put our flags in YICES_CFLAGS. The user's CFLAGS
+# (from configure or from the command line) come after our flags, so
+# the user's flags win. Keep this line after all YICES_CFLAGS assignments.
 #
-# 'override' also sets the origin of CFLAGS to "override", after which any
-# later plain assignment to CFLAGS is ignored, so this line must stay below
-# the mode-dependent flags above or it would silently drop -O3 and friends.
-#
-override CFLAGS += $(C_STD)
+override CFLAGS := $(YICES_CFLAGS) $(CFLAGS) $(C_STD)
 
 #
 # Object files to include in the dynamic libraries
