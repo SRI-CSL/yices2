@@ -273,6 +273,7 @@ core_src_c := \
 	terms/types.c \
 	terms/variable_renaming.c \
 	utils/arena.c \
+	utils/assert_utils.c \
 	utils/backtrack_arrays.c \
 	utils/backtrack_int_hash_map.c \
 	utils/cache.c \
