@@ -31,8 +31,8 @@
 #include "mcsat/value.h"
 
 /*
- * Records stored in the hash table are pairs of integers
- * - key is >= 0
+ * Records stored in the hash table
+ * - key is != NULL
  */
 typedef struct value_hmap_pair_s {
   mcsat_value_t* key;

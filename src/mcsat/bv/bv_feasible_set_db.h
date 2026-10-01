@@ -20,9 +20,9 @@
 
 #include <stdio.h>
 
-#include "mcsat/variable_db.h"
+#include "mcsat/gc.h"
+#include "mcsat/variable.h"
 #include "mcsat/mcsat_types.h"
-#include "mcsat/value.h"
 #include "mcsat/bv/bv_bdd_manager.h"
 
 /** Contains the map from variables to feasible sets that can be backtracked */

@@ -97,17 +97,13 @@ void trail_new_variable_notify(mcsat_trail_t* trail, variable_t x) {
 }
 
 void trail_print(const mcsat_trail_t* trail, FILE* out) {
-  uint32_t i;
-  variable_t var;
-  assignment_type_t var_type;
-
   fprintf(out, "[\n");
-  for (i = 0; i < trail->elements.size; ++ i) {
+  for (uint32_t i = 0; i < trail->elements.size; ++ i) {
     if (i) {
       fprintf(out, ", ");
     }
-    var = trail->elements.data[i];
-    var_type = trail_get_assignment_type(trail, var);
+    const variable_t var = trail->elements.data[i];
+    const assignment_type_t var_type = trail_get_assignment_type(trail, var);
 
     if (var_type == DECISION) {
       fprintf(out, "\n");
@@ -118,7 +114,7 @@ void trail_print(const mcsat_trail_t* trail, FILE* out) {
       for (; l < l_end; ++ l) {
         fprintf(out, "\n ----------- PUSH -------------- \n");
         // This is just a printout heuristic for simple examples with incremental solving.
-        // Level of previous variable could be small becuase it was propagated late
+        // Level of previous variable could be small because it was propagated late
         // For example [x *-> 0 [1], b1 *-> false [2], (x > 0) -> false [1], b2 -> false [2]
         // Above trail would print the push between the last two elements.
       }
@@ -224,9 +220,8 @@ void trail_add_decision(mcsat_trail_t* trail, variable_t x, const mcsat_value_t*
 }
 
 void trail_pop_decision(mcsat_trail_t* trail) {
-  variable_t x;
   // Undo the value with the addition of decision unmark
-  x = ivector_last(&trail->elements);
+  variable_t x = ivector_last(&trail->elements);
   trail_undo_value(trail, x);
   // Don't unset value, keep for caching: mcsat_model_unset_value(&trail->model, x);
   trail_undo_decision(trail);
@@ -253,13 +248,10 @@ void trail_add_propagation(mcsat_trail_t* trail, variable_t x, const mcsat_value
   ivector_push(&trail->elements, x);
 }
 
-
 void trail_pop_propagation(mcsat_trail_t* trail) {
-  variable_t x;
-  uint32_t x_level;
   // Undo the value with the addition of decision unmark
-  x = ivector_last(&trail->elements);
-  x_level = trail_get_level(trail, x);
+  const variable_t x = ivector_last(&trail->elements);
+  const uint32_t x_level = trail_get_level(trail, x);
   assert(x_level <= trail->decision_level);
   if (x_level == trail->decision_level) {
     trail_undo_value(trail, x);
@@ -275,7 +267,7 @@ void trail_pop_propagation(mcsat_trail_t* trail) {
 void trail_pop(mcsat_trail_t* trail) {
   assert(trail->decision_level >= trail->decision_level_base);
   assert(trail->level_sizes.size > 0);
-  uint32_t target_size = ivector_last(&trail->level_sizes);
+  const uint32_t target_size = ivector_last(&trail->level_sizes);
   while (trail->elements.size > target_size && trail_get_assignment_type(trail, trail_back(trail)) != DECISION) {
     trail_pop_propagation(trail);
   };
@@ -289,17 +281,13 @@ void trail_pop(mcsat_trail_t* trail) {
   }
 }
 
-void trail_gc_mark(mcsat_trail_t* trail, gc_info_t* gc_vars) {
-
-  uint32_t i;
-  variable_t var;
-
+void trail_gc_mark(const mcsat_trail_t* trail, gc_info_t* gc_vars) {
   assert(trail->to_repropagate.size == 0);
   assert(trail->unassigned.size == 0);
   assert(trail->decision_level == trail->decision_level_base);
 
-  for (i = 0; i < trail->elements.size; ++ i) {
-    var = trail->elements.data[i];
+  for (uint32_t i = 0; i < trail->elements.size; ++ i) {
+    const variable_t var = trail->elements.data[i];
     assert(variable_db_is_variable(trail->var_db, var, true));
     gc_info_mark(gc_vars, var);
   }
@@ -312,7 +300,7 @@ void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars) {
   // via trail_new_variable_notify; iterate the common range and clean every
   // unmarked variable from all three caches in one pass. Skip var 0 (the
   // variable_null sentinel).
-  for (uint32_t var = 1; var < trail->model.size; ++var) {
+  for (int32_t var = 1; var < trail->model.size; ++var) {
     if (gc_info_get_reloc(gc_vars, var) != variable_null) {
       continue;
     }
@@ -330,15 +318,12 @@ void trail_gc_sweep(mcsat_trail_t* trail, const gc_info_t* gc_vars) {
 }
 
 bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_t t2) {
-  bool t1_has_value, t2_has_value;
-  uint32_t t1_index, t2_index;
-
   // We compare variables based on the trail level, unassigned to the front,
   // then assigned ones by decreasing level
 
   // Literals with no value
-  t1_has_value = trail_has_value(trail, t1);
-  t2_has_value = trail_has_value(trail, t2);
+  const bool t1_has_value = trail_has_value(trail, t1);
+  const bool t2_has_value = trail_has_value(trail, t2);
   if (!t1_has_value && !t2_has_value) {
     // Both have no value, just order by variable
     return t1 < t2;
@@ -355,8 +340,8 @@ bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_
   }
 
   // Both literals have a value, sort by decreasing level
-  t1_index = trail_get_index(trail, t1);
-  t2_index = trail_get_index(trail, t2);
+  const uint32_t t1_index = trail_get_index(trail, t1);
+  const uint32_t t2_index = trail_get_index(trail, t2);
   if (t1_index != t2_index) {
     // t1 > t2 goes to front
     return t1_index > t2_index;
@@ -366,7 +351,7 @@ bool trail_variable_compare(const mcsat_trail_t *trail, variable_t t1, variable_
 }
 
 inline static
-void trail_copy_unassigned_cache(mcsat_trail_t* trail, mcsat_model_t* to_cache, const mcsat_model_t* from_cache) {
+void trail_copy_unassigned_cache(const mcsat_trail_t* trail, mcsat_model_t* to_cache, const mcsat_model_t* from_cache) {
   for (variable_t var = 0; var < from_cache->size; ++var) {
     const mcsat_value_t* val = mcsat_model_get_value(from_cache, var);
     if (!trail_has_value(trail, var) && val->type != VALUE_NONE) {
@@ -376,7 +361,7 @@ void trail_copy_unassigned_cache(mcsat_trail_t* trail, mcsat_model_t* to_cache, 
 }
 
 inline static
-void trail_clear_unassigned_cache(mcsat_trail_t* trail, mcsat_model_t* cache) {
+void trail_clear_unassigned_cache(const mcsat_trail_t* trail, mcsat_model_t* cache) {
   for (variable_t var = 0; var < cache->size; ++var) {
     if (!trail_has_value(trail, var) && mcsat_model_get_value(cache, var)->type != VALUE_NONE) {
       mcsat_model_unset_value(cache, var);

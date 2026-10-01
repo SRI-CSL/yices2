@@ -124,6 +124,7 @@ typedef struct {
 
 static
 bool term_visit_cmp(void *data, int32_t x, int32_t y) {
+  (void) data;
   return x > y;
 }
 
@@ -327,6 +328,7 @@ void bv_plugin_get_term_variable_visit_term(bv_plugin_t* bv, term_t t, uint32_t 
  *
  * Above allows us to consider all contexts where variables occur.
  */
+static
 void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t constraint, int_mset_t* vars_out, uint64_t bump_amount) {
 
   term_table_t* terms = bv->ctx->terms;
@@ -538,6 +540,7 @@ void bv_plugin_get_notified_term_subvariables(bv_plugin_t* bv, term_t constraint
   reset_generic_heap(&bv->visit_heap);
 }
 
+static
 void bv_plugin_report_conflict(bv_plugin_t* bv, trail_token_t* prop, variable_t variable, bv_conflict_type_t type) {
   // Although we do full propagation for shared sorts (Bool) a conflict can
   // still happen. For example if we have

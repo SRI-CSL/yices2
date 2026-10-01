@@ -95,6 +95,7 @@ srcsubdirs = mt io terms utils solvers solvers/floyd_warshall \
 testdir = tests/unit
 regressdir = tests/regress
 regressdir_mcsat = tests/regress/mcsat
+regressdir_both = tests/regress/both
 apitestdir = tests/api
 
 #
@@ -330,7 +331,7 @@ mcsat-regress: build_subdirs version
 	@ echo "=== Building binaries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) bin
 	@ echo "=== Running regressions ==="
-	+@ $(regressdir)/check.sh $(regressdir_mcsat) $(build_dir)/bin
+	+@ REGRESS_DISABLE_TAGS=dpllt $(regressdir)/check.sh "$(regressdir_mcsat) $(regressdir_both)" $(build_dir)/bin
 
 
 static-regress: static_build_subdirs version
@@ -350,12 +351,13 @@ static-mcsat-regress: static_build_subdirs version
 	@ echo "=== Building binaries ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) static-bin
 	@ echo "=== Running regressions ==="
-	+@ $(regressdir)/check.sh $(regressdir_mcsat) $(build_dir)/static_bin
+	+@ REGRESS_DISABLE_TAGS=dpllt $(regressdir)/check.sh "$(regressdir_mcsat) $(regressdir_both)" $(build_dir)/static_bin
 
 
 .PHONY: all obj static-obj lib static-lib bin static-bin test static-test \
     regress delegate-regress static-regress static-delegate-regress \
-    check delegate-check static-check static-delegate-check \
+    mcsat-regress static-mcsat-regress \
+    check delegate-check static-check static-delegate-check mcsat-check \
     check-api static-check-api
 
 

@@ -100,6 +100,7 @@ static bool interactive;
 static bool smt2_model_format;
 static bool dump_models;
 static bool bvdecimal;
+static bool check_status;
 static bool show_stats;
 static int32_t verbosity;
 static uint32_t timeout;
@@ -164,6 +165,7 @@ typedef enum optid {
   yicesformat_opt,         // use the Yices model format for models
   dump_model_opt,          // print model on sat result
   bvdecimal_opt,           // use (_ bv<xxx> n) for bit-vector constants
+  check_status_opt,        // compare check-sat answers with (set-info :status ...)
   timeout_opt,             // give a timeout
   delegate_opt,            // use an external sat solver
   dimacs_opt,              // bitblast then export to DIMACS
@@ -219,6 +221,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "yices-model-format", '\0', FLAG_OPTION, yicesformat_opt },
   { "dump-models", '\0', FLAG_OPTION, dump_model_opt},
   { "bvconst-in-decimal", '\0', FLAG_OPTION, bvdecimal_opt },
+  { "check-status", '\0', FLAG_OPTION, check_status_opt },
   { "delegate", '\0', MANDATORY_STRING, delegate_opt },
   { "dimacs", '\0', MANDATORY_STRING, dimacs_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
@@ -289,6 +292,7 @@ static void print_help(const char *progname) {
          "    --yices-model-format      Display models in the Yices model format (default = false)\n"
          "    --dump-models             Display models on sat result (default = false)\n"
          "    --bvconst-in-decimal      Display bit-vector constants as decimal numbers (default = false)\n"
+         "    --check-status            Exit with an error when check-sat contradicts (set-info :status)\n"
          "    --delegate=<satsolver>    Use an external SAT solver (can be cadical, cryptominisat, kissat, or y2sat)\n"
          "    --dimacs=<filename>       Bitblast and export to a file (in DIMACS format)\n"
          "    --mcsat                   Force MCSAT as top-level architecture\n"
@@ -403,6 +407,7 @@ static void parse_command_line(int argc, char *argv[]) {
   smt2_model_format = true;
   dump_models = false;
   bvdecimal = false;
+  check_status = false;
   show_stats = false;
   verbosity = 0;
   timeout = 0;
@@ -565,6 +570,10 @@ static void parse_command_line(int argc, char *argv[]) {
 
       case bvdecimal_opt:
         bvdecimal = true;
+        break;
+
+      case check_status_opt:
+        check_status = true;
         break;
 
       case mcsat_opt:
@@ -1181,6 +1190,7 @@ int main(int argc, char *argv[]) {
   if (force_dpllt) smt2_force_dpllt();
   if (smt2_model_format) smt2_force_smt2_model_format();
   if (bvdecimal) smt2_force_bvdecimal_format();
+  if (check_status) smt2_enable_status_check();
   if (dimacsfile != NULL && delegate == NULL) smt2_export_to_dimacs(dimacsfile);
   if (delegate != NULL) {
     smt2_set_delegate(delegate);

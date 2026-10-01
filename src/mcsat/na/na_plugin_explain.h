@@ -20,8 +20,7 @@
 
 #include "model/models.h"
 #include "utils/int_vectors.h"
-#include "utils/int_hash_sets.h"
-#include "mcsat/variable_db.h"
+#include "mcsat/variable.h"
 #include "mcsat/utils/int_mset.h"
 #include "terms/term_manager.h"
 
@@ -53,7 +52,7 @@ void na_plugin_describe_cell(na_plugin_t* na, term_t p, ivector_t* out_literals)
  * - L' only contains the variables in vars_to_keep;
  * - any satisfying assignment of L' can be extended to an assignment of L
  *
- * @param literal the literals L above
+ * @param literals the literals L above
  * @param mdl the model M above
  * @param vars_to_elim variables to eliminate
  * @param vars_to_keep variables to keep

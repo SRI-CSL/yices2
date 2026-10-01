@@ -1009,13 +1009,28 @@ bool na_plugin_check_assignment(na_plugin_t* na) {
     }
   }
 
-  // Go through lp_assignment and check if they are assigned in trail
+  // Go through lp_assignment and check if they are assigned in trail. Under CB
+  // the trail is not a stack: a backtrack keeps assignments below the target
+  // level and re-adds them with a new index. The plugin drops its whole view in
+  // na_plugin_pop and rebuilds it from the rescan, so the variable order must
+  // hold exactly the arithmetic variables this plugin has processed, once each.
   const lp_variable_list_t* order = lp_variable_order_get_list(lp_data->lp_var_order);
   for (i = 0; i < order->list_size; ++ i) {
     lp_variable_t x_lp = order->list[i];
+    // libpoly keeps one index per variable, so a disagreement is a variable
+    // pushed twice, e.g. left in the order by a pop and re-added by the rescan
+    if (lp_variable_list_index(order, x_lp) != (int) i) {
+      assert(false);
+      return false;
+    }
     term_t x_term = lp_data_get_term_from_lp_variable(lp_data, x_lp);
     variable_t x = variable_db_get_variable_if_exists(var_db, x_term);
     assert(x != variable_null);
+    // Popped by the trail but not by the plugin, or not yet rescanned
+    if (!na_plugin_has_assignment(na, x)) {
+      assert(false);
+      return false;
+    }
     const mcsat_value_t* value = trail_get_value(trail, x);
     const lp_value_t* value_lp = lp_assignment_get_value(lp_data->lp_assignment, x_lp);
     if (lp_value_cmp(&value->lp_value, value_lp) != 0) {
@@ -1037,8 +1052,6 @@ static
 void na_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   na_plugin_t* na = (na_plugin_t*) plugin;
 
-  variable_t var;
-
   assert(na_plugin_check_assignment(na));
   assert(!na_plugin_is_conflict_pending(na));
 
@@ -1054,14 +1067,15 @@ void na_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   // Propagate
   while (trail_is_consistent(trail) && na->trail_i < trail_size(trail)) {
     // Current trail element
-    var = trail_at(trail, na->trail_i);
+    const variable_t var = trail_at(trail, na->trail_i);
     na->trail_i ++;
+    // only boolean constraints can be in the unit_info data structure.
+    assert(!constraint_unit_info_has(&na->unit_info, var) || variable_db_is_boolean(var_db, var));
     if (variable_db_is_real(var_db, var) || variable_db_is_int(var_db, var)) {
-      // Real variables, detect if the constraint is unit
+      // real or integer variables, detect if the constraint is unit
       na_plugin_process_variable_assignment(na, prop, var);
-    }
-    if (constraint_unit_info_has(&na->unit_info, var)) {
-      constraint_unit_state_t info = constraint_unit_info_get(&na->unit_info, var);
+    } else if (constraint_unit_info_has(&na->unit_info, var)) {
+      const constraint_unit_state_t info = constraint_unit_info_get(&na->unit_info, var);
       switch (info) {
       case CONSTRAINT_UNIT:
         // Process any unit constraints
@@ -1738,16 +1752,15 @@ static
 term_t na_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t* reasons) {
   na_plugin_t* na = (na_plugin_t*) plugin;
 
-  // We only propagate evaluations, and we explain them using the literal itself
+  // We currently only propagate evaluations, and we explain them using the literal itself
   // The only other propagations are at 0-level, and those we explain with the value and no reasons
-  term_t atom = variable_db_get_term(na->ctx->var_db, var);
-  if (ctx_trace_enabled(na->ctx, "na::conflict")) {
-    ctx_trace_printf(na->ctx, "na_plugin_explain_propagation():\n");
-    ctx_trace_term(na->ctx, atom);
-  }
+  const term_t atom = variable_db_get_term(na->ctx->var_db, var);
   const mcsat_value_t* value = trail_get_value(na->ctx->trail, var);
+
   if (ctx_trace_enabled(na->ctx, "na::conflict")) {
-    ctx_trace_printf(na->ctx, "assigned to:");
+    ctx_trace_printf(na->ctx, "na_plugin_explain_propagation():\nvariable: ");
+    ctx_trace_term(na->ctx, atom);
+    ctx_trace_printf(na->ctx, "assigned to: ");
     mcsat_value_print(value, ctx_trace_out(na->ctx));
     ctx_trace_printf(na->ctx, "\n");
   }
@@ -1763,10 +1776,11 @@ term_t na_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
       return bool2term(false);
     }
   } else {
-    // we just return true => var = value
-    // this is only allowed at base level when explaining under assumptions
-    // there is currently no was to assert this properly
-    // assert(trail_is_at_base_level(na->ctx->trail));
+    // true => var = value, with no reasons: sound only at the base level, since
+    // CB keeps any assignment whose level survives a backtrack. The trail is not
+    // at the base level while analysis pops it, so we check the level of the
+    // propagation itself, as trail_pop_assertion does.
+    assert(trail_get_level(na->ctx->trail, var) <= na->ctx->trail->decision_level_base);
     return mcsat_value_to_term(value, na->ctx->tm);
   }
 }
@@ -1956,7 +1970,9 @@ void na_plugin_new_lemma_notify(plugin_t* plugin, ivector_t* lemma, trail_token_
     }
   }
 
-  if (unit && na->ctx->trail->decision_level == 0) {
+  // Base level, not level 0: after a user push the two differ, and the
+  // restriction is scoped to the push like any other feasible set update
+  if (unit && trail_is_at_base_level(na->ctx->trail)) {
 
     // Get the feasible set
     lp_feasibility_set_t* lemma_feasible = lp_feasibility_set_new_empty();
@@ -2148,6 +2164,7 @@ void na_plugin_learn(plugin_t* plugin, trail_token_t* prop) {
   }
 }
 
+static
 bool na_plugin_simplify_conflict_literal(plugin_t* plugin, term_t lit, ivector_t* output) {
   na_plugin_t* na = (na_plugin_t*) plugin;
 

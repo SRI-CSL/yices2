@@ -35,15 +35,14 @@
 
 #define CONFLICT_DEFAULT_ELEMENT_SIZE 100
 
-void conflict_check(conflict_t* conflict) {
+void conflict_check(const conflict_t* conflict) {
 #ifdef THREAD_SAFE
   (void) conflict;
   return;
 #else
   context_t* ctx = _o_yices_new_context(NULL);
-  uint32_t i;
   const ivector_t* literals = &conflict->disjuncts.element_list;
-  for (i = 0; i < literals->size; ++i) {
+  for (uint32_t i = 0; i < literals->size; ++i) {
     term_t literal = literals->data[i];
     literal = opposite_term(literal);
     int32_t ret = _o_yices_assert_formula(ctx, literal);
@@ -54,7 +53,7 @@ void conflict_check(conflict_t* conflict) {
       return;
     }
   }
-  smt_status_t result = check_context(ctx, NULL);
+  const smt_status_t result = check_context(ctx, NULL);
   (void) result;
   assert(result == YICES_STATUS_UNSAT);
   _o_yices_free_context(ctx);
@@ -71,9 +70,6 @@ bool conflict_add_disjunct(conflict_t* conflict, term_t disjunct);
 void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits, bool check_false,
     const mcsat_evaluator_interface_t* evaluator, variable_db_t* var_db, mcsat_trail_t* trail,
     term_manager_t* tm, tracer_t* tracer) {
-
-  uint32_t i;
-
   conflict->elements_capacity = CONFLICT_DEFAULT_ELEMENT_SIZE;
   conflict->elements_size = 0;
   conflict->elements = safe_malloc(sizeof(conflict_element_t) * CONFLICT_DEFAULT_ELEMENT_SIZE);
@@ -97,7 +93,7 @@ void conflict_construct(conflict_t* conflict, const ivector_t* conflict_lits, bo
   conflict->check_false = check_false;
 
   if (conflict_lits) {
-    for (i = 0; i < conflict_lits->size; ++ i) {
+    for (uint32_t i = 0; i < conflict_lits->size; ++ i) {
       conflict_add_disjunct(conflict, opposite_term(conflict_lits->data[i]));
     }
   }
@@ -111,24 +107,13 @@ void conflict_destruct(conflict_t* conflict) {
   int_mset_destruct(&conflict->disjuncts);
 }
 
-typedef struct {
-  const conflict_t* conflict;
-  FILE* file;
-} conflict_print_data_t;
-
 void conflict_print(const conflict_t* conflict, FILE* out) {
-  uint32_t i, n;
-  int_hmap_pair_t* data;
-  variable_t x;
-  conflict_element_ref_t current;
-
   fprintf(out, "level = %d\n", conflict->level);
   fprintf(out, "top_level_vars = %d\n", conflict->top_level_vars_count);
 
   fprintf(out, "vars =");
-  n = conflict->top_level_vars.element_list.size;
-  for (i = 0; i < n; ++ i) {
-    variable_t x = conflict->top_level_vars.element_list.data[i];
+  for (uint32_t i = 0; i < conflict->top_level_vars.element_list.size; ++ i) {
+    const variable_t x = conflict->top_level_vars.element_list.data[i];
     if (x != conflict->top_level_vars.null_element && int_mset_contains(&conflict->top_level_vars, x)) {
       fprintf(out, " ");
       variable_db_print_variable(conflict->var_db, x, out);
@@ -137,19 +122,17 @@ void conflict_print(const conflict_t* conflict, FILE* out) {
   fprintf(out, "\n");
 
   fprintf(out, "disjuncts with vars:\n");
-
-  n = conflict->var_to_element_map.size;
-  data = conflict->var_to_element_map.data;
-  for (i = 0; i < n; i ++) {
+  const int_hmap_pair_t* data = conflict->var_to_element_map.data;
+  for (uint32_t i = 0; i < conflict->var_to_element_map.size; i ++) {
     if (data->key >= 0) {
-      x = data->key;
+      const variable_t x = data->key;
       variable_db_print_variable(conflict->var_db, x, out);
       if (trail_has_value(conflict->trail, x)) {
         fprintf(out, " [%d]: ", trail_get_level(conflict->trail, x));
       } else {
         fprintf(out, ": ");
       }
-      current = data->val;
+      conflict_element_ref_t current = data->val;
       while (current != conflict_element_ref_null) {
 
         const conflict_element_t* element = conflict->elements + current;
@@ -173,8 +156,8 @@ void conflict_print(const conflict_t* conflict, FILE* out) {
   fprintf(out, "all disjuncts:\n");
 
   const ivector_t* ls = &conflict->disjuncts.element_list;
-  for (i = 0; i < ls->size; i ++ ) {
-    term_t l = ls->data[i];
+  for (uint32_t i = 0; i < ls->size; i ++ ) {
+    const term_t l = ls->data[i];
     if (l != conflict->disjuncts.null_element && int_mset_contains(&conflict->disjuncts, l)) {
       fprintf(out, " ");
       yices_pp_t printer;
@@ -218,10 +201,8 @@ conflict_element_ref_t conflict_new_element(conflict_t* conflict, term_t disjunc
 
 static inline
 void conflict_add_variable(conflict_t* conflict, variable_t var) {
-  uint32_t level;
-
   assert(trail_has_value(conflict->trail, var));
-  level = trail_get_level(conflict->trail, var);
+  const uint32_t level = trail_get_level(conflict->trail, var);
 
   // If construction check the level
   if (level > conflict->level) {
@@ -244,10 +225,8 @@ void conflict_add_variable(conflict_t* conflict, variable_t var) {
 
 static inline
 void conflict_remove_variable(conflict_t* conflict, variable_t var) {
-  uint32_t level;
-
   assert(trail_has_value(conflict->trail, var));
-  level = trail_get_level(conflict->trail, var);
+  const uint32_t level = trail_get_level(conflict->trail, var);
 
   // Reduce the variable map
   if (level == conflict->level) {
@@ -260,21 +239,15 @@ void conflict_remove_variable(conflict_t* conflict, variable_t var) {
 
 static
 void conflict_disjunct_get_variables(const conflict_t* conflict, term_t disjunct, int_mset_t* variables) {
-
-  term_t disjunct_pos;
-  variable_t disjunct_pos_var;
-  bool disjunct_value;
-  bool disjunct_evaluates;
-
   // Positive literal
-  disjunct_pos = unsigned_term(disjunct);
-  bool negated = disjunct_pos != disjunct;
+  const term_t disjunct_pos = unsigned_term(disjunct);
+  const bool negated = disjunct_pos != disjunct;
 
   // If the disjunct is false by Boolean assignment then the variable is the
   // variable of the term
-  disjunct_pos_var = variable_db_get_variable_if_exists(conflict->var_db, disjunct_pos);
+  const variable_t disjunct_pos_var = variable_db_get_variable_if_exists(conflict->var_db, disjunct_pos);
   if (disjunct_pos_var != variable_null && trail_has_value(conflict->trail, disjunct_pos_var)) {
-    disjunct_value = trail_get_value(conflict->trail, disjunct_pos_var)->b;
+    bool disjunct_value = trail_get_value(conflict->trail, disjunct_pos_var)->b;
     if (disjunct_pos != disjunct) {
       disjunct_value = !disjunct_value;
     }
@@ -287,27 +260,21 @@ void conflict_disjunct_get_variables(const conflict_t* conflict, term_t disjunct
 
   // Get the sub-variables
   const mcsat_value_t* value = negated ? &mcsat_value_true : &mcsat_value_false;
-  disjunct_evaluates = conflict->evaluator->evaluates(conflict->evaluator, disjunct_pos, variables, value);
+  const bool disjunct_evaluates = conflict->evaluator->evaluates(conflict->evaluator, disjunct_pos, variables, value);
   (void)disjunct_evaluates;
   assert(!conflict->check_false || disjunct_evaluates);
 }
 
 static
 term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct, variable_t var, term_t substitution) {
-
-  term_t disjunct_pos, disjunct_subst;
-  variable_t disjunct_pos_var;
-  bool disjunct_value;
-  uint32_t i;
-
   // Positive literal
-  disjunct_pos = unsigned_term(disjunct);
+  const term_t disjunct_pos = unsigned_term(disjunct);
 
   // If the disjunct is true by Boolean assignment then the variable is the
   // variable of the term
-  disjunct_pos_var = variable_db_get_variable_if_exists(conflict->var_db, disjunct_pos);
+  const variable_t disjunct_pos_var = variable_db_get_variable_if_exists(conflict->var_db, disjunct_pos);
   if (disjunct_pos_var != variable_null && disjunct_pos_var != var && trail_has_value(conflict->trail, disjunct_pos_var)) {
-    disjunct_value = trail_get_value(conflict->trail, disjunct_pos_var)->b;
+    bool disjunct_value = trail_get_value(conflict->trail, disjunct_pos_var)->b;
     if (disjunct_pos != disjunct) {
       disjunct_value = !disjunct_value;
     }
@@ -331,31 +298,35 @@ term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct,
   // Remember the terms
   int_hmap_t disjunct_frontier;
   init_int_hmap(&disjunct_frontier, 0);
-  for (i = 0; i < disjunct_vars.element_list.size; ++ i) {
-    variable_t x = disjunct_vars.element_list.data[i];
-    term_t x_term = variable_db_get_term(var_db, x);
+  for (uint32_t i = 0; i < disjunct_vars.element_list.size; ++ i) {
+    const variable_t x = disjunct_vars.element_list.data[i];
+    const term_t x_term = variable_db_get_term(var_db, x);
     int_hmap_add(&disjunct_frontier, x_term, 1);
   }
 
-  // Substitute
-  substitution_t subst;
-  substitution_construct(&subst, tm, conflict->tracer);
-  term_t var_term = variable_db_get_term(var_db, var);
-  substitution_add(&subst, var_term, substitution);
-  disjunct_subst = substitution_run_fwd(&subst, disjunct_pos, &disjunct_frontier);
-  substitution_destruct(&subst);
+  const term_t var_term = variable_db_get_term(var_db, var);
 
   if (trace_enabled(conflict->tracer, "mcsat::conflict::subst")) {
     mcsat_trace_printf(conflict->tracer, "disjunct_pos = ");
     trace_term_ln(conflict->tracer, conflict->terms, disjunct_pos);
     mcsat_trace_printf(conflict->tracer, "var = ");
-    term_t var_term = variable_db_get_term(var_db, var);
     trace_term_ln(conflict->tracer, conflict->terms, var_term);
     mcsat_trace_printf(conflict->tracer, "substitution = ");
     trace_term_ln(conflict->tracer, conflict->terms, substitution);
+  }
+
+  // Substitute
+  substitution_t subst;
+  substitution_construct(&subst, tm, conflict->tracer);
+  substitution_add(&subst, var_term, substitution);
+  term_t disjunct_subst = substitution_run_fwd(&subst, disjunct_pos, &disjunct_frontier);
+  substitution_destruct(&subst);
+
+  if (trace_enabled(conflict->tracer, "mcsat::conflict::subst")) {
     mcsat_trace_printf(conflict->tracer, "disjunct_subst = ");
     trace_term_ln(conflict->tracer, conflict->terms, disjunct_subst);
   }
+
   // This could happen for propagation due to evaluation
   // assert(disjunct_pos != disjunct_subst);
   if (disjunct_pos != disjunct) {
@@ -370,26 +341,10 @@ term_t conflict_disjunct_substitute(const conflict_t* conflict, term_t disjunct,
 }
 
 static
-bool conflict_add_disjunct(conflict_t* conflict, term_t disjunct) {
-
-  conflict_element_t* element;
-  conflict_element_ref_t element_ref;
-  int_hmap_pair_t* find;
-
+bool conflict_add_disjunct(conflict_t* conflict, const term_t disjunct) {
   int_mset_t disjunct_vars;
-  const ivector_t* disjunct_vars_list;
-
-  uint32_t i;
-  variable_t var, top_var;
-  uint32_t var_index, var_level;
-  uint32_t top_var_index, top_var_level;
 
   assert(disjunct >= 0);
-
-  if (trace_enabled(conflict->tracer, "mcsat::conflict")) {
-    mcsat_trace_printf(conflict->tracer, "adding to conflict: ");
-    trace_term_ln(conflict->tracer, conflict->terms, disjunct);
-  }
 
   // Don't add false
   if (disjunct == bool2term(false)) {
@@ -401,6 +356,11 @@ bool conflict_add_disjunct(conflict_t* conflict, term_t disjunct) {
     return false;
   }
 
+  if (trace_enabled(conflict->tracer, "mcsat::conflict")) {
+    mcsat_trace_printf(conflict->tracer, "adding to conflict: (%d) ", disjunct);
+    trace_term_ln(conflict->tracer, conflict->terms, disjunct);
+  }
+
   // Construct of temps
   int_mset_construct(&disjunct_vars, variable_null);
 
@@ -408,12 +368,14 @@ bool conflict_add_disjunct(conflict_t* conflict, term_t disjunct) {
   conflict_disjunct_get_variables(conflict, disjunct, &disjunct_vars);
 
   // Get the top variable by trail index and add the variables
-  disjunct_vars_list = int_mset_get_list(&disjunct_vars);
-  top_var = variable_null;
-  top_var_index = 0;
-  top_var_level = 0;
-  for (i = 0; i < disjunct_vars_list->size; ++ i) {
-    var = disjunct_vars_list->data[i];
+  const ivector_t* disjunct_vars_list = int_mset_get_list(&disjunct_vars);
+
+  variable_t top_var = variable_null;
+  uint32_t top_var_index = 0;
+  uint32_t top_var_level = 0;
+  for (uint32_t i = 0; i < disjunct_vars_list->size; ++ i) {
+    const variable_t var = disjunct_vars_list->data[i];
+
     // Add to conflict
     if (!trail_has_value(conflict->trail, var)) {
       continue;
@@ -425,8 +387,8 @@ bool conflict_add_disjunct(conflict_t* conflict, term_t disjunct) {
     // - we just resolve the variables at top level
     // - confusing example: (= x y), level(x) > level(y) but index(y) > level(x)
     // - in above, we don't resolve y, just x
-    var_level = trail_get_level(conflict->trail, var);
-    var_index = trail_get_index(conflict->trail, var);
+    const uint32_t var_level = trail_get_level(conflict->trail, var);
+    const uint32_t var_index = trail_get_index(conflict->trail, var);
     if (top_var == variable_null || var_level > top_var_level || (var_level == top_var_level && var_index > top_var_index)) {
       top_var = var;
       top_var_level = var_level;
@@ -442,11 +404,11 @@ bool conflict_add_disjunct(conflict_t* conflict, term_t disjunct) {
 
   if (top_var != variable_null) {
     // Allocate an element for the top_var
-    element_ref = conflict_new_element(conflict, disjunct);
-    element = conflict->elements + element_ref;
+    const conflict_element_ref_t element_ref = conflict_new_element(conflict, disjunct);
+    conflict_element_t* element = conflict->elements + element_ref;
 
     // Find in literal top var -> literal map
-    find = int_hmap_find(&conflict->var_to_element_map, top_var);
+    int_hmap_pair_t* find = int_hmap_find(&conflict->var_to_element_map, top_var);
     if (find == NULL) {
       // Fresh add
       int_hmap_add(&conflict->var_to_element_map, top_var, element_ref);
@@ -480,9 +442,7 @@ void conflict_remove_disjunct(conflict_t* conflict, term_t disjunct) {
     trace_term_ln(conflict->tracer, conflict->terms, disjunct);
   }
 
-  uint32_t i;
   int_mset_t disjunct_vars;
-  const ivector_t* disjunct_vars_list;
 
   assert(disjunct >= 0);
   assert(int_mset_contains(&conflict->disjuncts, disjunct));
@@ -494,9 +454,9 @@ void conflict_remove_disjunct(conflict_t* conflict, term_t disjunct) {
   conflict_disjunct_get_variables(conflict, disjunct, &disjunct_vars);
 
   // Remove the variables
-  disjunct_vars_list = int_mset_get_list(&disjunct_vars);
-  for (i = 0; i < disjunct_vars_list->size; ++ i) {
-    variable_t x = disjunct_vars_list->data[i];
+  const ivector_t* disjunct_vars_list = int_mset_get_list(&disjunct_vars);
+  for (uint32_t i = 0; i < disjunct_vars_list->size; ++ i) {
+    const variable_t x = disjunct_vars_list->data[i];
     if (trail_has_value(conflict->trail, x)) {
       conflict_remove_variable(conflict, x);
     }
@@ -509,14 +469,12 @@ void conflict_remove_disjunct(conflict_t* conflict, term_t disjunct) {
   int_mset_destruct(&disjunct_vars);
 }
 
-
 uint32_t conflict_get_level(const conflict_t* conflict) {
   return conflict->level;
 }
 
 bool conflict_contains(const conflict_t* conflict, variable_t var) {
-  conflict_t* conflict_nonconst = (conflict_t*) conflict;
-  return int_hmap_find(&conflict_nonconst->var_to_element_map, var) != NULL;
+  return int_hmap_find(&conflict->var_to_element_map, var) != NULL;
 }
 
 bool conflict_contains_as_top(const conflict_t* conflict, variable_t var) {
@@ -527,11 +485,19 @@ uint32_t conflict_get_top_level_vars_count(const conflict_t* conflict) {
   return conflict->top_level_vars_count;
 }
 
+variable_t conflict_get_top_level_var(conflict_t* conflict)
+{
+  assert(conflict->top_level_vars_count == 1);
+  const ivector_t* conflict_top_vars = conflict_get_variables(conflict);
+  assert(conflict_top_vars->size == 1);
+  return conflict_top_vars->data[0];
+}
+
 void conflict_recompute_level_info(conflict_t* conflict) {
 
   // Make a new conflict
   conflict_t new_conflict;
-  conflict_construct(&new_conflict, 0, conflict->check_false, conflict->evaluator, conflict->var_db, conflict->trail, conflict->tm, conflict->tracer);
+  conflict_construct(&new_conflict, NULL, conflict->check_false, conflict->evaluator, conflict->var_db, conflict->trail, conflict->tm, conflict->tracer);
 
   // Put in all the disjuncts
   uint32_t i;
@@ -566,9 +532,7 @@ void conflict_recompute_level_info(conflict_t* conflict) {
   conflict_destruct(&new_conflict);
 }
 
-
-
-void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t substitution, ivector_t* reasons) {
+void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t substitution, const ivector_t* reasons) {
 
   if (trace_enabled(conflict->tracer, "mcsat::resolve")) {
     mcsat_trace_printf(conflict->tracer, "conflict = \n");
@@ -577,8 +541,6 @@ void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t s
     variable_db_print_variable(conflict->var_db, var, trace_out(conflict->tracer));
   }
 
-  int_hmap_pair_t* find_var;
-  conflict_element_ref_t current_element_ref;
   conflict_element_t* current_element = NULL;
 
   uint32_t i;
@@ -596,9 +558,9 @@ void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t s
 
   // Got through all the variables where the resolution variable is top and
   // get the disjuncts
-  find_var = int_hmap_find(&conflict->var_to_element_map, var);
+  int_hmap_pair_t* find_var = int_hmap_find(&conflict->var_to_element_map, var);
   assert(find_var != NULL);
-  current_element_ref = find_var->val;
+  conflict_element_ref_t current_element_ref = find_var->val;
   assert(current_element_ref != conflict_element_ref_null);
   while (current_element_ref != conflict_element_ref_null) {
     current_element = conflict->elements + current_element_ref;
@@ -614,7 +576,7 @@ void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t s
 
   // Remove the disjuncts
   for (i = 0; i < disjuncts.size; ++ i) {
-    term_t disjunct = disjuncts.data[i];
+    const term_t disjunct = disjuncts.data[i];
     conflict_remove_disjunct(conflict, disjunct);
     if (trace_enabled(conflict->tracer, "mcsat::resolve")) {
       mcsat_trace_printf(conflict->tracer, "resolving ");
@@ -658,35 +620,29 @@ ivector_t* conflict_get_variables(conflict_t* conflict) {
   return int_mset_get_list(&conflict->top_level_vars);
 }
 
-const int_mset_t* conflict_get_variables_all(conflict_t* conflict) {
+const int_mset_t* conflict_get_variables_all(const conflict_t* conflict) {
     return &conflict->vars_all;
 }
 
-void conflict_get_literals_of(conflict_t* conflict, variable_t var, ivector_t* literals) {
-  int_hmap_pair_t* find;
-  conflict_element_ref_t current_ref;
-  conflict_element_t* current;
-  find = int_hmap_find(&conflict->var_to_element_map, var);
+void conflict_get_literals_of(const conflict_t* conflict, variable_t var, ivector_t* literals) {
+  const int_hmap_pair_t* find = int_hmap_find(&conflict->var_to_element_map, var);
   if (find != NULL) {
-    current_ref = find->val;
+    conflict_element_ref_t current_ref = find->val;
     while (current_ref != conflict_element_ref_null) {
-      current = conflict->elements + current_ref;
+      conflict_element_t* current = conflict->elements + current_ref;
       ivector_push(literals, current->D);
       current_ref = current->next;
     }
   }
 }
 
-uint32_t conflict_get_literal_count_of(conflict_t* conflict, variable_t var) {
+uint32_t conflict_get_literal_count_of(const conflict_t* conflict, variable_t var) {
   uint32_t count = 0;
-  int_hmap_pair_t* find;
-  conflict_element_ref_t current_ref;
-  conflict_element_t* current;
-  find = int_hmap_find(&conflict->var_to_element_map, var);
+  const int_hmap_pair_t* find = int_hmap_find(&conflict->var_to_element_map, var);
   if (find != NULL) {
-    current_ref = find->val;
+    conflict_element_ref_t current_ref = find->val;
     while (current_ref != conflict_element_ref_null) {
-      current = conflict->elements + current_ref;
+      conflict_element_t* current = conflict->elements + current_ref;
       count ++;
       current_ref = current->next;
     }
@@ -694,16 +650,13 @@ uint32_t conflict_get_literal_count_of(conflict_t* conflict, variable_t var) {
   return count;
 }
 
-term_t conflict_get_max_literal_of(conflict_t* conflict, variable_t var) {
+term_t conflict_get_max_literal_of(const conflict_t* conflict, variable_t var) {
   term_t result = NULL_TERM;
-  int_hmap_pair_t* find;
-  conflict_element_ref_t current_ref;
-  conflict_element_t* current;
-  find = int_hmap_find(&conflict->var_to_element_map, var);
+  const int_hmap_pair_t* find = int_hmap_find(&conflict->var_to_element_map, var);
   if (find != NULL) {
-    current_ref = find->val;
+    conflict_element_ref_t current_ref = find->val;
     while (current_ref != conflict_element_ref_null) {
-      current = conflict->elements + current_ref;
+      conflict_element_t* current = conflict->elements + current_ref;
       term_t current_atom = unsigned_term(current->D);
       if (current_atom > result) {
         result = current_atom;
@@ -719,23 +672,21 @@ ivector_t* conflict_get_literals(conflict_t* conflict) {
 }
 
 void conflict_get_negated_literals(conflict_t* conflict, ivector_t* out) {
-  uint32_t i;
-  ivector_t* literals = conflict_get_literals(conflict);
-  for (i = 0; i < literals->size; ++ i) {
+  const ivector_t* literals = conflict_get_literals(conflict);
+  for (uint32_t i = 0; i < literals->size; ++ i) {
     ivector_push(out, opposite_term(literals->data[i]));
   }
 }
 
 term_t conflict_get_formula(conflict_t* conflict) {
-  uint32_t i;
   ivector_t disjuncts;
   init_ivector(&disjuncts, 0);
-  ivector_t* ls = int_mset_get_list(&conflict->disjuncts);
-  for (i = 0; i < ls->size; i ++ ) {
-    term_t l = ls->data[i];
+  const ivector_t* ls = int_mset_get_list(&conflict->disjuncts);
+  for (uint32_t i = 0; i < ls->size; i ++ ) {
+    const term_t l = ls->data[i];
     ivector_push(&disjuncts, l);
   }
-  term_t formula = disjuncts.size == 0 ? false_term : mk_or(conflict->tm, disjuncts.size, disjuncts.data);
+  const term_t formula = disjuncts.size == 0 ? false_term : mk_or(conflict->tm, disjuncts.size, disjuncts.data);
   delete_ivector(&disjuncts);
   return formula;
 }

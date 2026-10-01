@@ -19,7 +19,7 @@
 #ifndef PLUGIN_H_
 #define PLUGIN_H_
 
-#include "mcsat/variable_db.h"
+#include "mcsat/variable.h"
 #include "mcsat/trail.h"
 #include "mcsat/gc.h"
 
