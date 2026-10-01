@@ -221,7 +221,7 @@ while getopts "js:x:" o; do
 done
 shift $((OPTIND-1))
 
-if test $# "<" 2 ; then
+if test $# -lt 2 ; then
     usage
 fi
 
