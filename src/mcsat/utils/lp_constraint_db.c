@@ -39,7 +39,7 @@ bool poly_constraint_ok(const poly_constraint_t* cstr) {
   default:
     return false;
   }
-  return lp_polynomial_check_integrity(cstr->polynomial);;
+  return lp_polynomial_check_integrity(cstr->polynomial);
 }
 
 static
@@ -309,14 +309,13 @@ bool poly_constraint_db_has(poly_constraint_db_t* db, variable_t constraint_var)
 }
 
 const poly_constraint_t* poly_constraint_db_get(poly_constraint_db_t* db, variable_t constraint_var) {
-  assert(poly_constraint_db_check(db));
   int_hmap_pair_t* find;
   find = int_hmap_find(&db->var_to_constraint_map, constraint_var);
   assert(find != NULL);
   assert(find->val < db->constraints.size);
   poly_constraint_t* constraint = db->constraints.data[find->val];
+  // Only this constraint: checking the whole database made every lookup linear in its size
   assert(poly_constraint_ok(constraint));
-  assert(poly_constraint_db_check(db));
   return constraint;
 }
 
@@ -359,4 +358,7 @@ void poly_constraint_db_gc_sweep(poly_constraint_db_t* db, plugin_context_t* ctx
   db->constraints = new_constraints;
   db->var_to_constraint_map = new_var_to_constraint_map;
   ivector_shrink(&db->all_constraint_variables, to_keep);
+
+  // The whole database was rebuilt, so check all of it once
+  assert(poly_constraint_db_check(db));
 }
