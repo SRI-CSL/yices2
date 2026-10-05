@@ -80,13 +80,21 @@ binaries. The target and the toolchain used for the official build are
 recorded in BUILDINFO. A static C library is required for the executables,
 which on most distributions is a separate package from the shared one.
 
-The scripts do not require a particular compiler version. They take CC from
-the environment and default to cc. Relinking published object files with a
-different compiler from the one that produced them usually works on x86-64
-Linux for C code, but it is not guaranteed, and the kit contains C++ archives
-where the risk is higher. If a link fails in a way that mentions symbol
-versions or standard library internals, try matching the compiler recorded in
-BUILDINFO.
+The supplied objects include C++ code built by the compiler recorded in
+BUILDINFO. The relinking toolchain must therefore provide a compatible C++
+runtime; a same-target C compiler alone is not sufficient. In particular, the
+current objects require the runtime entry points
+`std::__throw_bad_array_new_length()` and `std::ios_base_library_init()`.
+The latter was observed as GLIBCXX_3.4.32 in the qualifying libstdc++.
+Matching BUILDINFO's GCC 14.2.1 toolchain is the prescribed workflow.
+
+The scripts take CC from the environment and default to cc. The unchanged kit
+also passed recipient relinking with GCC 13.3, 15.3, and 16.2. It failed with
+GCC 8.5, and its shared library was not usable by an ordinary C API client
+with GCC 11.4, 11.5, or 12.2. These observations do not establish an exact
+minimum compiler version: distributions can package the C++ runtime
+differently. `relink-library.sh` performs a post-link client check and fails
+instead of reporting success when the selected runtime is incompatible.
 
 You do not need the Yices source tree, a build directory, or make. The scripts
 work from the extracted kit alone.
@@ -135,7 +143,7 @@ correct and expected. Set SKIP_VERIFY=1 to continue.
 These are the inputs relink-executables.sh accepts. It reads nothing else from
 the environment.
 
-    CC             compiler driver, default cc
+    CC             compatible compiler driver, default cc; see Requirements
     CFLAGS         compile and link flags, see Step 3
     STATIC_FLAG    default -static
     BIN_LDFLAGS    extra link flags, empty by default
@@ -202,12 +210,15 @@ output.
 Two things that are easy to get wrong
 --------------------------------------
 
-The kit contains two GMP archives and they are not interchangeable.
+This Linux kit contains two GMP archives and they are not interchangeable.
 deps/libgmp-static.a is an optimized build used by the command-line
 executables. deps/libgmp-pic.a is a position-independent build with the
-assembly routines disabled, used by the shared library. The executables also
-use the normal deps/libpoly.a archive, while the shared library uses
-deps/libpicpoly.a. These normal and PIC archives are not interchangeable.
+assembly routines disabled, used by the shared library. Apple Silicon kits
+have the same two-build arrangement. The Intel macOS kit instead has one fat,
+position-independent GMP archive that both links use, as its own README and
+BUILDINFO state. The executables also use the normal deps/libpoly.a archive,
+while the shared library uses deps/libpicpoly.a. These normal and PIC LibPoly
+archives are not interchangeable.
 GMP's x86-64 assembly code is not position-independent and cannot be linked
 into a shared object. If you supply your own GMP or LibPoly for the shared
 library, configure it for position-independent code.

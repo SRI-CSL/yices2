@@ -81,7 +81,7 @@ On my Solaris machine I got:
    Make sure to give the same CFLAGS as above and add -fPIC
 
    ./configure
-       --prefix=/home/labrea5/dutertre/reloc_gmp
+       --prefix=/opt/yices-deps/reloc_gmp
        CFLAGS='-fPIC -O2 -pedantic -Wa,-xarch=v8plus -mcpu=ultrasparc'
        CPPFLAGS=-DPIC
        MPN_PATH=" sparc32/v9 sparc32/v8 sparc32 generic"

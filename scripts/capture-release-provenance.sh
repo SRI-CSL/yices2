@@ -713,7 +713,7 @@ kissat_configure_args=$(field kissat-configure-args "$DEPENDENCY_SOURCE_RECEIPT"
 kissat_tests=$(field kissat-tests "$DEPENDENCY_SOURCE_RECEIPT")
 [ "$cudd_configure_args" = "--disable-shared --enable-static --with-pic" ] ||
     fail "CUDD configure arguments differ from the release contract"
-[ "$cryptominisat_cmake_args" = "-DONLY_SIMPLE=ON -DNOZLIB=ON -DNOM4RI=ON -DSTATS=OFF -DNOVALGRIND=ON -DENABLE_TESTING=OFF -DENABLE_PYTHON_INTERFACE=OFF -DBUILD_SHARED_LIBS=OFF" ] ||
+[ "$cryptominisat_cmake_args" = "-DONLY_SIMPLE=ON -DNOZLIB=ON -DNOM4RI=ON -DSTATS=OFF -DNOVALGRIND=ON -DENABLE_TESTING=OFF -DENABLE_PYTHON_INTERFACE=OFF -DBUILD_SHARED_LIBS=OFF -DPYTHON_EXECUTABLE=python3" ] ||
     fail "CryptoMiniSat CMake arguments differ from the release contract"
 for _dependency_test in \
     "$cudd_tests" \

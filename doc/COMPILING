@@ -820,10 +820,10 @@ MEW METHOD: Using a cross compiler
 
    Two versions of GMP must be installed. On my machine, the dynamic
    GMP library was built with
-     --prefix=/home/bruno/tools/mingw32
+     --prefix=/opt/yices-deps/mingw32
 
    and the static version was built with
-     --prefix=/home/bruno/tools/mingw32/static
+     --prefix=/opt/yices-deps/mingw32/static
 
 
 3) Configure yices as follows:
@@ -833,20 +833,20 @@ MEW METHOD: Using a cross compiler
         LD=/usr/bin/i686-w64-mingw32-ld \
         STRIP=/usr/bin/i686-w64-mingw32-strip \
         RANLIB=/usr/bin/i686-w64-mingw32-ranlib \
-	CPPFLAGS=-I/home/bruno/tools/mingw32/include \
-	LDFLAGS=-L/home/bruno/tools/mingw32/lib \
-        --with-static-gmp=/home/bruno/tools/mingw32/static/lib/libgmp.a \
-        --with-static-gmp-include-dir=/home/bruno/tools/mingw32/static/include
+	CPPFLAGS=-I/opt/yices-deps/mingw32/include \
+	LDFLAGS=-L/opt/yices-deps/mingw32/lib \
+        --with-static-gmp=/opt/yices-deps/mingw32/static/lib/libgmp.a \
+        --with-static-gmp-include-dir=/opt/yices-deps/mingw32/static/include
 
 
 
 3a) Aternative method: use --host=i686-w64-ming32 when running ./configure
 
    ./configure --host=i686-w64-mingw32 \
-        CPPFLAGS=-I/home/bruno/tools/mingw32/include \
-	LDFLAGS=-L/home/bruno/tools/mingw32/lib \
-        --with-static-gmp=/home/bruno/tools/mingw32/static/lib/libgmp.a \
-        --with-static-gmp-include-dir=/home/bruno/tools/mingw32/static/include
+        CPPFLAGS=-I/opt/yices-deps/mingw32/include \
+	LDFLAGS=-L/opt/yices-deps/mingw32/lib \
+        --with-static-gmp=/opt/yices-deps/mingw32/static/lib/libgmp.a \
+        --with-static-gmp-include-dir=/opt/yices-deps/mingw32/static/include
 
 
 
@@ -891,28 +891,28 @@ This can be done using the mingw64 cross compiler on Cygwin.
    configure properly.
 
    On my Dell laptop: the dynamic GMP/64bits library was installed with
-     --prefix=/home/bruno/tools/mingw64
+     --prefix=/opt/yices-deps/mingw64
 
    The static GMP/64bits library was installed with
-     --prefix=/home/bruno/tools/mingw64/static
+     --prefix=/opt/yices-deps/mingw64/static
 
    So this means that we have the following files:
 
-      /home/bruno/tools/mingw64/bin/libgmp-10.dll        (GMP DLL)
-      /home/bruno/tools/mingw64/lib/libgmp.dll.a         (corresponding lib file)
-      /home/bruno/tools/mingw64/include/gmp.h            (corresponding include)
+      /opt/yices-deps/mingw64/bin/libgmp-10.dll        (GMP DLL)
+      /opt/yices-deps/mingw64/lib/libgmp.dll.a         (corresponding lib file)
+      /opt/yices-deps/mingw64/include/gmp.h            (corresponding include)
 
-      /home/bruno/tools/mingw64/static/lib/libgmp.a      (static GMP)
-      /home/bruno/tools/mingw64/static/include/gmp.h     (corresponding include)
+      /opt/yices-deps/mingw64/static/lib/libgmp.a      (static GMP)
+      /opt/yices-deps/mingw64/static/include/gmp.h     (corresponding include)
 
 
 3) Assuming this installation, configure Yices as follows
 
     ,/configure --host=x86_64-w64-mingw32 \
-	CPPFLAGS=-I/home/bruno/tools/mingw64/include \
-	LDFLAGS=-L/home/bruno/tools/mingw64/lib \
-        --with-static-gmp=/home/bruno/tools/mingw64/static/lib/libgmp.a \
-        --with-static-gmp-include-dir=/home/bruno/tools/mingw64/static/include
+	CPPFLAGS=-I/opt/yices-deps/mingw64/include \
+	LDFLAGS=-L/opt/yices-deps/mingw64/lib \
+        --with-static-gmp=/opt/yices-deps/mingw64/static/lib/libgmp.a \
+        --with-static-gmp-include-dir=/opt/yices-deps/mingw64/static/include
 
   or like this
 
@@ -921,10 +921,10 @@ This can be done using the mingw64 cross compiler on Cygwin.
         LD=/usr/bin/x86_64-w64-mingw32-ld \
         STRIP=/usr/bin/x86_64-w64-mingw32-strip \
         RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib \
-	CPPFLAGS=-I/home/bruno/tools/mingw64/include \
-	LDFLAGS=-L/home/bruno/tools/mingw64/lib \
-        --with-static-gmp=/home/bruno/tools/mingw64/static/lib/libgmp.a \
-        --with-static-gmp-include-dir=/home/bruno/tools/mingw64/static/include
+	CPPFLAGS=-I/opt/yices-deps/mingw64/include \
+	LDFLAGS=-L/opt/yices-deps/mingw64/lib \
+        --with-static-gmp=/opt/yices-deps/mingw64/static/lib/libgmp.a \
+        --with-static-gmp-include-dir=/opt/yices-deps/mingw64/static/include
 
    To select this configuration give 'OPTION=mingw64' to the make commands.
 

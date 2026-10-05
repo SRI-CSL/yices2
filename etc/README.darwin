@@ -50,16 +50,21 @@ it must supply a run-path, normally with
 `-Wl,-rpath,/path/to/yices/lib` at link time, or set `DYLD_LIBRARY_PATH` at
 run time.
 This distribution includes a shell script to copy the files into an
-installation prefix.
-Just type
+installation prefix. For a non-destructive installation, choose a fresh
+prefix that you own:
 
-   sudo ./install-yices
+   YICES_PREFIX="$HOME/.local/yices-2.8.0"
+   ./install-yices "$YICES_PREFIX"
 
-from a terminal. This will copy the binaries in /usr/local/bin, the header
-files in /usr/local/include, and the shared library in /usr/local/lib.
+The installer does not copy `lib/libyices.a` or `doc/manual.pdf`. Keep the
+extracted distribution when you need the static archive or the manual.
 
-Other installation choices are possible. Try ./install-yices --help
-for more explanations.
+The installer refuses to replace existing Yices files or links. To
+intentionally replace an installation in a shared prefix after reviewing it:
+
+   sudo ./install-yices --replace-existing /usr/local
+
+Try ./install-yices --help for more explanations.
 
 
 For more information, please visit https://yices.csl.sri.com.

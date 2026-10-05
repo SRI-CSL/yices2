@@ -87,11 +87,12 @@ Unpack the kit and read its `README`. In outline:
 ./relink-library.sh           # rebuild the shared library
 ```
 
-Two things the kit's README explains and that are easy to get wrong. The kit
-contains two different builds of GMP, one for the executables and one for the
-shared library, and they cannot be swapped. And `yices-sat` is linked
-differently from the other three tools, so a change to GMP or LibPoly does not
-affect it.
+Two things the kit's README explains and that are easy to get wrong. The Linux
+and Apple Silicon kits contain two different builds of GMP, one for the
+executables and one for the shared library, and they cannot be swapped. The
+Intel macOS kit instead uses one fat, position-independent GMP archive for
+both links. And `yices-sat` is linked differently from the other three tools,
+so a change to GMP or LibPoly does not affect it.
 
 ## A relinked binary will not match the shipped one byte for byte
 

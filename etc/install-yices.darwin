@@ -29,13 +29,14 @@
 # are created in ./lib
 #
 # OPTIONS:
+#  --replace-existing: permit replacement of existing Yices paths
 #  -h --help: print a short help message
 #
 
-usage="Usage: $0 <directory>
+usage="Usage: $0 [OPTIONS] <directory>
     or $0 here
 
-The fist form installs Yices in the location specified by <directory>.
+The first form installs Yices in the location specified by <directory>.
 This copies binaries, libraries, and header files as follows:
 
    binaries      in <directory>/bin
@@ -56,6 +57,7 @@ links in the ./lib directory.
 
 
 OPTIONS:
+  --replace-existing: permit replacement of existing Yices files and links
   -h --help:  print this message
 "
 
@@ -76,12 +78,18 @@ link="/bin/ln"
 #
 location_given=no
 location=
+replace_existing=no
 
 while test -n "$1"; do
   case $1 in
     -h | --help)
         echo "$usage"
         exit 0;;
+
+    --replace-existing)
+        replace_existing=yes
+        shift
+        continue;;
 
     -*) echo "Unknown option $1. Try $0 -h for help"
         exit 1;;
@@ -183,6 +191,47 @@ pkgconfigdir="$libdir/pkgconfig"
 includedir="$install_dir/include"
 docdir="$install_dir/share/doc/yices-$version"
 licensesdir="$install_dir/share/licenses/yices-$version"
+
+
+#
+# Refuse accidental replacement.  A shared prefix such as /usr/local may
+# already contain another Yices release.  Directories may pre-exist, but every
+# file or link this script would replace requires explicit authorization.
+#
+if test "$local_install" = "no" -a "$replace_existing" = "no" ; then
+  collision_found=no
+
+  check_target () {
+    if test -e "$1" -o -L "$1" ; then
+      echo "Existing install path: $1" >&2
+      collision_found=yes
+    fi
+  }
+
+  check_group () {
+    destination=$1
+    shift
+    for source_path in "$@" ; do
+      check_target "$destination/${source_path##*/}"
+    done
+  }
+
+  check_group "$bindir" ./bin/*
+  check_group "$includedir" ./include/*.h
+  check_group "$libdir" ./lib/*.2.dylib
+  check_group "$pkgconfigdir" ./lib/pkgconfig/yices.pc
+  check_group "$docdir" ./LICENSE ./NOTICES ./PROVENANCE
+  check_group "$licensesdir" ./LICENSES/*
+  check_target "$libdir/libyices.dylib"
+
+  if test "$collision_found" = "yes" ; then
+    echo "$failure"
+    echo "Refusing to replace an existing Yices installation."
+    echo "Choose a fresh prefix or rerun with --replace-existing."
+    echo ""
+    exit 1
+  fi
+fi
 
 
 #

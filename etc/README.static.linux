@@ -73,23 +73,24 @@ included in this distribution. Just type
 
 
 
-Alternatively, you can install Yices in /usr/local as follows:
+For a non-destructive installation, choose a fresh prefix that you own:
 
-  sudo ./install-yices
+  YICES_PREFIX="$HOME/.local/yices-2.8.0"
+  ./install-yices "$YICES_PREFIX"
 
-This will copy the binaries in /usr/local/bin, the header files in
-/usr/local/include, and the shared library in /usr/local/lib. It also
-installs the legal record:
+This copies the binaries, headers, shared library, pkg-config file, and legal
+record below that prefix. Add "$YICES_PREFIX/bin" to PATH when you want these
+binaries. Library users can set PKG_CONFIG_PATH to
+"$YICES_PREFIX/lib/pkgconfig".
 
-  /usr/local/share/doc/yices-2.8.0/LICENSE
-  /usr/local/share/doc/yices-2.8.0/NOTICES
-  /usr/local/share/doc/yices-2.8.0/PROVENANCE
-  /usr/local/share/licenses/yices-2.8.0/     the license texts
+The installer does not copy `lib/libyices.a` or `doc/manual.pdf`. Keep the
+extracted distribution when you need the static archive or the manual.
 
-To install Yices in another location, give the installation directory
-as argument to the shell script:
+The installer refuses to replace any existing Yices file or link. If you
+intentionally want to replace an installation in a shared prefix, review that
+prefix first and use the explicit option:
 
-  ./install-yices <dir>
+  sudo ./install-yices --replace-existing /usr/local
 
 
 

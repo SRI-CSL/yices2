@@ -125,29 +125,29 @@ libraries.
 
 \medskip\noindent
 To complete installation on Linux or Mac~OS~X, the binary
-distributions include a shell script called \texttt{install-yices}. By
-default, this script installs Yices in \texttt{/usr/local}. If
-this is fine for you, type
+distributions include a shell script called \texttt{install-yices}. A
+non-destructive installation uses a fresh prefix owned by the current user:
 \begin{small}
 \begin{lstlisting}[language=sh]
-   sudo ./install-yices
+   YICES_PREFIX="$HOME/.local/yices-2.8.0"
+   ./install-yices "$YICES_PREFIX"
 \end{lstlisting}
 \end{small}
-This will install the binaries in \texttt{/usr/local/bin}, the library
-in \texttt{/usr/local/lib}, and the header files in
-\texttt{/usr/local/include}. It also installs \texttt{LICENSE},
-\texttt{NOTICES}, and \texttt{PROVENANCE} under
-\texttt{/usr/local/share/doc/yices-2.8.0}, and the license texts under
-\texttt{/usr/local/share/licenses/yices-2.8.0}.
+This installs the binaries, library, header files, pkg-config file, and legal
+record below \texttt{\$YICES\_PREFIX}. Add its \texttt{bin} directory to
+\texttt{PATH} when you want these binaries.
 
 \medskip\noindent
-To install Yices in a different location, you can type
+The installer refuses to replace existing Yices files or links. If you have
+reviewed an installation in a shared prefix and intentionally want to replace
+it, use the explicit option
 \begin{small}
 \begin{lstlisting}[language=sh]
-   ./install-yices <directory>
+   sudo ./install-yices --replace-existing /usr/local
 \end{lstlisting}
 \end{small}
-(use \texttt{sudo} if necessary).
+Omitting the directory still selects \texttt{/usr/local}, but does not bypass
+the replacement check.
 
 
 \subsubsection{Homebrew Package}

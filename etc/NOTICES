@@ -397,6 +397,14 @@ The exact source revision used is recorded in the PROVENANCE file that the
 binary archives carry, and the corresponding source is published as a separate
 asset alongside the binary archives.
 
+That canonical source archive preserves an upstream packaging inconsistency.
+Its debian/copyright file labels the work `GPL-3+`, but the grant immediately
+below that label and the project LICENCE and source headers all say GNU Lesser
+General Public License version 3 or later. This release does not silently
+rewrite the pinned source archive. Its LibPoly classification follows the
+actual grant text, LICENCE, and source headers, and this paragraph records the
+contradictory packaging label for downstream license scanners.
+
 LibPoly has no notice for the project as a whole. Most of the notices in its
 source files name SRI International, and their years differ from file to file,
 so no LibPoly copyright line is reproduced here.
@@ -810,6 +818,20 @@ source asset. On Linux it also records the local name and immutable ID of the
 derived builder image and the pinned base image separately. All three
 builder-image fields say that they are not applicable in a native macOS build.
 
+Each platform archive carries the manual PDF built and validated on that
+platform. PROVENANCE records that exact PDF's checksum. TeX implementations
+can produce different PDF layout bytes from the same manual source, so the
+Linux, Intel macOS, and Apple Silicon checksums need not match. The release
+workflow extracts text from every PDF and applies the same required-content
+and stale-content gates to all three.
+
+PROVENANCE, YICES-SOURCE-RECEIPT, and the platform validation receipts name
+and hash some build receipts, manifests, and validation scripts that are
+internal release records rather than publication assets. Those hashes bind
+the inputs used by the release workflow and support the release operator's
+audit. They are not an assertion that a recipient can obtain or independently
+authenticate every named support file from the public asset set.
+
 LibPoly's source is prepared once, before any platform build, rather than
 reconstructed afterward on each builder. Every builder verifies and compiles
 the same canonical archive. PROVENANCE records its repository, commit, tree,
@@ -817,7 +839,9 @@ file name and checksum, the checksums of the normal and PIC archives used by
 that build, and the file name and checksum of the canonical RELEASE-INPUTS
 manifest. The final collector checks those fields in every binary archive and
 relink kit against the manifest before it copies any asset. The release
-SHA256SUMS then authenticates the published source archive and manifest.
+SHA256SUMS then verifies the published source archive and manifest relative to
+a checksum obtained through a trusted release channel. The checksum file by
+itself does not authenticate its publisher.
 
 Section 6. Materials for rebuilding
 ------------------------------------

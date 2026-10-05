@@ -138,6 +138,34 @@ echo "  $CC $CFLAGS -shared -o $outdir/$LIBNAME -Wl,-soname,$SONAME -Wl,--no-und
 echo "  ok"
 echo
 
+# A successful shared-object link is not enough.  In particular, a C++
+# runtime older than the one recorded in BUILDINFO can leave references from
+# the GCC-14-built archives unresolved while still letting this command exit
+# zero.  Force the new DSO into a trivial executable link so the script does
+# not report success for a library that an ordinary C API client cannot use.
+probe_dir=$(mktemp -d "${TMPDIR:-/tmp}/yices-relink-probe.XXXXXX") || {
+    echo "relink: could not create the post-link probe directory" >&2
+    exit 1
+}
+cleanup_probe() {
+    rm -rf -- "$probe_dir"
+}
+trap cleanup_probe 0 1 2 15
+cat > "$probe_dir/probe.c" <<'EOF'
+extern void yices_init(void);
+int main(void) { yices_init(); return 0; }
+EOF
+if ! "$CC" "$probe_dir/probe.c" -Wl,--no-as-needed \
+        "$outdir/$LIBNAME" -o "$probe_dir/probe"; then
+    echo "relink: the selected C++ runtime cannot link a client against $LIBNAME" >&2
+    echo "relink: use a toolchain compatible with BUILDINFO; see README" >&2
+    exit 1
+fi
+echo "relink: post-link client usability check passed"
+cleanup_probe
+trap - 0 1 2 15
+echo
+
 # ---------------------------------------------------------------------------
 # Symlinks, matching what install-yices creates in a normal installation.
 # ---------------------------------------------------------------------------

@@ -26,6 +26,11 @@ with an Apple Developer ID or notarized.
 
 A browser download may carry macOS quarantine metadata and be subject to
 Gatekeeper approval before first use; an ad hoc signature is not notarization.
+After verifying the archive checksum, a shell report of `Killed: 9`, exit 137,
+or no version output can indicate quarantine rather than a solver failure.
+Inspect it with `xattr -lr <extracted-directory>` and, if the archive came from
+the expected release, clear it with
+`xattr -dr com.apple.quarantine <extracted-directory>` before retrying.
 
 
 Content
@@ -79,22 +84,28 @@ it must supply a run-path, normally with
 `-Wl,-rpath,/path/to/yices/lib` at link time, or set `DYLD_LIBRARY_PATH` at
 run time.
 This distribution includes a shell script to copy the files into an
-installation prefix.
-Just type
+installation prefix. For a non-destructive installation, choose a fresh
+prefix that you own:
 
-   sudo ./install-yices
+   YICES_PREFIX="$HOME/.local/yices-2.8.0"
+   ./install-yices "$YICES_PREFIX"
 
-from a terminal. This will copy the binaries in /usr/local/bin, the header
-files in /usr/local/include, and the shared library in /usr/local/lib. It
-also installs the legal record:
+This copies the binaries, headers, shared library, pkg-config file, and legal
+record below that prefix. Add "$YICES_PREFIX/bin" to PATH when you want these
+binaries. Library users can set PKG_CONFIG_PATH to
+"$YICES_PREFIX/lib/pkgconfig" and must still supply the run-path described
+above.
 
-  /usr/local/share/doc/yices-2.8.0/LICENSE
-  /usr/local/share/doc/yices-2.8.0/NOTICES
-  /usr/local/share/doc/yices-2.8.0/PROVENANCE
-  /usr/local/share/licenses/yices-2.8.0/     the license texts
+The installer does not copy `lib/libyices.a` or `doc/manual.pdf`. Keep the
+extracted distribution when you need the static archive or the manual.
 
-Other installation choices are possible. Try ./install-yices --help
-for more explanations.
+The installer refuses to replace any existing Yices file or link. If you
+intentionally want to replace an installation in a shared prefix, review that
+prefix first and use the explicit option:
+
+   sudo ./install-yices --replace-existing /usr/local
+
+Try ./install-yices --help for more explanations.
 
 
 
