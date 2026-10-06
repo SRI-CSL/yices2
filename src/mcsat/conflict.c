@@ -239,12 +239,23 @@ void conflict_remove_variable(conflict_t* conflict, variable_t var) {
 
 static
 void conflict_disjunct_get_variables(const conflict_t* conflict, term_t disjunct, int_mset_t* variables) {
-  // Positive literal
   const term_t disjunct_pos = unsigned_term(disjunct);
   const bool negated = disjunct_pos != disjunct;
 
-  // If the disjunct is false by Boolean assignment then the variable is the
-  // variable of the term
+  /*
+   * If the disjunct is false by Boolean assignment then the variable is the variable of the term
+   * Since this is a conflict, all disjuncts are to be false.
+   * A disjunct `p` can be false by (1) a boolean assignment of `p` to false or (2) an evaluation to
+   * false by its subterms.
+   *
+   * Case (1): `p` itself is false and `p` is part of the conflict. It may or may not evaluate.
+   * Case (2): `p` is unassigned or assigned to true, then its evaluation must have triggered the
+   *           conflict and its sub-variables are to be considered for backtracking.
+   *
+   * Special case: a plugin reports an incorrect evaluation as `(p => -p)`, which adds both `p` and
+   * all its sub variables.
+   */
+
   const variable_t disjunct_pos_var = variable_db_get_variable_if_exists(conflict->var_db, disjunct_pos);
   if (disjunct_pos_var != variable_null && trail_has_value(conflict->trail, disjunct_pos_var)) {
     bool disjunct_value = trail_get_value(conflict->trail, disjunct_pos_var)->b;
@@ -252,13 +263,13 @@ void conflict_disjunct_get_variables(const conflict_t* conflict, term_t disjunct
       disjunct_value = !disjunct_value;
     }
     if (!disjunct_value) {
-      // Its false, just add the variable
+      // Case (1): add `p` directly
       int_mset_add(variables, disjunct_pos_var);
       return;
     }
   }
 
-  // Get the sub-variables
+  // Case (2): Get the sub-variables
   const mcsat_value_t* value = negated ? &mcsat_value_true : &mcsat_value_false;
   const bool disjunct_evaluates = conflict->evaluator->evaluates(conflict->evaluator, disjunct_pos, variables, value);
   (void)disjunct_evaluates;
