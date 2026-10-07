@@ -69,6 +69,12 @@ archive, you may set YICES_SOURCE_REVISION to the full commit recorded in the
 published YICES-SOURCE-RECEIPT before running make. Keep a separate record of
 any local modifications.
 
+Generated src/api/yices_*_version.c files are intentionally omitted from this
+source archive. The build regenerates the appropriate version source from
+the configured mode and YICES_SOURCE_REVISION (or bounded Git discovery).
+The source receipt binds the archived inputs, not a previous builder's
+transient version file.
+
 
 
 SUPPORT FOR NON-LINEAR ARITHMETIC
@@ -78,10 +84,16 @@ This release has experimental support for non-linear real arithmetic,
 but it is not enabled by default. If you want non-linear arithmetic,
 follow these instructions:
 
-1) Install SRI's library for polynomial manipulation. It's available
-   on github (https://github.com/SRI-CSL/libpoly).
+1) Install SRI's LibPoly and CUDD, including their headers and libraries.
+   The release uses LibPoly 0.2.1 at c342ff1ad2f0cbcfc866b1ef024003ccc001add2
+   (https://github.com/SRI-CSL/libpoly) and CUDD 3.0.0 at
+   f54f533303640afd5dbe47a05ebeabb3066f2a25 (https://github.com/ivmai/cudd).
+   Their exact corresponding-source archives accompany the release. Follow
+   their build instructions; use PIC dependencies for the Yices shared
+   library (CUDD: configure CFLAGS=-fPIC; LibPoly: enable its static PIC build).
+   These are tested identities, not claimed minimum compatible versions.
 
-2) After you've installed libpoly, configure yices with the
+2) After you've installed LibPoly and CUDD, configure Yices with the
    flag '--enable-mcsat', then build Yices as usual:
 
     ./configure --enable-mcsat
@@ -89,8 +101,25 @@ follow these instructions:
     sudo make install
 
    You may need to provide LDFLAGS/CPPFLAGS if ./configure fails to
-   find the libpoly library. Other options may be useful too.  Try
+   find either library and its headers. Other options may be useful too. Try
    ./configure --help to see what's there.
+
+
+TEST COVERAGE AND OPTIONAL TOOLS
+-------------------------------
+
+The source archive includes API/unit tests and the arrays, bv, efsmt, mantis
+and wd regression groups. Run make check (or make static-check for a static
+build). The larger MCSAT regression suite remains in the Git repository and
+is not included in this archive. Requesting make mcsat-check or
+make static-mcsat-regress without that suite fails; zero tests is not a PASS.
+For that coverage use a matching Git checkout with the suite and an
+MCSAT-enabled build. The release build's recorded MCSAT results do not mean
+that a recipient ran those tests.
+
+The optional Python 3 portfolio helper utils/yices2_parallel.py also remains
+in the Git repository rather than these source/binary archives. The manual's
+portfolio examples require that checkout and an explicit solver path.
 
 
 
@@ -118,4 +147,3 @@ Other documentation is in the ./doc directory:
 - doc/NOTES gives an overview of the source code.
 - doc/YICES-LANGUAGE explains the syntax of the Yices language, and
   describes commands, functions, and heuristic parameters.
-

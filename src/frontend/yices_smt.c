@@ -1027,6 +1027,10 @@ static void parse_command_line(int argc, char *argv[]) {
 static void print_yices_header(FILE *f) {
   fprintf(f, "Yices %s, Copyright (c) 2026, SRI International.\n", yices_version);
   fprintf(f, "GMP %s, Copyright Free Software Foundation, Inc\n", gmp_version);
+  fprintf(f, "Includes components from the Free Software Foundation and others.\n"
+             "See the NOTICES file for those components, the terms that apply to\n"
+             "them, and where to find the copies of the GNU Lesser General Public\n"
+             "License and the GNU General Public License distributed with Yices.\n");
   fprintf(f, "Build date: %s\n", yices_build_date);
   fprintf(f, "Platform: %s (%s)\n", yices_build_arch, yices_build_mode);
   fprintf(f, "Revision: %s\n", yices_rev);
@@ -2085,4 +2089,3 @@ int main(int argc, char *argv[]) {
   parse_command_line(argc, argv);
   return process_benchmark(filename);
 }
-

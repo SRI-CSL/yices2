@@ -308,8 +308,14 @@ yices-2.8.0-x86_64-pc-linux-gnu-static-gmp.tar.gz.
   CaDiCaL          static                      not present     static
   Kissat           static                      not present     static
   CryptoMiniSat    static                      not present     static
-  libstdc++        static                      not present     dynamic
+  libstdc++        static                      not present     static + dynamic
   libgcc           static                      static          dynamic
+
+The Linux shared library loads libstdc++.so.6 and also contains runtime code
+from GCC Toolset 14's nonshared support: std::ios_base_library_init() and
+std::__throw_bad_array_new_length(). The mixed placement is covered by the
+GCC runtime terms and exception described in section 3.10; "dynamic" alone
+would not describe all the libstdc++ code in this file.
 
 The archive file lib/libyices.a contains Yices object code only. No
 third-party library code is present in it.

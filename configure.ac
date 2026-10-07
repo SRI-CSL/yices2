@@ -48,17 +48,6 @@ if test "$POSIXOS" = unknown ; then
 fi
 
 AC_SUBST(YICES_PC_PRIVATE_LIBS)
-case "${host_os:-$build_os}" in
-  linux*)
-    YICES_PC_PRIVATE_LIBS="-lcudd -lm -lcryptominisat5 -lcadical -lkissat_yices -lstdc++ -lm -lpthread -lpoly -lgmp"
-    ;;
-  darwin*)
-    YICES_PC_PRIVATE_LIBS="-lcudd -lm -lcryptominisat5 -lcadical -lkissat_yices -lc++ -lm -lpoly -lgmp"
-    ;;
-  *)
-    YICES_PC_PRIVATE_LIBS=""
-    ;;
-esac
 
 
 dnl
@@ -1090,6 +1079,42 @@ dnl AC_CHECK_HEADERS([poly/poly.h], [], [AC_MSG_ERROR([*** libpoly headers not f
 # Restore CFLAGS
 #
 CFLAGS=$saved_cflags
+
+# Static consumers need only the dependencies actually compiled into Yices.
+# Keep the production link order: dependents first, LibPoly then GMP last.
+YICES_PC_PRIVATE_LIBS="-lm"
+if test "$use_mcsat" = yes ; then
+  YICES_PC_PRIVATE_LIBS="-lcudd $YICES_PC_PRIVATE_LIBS"
+fi
+if test "$HAVE_CRYPTOMINISAT_DELEGATE" = yes ; then
+  YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lcryptominisat5"
+fi
+if test "$HAVE_CADICAL_DELEGATE" = yes ; then
+  YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lcadical"
+fi
+if test "$HAVE_KISSAT_DELEGATE" = yes ; then
+  if test -n "$STATIC_KISSAT_YICES" ; then
+    YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lkissat_yices"
+  else
+    YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lkissat"
+  fi
+fi
+if test "$HAVE_CADICAL_DELEGATE" = yes || test "$HAVE_CRYPTOMINISAT_DELEGATE" = yes ; then
+  case "${host_os:-$build_os}" in
+    darwin*) YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lc++ -lm" ;;
+    *) YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lstdc++ -lm" ;;
+  esac
+fi
+if test "$thread_safe" = yes || test "$HAVE_CRYPTOMINISAT_DELEGATE" = yes ; then
+  case "${host_os:-$build_os}" in
+    darwin*) ;; dnl libSystem supplies pthread on Darwin.
+    *) YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lpthread" ;;
+  esac
+fi
+if test "$use_mcsat" = yes ; then
+  YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lpoly"
+fi
+YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lgmp"
 
 #
 # Store config data in ./configs/make.include.$(ARCH)

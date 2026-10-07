@@ -57,6 +57,23 @@ The installer creates the unversioned shared-library link and installs
 yices.pc in <prefix>/lib/pkgconfig.
 
 
+Shared-library runtime requirements
+-----------------------------------
+
+The four Linux executables are statically linked. The shared Yices library
+is not: it loads libc.so.6, libm.so.6, libpthread.so.0, libstdc++.so.6, and
+libgcc_s.so.1. A consumer needs compatible versions of those runtime
+libraries. PROVENANCE identifies the producing toolchain; it is not a claim
+that every distribution or runtime version has been tested. A kernel-version
+minimum alone does not establish C++ runtime compatibility.
+
+Before using the shared library on another system, inspect its dependencies
+with ldd and compile and run a small client on that system. NOTICES explains
+the mixture of static and dynamic runtime code in the library. RELINKING.md
+and the separate relink kit describe rebuilding with a recipient's own
+libraries and toolchain, whose runtime requirements may differ.
+
+
 Installation
 ------------
 

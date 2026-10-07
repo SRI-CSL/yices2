@@ -21,8 +21,31 @@
 
 set -eu
 
-kit=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+kit=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
 outdir=${1:-./relinked}
+
+# Resolve before creating anything: only the reserved kit/relinked directory
+# may receive output inside the kit. Custom destinations need an existing
+# parent outside the kit so a later manifest check cannot reject our output.
+output_error() {
+    echo "relink: $*" >&2
+    exit 1
+}
+output_parent=$(CDPATH= cd -P -- "$(dirname -- "$outdir")" && pwd -P) ||
+    output_error "output parent must already exist: $outdir"
+if [ -e "$outdir" ] || [ -L "$outdir" ]; then
+    [ -d "$outdir" ] && [ ! -L "$outdir" ] ||
+        output_error "output is not a real directory: $outdir"
+    outdir=$(CDPATH= cd -P -- "$outdir" && pwd -P) || exit 1
+else
+    outdir=$output_parent/$(basename -- "$outdir")
+fi
+case "$outdir" in
+    "$kit/relinked") ;;
+    "$kit"|"$kit/"*)
+        output_error "custom output must be outside the kit; use ./relinked or an external directory"
+        ;;
+esac
 
 CC=${CC:-cc}
 SKIP_VERIFY=${SKIP_VERIFY:-0}

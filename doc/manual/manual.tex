@@ -119,9 +119,14 @@ macOS (Apple silicon arm64) & macOS 11 or more recent\\
 To download stable Yices~2 binaries, go to
 \url{https://yices.csl.sri.com} and select the distribution that you
 want to install.  Untar or unzip the file and follow the instructions
-in the included README file.  The binary distributions are
-self-contained and do not require installation of third-party
-libraries.
+in the included README file. The Linux command-line executables are statically
+linked and do not require separate third-party library installations. The Linux
+shared library, however, loads the system GNU C, math, pthread, C++ and GCC
+runtime libraries. A client using it needs compatible runtimes; see
+\texttt{PROVENANCE} and the distribution README. The macOS executables and
+shared library use the system \texttt{libSystem} and \texttt{libc++} libraries.
+Table~\ref{versions} describes build targets, not a test of every operating
+system version or C++ runtime combination in those ranges.
 
 \medskip\noindent
 To complete installation on Linux or Mac~OS~X, the binary
@@ -167,26 +172,26 @@ from source.
 
 \subsubsection{Ubuntu Package}
 
-We provide APT packages for Ubuntu through a Launchpad PPA. To install
-them, you must first add our PPA to your list of repositories then
-install package \texttt{yices2}:
+Older Yices releases have been packaged for Ubuntu through this Launchpad PPA:
+\begin{quote}
+\texttt{ppa:sri-csl/formal-methods}
+\end{quote}
+No Debian or PPA package is produced as
+part of the Yices~2.8.0 release. To use this release, download the binary
+distribution at \url{https://yices.csl.sri.com} or build from source.
+
+If you instead choose the separately maintained package channel, first check
+which version and packages it currently offers for your Ubuntu release:
 \begin{small}
 \begin{lstlisting}[language=sh]
   sudo add-apt-repository ppa:sri-csl/formal-methods
   sudo apt-get update
-  sudo apt-get install yices2
+  apt-cache policy yices2 yices2-dev
 \end{lstlisting}
 \end{small}
-You can also install the library and development files as follows:
-\begin{small}
-\begin{lstlisting}[language=sh]
-  sudo apt-get install yices2-dev libyices2.8
-\end{lstlisting}
-\end{small}
-The PPA provides packages for Ubuntu 22.04 (Jammy) on amd64. It may lag
-the current release. Check with \texttt{apt-cache policy yices2}. For the
-current release, use the binary distributions at
-\url{https://yices.csl.sri.com} or build from source.
+Do not infer a versioned library package name from this manual's version.
+Package availability, supported Ubuntu versions and dependency names belong
+to that channel and may differ from the archive release.
 
 
 \subsection{Source Distribution}
@@ -598,10 +603,16 @@ and CUDD~\cite{Somenzi:cudd:1998} and enable MCSAT when building Yices.
 \subsection*{\textsc{LibPoly}}
 
 The \textsc{LibPoly} source is available on GitHub
-at \url{https://github.com/SRI-CSL/libpoly}. Make sure that you
-download the latest version of libpoly. Yices~2.6 requires libpoly
-v0.1.3. Follow the instruction in libpoly's README.md to compile and
-install it.
+at \url{https://github.com/SRI-CSL/libpoly}. Yices~2.8.0 release builds use
+LibPoly 0.2.1 at commit
+\begin{quote}
+\texttt{c342ff1ad2f0cbcfc866b1ef024003ccc001add2}
+\end{quote}
+The corresponding source archive and exact identity are supplied with the
+release. This is the tested version, not a claim about the minimum or latest
+compatible version. Follow that source's README to build and install it.
+Use position-independent code when building dependencies for a Yices shared
+library; the release supplies separate normal and PIC LibPoly archives.
 
 \subsection*{CUDD}
 
@@ -787,7 +798,8 @@ For a static Yices executable build with both CaDiCaL and Kissat, give
 archives and headers:
 \begin{small}
 \begin{lstlisting}[language=sh]
-  ./configure CPPFLAGS="-I$DELEGATE_PREFIX/include -DHAVE_CADICAL -DHAVE_CRYPTOMINISAT -DHAVE_KISSAT" \
+  DELEGATE_DEFINES="-DHAVE_CADICAL -DHAVE_CRYPTOMINISAT -DHAVE_KISSAT"
+  ./configure CPPFLAGS="-I$DELEGATE_PREFIX/include $DELEGATE_DEFINES" \
        LDFLAGS="-L$DELEGATE_PREFIX/lib" \
        LIBS="-lcryptominisat5 -lcadical -lkissat -lstdc++ -lm" \
        --with-static-delegates="$DELEGATE_PREFIX/lib" \
@@ -1556,7 +1568,7 @@ hand it to the chosen delegate.
 
 For incremental QF\_BV contexts (\texttt{push-pop} or
 \texttt{multi-checks} mode), the
-\texttt{sat-delegate-incremental-mode} configuration parameter selects
+\texttt{sat-delegate-\allowbreak{}incremental-\allowbreak{}mode} configuration parameter selects
 how the delegate is reused. Mode \texttt{"rebuild"} builds a fresh
 delegate at every check. Mode \texttt{"append"} keeps a live delegate
 and appends newly generated clauses, rebuilding only after \texttt{pop}.
@@ -4408,18 +4420,26 @@ The following command-line options can be given to \texttt{yices-smt}.
 
 For challenging SMT-LIB~2.x problems, it can be beneficial to run several Yices~2 instances in parallel, each with different solver configurations. This approach, known as a portfolio solver, increases the chance of quickly finding results by exploiting the diversity of solver heuristics.
 
-Yices~2 provides a Python script, \texttt{utils/yices2\_parallel.py}, that launches multiple \texttt{yices-smt2} processes in parallel. The script stops as soon as one instance finds answer (\texttt{sat} or \texttt{unsat}).
+The Yices Git repository provides the Python~3 script
+\texttt{utils/yices2\_parallel.py}; it is not included in the release source
+or binary archives. Run the following examples from a matching Yices Git
+checkout and give the path to the executable you actually built or installed.
+The script launches multiple solver processes and stops when one finds
+\texttt{sat} or \texttt{unsat}.
 
 \medskip\noindent
 \textbf{Example usage:}
 \begin{small}
 \begin{lstlisting}[language=sh]
-python3 utils/yices2_parallel.py --yices /path/to/yices_smt2 -n 4 --verbose path/to/problem.smt2
+python3 utils/yices2_parallel.py --yices /path/to/yices-smt2 \
+    -n 4 --verbose path/to/problem.smt2
 \end{lstlisting}
 \end{small}
 
 \begin{itemize}
-  \item \texttt{--yices} specifies the path to the \texttt{yices\_smt2} executable (default: \texttt{yices\_smt2} in the script directory)
+  \item \texttt{--yices} specifies the executable path. Its default name is
+    \texttt{yices\_smt2}; installed archives use \texttt{yices-smt2}, so supply
+    that path explicitly.
   \item \texttt{-n} sets the number of parallel threads/configurations (default: 4)
   \item \texttt{--verbose} enables detailed output
   \item The last argument is the path to your SMT2 file

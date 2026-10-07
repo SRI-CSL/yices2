@@ -157,6 +157,10 @@ the environment.
     SKIP_VERIFY    set to 1 to bypass the manifest check
 
 The first argument is the output directory. It defaults to ./relinked.
+Within the kit, only that reserved relinked directory is allowed. For a custom
+location, use a directory outside the kit with an existing parent, for example
+../my-relinked-yices. Both scripts may use that same external directory.
+Do not disable manifest verification merely to allow a custom output path.
 
 relink-library.sh accepts the same set with four differences. It has no
 STATIC_FLAG and no BIN_LDFLAGS. It reads LIBYICES_PIC_A rather than

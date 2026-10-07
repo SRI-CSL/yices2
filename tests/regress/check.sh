@@ -23,7 +23,7 @@
 
 usage() {
    echo "Usage: $0 <test-directory> <bin-directory> [test1] [test2] ..."
-   exit
+   exit 2
 }
 
 cleanup() {
@@ -112,7 +112,7 @@ is_qf_bv_delegate_candidate() {
 
 supports_delegate() {
     local delegate="$1"
-    ./"$bin_dir"/yices_smt2 --delegate="$delegate" < /dev/null > /dev/null 2>&1
+    "$bin_dir"/yices_smt2 --delegate="$delegate" < /dev/null > /dev/null 2>&1
 }
 
 test_option_delegate() {
@@ -201,6 +201,15 @@ bin_dir=$2
 shift 2
 all_tests="$@"
 
+if [[ ! -d "$regress_dir" ]]; then
+    echo "Regression test directory is missing: $regress_dir" >&2
+    exit 1
+fi
+if [[ ! -x "$bin_dir/yices_smt2" ]]; then
+    echo "Regression solver is missing or not executable: $bin_dir/yices_smt2" >&2
+    exit 1
+fi
+
 # REGRESS_DELEGATE_MODE selects whether the regression run also fans out
 # into one extra pass per installed external SAT delegate (CaDiCaL,
 # CryptoMiniSat, Kissat) on QF_BV tests:
@@ -267,7 +276,7 @@ fi
 #
 # Check if MCSAT is supported
 #
-./"$bin_dir"/yices_smt2 --mcsat >& /dev/null < /dev/null
+"$bin_dir"/yices_smt2 --mcsat >& /dev/null < /dev/null
 if [ $? -ne 0 ]
 then
     MCSAT_FILTER="-v -E /(mcsat|both)/"
@@ -276,14 +285,24 @@ else
 fi
 
 if [ -z "$all_tests" ] ; then
+    # Do not hide find's failure behind successful grep/sort processes.
+    if ! discovered_tests=$(find "$regress_dir" -type f \( -name '*.smt' -o -name '*.smt2' -o -name '*.ys' \)); then
+        echo "Could not enumerate regression tests: $regress_dir" >&2
+        exit 1
+    fi
     all_tests=$(
-    find "$regress_dir" -name '*.smt' -or -name '*.smt2' -or -name '*.ys' |
+    printf '%s\n' "$discovered_tests" |
       grep $REGRESS_FILTER | grep $MCSAT_FILTER | grep -v "$REGRESS_EXCLUDE_FILTER" |
       sort
     )
 fi
 
 all_tests=$(filter_supported_option_delegate_tests "$all_tests")
+
+if [[ -z ${all_tests//[[:space:]]/} ]]; then
+    echo "No runnable regression tests selected from $regress_dir; zero tests is not a PASS" >&2
+    exit 1
+fi
 
 if [ -t 1 ] ; then
   color_flag="-c"
@@ -372,6 +391,11 @@ fail=$(find "$logdir" -type f -name "*.error" | wc -l)
 
 echo "Pass: $pass"
 echo "Fail: $fail"
+
+if [ "$pass" -eq 0 ] && [ "$fail" -eq 0 ]; then
+    echo "No regression test results were produced; zero tests is not a PASS" >&2
+    exit 1
+fi
 
 if [ "$fail" -eq 0 ] ; then
     code=0
