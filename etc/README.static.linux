@@ -70,8 +70,21 @@ minimum alone does not establish C++ runtime compatibility.
 Before using the shared library on another system, inspect its dependencies
 with ldd and compile and run a small client on that system. NOTICES explains
 the mixture of static and dynamic runtime code in the library. RELINKING.md
-and the separate relink kit describe rebuilding with a recipient's own
-libraries and toolchain, whose runtime requirements may differ.
+in the separate source archive, and the README in the separate relink kit,
+describe rebuilding with a recipient's own libraries and toolchain, whose
+runtime requirements may differ. RELINKING.md is not included in this binary
+archive or in the relink kit.
+
+
+Static-library clients
+----------------------
+
+The lib/libyices.a in this Linux archive is not position-independent. On a
+toolchain that builds PIE executables by default, a client linking this
+archive needs the compiler driver's -no-pie option at link time, along with
+the required dependency libraries. This is not an instruction to disable PIE
+for clients of the shared Yices library. The static archive cannot be used
+to build another shared library; build Yices with PIC when that is needed.
 
 
 Installation

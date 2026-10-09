@@ -109,8 +109,29 @@ TEST COVERAGE AND OPTIONAL TOOLS
 -------------------------------
 
 The source archive includes API/unit tests and the arrays, bv, efsmt, mantis
-and wd regression groups. Run make check (or make static-check for a static
-build). The larger MCSAT regression suite remains in the Git repository and
+and wd regression groups. The test targets have different purposes:
+
+- make check builds the solvers and runs the included regression groups.
+  For a static build, use make static-check.
+- make check-api builds and runs the API tests. For a static build, use
+  make static-check-api.
+- make test builds the unit-test programs; it does not execute them.
+  make static-test builds their static counterparts. Some programs require
+  arguments or input files: consult their source before running them
+  individually from build/<target>-<mode>/bin (or static_bin).
+
+On Linux, static-check-api and static-test also build the shared library with
+static GMP. If the system libgmp.a is not PIC, supply a PIC archive through
+configure's --with-pic-gmp option (and its matching header if needed); see
+doc/COMPILING. A non-PIC system archive alone is not sufficient for those
+targets.
+
+With Python 3 installed, python3 tests/unit/test_regress_harness.py checks the
+regression driver's own failure accounting and path handling, without building
+Yices. It uses controlled solver/parallel-dispatch fixtures; it is not a
+solver-correctness suite or a substitute for the targets above.
+
+The larger MCSAT regression suite remains in the Git repository and
 is not included in this archive. Requesting make mcsat-check or
 make static-mcsat-regress without that suite fails; zero tests is not a PASS.
 For that coverage use a matching Git checkout with the suite and an

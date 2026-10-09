@@ -31,30 +31,70 @@ cleanup() {
 }
 
 run_test_batch() {
-    local test_set="$1"
-    local local_smt2_options="$2"
-    local run_label="$3"
+    local local_smt2_options="$1"
+    local run_label="$2"
+    shift 2
+    local test_set=("$@")
     local run_logdir="$logdir/$run_label"
+    local batch_status=0
+    local file marker recorded_test
+    local batch_pass=0 batch_fail=0
 
-    if [ -z "$test_set" ] ; then
-        return
+    if [ ${#test_set[@]} -eq 0 ] ; then
+        return 0
     fi
 
-    mkdir -p "$run_logdir" || { echo "Can't create temp folder $run_logdir" ; exit 1 ; }
+    selected=$((selected + ${#test_set[@]}))
+    mkdir -p "$run_logdir" || { echo "Can't create temp folder $run_logdir" >&2 ; return 1 ; }
+    printf '%s\n' "${test_set[@]}" > "$run_logdir/expected" || return 1
+    : > "$run_logdir/observed" || return 1
 
     case "$parallel_tool" in
         more)
-            parallel -i $j_param bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$local_smt2_options" {} "$bin_dir" "$run_logdir" -- $test_set
+            parallel -i $j_param bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$local_smt2_options" {} "$bin_dir" "$run_logdir" -- "${test_set[@]}" || batch_status=1
             ;;
         gnu)
-            parallel -q $j_param bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$local_smt2_options" {} "$bin_dir" "$run_logdir" ::: $test_set
+            parallel -q $j_param bash "${BASH_SOURCE%/*}/run_test.sh" $color_flag -s "$local_smt2_options" -- {} "$bin_dir" "$run_logdir" ::: "${test_set[@]}" || batch_status=1
             ;;
         *)
-            for file in $test_set; do
-                bash "${BASH_SOURCE%/*}"/run_test.sh $color_flag -s "$local_smt2_options" "$file" "$bin_dir" "$run_logdir"
+            for file in "${test_set[@]}"; do
+                bash "${BASH_SOURCE%/*}"/run_test.sh $color_flag -s "$local_smt2_options" -- "$file" "$bin_dir" "$run_logdir" || batch_status=1
             done
             ;;
     esac
+
+    if [ "$batch_status" -ne 0 ]; then
+        echo "Regression worker or dispatcher failed in batch $run_label" >&2
+    fi
+
+    # Each invocation owns a unique marker, whose first line is its input
+    # pathname. Compare multisets, not just totals: duplicate selections must
+    # run twice, and a repeated result must not conceal a missing execution.
+    for marker in "$run_logdir"/*.pass "$run_logdir"/*.error; do
+        [ -f "$marker" ] || continue
+        if ! IFS= read -r recorded_test < "$marker"; then
+            echo "Unreadable regression result: $marker" >&2
+            batch_status=1
+        else
+            printf '%s\n' "$recorded_test" >> "$run_logdir/observed" || batch_status=1
+        fi
+        case "$marker" in
+            *.pass) batch_pass=$((batch_pass + 1)) ;;
+            *.error) batch_fail=$((batch_fail + 1)) ;;
+        esac
+    done
+    pass=$((pass + batch_pass))
+    fail=$((fail + batch_fail))
+
+    LC_ALL=C sort "$run_logdir/expected" > "$run_logdir/expected.sorted" || return 1
+    LC_ALL=C sort "$run_logdir/observed" > "$run_logdir/observed.sorted" || return 1
+    if ! cmp -s "$run_logdir/expected.sorted" "$run_logdir/observed.sorted"; then
+        echo "Regression result accounting failed in batch $run_label: ${#test_set[@]} selected, $batch_pass pass, $batch_fail fail" >&2
+        diff -u "$run_logdir/expected.sorted" "$run_logdir/observed.sorted" >&2
+        batch_status=1
+    fi
+    [ "$batch_fail" -eq 0 ] || batch_status=1
+    return "$batch_status"
 }
 
 is_qf_bv_delegate_candidate() {
@@ -157,21 +197,27 @@ optional_delegate() {
 }
 
 filter_supported_option_delegate_tests() {
-    local tests="$1"
-    local filtered=
     local file
     local delegate
 
-    for file in $tests; do
+    supported_tests=()
+    for file in "$@"; do
         delegate=$(test_option_delegate "$file")
         if [ -n "$delegate" ] && optional_delegate "$delegate" && ! supports_delegate "$delegate"; then
             echo "Skipping $file: delegate '$delegate' is not supported by this build" >&2
         else
-            filtered="$filtered $file"
+            supported_tests+=("$file")
         fi
     done
+}
 
-    echo "$filtered"
+check_test_path() {
+    # Result identities and the existing grep-based selection filters are
+    # line-oriented. Reject, rather than split, a pathname containing LF.
+    if [[ -z "$1" || "$1" == *$'\n'* ]]; then
+        echo "Empty or newline-containing regression pathname is not supported" >&2
+        exit 1
+    fi
 }
 
 smt2_options=
@@ -192,14 +238,17 @@ while getopts "js:" o; do
 done
 shift $((OPTIND-1))
 
-if test $# "<" 2 ; then
+if [ "$#" -lt 2 ]; then
     usage
 fi
 
 regress_dir=$1
 bin_dir=$2
 shift 2
-all_tests="$@"
+all_tests=("$@")
+
+case "$regress_dir" in /*) ;; *) regress_dir="./$regress_dir" ;; esac
+case "$bin_dir" in /*) ;; *) bin_dir="./$bin_dir" ;; esac
 
 if [[ ! -d "$regress_dir" ]]; then
     echo "Regression test directory is missing: $regress_dir" >&2
@@ -232,22 +281,7 @@ case "$REGRESS_DELEGATE_MODE" in
         ;;
 esac
 
-#
-# System-dependent configuration
-#
-os_name=$(uname 2>/dev/null) || os_name=unknown
-
-case "$os_name" in
-  *Darwin* )
-     mktemp_cmd="/usr/bin/mktemp -t out"
-  ;;
-
-  * )
-     mktemp_cmd=mktemp
-  ;;
-
-esac
-
+# Use the installed parallel backend, if any.
 parallel_tool=
 if command -v parallel &> /dev/null ; then
     if parallel --version 2>&1 | grep GNU > /dev/null 2>&1 ; then
@@ -261,7 +295,7 @@ fi
 # The temp file for output
 #
 trap cleanup EXIT
-logdir=$($mktemp_cmd -d) || { echo "Can't create temp folder" ; exit 1 ; }
+logdir=$(mktemp -d "${TMPDIR:-/tmp}/yices-regress.XXXXXXXX") || { echo "Can't create temp folder" ; exit 1 ; }
 
 if [[ -z "$REGRESS_FILTER" ]];
 then
@@ -284,22 +318,42 @@ else
     MCSAT_FILTER="."
 fi
 
-if [ -z "$all_tests" ] ; then
+if [ ${#all_tests[@]} -eq 0 ] ; then
     # Do not hide find's failure behind successful grep/sort processes.
-    if ! discovered_tests=$(find "$regress_dir" -type f \( -name '*.smt' -o -name '*.smt2' -o -name '*.ys' \)); then
+    if ! find "$regress_dir" -type f \( -name '*.smt' -o -name '*.smt2' -o -name '*.ys' \) -print0 > "$logdir/discovered"; then
         echo "Could not enumerate regression tests: $regress_dir" >&2
         exit 1
     fi
-    all_tests=$(
-    printf '%s\n' "$discovered_tests" |
+    : > "$logdir/discovered.lines" || exit 1
+    while IFS= read -r -d '' file; do
+        check_test_path "$file"
+        printf '%s\n' "$file" >> "$logdir/discovered.lines" || exit 1
+    done < "$logdir/discovered"
+    (
+    cat "$logdir/discovered.lines" |
       grep $REGRESS_FILTER | grep $MCSAT_FILTER | grep -v "$REGRESS_EXCLUDE_FILTER" |
       sort
-    )
+    ) > "$logdir/selected" || exit 1
+    while IFS= read -r file; do
+        all_tests+=("$file")
+    done < "$logdir/selected"
 fi
 
-all_tests=$(filter_supported_option_delegate_tests "$all_tests")
+for ((i=0; i<${#all_tests[@]}; i++)); do
+    file=${all_tests[$i]}
+    check_test_path "$file"
+    # moreutils uses -- to separate its command and inputs, so no second --
+    # can be passed to the worker. Prefix relative paths to disambiguate a
+    # test basename beginning with '-'; never prefix an absolute pathname.
+    case "$file" in
+        /*|./*|../*) ;;
+        *) all_tests[$i]="./$file" ;;
+    esac
+done
+filter_supported_option_delegate_tests "${all_tests[@]}"
+all_tests=("${supported_tests[@]}")
 
-if [[ -z ${all_tests//[[:space:]]/} ]]; then
+if [ ${#all_tests[@]} -eq 0 ]; then
     echo "No runnable regression tests selected from $regress_dir; zero tests is not a PASS" >&2
     exit 1
 fi
@@ -348,24 +402,28 @@ if [[ $job_count == 0 ]]; then j_param=""; fi
 #
 # Baseline regression pass
 #
+pass=0
+fail=0
+selected=0
+failed_batches=0
 if [[ "$REGRESS_DELEGATE_MODE" != "only" ]]; then
-    run_test_batch "$all_tests" "$smt2_options" "baseline"
+    run_test_batch "$smt2_options" baseline "${all_tests[@]}" || failed_batches=$((failed_batches + 1))
 fi
 
 #
 # Delegate passes on QF_BV tests:
 # run one extra pass for each installed external delegate.
 #
-delegate_tests=
+delegate_tests=()
 if [[ "$REGRESS_DELEGATE_MODE" != "off" ]] && ! echo " $smt2_options " | grep -Eq '(^|[[:space:]])--delegate(=|[[:space:]])'; then
-    for file in $all_tests; do
+    for file in "${all_tests[@]}"; do
         if is_qf_bv_delegate_candidate "$file"; then
-            delegate_tests="$delegate_tests $file"
+            delegate_tests+=("$file")
         fi
     done
 fi
 
-if [ -n "$delegate_tests" ]; then
+if [ ${#delegate_tests[@]} -ne 0 ]; then
     delegates=
     for d in cadical cryptominisat kissat; do
         if supports_delegate "$d"; then
@@ -375,7 +433,7 @@ if [ -n "$delegate_tests" ]; then
 
     for d in $delegates; do
         echo "=== Running QF_BV delegate regressions ($d) ==="
-        run_test_batch "$delegate_tests" "$smt2_options --delegate=$d" "delegate_$d"
+        run_test_batch "$smt2_options --delegate=$d" "delegate_$d" "${delegate_tests[@]}" || failed_batches=$((failed_batches + 1))
     done
 fi
 
@@ -386,18 +444,17 @@ while [[ $job_count -gt 1 ]]; do
     job_count=$((job_count-1))
 done
 
-pass=$(find "$logdir" -type f -name "*.pass" | wc -l)
-fail=$(find "$logdir" -type f -name "*.error" | wc -l)
-
+echo "Selected: $selected"
 echo "Pass: $pass"
 echo "Fail: $fail"
+echo "Failed batches: $failed_batches"
 
 if [ "$pass" -eq 0 ] && [ "$fail" -eq 0 ]; then
     echo "No regression test results were produced; zero tests is not a PASS" >&2
     exit 1
 fi
 
-if [ "$fail" -eq 0 ] ; then
+if [ "$fail" -eq 0 ] && [ "$failed_batches" -eq 0 ] ; then
     code=0
 else
     while IFS= read -r f; do
