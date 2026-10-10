@@ -60,6 +60,7 @@
 #include "exists_forall/ef_client.h"
 #include "frontend/common/assumptions_and_core.h"
 #include "frontend/common/bug_report.h"
+#include "frontend/common/library_notices.h"
 #include "frontend/common/parameters.h"
 #include "frontend/common/tables.h"
 #include "frontend/yices/arith_solver_codes.h"
@@ -290,6 +291,7 @@ static void print_version(FILE *f) {
           "Copyright (c) 2026, SRI International.\n"
           "Linked with GMP %s\n"
 	  "Copyright Free Software Foundation, Inc.\n"
+          YICES_LIBPOLY_NOTICES
           "Build date: %s\n"
           "Platform: %s (%s)\n"
           "Includes components from the Free Software Foundation and others.\n"

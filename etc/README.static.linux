@@ -86,6 +86,12 @@ the required dependency libraries. This is not an instruction to disable PIE
 for clients of the shared Yices library. The static archive cannot be used
 to build another shared library; build Yices with PIC when that is needed.
 
+The matching relink kit supplies the required dependency archives in deps/.
+Alternatively, build compatible archives from the accompanying canonical
+dependency-source assets using the recorded configuration. Stock upstream
+libraries are not interchangeable with the release's forked and namespaced
+builds; see the private-library notes in lib/pkgconfig/yices.pc.
+
 
 Installation
 ------------

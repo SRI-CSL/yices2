@@ -173,6 +173,8 @@ dependency_buildinfo_keys = \
   cryptominisat-repo cryptominisat-commit cryptominisat-tree \
   cryptominisat-source-file cryptominisat-source-sha256 \
   cryptominisat-submodule-policy cryptominisat-cmake-args \
+  cryptominisat-export-profile cryptominisat-upstream-archive-sha256 \
+  cryptominisat-export-record-sha256 \
   cryptominisat-tests cryptominisat-archive-sha256 \
   cryptominisat-header-sha256 \
   kissat-repo kissat-commit kissat-tree kissat-source-file \
@@ -407,7 +409,7 @@ test: build_subdirs version
 	@ echo "=== Building tests ==="
 	@ $(MAKE) -C $(testdir) BUILD=../../$(build_dir) all
 
-static-test: static_build_subdirs version
+static-test: static_build_subdirs build_subdirs version
 	@ echo "=== Building libraries with GMP ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) $(static_test_lib_target)
 	@ echo "=== Building tests ==="
@@ -422,7 +424,7 @@ check-api: build_subdirs version
 	@ echo "=== Building tests ==="
 	@ $(MAKE) -C $(apitestdir) BUILD=../../$(build_dir) all
 
-static-check-api: static_build_subdirs version
+static-check-api: static_build_subdirs build_subdirs version
 	@ echo "=== Building libraries with GMP ==="
 	@ $(MAKE) -C $(srcdir) BUILD=../$(build_dir) $(static_test_lib_target)
 	@ echo "=== Building tests ==="
@@ -645,6 +647,10 @@ relink-kit: static-tarfile pic-lib
 	cp LICENSE.txt $(relink_kit_dir)/LICENSE
 	cp etc/relink/relink-executables.sh etc/relink/relink-library.sh \
 	  etc/relink/verify-manifest.sh $(relink_kit_dir)
+	cp etc/relink/REBUILDING.md etc/relink/rebuild-gmp-libpoly.sh \
+	  etc/relink/prepare-glibc-source.py etc/relink/relink-with-glibc.sh $(relink_kit_dir)
+	chmod ug+x $(relink_kit_dir)/rebuild-gmp-libpoly.sh \
+	  $(relink_kit_dir)/prepare-glibc-source.py $(relink_kit_dir)/relink-with-glibc.sh
 	chmod ug+x $(relink_kit_dir)/relink-executables.sh \
 	  $(relink_kit_dir)/relink-library.sh $(relink_kit_dir)/verify-manifest.sh
 	cp $(static_objdir)/frontend/yices.o $(relink_kit_dir)/executables/yices.o
@@ -885,6 +891,8 @@ macos-relink-kit: static-tarfile dylib-relink-lib
 	cp etc/relink/relink-library-macos.sh \
 	  $(relink_kit_dir)/relink-library.sh
 	cp etc/relink/verify-manifest.sh $(relink_kit_dir)
+	cp etc/relink/REBUILDING.md etc/relink/rebuild-gmp-libpoly.sh $(relink_kit_dir)
+	chmod ug+x $(relink_kit_dir)/rebuild-gmp-libpoly.sh
 	chmod ug+x $(relink_kit_dir)/relink-executables.sh \
 	  $(relink_kit_dir)/relink-library.sh $(relink_kit_dir)/verify-manifest.sh
 	cp $(static_objdir)/frontend/yices.o $(relink_kit_dir)/executables/yices.o

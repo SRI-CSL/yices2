@@ -412,8 +412,16 @@ actual grant text, LICENCE, and source headers, and this paragraph records the
 contradictory packaging label for downstream license scanners.
 
 LibPoly has no notice for the project as a whole. Most of the notices in its
-source files name SRI International, and their years differ from file to file,
-so no LibPoly copyright line is reproduced here.
+source files name SRI International, and their years differ from file to file.
+The distinct SRI notices in the pinned C/C++ source and header files are:
+
+  Copyright 2015, SRI International.
+  Copyright 2024, SRI International.
+
+Frontends built with MCSAT identify these as LibPoly source-file notices in
+their copyright-display paths, together with the u_memstream notice below
+and the reference to the distributed GPL/LGPL texts. These are not a new
+project-wide copyright date range or a change to any file's license.
 
 LibPoly itself contains a component under different terms. The files
 src/utils/u_memstream.c and src/utils/u_memstream.h are copyright 2020 Lag
@@ -603,9 +611,22 @@ CryptoMiniSat, copyright Mate Soos. Its authors state that everything needed to
 run, build, install, or link the system is under the MIT license, and that
 other files, which are not needed for those purposes, are generally under
 version 2 of the GNU General Public License or compatible terms. Its notice
-excepts two documentation file kinds: `splncs03.bat` (the distributed files
-are named `splncs03.bst`) under the LPPL, and `ieee.cls` under the IEEE
-Copyright Policy.
+excepts two upstream documentation file kinds: `splncs03.bat` (actually
+named `splncs03.bst`) under the LPPL, and `ieee.cls` under the IEEE Copyright
+Policy. Neither kind is included in this release's source export.
+
+The release source asset is cryptominisat-b8c0e44beef0-yices-release.tar.gz,
+an explicitly reduced export of upstream commit
+b8c0e44beef01e52b5ce83ceed002728eebad92a. Its profile
+`yices-cms-no-competition-docs-v1` omits the complete, unused docs/ subtree:
+27 files, including all four copies of each of those two styles. Production
+source/build files and their notices, including upstream LICENSE.txt, remain
+unchanged. Gitlink directories remain unexpanded; the production library uses
+none. YICES-SOURCE-EXPORT.json inside the archive records every excluded and
+retained member, the upstream commit/tree and original archive checksum.
+RELEASE-INPUTS distinguishes that upstream identity from the exported archive
+and record checksums. This is not a full export of the upstream Git tree or
+a claim of permission to redistribute the omitted documentation.
 
 The separately published canonical CryptoMiniSat source asset also contains
 35 source files offered under version 2 only of the GNU General Public
@@ -772,7 +793,7 @@ file preserves the upstream notice collection byte for byte.
 
 This file reproduces a copyright line for MiniSat in section 1.1, for CUDD in
 sections 1.2 and 3.6, for the University of California support code in CUDD in
-section 3.6, for the Lag Free Games files in LibPoly in section 3.5, for
+section 3.6, for the SRI and Lag Free Games files in LibPoly in section 3.5, for
 CaDiCaL and for its Craig interpolation tracer in section 3.7, for Kissat in
 section 3.8, and for CryptoMiniSat and for the Mersenne Twister it includes in
 section 3.9. CPython's required copyright notice is retained in its exact
@@ -787,9 +808,9 @@ expression overlap without claiming that its origin is known, and explains
 the conservative inclusion of CPython's license and copyright notice. The GNU
 C Library's exact upstream notice collection travels as
 LICENSES/glibc-LICENSES.txt rather than being transcribed into this file, as
-section 3.3 states. GMP and LibPoly itself carry copyright notices in
-individual source files rather than one notice for the project, as sections
-3.4 and 3.5 state. Libstdc++ and libgcc use file-specific notices rather than
+section 3.3 states. GMP carries file-specific notices rather than a project
+notice, as section 3.4 states. LibPoly's distinct source-file notices are
+reproduced in section 3.5. Libstdc++ and libgcc use file-specific notices rather than
 one project-level line suitable for reproduction here, as section 3.10 states.
 The macOS system libraries of section 3.11 are supplied by the operating system
 and are neither built into nor redistributed with these files. For the files
@@ -858,10 +879,21 @@ modified version. The material needed to do that is published as a separate
 asset alongside the binary archives, together with the corresponding library
 source.
 
+The platform relink kits include REBUILDING.md and a private-prefix GMP/LibPoly
+build recipe. The Linux kit additionally includes helpers to prepare the exact
+patched glibc SRPM source and explicitly link the application objects with a
+recipient-built glibc and its startup objects. These use ordinary compatible
+toolchain prerequisites and do not install a C runtime into the host system.
+They substantiate a source/application-object route, not a promise of bitwise
+reproduction or legal sign-off. Every binary recipient must be given access to
+the matching required source and relink material, even when only the smaller
+binary archive is downloaded.
+
 The release asset set separately publishes the exact six dependency source
 archives named and hashed in RELEASE-INPUTS: GMP, LibPoly, CUDD, CaDiCaL,
-Kissat and CryptoMiniSat. Those archives preserve their upstream notices and
-license files. Section 4 identifies the complete license texts that accompany
+Kissat and CryptoMiniSat. Those archives preserve the upstream notices and
+license files of their retained material; section 3.9 describes the explicitly
+reduced CryptoMiniSat export. Section 4 identifies the license texts accompanying
 the release, including GPL-2.0-only for the files in the CryptoMiniSat source
 asset.
 

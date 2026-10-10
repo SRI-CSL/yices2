@@ -421,9 +421,9 @@ release_inputs_checksums=$release_inputs_dir/RELEASE-INPUTS.sha256
 
 release_inputs_sha=$(sha256_file "$release_inputs_manifest") ||
     fail "cannot hash canonical release-input manifest"
-expected_release_inputs_sha=12296dbf6cc3f924a91553259c95ee83682db5eca6a81cab2d9b00d820038bd8
-[ "$(field format "$release_inputs_manifest")" = yices-release-inputs-v2 ] ||
-    fail "unsupported release-input format; expected yices-release-inputs-v2"
+expected_release_inputs_sha=27f62cc4e44e3c89b02fd25289af471ba5138aa5602754878ef7db6a6cb2dd65
+[ "$(field format "$release_inputs_manifest")" = yices-release-inputs-v3 ] ||
+    fail "unsupported release-input format; expected yices-release-inputs-v3"
 [ "$release_inputs_sha" = "$expected_release_inputs_sha" ] ||
     fail "canonical release-input manifest differs from the release lock: $release_inputs_sha"
 [ "$(field gmp-version "$release_inputs_manifest")" = "$GMP_VERSION" ] ||
@@ -1189,6 +1189,12 @@ awk -F ': ' '$1 == "libpoly-header" { sub(/^[^:]*: /, ""); print }' \
 done
 emit cryptominisat-submodule-policy \
     "$(field cryptominisat-submodule-policy "$release_inputs_manifest")"
+for suffix in export-profile upstream-archive-sha256 export-record-sha256; do
+    key=cryptominisat-$suffix
+    [ "$(field "$key" "$DEPENDENCY_SOURCE_RECEIPT")" = "$(field "$key" "$release_inputs_manifest")" ] ||
+        fail "$key receipt differs from the canonical derived export"
+    emit "$key" "$(field "$key" "$release_inputs_manifest")"
+done
 emit release-inputs-file           "RELEASE-INPUTS"
 emit release-inputs-sha256         "$release_inputs_sha"
 

@@ -30,6 +30,8 @@ Contents
   relink-executables.sh          rebuilds the four tools
   relink-library.sh              rebuilds libyices.2.dylib
   verify-manifest.sh             verifies the extracted kit
+  REBUILDING.md                  recipient source/rebuild/relink instructions
+  rebuild-gmp-libpoly.sh         builds/tests replacement libraries privately
 
 The normal and PIC LibPoly archives have the same byte count on the official
 builders but different contents. The scripts select them by path. The three
@@ -111,6 +113,12 @@ dependencies must be /usr/lib/libSystem.B.dylib and
 
 Replace a library
 -----------------
+
+REBUILDING.md gives a source/build recipe using the GMP and LibPoly archives
+published with this release. It builds/tests normal and PIC archives in new
+private prefixes. Native execution on the target Mac remains necessary; a
+Linux recipe test is not macOS execution evidence. Its glibc section and two
+glibc helpers are Linux-only; macOS supplies its C library dynamically.
 
 Either replace the corresponding file under deps/ or provide an environment
 override. For example:

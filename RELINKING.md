@@ -10,11 +10,12 @@ Some of the libraries built into the Yices binaries are distributed under the
 GNU Lesser General Public License. That license gives you the right to modify
 those libraries and rebuild the Yices programs against your modified version.
 
-We publish the material you need to do that for GMP and LibPoly, as a separate
-download called the relink kit. It does not cover the C library case, and the
-next section says what that leaves to the machine you relink on. This file
-says what the kit is and where to get it. The kit's own README has the
-instructions.
+We publish the application objects and dependency archives in a separate
+download called the relink kit, alongside the dependency sources. Its README
+and REBUILDING.md give replacement GMP/LibPoly recipes and, on Linux, an
+explicit source-preparation and replacement-glibc link route. This file says
+what the kit is and where to get it; a compatible ordinary toolchain remains
+a prerequisite.
 
 ## Which libraries
 
@@ -24,11 +25,12 @@ instructions.
 | GMP | `yices`, `yices-smt`, `yices-smt2`, and the shared library, on every platform. Not `yices-sat` |
 | LibPoly | The same set as GMP |
 
-The scripts automate the GMP and LibPoly cases. They do not automate the C
-library case. There is no script input for a libc archive, and none for
-startup object files or a sysroot, so the link takes the C library and the
-startup files from the machine you run it on. The kit's `README` says the same
-under "What this kit does not do".
+The ordinary relink scripts automate the GMP/LibPoly cases using the host C
+library and startup files. The separate Linux `relink-with-glibc.sh` takes a
+recipient glibc build directory and explicitly names its library and startup
+inputs. REBUILDING.md explains how to prepare the exact patched source from
+the published SRPM, build privately, relink and observe a replacement. It
+does not install or replace the host C library, nor certify arbitrary changes.
 
 Other libraries in the build, namely CUDD, CaDiCaL, Kissat, and
 CryptoMiniSat, are distributed under permissive terms that carry no relinking
@@ -75,6 +77,8 @@ that was built in.
 - The toolchain, flags, and link order that produced the published binaries,
   as recorded in a file called `BUILDINFO`.
 - The license texts and notices for the components the kit redistributes.
+- Recipient rebuild instructions and private-prefix helpers for GMP/LibPoly,
+  plus source-preparation and explicit glibc linking helpers in the Linux kit.
 
 ## How to use it
 

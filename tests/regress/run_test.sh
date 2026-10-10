@@ -92,6 +92,7 @@ log_file=
 result_line=
 result_detail=
 completed=no
+termination_signal=
 
 finish() {
     local status=$?
@@ -124,6 +125,13 @@ finish() {
         [ -z "$tmp_file" ] || rm -f "$tmp_file"
     done
     printf '%s %s %s\n' "$result_color" "$result_line" "$black"
+    if [ -n "$termination_signal" ]; then
+        # Preserve signal termination after recording the failed test. In
+        # particular, bash's parent must see a child killed by SIGINT, not
+        # an ordinary exit 130, for Ctrl-C to stop a serial check.sh run.
+        trap - "$termination_signal"
+        kill -s "$termination_signal" "$$"
+    fi
     exit "$status"
 }
 
@@ -136,9 +144,9 @@ fail_test() {
 }
 
 trap finish EXIT
-trap 'exit 129' HUP
-trap 'exit 130' INT
-trap 'exit 143' TERM
+trap 'termination_signal=HUP; exit 129' HUP
+trap 'termination_signal=INT; exit 130' INT
+trap 'termination_signal=TERM; exit 143' TERM
 
 if [ -n "$out_dir" ]; then
     [ -d "$out_dir" ] || fail_test 3 "result directory is missing: $out_dir"
@@ -154,8 +162,15 @@ then
     TIME_LIMIT=60
 fi
 
-# Get the binary based on the filename
-filename=$(basename "$test_file")
+# Keep the original spelling for result accounting, but make every file
+# operand unambiguous even for a direct invocation with a leading '-'.
+case "$test_file" in
+    /*|./*|../*) test_path=$test_file ;;
+    *) test_path="./$test_file" ;;
+esac
+
+# Get the binary based on the filename without parsing it as an option.
+filename=${test_path##*/}
 
 options=
 
@@ -174,13 +189,13 @@ case $filename in
         fail_test 2 "unknown extension for $filename"
 esac
 
-[ -f "$test_file" ] && [ -r "$test_file" ] || fail_test 2 "missing or unreadable test: $test_file"
+[ -f "$test_path" ] && [ -r "$test_path" ] || fail_test 2 "missing or unreadable test: $test_file"
 [ -x "$bin_dir/$binary" ] || fail_test 2 "solver is missing or not executable: $bin_dir/$binary"
 
 # Get the options
-if [ -e "$test_file.options" ]
+if [ -e "$test_path.options" ]
 then
-    file_options=$(cat "$test_file.options") || fail_test 2 "cannot read $test_file.options"
+    file_options=$(cat "$test_path.options") || fail_test 2 "cannot read $test_file.options"
     options="$options $file_options"
     test_string="$test_file [ $options ]"
 else
@@ -188,19 +203,16 @@ else
 fi
 
 # Get the expected result
-if [ -f "$test_file.gold" ] && [ -r "$test_file.gold" ]
+if [ -f "$test_path.gold" ] && [ -r "$test_path.gold" ]
 then
-    gold=$test_file.gold
+    gold=$test_path.gold
 else
     fail_test 2 "missing or unreadable file: $test_file.gold"
 fi
 
 # Keep absolute paths absolute; disambiguate relative names from options.
 case "$bin_dir" in /*) ;; *) bin_dir="./$bin_dir" ;; esac
-case "$test_file" in
-    /*) solver_test_file=$test_file ;;
-    *) solver_test_file="./$test_file" ;;
-esac
+solver_test_file=$test_path
 
 outfile=$(mktemp "${TMPDIR:-/tmp}/yices-test.XXXXXXXX") || fail_test 3 "cannot create solver output file"
 timefile=$(mktemp "${TMPDIR:-/tmp}/yices-test.XXXXXXXX") || fail_test 3 "cannot create timing file"
@@ -235,18 +247,18 @@ strip_solver_mode_flags() {
   echo "$output"
 }
 
-if [ "$binary" = yices_smt2 ] && [[ "$test_file" == *"/both/"* ]]; then
+if [ "$binary" = yices_smt2 ] && [[ "$test_path" == *"/both/"* ]]; then
   options=$(strip_solver_mode_flags "$options")
   test_string="$test_file [ $options --mcsat ] [ $options --dpllt ]"
   gold_mcsat=$gold
   gold_dpllt=$gold
 
-  if [ -e "$test_file.mcsat.gold" ]; then
-    gold_mcsat=$test_file.mcsat.gold
+  if [ -e "$test_path.mcsat.gold" ]; then
+    gold_mcsat=$test_path.mcsat.gold
   fi
 
-  if [ -e "$test_file.dpllt.gold" ]; then
-    gold_dpllt=$test_file.dpllt.gold
+  if [ -e "$test_path.dpllt.gold" ]; then
+    gold_dpllt=$test_path.dpllt.gold
   fi
 
   outfile2=$(mktemp "${TMPDIR:-/tmp}/yices-test.XXXXXXXX") || fail_test 3 "cannot create second solver output file"

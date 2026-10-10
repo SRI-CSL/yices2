@@ -47,6 +47,7 @@
 #include <unistd.h>
 #endif
 
+#include "frontend/common/library_notices.h"
 #include "frontend/common/parameters.h"
 #include "frontend/smt2/smt2_commands.h"
 #include "frontend/smt2/smt2_lexer.h"
@@ -252,6 +253,7 @@ static void print_version(void) {
    "Copyright (c) 2026, SRI International.\n"
          "Linked with GMP %s\n"
    "Copyright Free Software Foundation, Inc.\n"
+         YICES_LIBPOLY_NOTICES
          "Build date: %s\n"
          "Platform: %s (%s)\n"
          "Revision: %s\n"

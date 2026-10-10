@@ -52,10 +52,19 @@ def fixture(kind, args):
         if not args or args[-1].startswith("--"):
             return 0  # feature probe, not a test execution
         source = Path(args[-1]).read_text()
+        if "; wait-for-signal" in source:
+            for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+                signal.signal(number, signal.SIG_DFL)
+            event("solver-wait", test=args[-1])
+            time.sleep(20)  # the bounded signal probe must stop us first
+        if "; require-option" in source and "--fixture-option" not in args:
+            return 8
         if "; mode-specific" in source and "--mcsat" in args:
             print("unsat")
         else:
             print("sat")
+        if "; exit-130" in source:
+            return 130  # ordinary solver failure, not a caught signal
         if "; fail" in source or (os.environ.get("HARNESS_DELEGATE_FAIL") and "--delegate=cadical" in args):
             return 9
         return 0
@@ -83,7 +92,11 @@ def fixture(kind, args):
     if kind == "mv":
         if os.environ.get("HARNESS_MARKER_FAILURE"):
             return 1
-        return subprocess.call([os.environ["HARNESS_MV"], *args])
+        result = subprocess.call([os.environ["HARNESS_MV"], *args])
+        if result == 0 and os.environ.get("HARNESS_TRACE_MARKERS"):
+            marker = Path(args[-1])
+            event("marker", test=marker.read_text().splitlines()[0], suffix=marker.suffix)
+        return result
 
     if kind == "parallel":
         backend = os.environ["HARNESS_BACKEND"]
@@ -258,6 +271,12 @@ class HarnessTests(unittest.TestCase):
             for bad in (wrong, failed):
                 self.check(backend, [good, bad], status=1, counts=(1, 1))
 
+    def test_solver_exit_130_is_a_failure_not_cancellation(self):
+        failed = self.case("exit-130.smt2", content="; exit-130\n")
+        good = self.case()
+        for backend in self.backends:
+            self.check(backend, [failed, good], status=1, counts=(1, 1))
+
     def test_languages_and_both_modes(self):
         self.case("case.smt")
         self.case("case.ys")
@@ -365,6 +384,132 @@ class HarnessTests(unittest.TestCase):
             self.assertEqual(len(list(output_dir.glob("*.error"))), 1, output)
             self.assertEqual(list(output_dir.glob("*.pass")), [], output)
             self.assertEqual(list(self.tmp.iterdir()), [], output)
+
+    def test_direct_worker_leading_dash_paths_and_sidecars(self):
+        os.chdir(self.cases)
+        names = ("-leading.smt2", "-leading.smt", "-leading.ys",
+                 "both/-leading.smt2", "-directory/both/-leading.smt2")
+        for number, name in enumerate(names):
+            both = "/both/" in "/" + name
+            source = self.case(name, content="; require-option\n" + ("; mode-specific\n" if both else ""))
+            Path(str(source) + ".options").write_text("--fixture-option\n")
+            if both:
+                Path(str(source) + ".mcsat.gold").write_text("unsat\n")
+                Path(str(source) + ".dpllt.gold").write_text("sat\n")
+            for spelling, test in enumerate((name, "./" + name, str(source))):
+                with self.subTest(test=test):
+                    output_dir = self.root / ("leading-output-%d-%d" % (number, spelling))
+                    output_dir.mkdir()
+                    code, output = self.run_command(
+                        [self.scripts / "run_test.sh", "--", test, self.binaries, output_dir], "serial", {})
+                    self.assertEqual(code, 0, output)
+                    markers = list(output_dir.glob("*.pass"))
+                    self.assertEqual(len(markers), 1, output)
+                    self.assertEqual(markers[0].read_text().splitlines()[0], test)
+                    self.assertEqual(list(output_dir.glob("*.error")), [], output)
+                    self.assertEqual(list(self.tmp.iterdir()), [], output)
+
+    def signal_command(self, args, number, *, require_record=True):
+        """Use real bash dispatch; a Python worker wrapper changes SIGINT semantics."""
+        tools = self.root / "signal-tools"
+        if not tools.exists():
+            tools.mkdir()
+            for tool in self.tools["serial"].iterdir():
+                (tools / tool.name).symlink_to(BASH if tool.name == "bash" else tool)
+        if self.events.exists():
+            self.events.unlink()
+        # A forced batch termination may remove the result directory before
+        # a worker records its failure. Keep each probe's temporary files
+        # separate so that cleanup races cannot contaminate the next probe.
+        signal_tmp = self.root / ("signal-tmp-%d" % self.invocations["serial"])
+        signal_tmp.mkdir()
+        env = dict(self.env, PATH=str(tools), TMPDIR=str(signal_tmp), HARNESS_TRACE_MARKERS="1")
+
+        def reset_signals():
+            # A backgrounded invoking shell may have inherited SIG_IGN.
+            # Model an interactive user's ordinary foreground process group.
+            for caught in (signal.SIGINT, signal.SIGQUIT, signal.SIGTERM, signal.SIGHUP):
+                signal.signal(caught, signal.SIG_DFL)
+
+        def events():
+            if not self.events.exists():
+                return []
+            # Ignore an incomplete final line while another process appends.
+            return [json.loads(line) for line in self.events.read_text().splitlines(keepends=True)
+                    if line.endswith("\n")]
+
+        self.invocations["serial"] += 1
+        proc = subprocess.Popen(list(map(str, args)), env=env, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, universal_newlines=True,
+                                start_new_session=True, preexec_fn=reset_signals)
+        try:
+            deadline = time.monotonic() + 10
+            while (not any(item["kind"] == "solver-wait" for item in events()) and
+                   proc.poll() is None and time.monotonic() < deadline):
+                time.sleep(0.02)
+            self.assertIsNone(proc.poll(), "probe stopped before its solver was ready")
+            self.assertTrue(any(item["kind"] == "solver-wait" for item in events()),
+                            "probe never reached its solver")
+            os.killpg(proc.pid, number)
+            try:
+                output = proc.communicate(timeout=5)[0]
+            except subprocess.TimeoutExpired:
+                os.killpg(proc.pid, signal.SIGKILL)
+                output = proc.communicate(timeout=5)[0]
+                self.fail("signal did not promptly stop the run:\n" + output)
+        finally:
+            # Only the process group created above; never signal an existing job.
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            proc.wait(timeout=5)
+        seen = events()
+        self.assertNotEqual(proc.returncode, 0, output)
+        self.assertNotIn("PASS [", output)
+        self.assertEqual(sum(item["kind"] == "solver-wait" for item in seen), 1,
+                         "an interrupted batch dispatched another test:\n" + output)
+        markers = [item for item in seen if item["kind"] == "marker"]
+        self.assertLessEqual(len(markers), 1, output)
+        for marker in markers:
+            self.assertEqual(marker["suffix"], ".error", output)
+        if require_record:
+            self.assertEqual(len(markers), 1, output)
+            self.assertEqual(list(signal_tmp.iterdir()), [], output)
+        return proc.returncode, output, markers
+
+    def test_signals_stop_serial_batches_directly_and_under_make(self):
+        make = shutil.which("make")
+        self.assertIsNotNone(make, "make is required for the interrupt integration probe")
+        tests = [self.case("wait%d.smt2" % n, content="; wait-for-signal\n") for n in range(4)]
+        command = [BASH, self.scripts / "check.sh", self.cases, self.binaries, *tests]
+        makefile = self.root / "interrupt.mk"
+        makefile.write_text(".PHONY: check\ncheck:\n\t" +
+                            " ".join(shlex.quote(str(arg)) for arg in command) + "\n")
+        for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            for launcher in (command, [make, "-s", "-f", makefile, "check"]):
+                with self.subTest(signal=number, launcher=launcher[0]):
+                    # Unlike bash's cooperative SIGINT wait, TERM/HUP can
+                    # start the parent's cleanup before its worker exits.
+                    # They must stop promptly, without claiming a PASS; a
+                    # temporary marker need not survive that cleanup race.
+                    _, _, markers = self.signal_command(
+                        launcher, number, require_record=(number == signal.SIGINT))
+                    for marker in markers:
+                        self.assertEqual(marker["test"], str(tests[0]))
+
+    def test_signalled_worker_records_error_then_terminates_by_signal(self):
+        test = self.case(content="; wait-for-signal\n")
+        for number in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            with self.subTest(signal=number):
+                output_dir = self.root / ("signal-output-%d" % number)
+                output_dir.mkdir()
+                code, output, markers = self.signal_command(
+                    [BASH, self.scripts / "run_test.sh", test, self.binaries, output_dir], number)
+                self.assertEqual(code, -number, output)
+                self.assertEqual(markers[0]["test"], str(test))
+                self.assertEqual(len(list(output_dir.glob("*.error"))), 1, output)
+                self.assertEqual(list(output_dir.glob("*.pass")), [], output)
 
 
 if __name__ == "__main__":

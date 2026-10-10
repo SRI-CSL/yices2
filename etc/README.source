@@ -121,10 +121,12 @@ and wd regression groups. The test targets have different purposes:
   individually from build/<target>-<mode>/bin (or static_bin).
 
 On Linux, static-check-api and static-test also build the shared library with
-static GMP. If the system libgmp.a is not PIC, supply a PIC archive through
-configure's --with-pic-gmp option (and its matching header if needed); see
-doc/COMPILING. A non-PIC system archive alone is not sufficient for those
-targets.
+static GMP unless both the CaDiCaL and Kissat delegates are configured. With
+both delegates these targets build the static executables instead, and a
+non-PIC GMP archive is sufficient. In the shared-library case, if the system
+libgmp.a is not PIC, supply a PIC archive through configure's --with-pic-gmp
+option (and its matching header if needed); see doc/COMPILING. This PIC
+requirement also applies when requesting make static-lib explicitly.
 
 With Python 3 installed, python3 tests/unit/test_regress_harness.py checks the
 regression driver's own failure accounting and path handling, without building

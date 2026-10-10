@@ -193,6 +193,9 @@ cryptominisat-tree:       GENERATED
 cryptominisat-source-file: GENERATED
 cryptominisat-source-sha256: GENERATED
 cryptominisat-submodule-policy: GENERATED
+cryptominisat-export-profile: GENERATED
+cryptominisat-upstream-archive-sha256: GENERATED
+cryptominisat-export-record-sha256: GENERATED
 cryptominisat-cmake-args: GENERATED
 cryptominisat-tests:      GENERATED
 cryptominisat-archive-sha256: GENERATED

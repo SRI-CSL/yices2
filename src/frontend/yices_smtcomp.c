@@ -14,6 +14,7 @@
 #endif
 
 #include <stdio.h>
+#include "frontend/common/library_notices.h"
 #include <stdlib.h>
 #include <stdbool.h>
 #include <signal.h>
@@ -221,6 +222,7 @@ static void print_version(void) {
 	 "Copyright (c) 2026, SRI International.\n"
          "Linked with GMP %s\n"
 	 "Copyright Free Software Foundation, Inc.\n"
+         YICES_LIBPOLY_NOTICES
          "Build date: %s\n"
          "Platform: %s (%s)\n"
          "Includes components from the Free Software Foundation and others.\n"
@@ -376,6 +378,7 @@ static inline simplex_solver_t *context_get_simplex_solver(context_t *ctx) {
 static void print_yices_header(FILE *f) {
   fprintf(f, "Yices %s, Copyright (c) 2026, SRI International.\n", yices_version);
   fprintf(f, "GMP %s, Copyright Free Software Foundation, Inc\n", gmp_version);
+  fputs(YICES_LIBPOLY_NOTICES, f);
   fprintf(f, "Includes components from the Free Software Foundation and others.\n"
              "See the NOTICES file for those components, the terms that apply to\n"
              "them, and where to find the copies of the GNU Lesser General Public\n"

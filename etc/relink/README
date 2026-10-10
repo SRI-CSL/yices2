@@ -7,9 +7,12 @@ You do not need this kit to install or run Yices
 If you want to use Yices, download the normal Yices distribution archive and
 follow the instructions in its README. Nothing in this kit is required to
 install Yices, to run the command-line tools, or to link a program against the
-Yices library. You can ignore it entirely.
+shared Yices library. Static-library clients need matching dependency archives:
+deps/ supplies these, or you can build compatible archives from the accompanying
+canonical dependency-source assets. See the binary distribution README's
+"Static-library clients" section.
 
-This kit exists for one purpose. Some of the libraries built into the Yices
+This kit is provided for relinking. Some of the libraries built into the Yices
 binaries are distributed under the GNU Lesser General Public License, which
 gives you the right to modify those libraries and rebuild the Yices programs
 against your modified versions. The kit contains the material you need to do
@@ -17,9 +20,10 @@ that: the Yices object code, the dependency archives in deps/, taken from the
 official build, the link commands, and the license texts and notices for the
 components the kit redistributes.
 
-The kit does not carry every input the official link used. The C library, the
-startup object files and the compiler runtime archives come from the machine
-you relink on. See "What this kit does not do" below.
+The kit does not carry every input the official link used. The ordinary
+relink scripts use the machine's C library, startup files and compiler runtime.
+REBUILDING.md also describes a separate replacement-glibc route; its compiler
+runtime remains a prerequisite. See "What this kit does not do" below.
 
 
 What is in the kit
@@ -38,6 +42,10 @@ What is in the kit
   verify-manifest.sh         checks the kit is intact
   relink-executables.sh      rebuilds the four command-line tools
   relink-library.sh          rebuilds the shared library
+  REBUILDING.md              recipient source/rebuild/relink instructions
+  rebuild-gmp-libpoly.sh     builds/tests replacement libraries privately
+  prepare-glibc-source.py    prepares the exact patched Linux glibc source
+  relink-with-glibc.sh       explicit replacement-glibc executable link
 
 
 Which libraries this concerns
@@ -45,8 +53,9 @@ Which libraries this concerns
 
   GNU C Library    Built into the four command-line executables. The shared
                    library does not contain it; it loads the system copy at
-                   run time. The scripts take the C library from the machine
-                   you relink on. See "What this kit does not do" below.
+                   run time. The ordinary scripts use the host C library;
+                   relink-with-glibc.sh selects a recipient-built replacement.
+                   See "What this kit does not do" below.
 
   GMP              Built into yices, yices-smt, yices-smt2, and the shared
                    library. Not present in yices-sat.
@@ -103,15 +112,15 @@ work from the extracted kit alone.
 What this kit does not do
 -------------------------
 
-There is no input for a C library. The scripts have no variable for a libc
-archive, for startup object files, or for a sysroot, and they read no C library
-from deps/. The link uses the C library, the startup files, and the toolchain
-directories of the machine you run them on. Relinking against a C library you
-built yourself is outside what these scripts do.
-
-The supplied object files can also be used in a separately constructed link
-command that names a recipient-built C library and matching startup and
-toolchain inputs. The convenience scripts do not restrict that use.
+The ordinary relink-executables.sh uses the machine's C library and startup
+files; there is no libc archive in deps/. For a recipient-built glibc, use
+the separate Linux relink-with-glibc.sh and the complete source-preparation,
+build and runtime-verification instructions in REBUILDING.md. It explicitly
+selects that glibc's startup objects and libraries, while obtaining the GCC
+runtime from your compatible compiler. It installs nothing into the host.
+You can also use the supplied objects in your own link command with the
+appropriate C-library, startup and toolchain inputs. The convenience scripts
+do not restrict that use or certify an arbitrary modified C runtime.
 
 One thing relinking does not change is the version text yices-sat prints. That
 text names the GNU C Library, and which text the program carries was settled
@@ -131,7 +140,9 @@ change and not a bad download.
 
 Step 2: replace a library
 
-Build your modified version of GMP or LibPoly as a static archive, then either
+REBUILDING.md gives a tested source/build recipe using the dependency archives
+published with this release and new private prefixes. Build your modified
+version of GMP or LibPoly as a static archive, then either
 drop it into deps/ under the existing name or point the script at it. For
 example:
 
