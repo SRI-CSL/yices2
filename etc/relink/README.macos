@@ -123,11 +123,12 @@ glibc helpers are Linux-only; macOS supplies its C library dynamically.
 Either replace the corresponding file under deps/ or provide an environment
 override. For example:
 
-    GMP_A=/path/to/libgmp.a SKIP_VERIFY=1 ./relink-executables.sh
-    LIBPOLY_A=/path/to/libpicpoly.a SKIP_VERIFY=1 ./relink-library.sh
+    CC=/usr/bin/clang GMP_A=/path/to/libgmp.a ./relink-executables.sh
+    CC=/usr/bin/clang LIBPOLY_A=/path/to/libpicpoly.a ./relink-library.sh
 
-Set SKIP_VERIFY=1 after intentionally changing an input, because the original
-manifest should and will reject changed bytes. The library-side GMP and
+No SKIP_VERIFY is needed for these external overrides: they do not change the
+kit. Set SKIP_VERIFY=1 only after intentionally changing a file inside the kit,
+because the original manifest should and will reject changed bytes. The library-side GMP and
 LibPoly inputs must be position-independent.
 
 These are the inputs relink-executables.sh accepts, besides the test hook
@@ -253,4 +254,5 @@ Their notices are here because this kit redistributes those archives.
 NOTICES, in this kit, records each third-party component the kit
 redistributes, where it came from, and the terms its own authors distribute it
 under where the repository evidence establishes them, and records the gap
-where it does not.
+where it does not. Section 3.5 reproduces LibPoly's distinct source-file
+copyright notices, not an invented project-level notice.

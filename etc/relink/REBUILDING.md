@@ -52,17 +52,32 @@ All prefixes and logs below are within this newly created workspace.
 
 ## 2. Rebuild GMP and LibPoly, with your changes
 
-Prerequisites: Bash (3.2 or later), C and C++ compilers, make, cmake, ctest,
-ninja, tar and xz. Install prerequisites through your normal administrator
+Prerequisites: Bash (3.2 or later), compatible C and C++ compilers, GNU m4,
+make, cmake, ctest, ninja, tar and xz. GNU m4 is required by GMP's configure
+even for the assembly-disabled PIC build. Install prerequisites through your normal administrator
 process if unavailable; this recipe never installs them. Use the same target
 architecture as the kit, not translated macOS execution.
+
+Choose the compiler pair explicitly and retain the same selection for the
+build and relink commands. Each variable names one executable, not a command
+with extra arguments. Replace the Linux example paths with your installed
+compatible GCC/G++ pair; on macOS use the matching native Apple tools:
+
+```sh
+# Linux example (see the toolchain compatibility discussion above):
+CC=/path/to/compatible/gcc
+CXX=/path/to/compatible/g++
+# macOS instead: CC=/usr/bin/clang; CXX=/usr/bin/clang++
+export CC CXX
+# Normally GNU m4 is named m4 on PATH. If necessary, select its actual path:
+# M4=/path/to/gnu/m4; export M4
+```
 
 ```sh
 tar -xf "$YICES_ASSETS/gmp-6.3.0.tar.xz" -C "$YICES_REBUILD"
 tar -xf "$YICES_ASSETS/libpoly-c342ff1ad2f0.tar.gz" -C "$YICES_REBUILD"
 # Make your intended source changes in the two extracted directories now.
-# On Linux, select compatible GCC/G++ executables on PATH, e.g. GCC Toolset 14.
-# On macOS, use the native Apple clang/clang++ toolchain.
+# CC and CXX above select the same toolchain for all following commands.
 "$YICES_KIT/rebuild-gmp-libpoly.sh" \
   "$YICES_REBUILD/gmp-6.3.0" "$YICES_REBUILD/libpoly-c342ff1ad2f0" \
   "$YICES_REBUILD/libraries" 4
@@ -75,7 +90,8 @@ and uses `-O2 -fPIC` for portability. Native arm64's normal build uses PIC with
 its native assembly. LibPoly builds both `libpoly.a` and `libpicpoly.a`, with
 its Python API disabled, using the private PIC GMP. It runs GMP's `make check`
 for each build and LibPoly's CTest suite. Logs remain in `libraries/`; if any
-command fails, stop and inspect those logs. Do not reuse a failed work directory
+command fails, the helper prints the failing phase and log path. Stop and
+inspect those logs. Do not reuse a failed work directory
 without understanding and recording what changed.
 
 The recipe is a compatible replacement build, not a claim to duplicate all
@@ -83,10 +99,10 @@ production options. The production arguments are separately recorded in
 BUILDINFO. You can use other compatible library build procedures.
 
 ```sh
-GMP_A="$YICES_REBUILD/libraries/gmp-normal/lib/libgmp.a" \
+CC="$CC" GMP_A="$YICES_REBUILD/libraries/gmp-normal/lib/libgmp.a" \
 LIBPOLY_A="$YICES_REBUILD/libraries/libpoly/lib/libpoly.a" \
   "$YICES_KIT/relink-executables.sh" "$YICES_REBUILD/modified-executables"
-GMP_A="$YICES_REBUILD/libraries/gmp-pic/lib/libgmp.a" \
+CC="$CC" GMP_A="$YICES_REBUILD/libraries/gmp-pic/lib/libgmp.a" \
 LIBPOLY_A="$YICES_REBUILD/libraries/libpoly/lib/libpicpoly.a" \
   "$YICES_KIT/relink-library.sh" "$YICES_REBUILD/modified-library"
 ```
@@ -131,8 +147,13 @@ python3 "$YICES_KIT/prepare-glibc-source.py" \
 
 This helper accepts only the exact published SRPM. It converts its payload,
 preserves the spec and patches, unpacks glibc 2.28 and applies all 1,096 patches
-in the spec's numeric `%autosetup -p1` order. It checks the patched locale list
-and records `PATCHES-APPLIED.json`. It executes neither an RPM installation
+with `-p1`, sorted by their numeric Patch identifiers. This is not an RPM
+macro interpreter: the spec declares Patch52 before Patch47--51. For this
+exact pinned SRPM, numeric and declaration order were checked to produce
+identical patched source bytes, excluding backup files. The helper deliberately
+retains patch's `.orig` backup files as evidence; they are not build inputs.
+It checks the patched locale list and records `PATCHES-APPLIED.json`.
+It executes neither an RPM installation
 nor package scriptlets/macros. It is deliberately not a general RPM builder.
 The source tree is `glibc-source/glibc-2.28`; make your changes there.
 
@@ -143,15 +164,15 @@ normal deployment; it is only a way to observe a replaced runtime code path.
 ```sh
 mkdir "$YICES_REBUILD/glibc-build"
 cd "$YICES_REBUILD/glibc-build"
-# Select an installed compiler compatible with this glibc source. The local
-# recipient proof used matched GCC/G++ 14.2.1 for this build and the relink.
+# Retain the explicit compatible Linux CC/CXX selection from section 2.
+# The local recipient proof used matched GCC/G++ 14.2.1.
 "$YICES_REBUILD/glibc-source/glibc-2.28/configure" \
-  CC=/path/to/compatible/gcc CXX=/path/to/compatible/g++ CFLAGS=-O2 \
+  CC="$CC" CXX="$CXX" CFLAGS=-O2 \
   --prefix="$YICES_REBUILD/unused-glibc-prefix" \
   --disable-werror --disable-profile --disable-crypt --enable-kernel=3.2.0
 make -j4
 # No make install: all subsequent inputs come from this build directory.
-CC=/path/to/compatible/gcc \
+CC="$CC" \
   "$YICES_KIT/relink-with-glibc.sh" "$YICES_REBUILD/glibc-build" \
   "$YICES_REBUILD/modified-glibc-executables"
 ```
@@ -164,6 +185,20 @@ runtime remains a normal prerequisite; these archives are not silently taken
 from a second relink kit. The helper does not promise that arbitrary C library
 versions or ABI changes will work. You may also construct your own link command
 using the supplied application objects and appropriate startup/runtime inputs.
+
+To combine the rebuilt glibc with your modified GMP and LibPoly from section 2,
+pass their external archives explicitly and choose another new output directory:
+
+```sh
+CC="$CC" GMP_A="$YICES_REBUILD/libraries/gmp-normal/lib/libgmp.a" \
+LIBPOLY_A="$YICES_REBUILD/libraries/libpoly/lib/libpoly.a" \
+  "$YICES_KIT/relink-with-glibc.sh" "$YICES_REBUILD/glibc-build" \
+  "$YICES_REBUILD/modified-all-libraries-executables"
+```
+
+The glibc helper always verifies the unchanged kit and does not accept
+SKIP_VERIFY as a bypass. Keep replacement archives external for this route.
+If you previously edited deps/, use a freshly extracted, verified kit.
 
 Inspect the four `.map` files and run the version/solve checks above against
 `modified-glibc-executables` (plus a small DIMACS case with `yices-sat`). Confirm

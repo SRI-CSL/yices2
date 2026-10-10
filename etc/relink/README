@@ -140,16 +140,22 @@ change and not a bad download.
 
 Step 2: replace a library
 
-REBUILDING.md gives a tested source/build recipe using the dependency archives
-published with this release and new private prefixes. Build your modified
+REBUILDING.md gives a source/build recipe using the dependency archives
+published with this release and new private prefixes. Its stated Linux
+toolchain was exercised in a local recipient proof; that is not a claim of
+native macOS execution or of testing every recipient environment. Build your modified
 version of GMP or LibPoly as a static archive, then either
 drop it into deps/ under the existing name or point the script at it. For
 example:
 
-    GMP_A=/path/to/my/libgmp.a ./relink-executables.sh
+    CC=/path/to/compatible/gcc GMP_A=/path/to/my/libgmp.a ./relink-executables.sh
 
 Once you replace a file in deps/, the manifest check will fail, which is
-correct and expected. Set SKIP_VERIFY=1 to continue.
+correct and expected. Set SKIP_VERIFY=1 to continue with the ordinary relink
+scripts only after such an intentional edit. External archive overrides leave
+the kit unchanged and need no override. The explicit-glibc helper always
+verifies the kit; use external GMP_A/LIBPOLY_A with that route instead of
+changing deps/.
 
 These are the inputs relink-executables.sh accepts. It reads nothing else from
 the environment.
@@ -303,5 +309,6 @@ redistributes, where it came from, and the terms its own authors distribute it
 under where the repository evidence establishes them, and records the gap
 where it does not. It reproduces the copyright notices supplied by CUDD,
 CaDiCaL, Kissat, and CryptoMiniSat, whose archives are in deps/. For GMP and
-LibPoly itself it records that the source carries copyright notices in
-individual files rather than one notice for the project.
+LibPoly it records that the source carries copyright notices in individual
+files rather than one notice for the project. Section 3.5 also reproduces
+LibPoly's distinct source-file notices; these are not a new aggregate notice.

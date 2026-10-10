@@ -8,7 +8,8 @@ This applies to the Yices source. This archive also contains GMP and
 LibPoly. These are covered by the GNU Lesser General Public License; NOTICES
 states which version applies to each. Both carry copyright notices in
 individual source files rather than one notice for the project, so NOTICES
-reproduces no copyright line for GMP or LibPoly itself. A relink kit for
+reproduces no invented project-level copyright line for either library.
+Section 3.5 reproduces the distinct LibPoly source-file notices. A relink kit for
 rebuilding against your own versions of those libraries is published as a
 separate asset on the release page.
 
