@@ -150,8 +150,14 @@ release-inputs-sha256:    GENERATED
 # source archives. Each platform builds them natively and records the exact
 # archives and headers consumed by Yices. The dependency receipt itself is
 # preserved in the matching provenance archive.
+# The delegate metadata profile omits hostnames from CaDiCaL/Kissat's generated
+# headers via a checked build recipe; their canonical source scripts are intact.
+# The exact transformation is scripts/delegate-build-metadata.py in the matching
+# Yices source archive. It retains OS/release/architecture and compiler details.
 
 dependency-build-receipt-sha256: GENERATED
+delegate-metadata-profile: GENERATED
+delegate-metadata-script-sha256: GENERATED
 dependency-build-platform: GENERATED
 dependency-build-arch:    GENERATED
 dependency-deployment-target: GENERATED

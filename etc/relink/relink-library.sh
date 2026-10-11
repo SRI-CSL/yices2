@@ -71,9 +71,9 @@ LIBYICES_PIC_A=${LIBYICES_PIC_A:-$libdir/libyices-pic.a}
 
 # ---------------------------------------------------------------------------
 # The shared library uses the no-assembly position-independent GMP, not the
-# optimized static one the executables use. GMP's x86-64 assembly objects are
-# not position-independent and cannot go into a shared object. If you supply
-# your own GMP here it must be configured for PIC.
+# non-PIC archive the executables use. Disabling assembly is the release's
+# PIC build policy, not a general limitation of GMP's x86-64 assembly. A
+# replacement must be a compatible PIC build; verify both link and execution.
 # ---------------------------------------------------------------------------
 
 GMP_A=${GMP_A:-$depsdir/libgmp-pic.a}

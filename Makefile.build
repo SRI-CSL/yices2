@@ -160,6 +160,7 @@ macos_release_cflags = $(strip $(CFLAGS) -fvisibility=hidden -Wall \
   -Wredundant-decls -O3 -fomit-frame-pointer $(NO_STACK_PROTECTOR))
 dependency_buildinfo_keys = \
   dependency-build-receipt-sha256 dependency-build-platform \
+  delegate-metadata-profile delegate-metadata-script-sha256 \
   dependency-build-arch dependency-deployment-target dependency-cc \
   dependency-cc-version dependency-cxx dependency-cxx-version \
   dependency-ar-version dependency-ar-command dependency-cmake-version \
@@ -380,6 +381,7 @@ release-provenance: $(release_provenance_deps)
 	KISSAT_RAW_ARCHIVE="$(abspath $(STATIC_KISSAT_RAW))" \
 	KISSAT_NAMESPACED_ARCHIVE="$(abspath $(STATIC_KISSAT_YICES))" \
 	KISSAT_NAMESPACE_SCRIPT="$(abspath scripts/rewrite-kissat-kitten-symbols.sh)" \
+	DELEGATE_METADATA_SCRIPT="$(abspath scripts/delegate-build-metadata.py)" \
 	  scripts/capture-release-provenance.sh $(provenance_dir)
 	@ test -s $(provenance_dir)/CAPTURE-COMPLETE || \
 	  { echo "release provenance completion marker is missing" >&2; exit 1; }
@@ -1268,7 +1270,7 @@ source-distribution: $(distributions) doc
 	cp autoconf/* $(srcdist_dir)/autoconf
 	$(MKDIR_P) $(srcdist_dir)/scripts
 	cp scripts/rewrite-kissat-kitten-symbols.sh scripts/capture-release-provenance.sh \
-	  scripts/create-release-archive.sh \
+	  scripts/create-release-archive.sh scripts/delegate-build-metadata.py \
 	  $(srcdist_dir)/scripts
 	$(MKDIR_P) $(srcdist_dir)/configs
 	$(MKDIR_P) $(srcdist_dir)/etc

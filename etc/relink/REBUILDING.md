@@ -62,7 +62,11 @@ architecture as the kit, not translated macOS execution.
 Choose the compiler pair explicitly and retain the same selection for the
 build and relink commands. CC, CXX and M4 must each name one executable without
 whitespace, not a command with extra arguments: upstream GMP splits these
-values. The helper rejects whitespace before creating its build directory.
+values. The helper resolves each selection to an absolute executable path in
+the caller's directory and fixes relative/empty PATH entries there before any
+build changes directory. A relative selection such as toolbin/gcc therefore
+continues to name the same tool. Missing tools or whitespace in the selection
+or its resolved directory are rejected before creating the build directory.
 Replace the Linux example paths with your installed
 compatible GCC/G++ pair; on macOS use the matching native Apple tools:
 

@@ -39,7 +39,8 @@ class RecipientRebuild(unittest.TestCase):
         self.work = self.root / "libraries"
         self.env = {key: value for key, value in os.environ.items()
                     if key not in ("CC", "CXX", "M4", "BASH_ENV", "ENV", "FAIL_STEP",
-                                   "OMIT_ARCHIVE", "EMPTY_ARCHIVE", "MAKE_ACTION_LOG")}
+                                   "OMIT_ARCHIVE", "EMPTY_ARCHIVE", "MAKE_ACTION_LOG",
+                                   "FIXTURE_ACTION_PREFIX", "MACOSX_DEPLOYMENT_TARGET")}
         self.env.update(PATH=str(self.bin), LC_ALL="C", TEST_PLATFORM="Linux", TEST_ARCH="x86_64")
         for name in ("mkdir", "dirname", "basename"):
             (self.bin / name).symlink_to(shutil.which(name))
@@ -48,6 +49,7 @@ class RecipientRebuild(unittest.TestCase):
             script(self.bin / name, "exit 0")
         script(self.bin / "m4", 'echo "m4 (GNU M4) fixture"')
         script(self.gmp / "configure", '''
+printf '%s\\0' "$@" > fixture-args
 case "$PWD:${FAIL_STEP:-}" in
   */gmp-normal-build:gmp-normal-configure) echo 'fixture configure failure'; exit 73;;
 esac
@@ -55,6 +57,9 @@ prefix=
 for arg; do case "$arg" in --prefix=*) prefix=${arg#--prefix=};; esac; done
 printf '%s\\n' "$prefix" > fixture-prefix
 printf 'CC=%s CXX=%s M4=%s DEPLOY=%s\\n' "$CC" "$CXX" "$M4" "${MACOSX_DEPLOYMENT_TARGET:-NONE}"
+"$CC" --version
+"$CXX" --version
+"$M4" --version
 ''')
         (self.poly / "CMakeLists.txt").write_text("# fixture only\n")
         script(self.bin / "make", '''
@@ -78,6 +83,9 @@ if [[ $1 == install ]]; then
 fi
 ''')
         script(self.bin / "cmake", '''
+case "$1" in -S) operation=configure;; --build) operation=build;; --install) operation=install;; *) exit 90;; esac
+printf '%s\\0' "$@" > "$FIXTURE_ACTION_PREFIX-cmake-$operation.args"
+printf 'CC=%s CXX=%s DEPLOY=%s\\n' "$CC" "$CXX" "${MACOSX_DEPLOYMENT_TARGET:-NONE}" > "$FIXTURE_ACTION_PREFIX-cmake-$operation.env"
 case "$1" in
   -S)
     [[ ${FAIL_STEP:-} != libpoly-configure ]] || { echo 'fixture cmake failure'; exit 75; }
@@ -107,17 +115,28 @@ case "$1" in
   *) exit 90;;
 esac
 ''')
-        script(self.bin / "ctest", '[[ ${FAIL_STEP:-} != libpoly-test ]] || { echo "fixture test failure"; exit 77; }')
+        script(self.bin / "ctest", '''
+printf '%s\\0' "$@" > "$FIXTURE_ACTION_PREFIX-ctest.args"
+[[ ${FAIL_STEP:-} != libpoly-test ]] || { echo "fixture test failure"; exit 77; }
+''')
         script(self.bin / "ninja", "exit 0")
 
-    def run_helper(self, **updates):
+    def run_helper(self, source_arguments=None, work_argument=None, jobs="2", **updates):
         self.make_log = self.root / (self.work.name + "-make-actions.log")
-        env = dict(self.env, MAKE_ACTION_LOG=str(self.make_log), **updates)
-        result = subprocess.run(["/bin/bash", str(HELPER), str(self.gmp), str(self.poly),
-                                 str(self.work), "2"], env=env, text=True,
+        self.action_prefix = str(self.root / self.work.name)
+        env = dict(self.env, MAKE_ACTION_LOG=str(self.make_log),
+                   FIXTURE_ACTION_PREFIX=self.action_prefix, **updates)
+        sources = source_arguments or [str(self.gmp), str(self.poly)]
+        result = subprocess.run(["/bin/bash", str(HELPER), *sources,
+                                 work_argument or str(self.work), jobs], env=env, text=True, cwd=self.root,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=15)
         (self.root / (self.work.name + "-terminal.log")).write_text(result.stdout)
         return result
+
+    def arguments(self, path):
+        data = Path(path).read_bytes()
+        self.assertTrue(data.endswith(b"\0"), repr(data))
+        return data[:-1].decode().split("\0")
 
     def test_missing_m4_is_explicit_before_reservation(self):
         (self.bin / "m4").rename(self.bin / "not-on-path-m4")
@@ -179,6 +198,85 @@ esac
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("CC must name one executable without whitespace", result.stdout)
         self.assertFalse(self.work.exists())
+
+    def test_relative_tools_are_absolute_before_changing_directory(self):
+        (self.root / "toolbin").symlink_to(self.bin, target_is_directory=True)
+        for prefix in ("bin/", "./bin/", "toolbin/", "bin/../bin/"):
+            with self.subTest(prefix=prefix):
+                self.work = self.root / ("libraries-relative-" + str(len(list(self.root.glob('libraries-relative-*')))))
+                result = self.run_helper(CC=prefix + "cc", CXX=prefix + "c++", M4=prefix + "m4")
+                self.assertEqual(result.returncode, 0, result.stdout)
+                for variant in ("normal", "pic"):
+                    log = (self.work / ("gmp-" + variant + ".log")).read_text()
+                    for variable, tool in (("CC", "cc"), ("CXX", "c++"), ("M4", "m4")):
+                        self.assertIn(variable + "=" + str(self.bin / tool), log)
+
+    def test_relative_and_empty_path_entries_remain_bound_to_caller(self):
+        for name in ("cc", "c++", "m4"):
+            (self.root / name).symlink_to(self.bin / name)
+        for index, selection in enumerate(("bin", "./bin", "bin:", ":bin", ".:bin", str(self.bin) + ":bin")):
+            with self.subTest(path=selection):
+                self.work = self.root / ("libraries-path-" + str(index))
+                result = self.run_helper(PATH=selection)
+                self.assertEqual(result.returncode, 0, result.stdout)
+                expected = self.root if selection.startswith((":", ".:")) else self.bin
+                log = (self.work / "gmp-pic.log").read_text()
+                self.assertIn("CC=" + str(expected / "cc"), log)
+                self.assertIn("M4=" + str(expected / "m4"), log)
+                self.assertIn("gmp-pic-build|-j 2 check", self.make_log.read_text())
+
+    def test_resolved_tool_directory_with_whitespace_is_rejected(self):
+        actual = self.root / "tool directory"
+        actual.mkdir()
+        for name in ("cc", "c++", "m4"):
+            shutil.copy2(self.bin / name, actual / name)
+        (self.root / "alias").symlink_to(actual, target_is_directory=True)
+        for variable, name in (("CC", "cc"), ("CXX", "c++"), ("M4", "m4")):
+            with self.subTest(variable=variable):
+                self.work = self.root / ("libraries-alias-" + variable)
+                result = self.run_helper(**{variable: "alias/" + name})
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn(variable + " must name one executable without whitespace", result.stdout)
+                self.assertFalse(self.work.exists())
+
+    def test_missing_relative_tools_fail_before_reservation(self):
+        for variable in ("CC", "CXX", "M4"):
+            with self.subTest(variable=variable):
+                result = self.run_helper(**{variable: "missing/tool"})
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn("input and prerequisite checks failed", result.stdout)
+                self.assertFalse(self.work.exists())
+                self.assertFalse(self.make_log.exists())
+
+    def test_unsupported_platforms_fail_before_reservation(self):
+        for platform, arch in (("Linux", "aarch64"), ("Darwin", "i386"), ("FreeBSD", "x86_64")):
+            with self.subTest(platform=platform, arch=arch):
+                result = self.run_helper(TEST_PLATFORM=platform, TEST_ARCH=arch)
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn("recipe supports Linux", result.stdout)
+                self.assertFalse(self.work.exists())
+
+    def test_whitespace_build_paths_fail_before_reservation(self):
+        self.work = self.root / "space in work"
+        result = self.run_helper()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("require paths without whitespace", result.stdout)
+        self.assertFalse(self.work.exists())
+
+    def test_relative_source_and_work_paths_remain_in_caller_directory(self):
+        result = self.run_helper(source_arguments=["gmp", "./poly"], work_argument="libraries")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertTrue((self.work / "gmp-pic/lib/libgmp.a").is_file())
+        self.assertIn(str(self.work), result.stdout)
+
+    def test_dangling_work_symlink_is_not_followed_or_replaced(self):
+        target = self.root / "not-created"
+        self.work.symlink_to(target, target_is_directory=True)
+        result = self.run_helper()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertTrue(self.work.is_symlink())
+        self.assertEqual(self.work.readlink(), target)
+        self.assertFalse(target.exists())
 
     def test_gmp_normal_failure_preserves_status_and_log(self):
         result = self.run_helper(FAIL_STEP="gmp-normal-configure")
@@ -260,8 +358,35 @@ esac
                 result = self.run_helper(TEST_PLATFORM=platform, TEST_ARCH=arch)
                 self.assertEqual(result.returncode, 0, result.stdout)
                 self.assertTrue((self.work / "libpoly/lib/libpicpoly.a").is_file())
-                if platform == "Darwin":
-                    self.assertIn("DEPLOY=11.0", (self.work / "gmp-normal.log").read_text())
+                normal_options = (["--enable-fat", "--without-pic"] if platform == "Linux" else
+                                  ["--enable-fat", "--with-pic"] if arch == "x86_64" else ["--with-pic"])
+                for variant in ("normal", "pic"):
+                    options = normal_options if variant == "normal" else ["--disable-assembly", "--with-pic"]
+                    flags = "-O2" if platform == "Linux" and variant == "normal" else "-O2 -fPIC"
+                    self.assertEqual(self.arguments(self.work / ("gmp-" + variant + "-build/fixture-args")),
+                                     ["--prefix=" + str(self.work / ("gmp-" + variant)),
+                                      "--disable-shared", "--enable-static", "--enable-cxx", *options,
+                                      "CFLAGS=" + flags, "CXXFLAGS=" + flags])
+                    deploy = "11.0" if platform == "Darwin" else "NONE"
+                    self.assertIn("DEPLOY=" + deploy, (self.work / ("gmp-" + variant + ".log")).read_text())
+                self.assertEqual(self.arguments(self.action_prefix + "-cmake-configure.args"), [
+                    "-S", str(self.poly), "-B", str(self.work / "libpoly-build"), "-G", "Ninja",
+                    "-DCMAKE_BUILD_TYPE=Release", "-DCMAKE_INSTALL_PREFIX=" + str(self.work / "libpoly"),
+                    "-DCMAKE_C_FLAGS=-O2", "-DCMAKE_CXX_FLAGS=-O2",
+                    "-DGMP_INCLUDE_DIR=" + str(self.work / "gmp-pic/include"),
+                    "-DGMP_LIBRARY=" + str(self.work / "gmp-pic/lib/libgmp.a"),
+                    "-DLIBPOLY_BUILD_PYTHON_API=OFF", "-DLIBPOLY_BUILD_STATIC=ON",
+                    "-DLIBPOLY_BUILD_STATIC_PIC=ON", "-DBUILD_TESTING=ON"])
+                self.assertEqual(self.arguments(self.action_prefix + "-cmake-build.args"),
+                                 ["--build", str(self.work / "libpoly-build"), "--parallel", "2"])
+                self.assertEqual(self.arguments(self.action_prefix + "-ctest.args"),
+                                 ["--test-dir", str(self.work / "libpoly-build"), "--output-on-failure", "-j", "2"])
+                self.assertEqual(self.arguments(self.action_prefix + "-cmake-install.args"),
+                                 ["--install", str(self.work / "libpoly-build")])
+                environment = Path(self.action_prefix + "-cmake-configure.env").read_text()
+                self.assertIn("CC=" + str(self.bin / "cc"), environment)
+                self.assertIn("CXX=" + str(self.bin / "c++"), environment)
+                self.assertIn("DEPLOY=" + deploy, environment)
 
 
 if __name__ == "__main__":

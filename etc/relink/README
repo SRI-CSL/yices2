@@ -240,9 +240,12 @@ position-independent GMP archive that both links use, as its own README and
 BUILDINFO state. The executables also use the normal deps/libpoly.a archive,
 while the shared library uses deps/libpicpoly.a. These normal and PIC LibPoly
 archives are not interchangeable.
-GMP's x86-64 assembly code is not position-independent and cannot be linked
-into a shared object. If you supply your own GMP or LibPoly for the shared
-library, configure it for position-independent code.
+The normal Linux GMP archive in this kit is not position-independent and
+cannot be used for the shared library. Disabling assembly is this release's
+PIC build policy, not a general restriction on GMP's x86-64 assembly: a
+compatible assembly-enabled PIC GMP build can also work. If you supply your
+own GMP or LibPoly for the shared library, configure it for position-independent
+code and verify the resulting link and execution on your target.
 
 yices-sat is linked differently from the other three tools. It contains
 neither GMP nor LibPoly, so if you modified only one of those, yices-sat is

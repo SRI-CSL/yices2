@@ -54,6 +54,9 @@
 #                   exact delegate archives the Yices build consumes
 #   KISSAT_NAMESPACE_SCRIPT
 #                   exact script that produced the namespaced Kissat archive
+#   DELEGATE_METADATA_SCRIPT
+#                   public source script for hostname-free CaDiCaL/Kissat
+#                   generated metadata, bound by the dependency receipt
 #   MANUAL_PDF_FILE, MANUAL_PDF_SHA256
 #                   rebuilt manual and its hash as computed by the host driver
 #   MANUAL_BUILD_HOST_OS, MANUAL_LATEXMK_VERSION, MANUAL_PDFLATEX_VERSION
@@ -574,6 +577,18 @@ done
     fail "dependency build receipt names the wrong release-input manifest"
 [ "$(field release-inputs-sha256 "$DEPENDENCY_SOURCE_RECEIPT")" = "$release_inputs_sha" ] ||
     fail "dependency build receipt names a different release-input manifest"
+delegate_metadata_profile=$(field delegate-metadata-profile "$DEPENDENCY_SOURCE_RECEIPT")
+delegate_metadata_sha=$(field delegate-metadata-script-sha256 "$DEPENDENCY_SOURCE_RECEIPT")
+[ "$delegate_metadata_profile" = yices-delegate-metadata-v1 ] ||
+    fail "dependency build metadata profile differs from the release contract"
+case "$delegate_metadata_sha" in
+    ''|*[!0-9a-f]*) fail "invalid dependency metadata generator checksum" ;;
+esac
+[ "${#delegate_metadata_sha}" -eq 64 ] || fail "invalid dependency metadata generator checksum length"
+[ -n "${DELEGATE_METADATA_SCRIPT:-}" ] && [ -f "$DELEGATE_METADATA_SCRIPT" ] &&
+    [ ! -L "$DELEGATE_METADATA_SCRIPT" ] || fail "public delegate metadata generator is missing"
+[ "$(sha256_file "$DELEGATE_METADATA_SCRIPT")" = "$delegate_metadata_sha" ] ||
+    fail "public delegate metadata generator differs from its dependency receipt"
 
 dependency_build_platform=$(field build-platform "$DEPENDENCY_SOURCE_RECEIPT")
 dependency_build_arch=$(field build-arch "$DEPENDENCY_SOURCE_RECEIPT")
@@ -1214,6 +1229,8 @@ emit libpoly-build-receipt-sha256 "$libpoly_receipt_sha"
 emit dependency-build-receipt-file \
     "build-receipts/DEPENDENCY-SOURCE-RECEIPT"
 emit dependency-build-receipt-sha256 "$dependency_receipt_sha"
+emit delegate-metadata-profile "$delegate_metadata_profile"
+emit delegate-metadata-script-sha256 "$delegate_metadata_sha"
 
 emit dependency-build-platform "$dependency_build_platform"
 emit dependency-build-arch "$dependency_build_arch"

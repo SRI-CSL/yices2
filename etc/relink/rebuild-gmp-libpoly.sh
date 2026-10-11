@@ -37,6 +37,23 @@ leaf=$(basename -- "$work")
 work=$parent/$leaf
 [[ $gmp != *[[:space:]]* && $poly != *[[:space:]]* && $work != *[[:space:]]* ]] ||
   fail 'these dependency build systems require paths without whitespace'
+# The build systems change directory. Preserve the caller's PATH semantics,
+# including empty/relative entries, instead of searching a different directory
+# later (also for compiler subprocesses such as the assembler).
+remaining_path=${PATH:-}
+stable_path=
+while :; do
+  path_entry=${remaining_path%%:*}
+  case $path_entry in
+    /*) ;;
+    '') path_entry=$PWD ;;
+    *) path_entry=$PWD/$path_entry ;;
+  esac
+  stable_path=${stable_path:+$stable_path:}$path_entry
+  [[ $remaining_path == *:* ]] || break
+  remaining_path=${remaining_path#*:}
+done
+export PATH=$stable_path
 for tool in make cmake ctest ninja; do
   command -v "$tool" >/dev/null 2>&1 || fail "required tool is unavailable: $tool"
 done
@@ -47,10 +64,22 @@ for tool_variable in CC CXX M4; do
   [[ ${!tool_variable} != *[[:space:]]* ]] ||
     fail "$tool_variable must name one executable without whitespace; upstream GMP splits these values"
 done
-for tool in "$CC" "$CXX"; do
-  command -v "$tool" >/dev/null 2>&1 || fail "required compiler is unavailable: $tool (CC/CXX must each name one executable)"
-done
-command -v "$M4" >/dev/null 2>&1 || fail "GNU m4 is required; executable unavailable: $M4 (set M4 to its path)"
+resolve_tool() {
+  local variable=$1 label=$2 resolved_tool resolved_parent
+  resolved_tool=$(type -P -- "${!variable}") ||
+    fail "$label is unavailable: ${!variable} ($variable must name one executable)"
+  [[ -f $resolved_tool && -x $resolved_tool ]] ||
+    fail "$label is not an executable file: ${!variable}"
+  resolved_parent=$(cd -- "$(dirname -- "$resolved_tool")" && pwd -P) ||
+    fail "cannot resolve $variable executable directory: ${!variable}"
+  resolved_tool=$resolved_parent/${resolved_tool##*/}
+  [[ $resolved_tool != *[[:space:]]* ]] ||
+    fail "$variable must name one executable without whitespace, including its resolved directory"
+  printf -v "$variable" '%s' "$resolved_tool"
+}
+resolve_tool CC 'required C compiler'
+resolve_tool CXX 'required C++ compiler'
+resolve_tool M4 'GNU m4 is required; executable'
 m4_version=$("$M4" --version 2>&1) || fail "GNU m4 is required; $M4 --version failed"
 [[ $m4_version == *'GNU M4'* ]] || fail "GNU m4 is required; $M4 did not identify GNU M4"
 export CC CXX M4
