@@ -53,14 +53,17 @@ All prefixes and logs below are within this newly created workspace.
 ## 2. Rebuild GMP and LibPoly, with your changes
 
 Prerequisites: Bash (3.2 or later), compatible C and C++ compilers, GNU m4,
-make, cmake, ctest, ninja, tar and xz. GNU m4 is required by GMP's configure
-even for the assembly-disabled PIC build. Install prerequisites through your normal administrator
+make, cmake, ctest, ninja, tar and xz. This helper requires GNU m4. GMP needs
+a suitable m4 for assembly builds and, on x86-64, even with assembly disabled.
+Install prerequisites through your normal administrator
 process if unavailable; this recipe never installs them. Use the same target
 architecture as the kit, not translated macOS execution.
 
 Choose the compiler pair explicitly and retain the same selection for the
-build and relink commands. Each variable names one executable, not a command
-with extra arguments. Replace the Linux example paths with your installed
+build and relink commands. CC, CXX and M4 must each name one executable without
+whitespace, not a command with extra arguments: upstream GMP splits these
+values. The helper rejects whitespace before creating its build directory.
+Replace the Linux example paths with your installed
 compatible GCC/G++ pair; on macOS use the matching native Apple tools:
 
 ```sh

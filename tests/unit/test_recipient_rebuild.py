@@ -6,11 +6,16 @@
 Run with TMPDIR on a suitable scratch filesystem. Each test preserves its small
 fixture directory so a failure can be inspected. Real library build/relink
 proofs require the documented compilers and dependency sources separately.
+Release preflights run these controls with /bin/bash and preserve the helper
+and test hashes, tool identities and complete output. PASS is fixture coverage,
+not proof that dependencies were rebuilt on the reported target platform.
 """
+import hashlib
 import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -33,7 +38,8 @@ class RecipientRebuild(unittest.TestCase):
         self.poly.mkdir()
         self.work = self.root / "libraries"
         self.env = {key: value for key, value in os.environ.items()
-                    if key not in ("CC", "CXX", "M4", "BASH_ENV", "ENV", "FAIL_STEP")}
+                    if key not in ("CC", "CXX", "M4", "BASH_ENV", "ENV", "FAIL_STEP",
+                                   "OMIT_ARCHIVE", "EMPTY_ARCHIVE", "MAKE_ACTION_LOG")}
         self.env.update(PATH=str(self.bin), LC_ALL="C", TEST_PLATFORM="Linux", TEST_ARCH="x86_64")
         for name in ("mkdir", "dirname", "basename"):
             (self.bin / name).symlink_to(shutil.which(name))
@@ -52,13 +58,23 @@ printf 'CC=%s CXX=%s M4=%s DEPLOY=%s\\n' "$CC" "$CXX" "$M4" "${MACOSX_DEPLOYMENT
 ''')
         (self.poly / "CMakeLists.txt").write_text("# fixture only\n")
         script(self.bin / "make", '''
+printf '%s|%s\\n' "${PWD##*/}" "$*" >> "$MAKE_ACTION_LOG"
 case "$PWD:${FAIL_STEP:-}:$*" in
   */gmp-pic-build:gmp-pic-make:*) echo 'fixture make failure'; exit 74;;
+  */gmp-normal-build:gmp-normal-check:*-j\\ 2\\ check) echo 'fixture check failure'; exit 79;;
+  */gmp-pic-build:gmp-pic-check:*-j\\ 2\\ check) echo 'fixture check failure'; exit 80;;
 esac
 if [[ $1 == install ]]; then
   IFS= read -r prefix < fixture-prefix
   mkdir -p "$prefix/lib"
-  printf 'fixture archive\\n' > "$prefix/lib/libgmp.a"
+  output=${prefix##*/}/lib/libgmp.a
+  if [[ ${OMIT_ARCHIVE:-} != "$output" ]]; then
+    if [[ ${EMPTY_ARCHIVE:-} == "$output" ]]; then
+      : > "$prefix/lib/libgmp.a"
+    else
+      printf 'fixture archive\\n' > "$prefix/lib/libgmp.a"
+    fi
+  fi
 fi
 ''')
         script(self.bin / "cmake", '''
@@ -78,8 +94,16 @@ case "$1" in
     [[ ${FAIL_STEP:-} != libpoly-install ]] || { echo 'fixture install failure'; exit 78; }
     IFS= read -r prefix < "$2/fixture-prefix"
     mkdir -p "$prefix/lib"
-    printf 'fixture archive\\n' > "$prefix/lib/libpoly.a"
-    printf 'fixture archive\\n' > "$prefix/lib/libpicpoly.a";;
+    for archive in libpoly.a libpicpoly.a; do
+      output=libpoly/lib/$archive
+      if [[ ${OMIT_ARCHIVE:-} != "$output" ]]; then
+        if [[ ${EMPTY_ARCHIVE:-} == "$output" ]]; then
+          : > "$prefix/lib/$archive"
+        else
+          printf 'fixture archive\\n' > "$prefix/lib/$archive"
+        fi
+      fi
+    done;;
   *) exit 90;;
 esac
 ''')
@@ -87,11 +111,12 @@ esac
         script(self.bin / "ninja", "exit 0")
 
     def run_helper(self, **updates):
-        env = dict(self.env, **updates)
+        self.make_log = self.root / (self.work.name + "-make-actions.log")
+        env = dict(self.env, MAKE_ACTION_LOG=str(self.make_log), **updates)
         result = subprocess.run(["/bin/bash", str(HELPER), str(self.gmp), str(self.poly),
                                  str(self.work), "2"], env=env, text=True,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=15)
-        (self.root / "terminal.log").write_text(result.stdout)
+        (self.root / (self.work.name + "-terminal.log")).write_text(result.stdout)
         return result
 
     def test_missing_m4_is_explicit_before_reservation(self):
@@ -123,7 +148,7 @@ esac
         self.assertFalse(self.work.exists())
 
     def test_external_m4_and_compiler_selection(self):
-        override = self.root / "gnu m4"
+        override = self.root / "gnu-m4"
         (self.bin / "m4").rename(override)
         result = self.run_helper(M4=str(override), CC=str(self.bin / "cc"), CXX=str(self.bin / "c++"))
         self.assertEqual(result.returncode, 0, result.stdout)
@@ -131,17 +156,34 @@ esac
         log = (self.work / "gmp-normal.log").read_text()
         self.assertIn("M4=" + str(override), log)
         self.assertIn("CC=" + str(self.bin / "cc"), log)
+        self.assertIn("CXX=" + str(self.bin / "c++"), log)
+
+    def test_whitespace_tool_paths_fail_before_reservation(self):
+        for variable, executable in (("CC", "cc"), ("CXX", "c++"), ("M4", "m4")):
+            for index, whitespace in enumerate((" ", "\t", "\n", "\r", "\v", "\f")):
+                with self.subTest(variable=variable, whitespace=repr(whitespace)):
+                    override = self.root / (variable + whitespace + "tool")
+                    shutil.copy2(self.bin / executable, override)
+                    self.work = self.root / ("libraries-" + variable + "-" + str(index))
+                    result = self.run_helper(**{variable: str(override)})
+                    self.assertEqual(result.returncode, 1, result.stdout)
+                    self.assertIn(variable + " must name one executable without whitespace", result.stdout)
+                    self.assertIn("input and prerequisite checks failed", result.stdout)
+                    self.assertNotIn("partial workspace preserved", result.stdout)
+                    self.assertNotIn("PASS: recipient", result.stdout)
+                    self.assertFalse(self.work.exists())
+                    self.assertFalse(self.make_log.exists())
 
     def test_compiler_must_be_one_executable(self):
         result = self.run_helper(CC="cc --unrequested-flags")
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("CC/CXX must each name one executable", result.stdout)
+        self.assertIn("CC must name one executable without whitespace", result.stdout)
         self.assertFalse(self.work.exists())
 
     def test_gmp_normal_failure_preserves_status_and_log(self):
         result = self.run_helper(FAIL_STEP="gmp-normal-configure")
         self.assertEqual(result.returncode, 73, result.stdout)
-        self.assertIn("GMP normal", result.stdout)
+        self.assertIn("GMP normal configure/build/check/install failed (exit 73)", result.stdout)
         self.assertIn(str(self.work / "gmp-normal.log"), result.stdout)
         self.assertIn("fixture configure failure", (self.work / "gmp-normal.log").read_text())
         self.assertFalse((self.work / "gmp-pic-build").exists())
@@ -149,18 +191,59 @@ esac
     def test_gmp_pic_failure_preserves_status_and_log(self):
         result = self.run_helper(FAIL_STEP="gmp-pic-make")
         self.assertEqual(result.returncode, 74, result.stdout)
-        self.assertIn("GMP pic", result.stdout)
+        self.assertIn("GMP pic configure/build/check/install failed (exit 74)", result.stdout)
         self.assertIn(str(self.work / "gmp-pic.log"), result.stdout)
 
+    def test_both_gmp_checks_run_once_before_installation(self):
+        result = self.run_helper()
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(self.make_log.read_text().splitlines(), [
+            variant + "|" + action
+            for variant in ("gmp-normal-build", "gmp-pic-build")
+            for action in ("-j 2", "-j 2 check", "install")])
+
+    def test_gmp_check_failures_stop_before_installation(self):
+        for variant, status in (("normal", 79), ("pic", 80)):
+            with self.subTest(variant=variant):
+                self.work = self.root / ("libraries-check-" + variant)
+                result = self.run_helper(FAIL_STEP="gmp-" + variant + "-check")
+                self.assertEqual(result.returncode, status, result.stdout)
+                self.assertIn("GMP " + variant + " configure/build/check/install failed (exit " +
+                              str(status) + ")", result.stdout)
+                self.assertIn(str(self.work / ("gmp-" + variant + ".log")), result.stdout)
+                actions = self.make_log.read_text().splitlines()
+                self.assertEqual(actions[-1], "gmp-" + variant + "-build|-j 2 check")
+                self.assertNotIn("gmp-" + variant + "-build|install", actions)
+                self.assertFalse((self.work / ("gmp-" + variant)).exists())
+                self.assertFalse((self.work / "libpoly-build").exists())
+                self.assertNotIn("PASS: recipient", result.stdout)
+
     def test_libpoly_failure_phases(self):
-        for phase, status in (("configure", 75), ("build", 76), ("test", 77), ("install", 78)):
+        for phase, status, label in (("configure", 75, "LibPoly configure"),
+                                     ("build", 76, "LibPoly build"),
+                                     ("test", 77, "LibPoly tests"),
+                                     ("install", 78, "LibPoly installation into the new private prefix")):
             with self.subTest(phase=phase):
                 self.work = self.root / ("libraries-" + phase)
                 result = self.run_helper(FAIL_STEP="libpoly-" + phase)
                 self.assertEqual(result.returncode, status, result.stdout)
-                self.assertIn("LibPoly", result.stdout)
+                self.assertIn(label + " failed (exit " + str(status) + ")", result.stdout)
                 self.assertIn(str(self.work / "libpoly.log"), result.stdout)
                 self.assertIn("partial workspace preserved", result.stdout)
+                self.assertNotIn("PASS: recipient", result.stdout)
+
+    def test_missing_or_empty_output_archives_are_rejected(self):
+        for setting in ("OMIT_ARCHIVE", "EMPTY_ARCHIVE"):
+            for index, archive in enumerate(("gmp-normal/lib/libgmp.a", "gmp-pic/lib/libgmp.a",
+                                             "libpoly/lib/libpoly.a", "libpoly/lib/libpicpoly.a")):
+                with self.subTest(setting=setting, archive=archive):
+                    self.work = self.root / ("libraries-output-" + setting + "-" + str(index))
+                    result = self.run_helper(**{setting: archive})
+                    self.assertEqual(result.returncode, 1, result.stdout)
+                    self.assertIn("missing output: " + str(self.work / archive), result.stdout)
+                    self.assertIn("output archive verification failed (exit 1)", result.stdout)
+                    self.assertIn("partial workspace preserved", result.stdout)
+                    self.assertNotIn("PASS: recipient", result.stdout)
 
     def test_existing_work_is_not_changed(self):
         self.work.mkdir()
@@ -182,4 +265,12 @@ esac
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    print("Recipient-helper controls: fixtures only, not actual dependency builds.", flush=True)
+    print("helper-sha256: " + hashlib.sha256(HELPER.read_bytes()).hexdigest(), flush=True)
+    print("tests-sha256: " + hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), flush=True)
+    print("python: " + sys.version.splitlines()[0], flush=True)
+    print("bash: " + subprocess.check_output(["/bin/bash", "--version"], text=True).splitlines()[0], flush=True)
+    program = unittest.main(verbosity=2, exit=False)
+    if not program.result.wasSuccessful() or program.result.testsRun == 0 or program.result.skipped:
+        raise SystemExit(1)
+    print("PASS: recipient-helper controls; " + str(program.result.testsRun) + " tests; fixtures only", flush=True)

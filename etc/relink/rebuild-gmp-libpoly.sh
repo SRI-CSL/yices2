@@ -43,6 +43,10 @@ done
 CC=${CC:-cc}
 CXX=${CXX:-c++}
 M4=${M4:-m4}
+for tool_variable in CC CXX M4; do
+  [[ ${!tool_variable} != *[[:space:]]* ]] ||
+    fail "$tool_variable must name one executable without whitespace; upstream GMP splits these values"
+done
 for tool in "$CC" "$CXX"; do
   command -v "$tool" >/dev/null 2>&1 || fail "required compiler is unavailable: $tool (CC/CXX must each name one executable)"
 done
