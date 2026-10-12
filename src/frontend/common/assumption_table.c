@@ -187,18 +187,19 @@ assumption_t *assumption_table_get(const assumption_table_t *table, term_t t) {
   // binary search in index
   l = 0;
   h = table->index_size;
-  for (;;) {
+  while (l < h) {
     k = (l + h)/2; // no risk of overflow here since l < h <= index_size <= ASSUMPTION_TABLE_MAX_SIZE
     assert(l <= k && k < h);
     i = table->index[k];
     u = table->data[i].term;
     if (u == t) return table->data + i;
-    if (l == k) return NULL;
     if (u < t) {
       l = k+1;
     } else {
       h = k;
     }
   }
+
+  return NULL;
 }
 

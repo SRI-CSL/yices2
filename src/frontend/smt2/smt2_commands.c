@@ -2800,6 +2800,15 @@ static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t 
         literals_only = false;
         break;
       }
+      /*
+       * The assumption table has no duplicate literals, but it can hold
+       * both p and (not p). A model cannot map p to two values, so we
+       * use the term-assumption path.
+       */
+      if (assumption_table_get(&a->table, opposite_term(lit)) != NULL) {
+        literals_only = false;
+        break;
+      }
       ivector_push(&vars, atom);
       ivector_push(&values, is_pos_term(lit) ? true_term : false_term);
     }

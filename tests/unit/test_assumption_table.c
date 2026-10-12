@@ -144,6 +144,15 @@ int main(void) {
   print_table(stdout, &table);
   print_table_index(stdout, &table);
 
+  // search above the largest term in a two-element index
+  assumption_table_add(&table, 4, "A", true);
+  assumption_table_add(&table, 6, "B", true);
+  assumption_table_build_index(&table);
+  check_absent(&table, 7);
+  check_absent(&table, 5);
+  check_absent(&table, 3);
+  reset_assumption_table(&table);
+
   for (i=0; i<200; i++) {
     snprintf(buffer, 20, "A%"PRId32, i);
     assumption_table_add(&table, i, buffer, true);
