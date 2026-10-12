@@ -102,9 +102,13 @@ def generate(component):
 
 
 def check_files(component, paths):
-    host = os.uname().nodename.encode()
+    host = os.uname().nodename.encode().rstrip(b".")
     require(host and b"\x00" not in host, "cannot identify current producer hostname")
-    host_token = re.compile(rb'(?<![A-Za-z0-9_.-])' + re.escape(host) + rb'(?![A-Za-z0-9_.-])')
+    # Match the known nodename, ASCII case variants and domain-qualified forms.
+    # A following dot may start a domain suffix (or a DNS root dot); prefixes
+    # and other identifier suffixes remain distinct. This does not discover aliases.
+    host_token = re.compile(rb'(?<![A-Za-z0-9_.-])' + re.escape(host) +
+                            rb'(?![A-Za-z0-9_-])', re.IGNORECASE)
     for name in paths:
         data = regular(Path(name))
         require(not host_token.search(data), "compiled payload contains current host identity: " + str(name))

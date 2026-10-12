@@ -24,14 +24,17 @@ report_exit() {
 }
 trap report_exit EXIT
 [[ $# -ge 3 && $# -le 4 ]] || fail 'usage: rebuild-gmp-libpoly.sh GMP-SOURCE LIBPOLY-SOURCE NEW-WORK-DIR [JOBS]'
-gmp=$(cd -- "$1" && pwd -P)
-poly=$(cd -- "$2" && pwd -P)
+# Resolve filesystem paths without CDPATH searches or their stdout output.
+unset CDPATH
+caller_dir=$(pwd -P)
+gmp=$(cd -P -- "$1" && pwd -P)
+poly=$(cd -P -- "$2" && pwd -P)
 work=$3
 jobs=${4:-2}
 [[ $jobs =~ ^[1-9][0-9]*$ ]] || fail 'JOBS must be positive'
 [[ -f $gmp/configure && -f $poly/CMakeLists.txt ]] || fail 'source directories are incomplete'
 [[ ! -e $work && ! -L $work ]] || fail 'work directory already exists'
-parent=$(cd -- "$(dirname -- "$work")" && pwd -P)
+parent=$(cd -P -- "$(dirname -- "$work")" && pwd -P)
 leaf=$(basename -- "$work")
 [[ $leaf != . && $leaf != .. ]] || fail 'unsafe work directory'
 work=$parent/$leaf
@@ -39,15 +42,19 @@ work=$parent/$leaf
   fail 'these dependency build systems require paths without whitespace'
 # The build systems change directory. Preserve the caller's PATH semantics,
 # including empty/relative entries, instead of searching a different directory
-# later (also for compiler subprocesses such as the assembler).
+# later (also for compiler subprocesses such as the assembler). Use the physical
+# caller directory: exec resolves relative PATH entries there, not via a PWD
+# symlink spelling. A colon in that prefix cannot be represented inside PATH.
 remaining_path=${PATH:-}
 stable_path=
 while :; do
   path_entry=${remaining_path%%:*}
   case $path_entry in
     /*) ;;
-    '') path_entry=$PWD ;;
-    *) path_entry=$PWD/$path_entry ;;
+    *)
+      [[ $caller_dir != *:* ]] ||
+        fail 'cannot preserve relative or empty PATH entries from a caller directory containing a colon; use only absolute nonempty PATH entries'
+      path_entry=$caller_dir${path_entry:+/$path_entry} ;;
   esac
   stable_path=${stable_path:+$stable_path:}$path_entry
   [[ $remaining_path == *:* ]] || break
@@ -70,7 +77,7 @@ resolve_tool() {
     fail "$label is unavailable: ${!variable} ($variable must name one executable)"
   [[ -f $resolved_tool && -x $resolved_tool ]] ||
     fail "$label is not an executable file: ${!variable}"
-  resolved_parent=$(cd -- "$(dirname -- "$resolved_tool")" && pwd -P) ||
+  resolved_parent=$(cd -P -- "$(dirname -- "$resolved_tool")" && pwd -P) ||
     fail "cannot resolve $variable executable directory: ${!variable}"
   resolved_tool=$resolved_parent/${resolved_tool##*/}
   [[ $resolved_tool != *[[:space:]]* ]] ||

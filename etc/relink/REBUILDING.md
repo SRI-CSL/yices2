@@ -59,32 +59,46 @@ Install prerequisites through your normal administrator
 process if unavailable; this recipe never installs them. Use the same target
 architecture as the kit, not translated macOS execution.
 
-Choose the compiler pair explicitly and retain the same selection for the
-build and relink commands. CC, CXX and M4 must each name one executable without
-whitespace, not a command with extra arguments: upstream GMP splits these
-values. The helper resolves each selection to an absolute executable path in
-the caller's directory and fixes relative/empty PATH entries there before any
-build changes directory. A relative selection such as toolbin/gcc therefore
-continues to name the same tool. Missing tools or whitespace in the selection
-or its resolved directory are rejected before creating the build directory.
-Replace the Linux example paths with your installed
-compatible GCC/G++ pair; on macOS use the matching native Apple tools:
+For the complete sequence in sections 2 and 3, set CC, CXX and M4 to absolute
+executable paths and use only absolute, nonempty directories in PATH. Keep these
+same selections for building and relinking, including after changing directory.
+PATH directories cannot contain a colon, which separates entries. Do not append
+an unexamined inherited PATH: a relative or empty entry changes meaning after cd.
+CC, CXX and M4 must each name one executable without whitespace, not a command
+with extra arguments: upstream GMP splits these values.
+
+Replace all example paths below with the installed compatible compiler pair,
+GNU m4, and directories containing the remaining prerequisites. On macOS use
+the matching native Apple compilers and your installed GNU m4. If resuming in
+another shell, establish the same selections there before continuing:
 
 ```sh
 # Linux example (see the toolchain compatibility discussion above):
 CC=/path/to/compatible/gcc
 CXX=/path/to/compatible/g++
+M4=/path/to/gnu/m4
 # macOS instead: CC=/usr/bin/clang; CXX=/usr/bin/clang++
-export CC CXX
-# Normally GNU m4 is named m4 on PATH. If necessary, select its actual path:
-# M4=/path/to/gnu/m4; export M4
+# Include the compatible toolchain's binutils and the other prerequisites.
+PATH=/path/to/compatible/bin:/path/to/other/prerequisites/bin:/usr/bin:/bin
+export CC CXX M4 PATH
+unset CDPATH
 ```
+
+When used on its own, rebuild-gmp-libpoly.sh also accepts relative tool paths
+such as CC=toolbin/gcc and relative/empty PATH entries. It resolves them against
+the physical caller directory for its own subprocesses only. It cannot update
+CC, CXX, M4 or PATH in your calling shell, so this convenience does not apply to
+the later relink or glibc commands. It ignores CDPATH. If that caller directory
+contains a colon, relative/empty PATH entries are rejected rather than changed
+into a different tool search path; absolute nonempty entries remain usable.
+Missing tools, whitespace in a tool's resolved path, and this PATH ambiguity
+are rejected before creating the helper's build directory.
 
 ```sh
 tar -xf "$YICES_ASSETS/gmp-6.3.0.tar.xz" -C "$YICES_REBUILD"
 tar -xf "$YICES_ASSETS/libpoly-c342ff1ad2f0.tar.gz" -C "$YICES_REBUILD"
 # Make your intended source changes in the two extracted directories now.
-# CC and CXX above select the same toolchain for all following commands.
+# Keep the absolute CC/CXX/M4 selections and PATH above for the whole recipe.
 "$YICES_KIT/rebuild-gmp-libpoly.sh" \
   "$YICES_REBUILD/gmp-6.3.0" "$YICES_REBUILD/libpoly-c342ff1ad2f0" \
   "$YICES_REBUILD/libraries" 4
@@ -171,7 +185,8 @@ normal deployment; it is only a way to observe a replaced runtime code path.
 ```sh
 mkdir "$YICES_REBUILD/glibc-build"
 cd "$YICES_REBUILD/glibc-build"
-# Retain the explicit compatible Linux CC/CXX selection from section 2.
+# Retain the absolute compatible Linux CC/CXX and absolute-only PATH from section 2.
+# The GMP/LibPoly helper did not change those variables in this calling shell.
 # The local recipient proof used matched GCC/G++ 14.2.1.
 "$YICES_REBUILD/glibc-source/glibc-2.28/configure" \
   CC="$CC" CXX="$CXX" CFLAGS=-O2 \

@@ -13,6 +13,8 @@ not proof that dependencies were rebuilt on the reported target platform.
 import hashlib
 import os
 from pathlib import Path
+import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -20,6 +22,7 @@ import tempfile
 import unittest
 
 HELPER = Path(__file__).resolve().parents[2] / "etc/relink/rebuild-gmp-libpoly.sh"
+GUIDE = HELPER.with_name("REBUILDING.md")
 
 
 def script(path, body):
@@ -121,14 +124,15 @@ printf '%s\\0' "$@" > "$FIXTURE_ACTION_PREFIX-ctest.args"
 ''')
         script(self.bin / "ninja", "exit 0")
 
-    def run_helper(self, source_arguments=None, work_argument=None, jobs="2", **updates):
+    def run_helper(self, source_arguments=None, work_argument=None, jobs="2", caller_directory=None, **updates):
         self.make_log = self.root / (self.work.name + "-make-actions.log")
         self.action_prefix = str(self.root / self.work.name)
         env = dict(self.env, MAKE_ACTION_LOG=str(self.make_log),
                    FIXTURE_ACTION_PREFIX=self.action_prefix, **updates)
         sources = source_arguments or [str(self.gmp), str(self.poly)]
         result = subprocess.run(["/bin/bash", str(HELPER), *sources,
-                                 work_argument or str(self.work), jobs], env=env, text=True, cwd=self.root,
+                                 work_argument or str(self.work), jobs], env=env, text=True,
+                                cwd=caller_directory or self.root,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=15)
         (self.root / (self.work.name + "-terminal.log")).write_text(result.stdout)
         return result
@@ -238,6 +242,145 @@ printf '%s\\0' "$@" > "$FIXTURE_ACTION_PREFIX-ctest.args"
                 self.assertEqual(result.returncode, 1, result.stdout)
                 self.assertIn(variable + " must name one executable without whitespace", result.stdout)
                 self.assertFalse(self.work.exists())
+
+    def test_cdpath_cannot_redirect_sources_work_or_tools(self):
+        elsewhere = self.root / "elsewhere"
+        elsewhere.mkdir()
+        for name in ("gmp", "poly", "bin"):
+            shutil.copytree(self.root / name, elsewhere / name, symlinks=True)
+        result = self.run_helper(source_arguments=["gmp", "poly"], work_argument="libraries",
+                                 CC="bin/cc", CXX="bin/c++", M4="bin/m4", CDPATH=str(elsewhere))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertFalse((elsewhere / "libraries").exists())
+        log = (self.work / "gmp-normal.log").read_text()
+        self.assertIn("CC=" + str(self.bin / "cc"), log)
+        self.assertIn("M4=" + str(self.bin / "m4"), log)
+        self.assertEqual(self.arguments(self.action_prefix + "-cmake-configure.args")[1], str(self.poly))
+
+    def test_cdpath_cannot_supply_an_absent_source_directory(self):
+        elsewhere = self.root / "elsewhere"
+        elsewhere.mkdir()
+        shutil.copytree(self.gmp, elsewhere / "absent-gmp")
+        result = self.run_helper(source_arguments=["absent-gmp", "poly"], CDPATH=str(elsewhere))
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("absent-gmp", result.stdout)
+        self.assertIn("No such file or directory", result.stdout)
+        self.assertFalse(self.work.exists())
+        self.assertFalse(self.make_log.exists())
+
+    def test_colon_caller_rejects_relative_or_empty_path_before_reservation(self):
+        caller = self.root / "colon:caller"
+        caller.mkdir()
+        (caller / "bin").symlink_to(self.bin, target_is_directory=True)
+        for index, selection in enumerate(("bin:", ":", ".:", "bin::", str(self.bin) + "::")):
+            with self.subTest(path=selection):
+                self.work = self.root / ("libraries-colon-" + str(index))
+                result = self.run_helper(caller_directory=caller, PATH=selection + str(self.bin))
+                self.assertEqual(result.returncode, 1, result.stdout)
+                self.assertIn("cannot preserve relative or empty PATH entries", result.stdout)
+                self.assertIn("caller directory containing a colon", result.stdout)
+                self.assertNotIn("PASS: recipient", result.stdout)
+                self.assertFalse(self.work.exists())
+                self.assertFalse(self.make_log.exists())
+
+    def test_colon_caller_accepts_absolute_nonempty_path(self):
+        caller = self.root / "colon:caller"
+        caller.mkdir()
+        result = self.run_helper(caller_directory=caller, PATH=str(self.bin),
+                                 CC="../bin/cc", CXX="../bin/c++", M4="../bin/m4")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("CC=" + str(self.bin / "cc"), (self.work / "gmp-normal.log").read_text())
+
+    def test_logical_pwd_does_not_redirect_relative_path_tools(self):
+        physical = self.root / "physical"
+        caller = physical / "caller"
+        caller.mkdir(parents=True)
+        (physical / "toolbin").symlink_to(self.bin, target_is_directory=True)
+        alias = self.root / "alias"
+        alias.symlink_to(caller, target_is_directory=True)
+        fallback = self.root / "toolbin"
+        fallback.mkdir()
+        for name in ("cc", "c++", "m4"):
+            script(fallback / name, "echo wrong-logical-directory-tool; exit 91")
+        result = self.run_helper(caller_directory=caller, PWD=str(alias),
+                                 PATH="../toolbin:" + str(self.bin))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("CC=" + str(self.bin / "cc"), (self.work / "gmp-pic.log").read_text())
+
+    def test_relative_tool_dotdot_keeps_filesystem_resolution(self):
+        physical = self.root / "physical"
+        (physical / "nested").mkdir(parents=True)
+        selected = physical / "bin"
+        selected.mkdir()
+        for name in ("cc", "c++", "m4"):
+            shutil.copy2(self.bin / name, selected / name)
+        (self.root / "alias").symlink_to(physical / "nested", target_is_directory=True)
+        result = self.run_helper(CC="alias/../bin/cc", CXX="alias/../bin/c++", M4="alias/../bin/m4")
+        self.assertEqual(result.returncode, 0, result.stdout)
+        log = (self.work / "gmp-normal.log").read_text()
+        for variable, name in (("CC", "cc"), ("CXX", "c++"), ("M4", "m4")):
+            self.assertIn(variable + "=" + str(selected / name), log)
+
+    def test_documented_tool_selection_survives_glibc_directory_change(self):
+        # Execute the guide's actual shell blocks with fixture libraries/tools.
+        # This tests the parent/child shell contract, not a glibc build.
+        blocks = re.findall(r'^```sh\n(.*?)^```$', GUIDE.read_text(), re.M | re.S)
+
+        def block(anchor):
+            matches = [text for text in blocks if anchor in text]
+            self.assertEqual(len(matches), 1, anchor)
+            return matches[0]
+
+        selection = block('CC=/path/to/compatible/gcc')
+        for placeholder, replacement in (
+                ('/path/to/compatible/gcc', str(self.bin / 'cc')),
+                ('/path/to/compatible/g++', str(self.bin / 'c++')),
+                ('/path/to/gnu/m4', str(self.bin / 'm4')),
+                ('/path/to/compatible/bin', str(self.bin)),
+                ('/path/to/other/prerequisites/bin', str(self.bin))):
+            self.assertEqual(selection.count(placeholder), 1, placeholder)
+            selection = selection.replace(placeholder, shlex.quote(replacement))
+        recipe = self.root / "recipe"
+        recipe.mkdir()
+        shutil.copytree(self.gmp, recipe / "gmp-6.3.0")
+        shutil.copytree(self.poly, recipe / "libpoly-c342ff1ad2f0")
+        glibc = recipe / "glibc-source/glibc-2.28"
+        glibc.mkdir(parents=True)
+        script(glibc / "configure", 'printf "GLIBC_CC=%s CXX=%s\\n" "$CC" "$CXX"\n"$CC" --version\n"$CXX" --version')
+        kit = self.root / "kit"
+        kit.mkdir()
+        (kit / "rebuild-gmp-libpoly.sh").symlink_to(HELPER)
+        trace = self.root / "recipe-tools.log"
+        for name in ("cc", "c++", "m4"):
+            script(self.bin / name, 'printf "%s|%s\\n" "' + name + '" "$PWD" >> "$RECIPE_TRACE"\n' +
+                   ('echo "m4 (GNU M4) fixture"' if name == "m4" else 'echo selected-tool'))
+        for name in ("relink-executables.sh", "relink-library.sh", "relink-with-glibc.sh"):
+            script(kit / name, 'printf "RELINK_CC=%s CWD=%s\\n" "$CC" "$PWD"\n"$CC" --version')
+        script(self.bin / "tar", ': # Sources were pre-created; no archive is built by this fixture.')
+        body = 'set -eu\n' + selection
+        body += block('tar -xf "$YICES_ASSETS/gmp-6.3.0.tar.xz"')
+        body += 'printf "CALLER_CC=%s CXX=%s M4=%s\\n" "$CC" "$CXX" "$M4"\n'
+        body += block('"$YICES_KIT/relink-library.sh"')
+        body += block('mkdir "$YICES_REBUILD/glibc-build"')
+        body += block('"$YICES_REBUILD/modified-all-libraries-executables"')
+        body += 'printf "FINAL_PATH=%s CDPATH=%s\\n" "$PATH" "${CDPATH-unset}"\n'
+        command = self.root / "documented-sequence.sh"
+        command.write_text(body)
+        environment = dict(self.env, CC="wrong-relative-cc", CXX="wrong-relative-cxx", M4="wrong-relative-m4",
+                           PATH="relative-tools:" + str(self.bin), CDPATH=str(self.root / "elsewhere"),
+                           YICES_ASSETS=str(self.root), YICES_KIT=str(kit), YICES_REBUILD=str(recipe),
+                           MAKE_ACTION_LOG=str(self.root / "recipe-make.log"),
+                           FIXTURE_ACTION_PREFIX=str(self.root / "recipe-actions"), RECIPE_TRACE=str(trace))
+        result = subprocess.run(["/bin/bash", str(command)], cwd=self.root, env=environment, text=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=20)
+        (self.root / "documented-sequence.log").write_text(result.stdout)
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("CALLER_CC=" + str(self.bin / "cc"), result.stdout)
+        self.assertIn("GLIBC_CC=" + str(self.bin / "cc"), result.stdout)
+        self.assertEqual(result.stdout.count("RELINK_CC=" + str(self.bin / "cc")), 4)
+        self.assertIn("CWD=" + str(recipe / "glibc-build"), result.stdout)
+        self.assertIn("FINAL_PATH=" + str(self.bin) + ":" + str(self.bin) + ":/usr/bin:/bin CDPATH=unset", result.stdout)
+        self.assertIn("cc|" + str(recipe / "glibc-build"), trace.read_text())
 
     def test_missing_relative_tools_fail_before_reservation(self):
         for variable in ("CC", "CXX", "M4"):
