@@ -13,6 +13,9 @@ jobs:
 
     name: ${{ matrix.os }}|${{ matrix.mode }}|${{ matrix.config-opt}}
     runs-on: ${{ matrix.os }}
+    # A passing job takes about 35 minutes. Fail a hung job early instead of
+    # at the 6 hour default.
+    timeout-minutes: 90
 
     steps:
     - run: git config --global core.autocrlf false && git config --global core.eol lf
@@ -29,11 +32,14 @@ jobs:
         site: |
           https://mirrors.sonic.net/cygwin/
           https://mirror.wisegs.com/cygwin/
-        # Packages to install
+        # Packages to install. Since libuv1 1.53.0-1 (Sep 2026), cmake hangs
+        # when it configures libpoly. Keep libuv1 at the last version that
+        # passed.
         packages: |
           autoconf,
           automake,
           cmake,
+          libuv1=1.52.1-1,
           coreutils,
           curl,
           gperf,
