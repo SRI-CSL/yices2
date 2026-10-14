@@ -17,8 +17,8 @@
  */
 
 /*
- * MAPS 32BIT INTEGERS TO 32BIT INTEGERS
- * Assumes that keys are non-negative
+ * MAPS MCSAT VALUES TO 32BIT INTEGERS
+ * The map owns its keys: they are copies, freed on erase/reset
  */
 
 #include <assert.h>
@@ -254,7 +254,7 @@ value_hmap_pair_t *value_hmap_get(value_hmap_t *hmap, const mcsat_value_t* k) {
   uint32_t mask, j;
   value_hmap_pair_t *d, *aux;
 
-  assert(k >= 0);
+  assert(k != NULL);
   assert(hmap->size > hmap->ndeleted + hmap->nelems);
 
   mask = hmap->size - 1;
@@ -300,18 +300,18 @@ value_hmap_pair_t *value_hmap_get(value_hmap_t *hmap, const mcsat_value_t* k) {
 
 
 /*
- * Add record [k -> v ] to hmap
+ * Add record [k -> v] to hmap
  * - there must not be a record with the same key
  */
 void value_hmap_add(value_hmap_t *hmap, const mcsat_value_t* k, int32_t v) {
   uint32_t i, mask;
 
-  assert(k >= 0 && hmap->nelems + hmap->ndeleted < hmap->size);
+  assert(k != NULL && hmap->nelems + hmap->ndeleted < hmap->size);
 
   mask = hmap->size - 1;
   i = hash_key(k) & mask;
-  while (hmap->data[i].key >= 0) {
-    assert(hmap->data[i].key != k);
+  while (value_hmap_valid_key(hmap->data[i].key)) {
+    assert(!eq_key(hmap->data[i].key, k));
     i ++;
     i &= mask;
   }
@@ -335,8 +335,8 @@ void value_hmap_add(value_hmap_t *hmap, const mcsat_value_t* k, int32_t v) {
  * Erase record r
  */
 void value_hmap_erase(value_hmap_t *hmap, value_hmap_pair_t *r) {
-  assert(value_hmap_find(hmap, r->key) == r);
   assert(value_hmap_valid_key(r->key));
+  assert(value_hmap_find(hmap, r->key) == r);
 
   mcsat_value_delete(r->key);
   r->key = VALUE_HMAP_DELETED_KEY;
@@ -399,7 +399,7 @@ value_hmap_pair_t *value_hmap_first_record(const value_hmap_t *hmap) {
  * Next record after p or NULL
  */
 value_hmap_pair_t *value_hmap_next_record(const value_hmap_t *hmap, value_hmap_pair_t *p) {
-  assert(p != NULL && p<hmap->data + hmap->size && p->key != VALUE_HMAP_EMPTY_KEY);
+  assert(p != NULL && p<hmap->data + hmap->size && value_hmap_valid_key(p->key));
   return value_hmap_get_next(hmap, p+1);
 }
 

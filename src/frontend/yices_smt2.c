@@ -100,6 +100,7 @@ static bool interactive;
 static bool smt2_model_format;
 static bool dump_models;
 static bool bvdecimal;
+static bool check_status;
 static bool show_stats;
 static int32_t verbosity;
 static uint32_t timeout;
@@ -120,6 +121,7 @@ static int32_t mcsat_na_bound_min;
 static int32_t mcsat_na_bound_max;
 static int32_t mcsat_bv_var_size;
 static bool mcsat_partial_restart;
+static bool mcsat_check_model;
 
 static pvector_t trace_tags;
 
@@ -164,6 +166,7 @@ typedef enum optid {
   yicesformat_opt,         // use the Yices model format for models
   dump_model_opt,          // print model on sat result
   bvdecimal_opt,           // use (_ bv<xxx> n) for bit-vector constants
+  check_status_opt,        // compare check-sat answers with (set-info :status ...)
   timeout_opt,             // give a timeout
   delegate_opt,            // use an external sat solver
   dimacs_opt,              // bitblast then export to DIMACS
@@ -179,7 +182,8 @@ typedef enum optid {
   mcsat_na_bound_max_opt, // set maximal bound
   mcsat_bv_var_size_opt,   // set size of bitvector variables
   mcsat_partial_restart_opt, // enable partial restart heuristic in MCSAT
-  trace_opt,               // enable a trace tag
+  mcsat_check_model_opt,   // check models in MCSAT
+  trace_opt,              // enable a trace tag
   show_ef_help_opt,        // print help about the ef options
   ematch_en_opt,                    // enable ematching
   mbqi_max_iter_opt,                // set max mbqi iterations
@@ -219,6 +223,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "yices-model-format", '\0', FLAG_OPTION, yicesformat_opt },
   { "dump-models", '\0', FLAG_OPTION, dump_model_opt},
   { "bvconst-in-decimal", '\0', FLAG_OPTION, bvdecimal_opt },
+  { "check-status", '\0', FLAG_OPTION, check_status_opt },
   { "delegate", '\0', MANDATORY_STRING, delegate_opt },
   { "dimacs", '\0', MANDATORY_STRING, dimacs_opt },
   { "mcsat", '\0', FLAG_OPTION, mcsat_opt },
@@ -233,6 +238,7 @@ static option_desc_t options[NUM_OPTIONS] = {
   { "mcsat-na-bound-max", '\0', MANDATORY_INT, mcsat_na_bound_max_opt },
   { "mcsat-bv-var-size", '\0', MANDATORY_INT, mcsat_bv_var_size_opt },
   { "mcsat-partial-restart", '\0', FLAG_OPTION, mcsat_partial_restart_opt },
+  { "mcsat-check-model", '\0', FLAG_OPTION, mcsat_check_model_opt },
   { "trace", 't', MANDATORY_STRING, trace_opt },
   { "ef-help", '0', FLAG_OPTION, show_ef_help_opt },
   { "ematch", '\0', FLAG_OPTION, ematch_en_opt },
@@ -289,6 +295,7 @@ static void print_help(const char *progname) {
          "    --yices-model-format      Display models in the Yices model format (default = false)\n"
          "    --dump-models             Display models on sat result (default = false)\n"
          "    --bvconst-in-decimal      Display bit-vector constants as decimal numbers (default = false)\n"
+         "    --check-status            Exit with an error when check-sat contradicts (set-info :status)\n"
          "    --delegate=<satsolver>    Use an external SAT solver (can be cadical, cryptominisat, kissat, or y2sat)\n"
          "    --dimacs=<filename>       Bitblast and export to a file (in DIMACS format)\n"
          "    --mcsat                   Force MCSAT as top-level architecture\n"
@@ -316,8 +323,8 @@ static void print_mcsat_help(const char *progname) {
          "    --mcsat-na-bound-min=<B> Set initial lower bound\n"
          "    --mcsat-na-bound-max=<B> Set maximal bound for search\n"
          "    --mcsat-bv-var-size=<B>   Set size of bit-vector variables in MCSAT search\n"
-         "    --mcsat-partial-restart   Enable partial restart heuristic in MCSAT search"
-         "\n");
+         "    --mcsat-partial-restart   Enable partial restart heuristic in MCSAT search\n"
+         "    --mcsat-check-model       Check each model in MCSAT search\n");
   fflush(stdout);
 }
 
@@ -403,6 +410,7 @@ static void parse_command_line(int argc, char *argv[]) {
   smt2_model_format = true;
   dump_models = false;
   bvdecimal = false;
+  check_status = false;
   show_stats = false;
   verbosity = 0;
   timeout = 0;
@@ -421,6 +429,7 @@ static void parse_command_line(int argc, char *argv[]) {
   mcsat_na_bound_max = -1;
   mcsat_bv_var_size = -1;
   mcsat_partial_restart = false;
+  mcsat_check_model = false;
 
   init_pvector(&trace_tags, 5);
 
@@ -567,6 +576,10 @@ static void parse_command_line(int argc, char *argv[]) {
         bvdecimal = true;
         break;
 
+      case check_status_opt:
+        check_status = true;
+        break;
+
       case mcsat_opt:
         if (! yices_has_mcsat()) goto no_mcsat;
         mcsat  = true;
@@ -628,6 +641,11 @@ static void parse_command_line(int argc, char *argv[]) {
 
       case mcsat_partial_restart_opt:
         mcsat_partial_restart = true;
+        break;
+
+      case mcsat_check_model_opt:
+        if (! yices_has_mcsat()) goto no_mcsat;
+        mcsat_check_model = true;
         break;
 
       case show_ef_help_opt:
@@ -870,6 +888,10 @@ static void setup_options_mcsat(void) {
 
   if (mcsat_partial_restart) {
     smt2_set_option(":yices-mcsat-partial-restart", aval_true);
+  }
+
+  if (mcsat_check_model) {
+    smt2_set_option(":yices-mcsat-check-model", aval_true);
   }
 }
 
@@ -1181,6 +1203,7 @@ int main(int argc, char *argv[]) {
   if (force_dpllt) smt2_force_dpllt();
   if (smt2_model_format) smt2_force_smt2_model_format();
   if (bvdecimal) smt2_force_bvdecimal_format();
+  if (check_status) smt2_enable_status_check();
   if (dimacsfile != NULL && delegate == NULL) smt2_export_to_dimacs(dimacsfile);
   if (delegate != NULL) {
     smt2_set_delegate(delegate);

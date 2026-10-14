@@ -65,6 +65,20 @@ void l2o_store_assertion(l2o_t* l2o, term_t assertion) {
   ivector_push(&l2o->assertions, assertion);
 }
 
+void l2o_push(l2o_t* l2o) {
+  scope_holder_push(&l2o->scope, &l2o->assertions.size, NULL);
+}
+
+void l2o_pop(l2o_t* l2o) {
+  uint32_t n_assertions;
+
+  scope_holder_pop(&l2o->scope, &n_assertions, NULL);
+  ivector_shrink(&l2o->assertions, n_assertions);
+  // var_member is keyed by term id: terms of the popped assertions can be
+  // garbage collected and their ids reused
+  int_hmmap_reset(&l2o->var_member);
+}
+
 /** Checks whether the intersection between set_of_vars and the free variables in t is empty (0) or not (1) */
 bool l2o_term_has_variables(l2o_t *l2o, term_t t, const ivector_t *set_of_vars) {
   term_t t_pos = unsigned_term(t);

@@ -19,19 +19,15 @@
 #ifndef MCSAT_VARIABLE_DB_H_
 #define MCSAT_VARIABLE_DB_H_
 
+#include "mcsat/variable.h"
+#include "mcsat/gc.h"
+
 #include "io/tracer.h"
 #include "terms/terms.h"
 #include "terms/term_manager.h"
 #include "utils/ptr_vectors.h"
 #include "utils/int_vectors.h"
 #include "utils/int_hash_map.h"
-
-#include "mcsat/utils/int_mset.h"
-#include "mcsat/gc.h"
-
-typedef int32_t variable_t;
-
-#define variable_null 0
 
 struct variable_db_s {
 

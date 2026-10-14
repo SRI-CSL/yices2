@@ -21,32 +21,46 @@
 #
 # Run one single regression tests
 #
-# Usage: run_test.sh <test-file> <bin-dir> [<out-dir>]
+# Usage: run_test.sh [-c] [-s <smt2-options>] [-x <tags>] <test-file> <bin-dir> [<out-dir>]
 #
 # test-file is the test file the SMT1, SMT2, or Yices input language
 # bin-dir contains the Yices binaries for each of these languages
 # tmp-dir (optional) and specifies the location to put the results
 #
-# For each test file, the expected results are stored in file.gold
-# and command-line options are stored in file.options.
+# An input is run once per option set, and each run counts as its own test. An
+# option set is a file of command line options next to the input: file.options
+# for the untagged one, file.<tag>.options for the one named <tag>. A variant of
+# an existing input therefore needs a sidecar, not a copy of the input. An input
+# with no option set at all is run once, untagged, with no options.
 #
-# This scripts calls the appropriate binary on each test file, passing it
-# the command-line options if any, then check whether the output matches
-# what's expected.
+# Once an input has tags, its untagged run is the one named by file.options, so
+# an empty file.options is meaningful: it keeps the plain run of an input that
+# takes no options. Leaving it out drops that run, which is what regress/both
+# does to be run under its two tags only.
+#
+# Each run is compared against file.<tag>.gold, falling back to file.gold when
+# the tag has no gold of its own.
+#
+# The tests in regress/both use this for the two solver modes, under the tags
+# mcsat and dpllt. -x disables tags, as in -x dpllt for an MCSAT-only run.
 #
 
 usage() {
-  echo "Usage: $0 <test-file> <bin-dir> [out-dir]"
+  echo "Usage: $0 [-c] [-s <smt2-options>] [-x <tags>] <test-file> <bin-dir> [out-dir]"
   exit 4
 }
 
 smt2_options=
 color=
+disabled_tags=
 
-while getopts "cs:" o; do
+while getopts "cs:x:" o; do
     case "$o" in
     s)
       smt2_options=${OPTARG}
+      ;;
+    x)
+      disabled_tags=${OPTARG}
       ;;
     c)
       color="on"
@@ -68,6 +82,9 @@ bin_dir=$2
 if [ $# -ge 3 ] ; then
   out_dir=$3
 fi
+
+# Tags may be given separated by commas or by spaces
+disabled_tags=$(echo "$disabled_tags" | tr ',' ' ')
 
 export LIBC_FATAL_STDERR_=1
 
@@ -106,12 +123,15 @@ if [ -t 1 ] || [ -n "$color" ]; then
 fi
 
 #
-# The temp file for output
+# The temp files for output, reused by every option set
 #
 outfile=$($mktemp_cmd) || { echo "Can't create temp file" ; exit 3 ; }
 timefile=$($mktemp_cmd) || { echo "Can't create temp file" ; exit 3 ; }
-outfile2=
-timefile2=
+
+cleanup() {
+    rm -f "$timefile" "$outfile"
+}
+trap cleanup EXIT
 
 if [[ -z "$TIME_LIMIT" ]];
 then
@@ -121,12 +141,12 @@ fi
 # Get the binary based on the filename
 filename=$(basename "$test_file")
 
-options=
+base_options=
 
 case $filename in
     *.smt2)
         binary=yices_smt2
-        options=$smt2_options
+        base_options=$smt2_options
         ;;
     *.smt)
         binary=yices_smtcomp
@@ -138,29 +158,6 @@ case $filename in
         echo "FAIL: unknown extension for $filename"
         exit 2
 esac
-
-# Get the options
-if [ -e "$test_file.options" ]
-then
-    options="$options $(cat "$test_file.options")"
-    test_string="$test_file [ $options ]"
-else
-    test_string="$test_file"
-fi
-
-# Get the expected result
-if [ -e "$test_file.gold" ]
-then
-    gold=$test_file.gold
-else
-    echo "$red FAIL: missing file: $test_file.gold $black"
-    exit 2
-fi
-
-if [ -d "$out_dir" ] ; then
-    # replace _ with __ and / with _
-    log_file="$out_dir/_$(echo "${test_file//_/__}" | tr '/' '_')"
-fi
 
 run_solver_once() {
   local run_options=$1
@@ -174,118 +171,174 @@ run_solver_once() {
   )
 }
 
-strip_solver_mode_flags() {
-  local input=$1
-  local output=
-  local tok
+# The tags that have an option set, one per <test-file>.<tag>.options. The
+# pattern cannot match the untagged <test-file>.options, which has nothing
+# between the input name and the suffix.
+#
+# A tag is one name, without a dot. Inputs come in families that share a prefix,
+# such as fuzz17.smt2 and its reduction fuzz17.smt2.dd.smt2, and the options of
+# the second must not read as a tag "dd.smt2" of the first. A candidate that is
+# the options of an existing input is skipped for the same reason.
+collect_tags() {
+  local file
+  local tag
 
-  for tok in $input; do
-    case "$tok" in
-      --mcsat|--dpllt)
-        ;;
-      *)
-        output="$output $tok"
+  for file in "$test_file".*.options; do
+    [ -e "$file" ] || continue
+    tag=${file#"$test_file".}
+    tag=${tag%.options}
+    case "$tag" in
+      ""|*.*)
+        continue
         ;;
     esac
+    if [ -e "$test_file.$tag" ] ; then
+      continue
+    fi
+    echo "$tag"
   done
-
-  echo "$output"
 }
 
-if [ "$binary" = yices_smt2 ] && [[ "$test_file" == *"/both/"* ]]; then
-  options=$(strip_solver_mode_flags "$options")
-  test_string="$test_file [ $options --mcsat ] [ $options --dpllt ]"
-  gold_mcsat=$gold
-  gold_dpllt=$gold
+is_tag_disabled() {
+  local tag=$1
+  local disabled
 
-  if [ -e "$test_file.mcsat.gold" ]; then
-    gold_mcsat=$test_file.mcsat.gold
-  fi
-
-  if [ -e "$test_file.dpllt.gold" ]; then
-    gold_dpllt=$test_file.dpllt.gold
-  fi
-
-  outfile2=$($mktemp_cmd) || { echo "Can't create temp file" ; rm -f "$timefile" "$outfile" ; exit 3 ; }
-  timefile2=$($mktemp_cmd) || { echo "Can't create temp file" ; rm -f "$timefile" "$outfile" "$outfile2" ; exit 3 ; }
-
-  run_solver_once "$options --mcsat" "$outfile" "$timefile"
-  status_mcsat=$?
-  runtime_mcsat=$(cat "$timefile")
-  diff_mcsat=$(diff -w "$outfile" "$gold_mcsat")
-  diff_status_mcsat=$?
-
-  run_solver_once "$options --dpllt" "$outfile2" "$timefile2"
-  status_dpllt=$?
-  runtime_dpllt=$(cat "$timefile2")
-  diff_dpllt=$(diff -w "$outfile2" "$gold_dpllt")
-  diff_status_dpllt=$?
-
-  if [ $status_mcsat -eq 0 ] && [ $diff_status_mcsat -eq 0 ] && [ $status_dpllt -eq 0 ] && [ $diff_status_dpllt -eq 0 ]; then
-    echo -e "$green PASS [mcsat ${runtime_mcsat} s, dpllt ${runtime_dpllt} s] $black $test_string"
-    if [ -n "$log_file" ] ; then
-      log_file="$log_file.pass"
-      echo "$test_string" > "$log_file"
-      echo "mcsat: $runtime_mcsat" >> "$log_file"
-      echo "dpllt: $runtime_dpllt" >> "$log_file"
+  for disabled in $disabled_tags; do
+    if [ "$disabled" = "$tag" ] ; then
+      return 0
     fi
-    code=0
+  done
+
+  return 1
+}
+
+# The options file of a tag, the untagged one for an empty tag
+options_file_of() {
+  local tag=$1
+
+  if [ -n "$tag" ] ; then
+    echo "$test_file.$tag.options"
   else
-    DIFF=
-    if [ $status_mcsat -ne 0 ] || [ $diff_status_mcsat -ne 0 ]; then
-      DIFF+="--- mcsat (--mcsat) ---"$'\n'
-      if [ $status_mcsat -ne 0 ]; then
-        DIFF+="exit status: $status_mcsat"$'\n'
-      fi
-      DIFF+="$diff_mcsat"$'\n'
-    fi
-    if [ $status_dpllt -ne 0 ] || [ $diff_status_dpllt -ne 0 ]; then
-      DIFF+="--- dpllt (--dpllt) ---"$'\n'
-      if [ $status_dpllt -ne 0 ]; then
-        DIFF+="exit status: $status_dpllt"$'\n'
-      fi
-      DIFF+="$diff_dpllt"$'\n'
-    fi
-
-    echo -e "$red FAIL $black $test_string"
-    if [ -n "$log_file" ] ; then
-      log_file="$log_file.error"
-      echo "$test_string" > "$log_file"
-      echo "mcsat: $runtime_mcsat" >> "$log_file"
-      echo "dpllt: $runtime_dpllt" >> "$log_file"
-      echo "$DIFF" >> "$log_file"
-    fi
-    code=1
+    echo "$test_file.options"
   fi
-else
-  # Run the binary once
+}
+
+# The gold of a tag, falling back to the one shared by every tag
+gold_of() {
+  local tag=$1
+
+  if [ -n "$tag" ] && [ -e "$test_file.$tag.gold" ] ; then
+    echo "$test_file.$tag.gold"
+  elif [ -e "$test_file.gold" ] ; then
+    echo "$test_file.gold"
+  fi
+}
+
+# Where the log of a run goes. One log per option set, so that the counts in
+# check.sh see every run.
+log_file_of() {
+  local tag=$1
+  local base
+
+  if [ ! -d "$out_dir" ] ; then
+    return 0
+  fi
+
+  # replace _ with __ and / with _
+  base="$out_dir/_$(echo "${test_file//_/__}" | tr '/' '_')"
+  if [ -n "$tag" ] ; then
+    base="$base@$tag"
+  fi
+
+  echo "$base"
+}
+
+# Run the test under one option set. Returns 0 when it passes.
+run_option_set() {
+  local tag=$1
+  local options_file
+  local options
+  local test_string
+  local log_file
+  local gold
+  local code
+
+  options_file=$(options_file_of "$tag")
+  options=$base_options
+  test_string="$test_file"
+  if [ -n "$tag" ] ; then
+    test_string="$test_string ($tag)"
+  fi
+  if [ -e "$options_file" ] ; then
+    options="$options $(cat "$options_file")"
+  fi
+  # An option set may well be empty: unquoted, it collapses to nothing
+  if [ -n "$(echo $options)" ] ; then
+    test_string="$test_string [ $options ]"
+  fi
+
+  log_file=$(log_file_of "$tag")
+
+  gold=$(gold_of "$tag")
+  if [ -z "$gold" ] ; then
+    echo "$red FAIL: missing file: $test_file.gold $black"
+    if [ -n "$log_file" ] ; then
+      echo "$test_string" > "$log_file.error"
+      echo "missing file: $test_file.gold" >> "$log_file.error"
+    fi
+    return 2
+  fi
+
+  # Declared before the assignments: "local x=$(cmd)" would overwrite the exit
+  # status of cmd with the one of local
+  local status runtime DIFF diff_status
+
   run_solver_once "$options" "$outfile" "$timefile"
   status=$?
   runtime=$(cat "$timefile")
 
-  # Do the diff
   DIFF=$(diff -w "$outfile" "$gold")
+  diff_status=$?
 
-  if [ $? -eq 0 ] && [ $status -eq 0 ]
+  if [ $diff_status -eq 0 ] && [ $status -eq 0 ]
   then
       echo -e "$green PASS [${runtime} s] $black $test_string"
       if [ -n "$log_file" ] ; then
-          log_file="$log_file.pass"
-          echo "$test_string" > "$log_file"
-          echo "$runtime" >> "$log_file"
+          echo "$test_string" > "$log_file.pass"
+          echo "$runtime" >> "$log_file.pass"
       fi
       code=0
   else
       echo -e "$red FAIL $black $test_string"
       if [ -n "$log_file" ] ; then
-          log_file="$log_file.error"
-          echo "$test_string" > "$log_file"
-          echo "$runtime" >> "$log_file"
-          echo "$DIFF" >> "$log_file"
+          echo "$test_string" > "$log_file.error"
+          echo "$runtime" >> "$log_file.error"
+          if [ $status -ne 0 ]; then
+              echo "exit status: $status" >> "$log_file.error"
+          fi
+          echo "$DIFF" >> "$log_file.error"
       fi
       code=1
   fi
+
+  return $code
+}
+
+#
+# One run per option set: the untagged one when it exists, or when the input has
+# no option set at all, then one per tag that is not disabled.
+#
+tags=$(collect_tags)
+code=0
+
+if [ -e "$test_file.options" ] || [ -z "$tags" ] ; then
+  run_option_set "" || code=1
 fi
 
-rm -f "$timefile" "$outfile" "$timefile2" "$outfile2"
+while IFS= read -r tag; do
+  [ -n "$tag" ] || continue
+  is_tag_disabled "$tag" && continue
+  run_option_set "$tag" || code=1
+done <<< "$tags"
+
 exit $code

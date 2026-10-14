@@ -252,23 +252,24 @@ endif
 override CFLAGS := $(YICES_CFLAGS) $(CFLAGS) $(C_STD)
 
 #
-# test_context_delegate_stats, issue_414_mcsat, and test_model_clone_project
-# reach into internal
-# headers to inspect solver-internal state. Those headers use zero-size
-# flexible-array idioms and signed/unsigned comparisons that are accepted when
-# compiled by the main src/ build but trip -Wpedantic / -Wextra under -Werror.
-# Relax those two warnings for these test objects so the test binaries can
-# still link against the regular libyices.{a,so} and run via run_test.sh.
+# Tests that reach into internal headers to inspect solver-internal state.
+# Those headers use zero-size flexible-array idioms and signed/unsigned
+# comparisons that are accepted when compiled by the main src/ build but trip
+# -Wpedantic / -Wextra under -Werror. Relax those two warnings for these test
+# objects so the test binaries can still link against the regular
+# libyices.{a,so} and run via run_test.sh.
 #
 # Keep these lines after the 'override CFLAGS' line. Then each line
 # removes only -Wpedantic and -Wextra from the final CFLAGS.
 #
-$(objdir)/test_context_delegate_stats.o:        CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
-$(objdir)/issue_414_mcsat.o:                    CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
-$(objdir)/test_model_clone_project.o:           CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
-$(static_objdir)/test_context_delegate_stats.o: CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
-$(static_objdir)/issue_414_mcsat.o:             CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
-$(static_objdir)/test_model_clone_project.o:    CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
+internal_header_tests :=         \
+     test_context_delegate_stats \
+     issue_414_mcsat             \
+     test_model_clone_project    \
+     type_table_gc
+
+$(internal_header_tests:%=$(objdir)/%.o) $(internal_header_tests:%=$(static_objdir)/%.o):  \
+  CFLAGS := $(filter-out -Wpedantic -Wextra,$(CFLAGS))
 
 #
 # Link command for purify/quantify

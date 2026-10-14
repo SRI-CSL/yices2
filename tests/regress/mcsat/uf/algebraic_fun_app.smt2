@@ -1,0 +1,17 @@
+; Function application on a model value computed with algebraic arithmetic
+; that turns out rational: x*y = -2, x+y = 0, x/y = -1, x*x = 2.
+(set-logic QF_UFNRA)
+(declare-fun x () Real)
+(declare-fun y () Real)
+(declare-fun f (Real) Real)
+(assert (= (* x x) 2.0))
+(assert (= (* y y) 2.0))
+(assert (> x 0.0))
+(assert (< y 0.0))
+(assert (= (f (- 2.0)) 1.0))
+(assert (= (f 0.0) 2.0))
+(assert (= (f (- 1.0)) 3.0))
+(assert (= (f 2.0) 4.0))
+(check-sat)
+(get-value ((* x y) (f (* x y)) (+ x y) (f (+ x y)) (/ x y) (f (/ x y)) (f (* x x))))
+(exit)

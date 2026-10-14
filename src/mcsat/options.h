@@ -36,6 +36,7 @@ typedef struct mcsat_options_s {
   int32_t bv_var_size;
   bool model_interpolation;
   bool partial_restart;
+  bool check_model;
   bool l2o;
 } mcsat_options_t;
 

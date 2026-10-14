@@ -72,7 +72,8 @@ typedef struct {
  * - It's not safe to use yices_new_config, yices_new_context, yice_free_context, yices_free_config here.
  * - We must allocate and free the context locally.
  */
-static context_t *new_yices_bv_context(plugin_context_t *ctx) {
+static
+context_t *new_yices_bv_context(plugin_context_t *ctx) {
   context_t *yctx;
 
   yctx = safe_malloc(sizeof(context_t));
@@ -85,12 +86,14 @@ static context_t *new_yices_bv_context(plugin_context_t *ctx) {
   return yctx;
 }
 
-static void free_yices_bv_context(context_t *yctx) {
+static
+void free_yices_bv_context(context_t *yctx) {
   delete_context(yctx);
   safe_free(yctx);
 }
 
 
+static
 void bb_sat_solver_construct(bb_sat_solver_t* solver, plugin_context_t* ctx, bool incremental) {
   substitution_construct(&solver->subst, ctx->tm, ctx->tracer);
   init_ivector(&solver->vars_to_assign, 0);
@@ -107,6 +110,7 @@ void bb_sat_solver_construct(bb_sat_solver_t* solver, plugin_context_t* ctx, boo
   }
 }
 
+static
 void bb_sat_solver_destruct(bb_sat_solver_t* solver) {
   substitution_destruct(&solver->subst);
   delete_ivector(&solver->vars_to_assign);
@@ -115,6 +119,7 @@ void bb_sat_solver_destruct(bb_sat_solver_t* solver) {
   free_yices_bv_context(solver->yices_ctx);
 }
 
+static
 void bb_sat_solver_reset(bb_sat_solver_t* solver) {
   if (solver->incremental) {
     yices_pop(solver->yices_ctx);
@@ -129,6 +134,7 @@ void bb_sat_solver_reset(bb_sat_solver_t* solver) {
 }
 
 
+static
 void bb_sat_solver_add_variable(bb_sat_solver_t* solver, variable_t var, bool with_value) {
   // Add new variable to substitute
   term_t var_term = variable_db_get_term(solver->ctx->var_db, var);
@@ -155,6 +161,7 @@ void bb_sat_solver_add_variable(bb_sat_solver_t* solver, variable_t var, bool wi
   }
 }
 
+static
 void bb_sat_solver_assert_term(bb_sat_solver_t* solver, variable_t assertion_term) {
   assertion_term = substitution_run_fwd(&solver->subst, assertion_term, 0);
   if (ctx_trace_enabled(solver->ctx, "mcsat::bv::conflict")) {
@@ -169,6 +176,7 @@ void bb_sat_solver_assert_term(bb_sat_solver_t* solver, variable_t assertion_ter
 /**
  * Run the substitution and assert (with the same polarity as in MCSAT)
  */
+static
 void bb_sat_solver_assert_var(bb_sat_solver_t* solver, variable_t var) {
   term_t assertion_term = variable_db_get_term(solver->ctx->var_db, var);
   const mcsat_value_t* var_value = trail_get_value(solver->ctx->trail, var);
@@ -179,13 +187,7 @@ void bb_sat_solver_assert_var(bb_sat_solver_t* solver, variable_t var) {
   bb_sat_solver_assert_term(solver, assertion_term);
 }
 
-bool bb_sat_solver_cmp_var_by_trail_index(void *data, variable_t t1, variable_t t2) {
-  const mcsat_trail_t* trail = data;
-  assert(trail_has_value(trail, t1));
-  assert(trail_has_value(trail, t2));
-  return trail_get_index(trail, t1) < trail_get_index(trail, t2);
-}
-
+static
 bool bb_sat_solver_cmp_bit_term(void *data, term_t t1, term_t t2) {
   term_table_t* terms = (term_table_t*) data;
 
@@ -214,6 +216,7 @@ bool bb_sat_solver_cmp_bit_term(void *data, term_t t1, term_t t2) {
   return t1 < t2;
 }
 
+static
 void bb_sat_solver_solve_and_get_core(bb_sat_solver_t* solver, term_vector_t* core) {
 
   uint32_t i, j, bit;

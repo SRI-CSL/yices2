@@ -20,7 +20,8 @@
 #define MCSAT_CONFLICT_H_
 
 #include "mcsat/trail.h"
-#include "mcsat/variable_db.h"
+#include "mcsat/variable.h"
+#include "mcsat/utils/int_mset.h"
 
 #include "utils/int_hash_map.h"
 #include "utils/int_hash_sets.h"
@@ -37,7 +38,7 @@ typedef int32_t conflict_element_ref_t;
  * The conflict element is just a disjunct in the conflict clause. It
  * associated with its top variable that implies it to be false, and linked
  * with other disjuncts that are false due to the same variable. The variable
- * itself is kept outside, so he element only holds the reference to the next
+ * itself is kept outside, so the element only holds the reference to the next
  * element.
  */
 typedef struct conflict_element_s {
@@ -148,17 +149,20 @@ bool conflict_contains_as_top(const conflict_t* conflict, variable_t var);
 /** Get the number of variables responsible for the conflict at the conflict top level */
 uint32_t conflict_get_top_level_vars_count(const conflict_t* conflict);
 
+/** Gets the top level variables if only one exists. */
+variable_t conflict_get_top_level_var(conflict_t* conflict);
+
 /** Recompute level information */
 void conflict_recompute_level_info(conflict_t* conflict);
 
 /** Resolve the given variable by using ((and reasons) => var = substitution). */
-void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t substitution, ivector_t* reasons);
+void conflict_resolve_propagation(conflict_t* conflict, variable_t var, term_t substitution, const ivector_t* reasons);
 
 /** Get all the variables responsible for the conflict (internal reference) */
 ivector_t* conflict_get_variables(conflict_t* conflict);
 
 /** Get all the variables that were ever in the conflict */
-const int_mset_t* conflict_get_variables_all(conflict_t* conflict);
+const int_mset_t* conflict_get_variables_all(const conflict_t* conflict);
 
 /** Get all the literals of the conflict clause */
 ivector_t* conflict_get_literals(conflict_t* conflict);
@@ -167,19 +171,19 @@ ivector_t* conflict_get_literals(conflict_t* conflict);
 void conflict_get_negated_literals(conflict_t* conflict, ivector_t* out);
 
 /** Get all the literals of the given variable */
-void conflict_get_literals_of(conflict_t* conflict, variable_t var, ivector_t* literals);
+void conflict_get_literals_of(const conflict_t* conflict, variable_t var, ivector_t* literals);
 
 /** Get count of all the literals of the given variable */
-uint32_t conflict_get_literal_count_of(conflict_t* conflict, variable_t var);
+uint32_t conflict_get_literal_count_of(const conflict_t* conflict, variable_t var);
 
 /**
  * Get count of all the literals of the given variable that are different
  * from var and !var.
  */
-term_t conflict_get_max_literal_of(conflict_t* conflict, variable_t var);
+term_t conflict_get_max_literal_of(const conflict_t* conflict, variable_t var);
 
 /** Run Yices to check that the conflict is a valid statement */
-void conflict_check(conflict_t* conflict);
+void conflict_check(const conflict_t* conflict);
 
 /** Returns the clause of the conflict */
 term_t conflict_get_formula(conflict_t* conflict);
