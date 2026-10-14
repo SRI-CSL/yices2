@@ -709,4 +709,30 @@ static inline bool context_quant_enabled(context_t *ctx) {
 }
 
 
+/*
+ * MCSAT relaxation internals, shared with context_mcsat_relax.c
+ */
+
+/*
+ * True if the mcsat-supplement linear relaxation (mcsat_relax_pprod & co.,
+ * in context.c) is active for this context.
+ */
+extern bool context_mcsat_relaxation_enabled(context_t *ctx);
+
+/*
+ * Return ctx->mcsat_relax_zero_lemma_done. Allocate and initialize it if
+ * necessary. See context_types.h for what this map tracks.
+ */
+extern int_hmap_t *context_get_mcsat_relax_zero_lemma_done(context_t *ctx);
+
+/*
+ * Translate internalization code x to an arithmetic variable
+ * - if the code is for an egraph term u, then we return the
+ *   theory variable attached to u in the egraph.
+ * - otherwise, x must be the code of an arithmetic variable v,
+ *   we return v.
+ */
+extern thvar_t translate_code_to_arith(context_t *ctx, int32_t x);
+
+
 #endif /* __CONTEXT_UTILS_H */
