@@ -1,0 +1,9 @@
+unsat
+(error "the context is unsatisfiable")
+sat
+((p true))
+sat
+unsat
+unsat
+sat
+((p false))

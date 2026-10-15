@@ -1,0 +1,7 @@
+(set-option :produce-unsat-cores true)
+(set-logic QF_NRA)
+(declare-const p Bool)
+(assert (! p :named a))
+(assert (! (not p) :named b))
+(check-sat)
+(get-unsat-core)
