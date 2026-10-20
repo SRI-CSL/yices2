@@ -154,6 +154,9 @@ struct mcsat_solver_s {
   /** Number of inconsistent push calls */
   uint32_t inconsistent_push_calls;
 
+  /** True if mcsat_clear must pop the last pushed scope (see mcsat_pop_at_clear) */
+  bool pop_at_clear;
+
   /** Notifications for new variables */
   solver_new_variable_notify_t var_db_notify;
 
@@ -952,6 +955,7 @@ void mcsat_construct(mcsat_solver_t* mcsat, const context_t* ctx) {
   mcsat->terms_size_on_solver_entry = 0;
   mcsat->status = YICES_STATUS_IDLE;
   mcsat->inconsistent_push_calls = 0;
+  mcsat->pop_at_clear = false;
 
   // New term manager
   init_term_manager(&mcsat->tm, mcsat->terms);
@@ -1284,6 +1288,22 @@ void mcsat_pop(mcsat_solver_t* mcsat) {
 }
 
 void mcsat_clear(mcsat_solver_t* mcsat) {
+  /*
+   * Where an MCSAT context supports push and pop, while the context has the status sat from
+   * an MCSAT check with assumptions, when `yices_push`, `yices_pop`, `yices_assert_formula`,
+   * `yices_garbage_collect`, or a later check is called, the context shall remove the label
+   * assertions of that check.
+   *
+   * When `yices_garbage_collect` runs after an MCSAT check with assumptions, the context shall
+   * keep each assertion that the user adds after the collection until the user pops the scope
+   * of that assertion.
+   */
+  if (mcsat->pop_at_clear) {
+    mcsat->pop_at_clear = false;
+    mcsat_cleanup_assumptions(mcsat);
+    mcsat_pop(mcsat);
+  }
+
   // Clear to be ready for more assertions:
   // - Pop internal to base level
   mcsat->assumption_i = 0;
@@ -3296,6 +3316,10 @@ solve_done:
   equality_sensitivity_unfreeze(&mcsat->eqsens);
 }
 
+void mcsat_pop_at_clear(mcsat_solver_t* mcsat) {
+  mcsat->pop_at_clear = true;
+}
+
 void mcsat_cleanup_assumptions(mcsat_solver_t* mcsat) {
   mcsat->assumptions_decided_level = -1;
   equality_sensitivity_clear_assumption_roots(&mcsat->eqsens);
@@ -3506,19 +3530,19 @@ void mcsat_set_unsat_result_from_labeled_interpolant(mcsat_solver_t* mcsat, term
 
   mcsat->status = YICES_STATUS_UNSAT;
   /*
-   * Called from check_context_with_assumptions *after* the temporary
-   * context frame has been popped. That is safe because:
-   *   - the temporary Boolean labels were created via
-   *     new_uninterpreted_term in the global term table and remain
-   *     valid: mcsat_pop sweeps mcsat-internal state (var_db,
-   *     plugin/preprocessor caches) but does not invoke term_table_gc,
-   *     so the labels' term ids are still good_term;
+   * Called from check_context_with_term_assumptions after the check, and
+   * after the label scope has been popped if the context has push/pop.
+   * That is safe because:
+   *   - the Boolean labels were created via new_uninterpreted_term in the
+   *     global term table and remain valid: mcsat_pop sweeps mcsat-internal
+   *     state (var_db, plugin/preprocessor caches) but does not invoke
+   *     term_table_gc, so the labels' term ids are still good_term;
    *   - the input interpolant has already been unblasted by the
    *     mcsat_set_interpolant_from_internal writer, so it lives in the
    *     public/postprocessed world (see the contract on
    *     mcsat->interpolant in solver.h).
    * This routine just rewrites the public interpolant to replace each
-   * temporary label b_i with the caller's original assumption a_i.
+   * label b_i with the caller's original assumption a_i.
    */
   init_term_subst(&subst, &mcsat->tm, n, labels, assumptions);
   interpolant = apply_term_subst(&subst, interpolant);

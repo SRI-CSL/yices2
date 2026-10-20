@@ -1285,8 +1285,13 @@ static smt_status_t _o_check_context_with_term_assumptions_mcsat(context_t *ctx,
   uint32_t i;
 
   /*
-   * MCSAT: create fresh labels b_i, assert (b_i => a_i), then solve with model b_i=true.
-   * We extract interpolant/core before cleanup, then restore sticky UNSAT artifacts.
+   * MCSAT: label each a_i with a Boolean term b_i, assert (b_i => a_i), then solve with
+   * model b_i=true.
+   * - With push/pop, the labels are fresh and live in an MCSAT scope of their own. Every
+   *   label atom costs work on each later check, so the scope does not outlive the result:
+   *   on SAT, mcsat_clear pops it, otherwise we pop it here.
+   * - Without push/pop, the labels stay asserted, so we reuse them as context_add_assumption
+   *   does: ctx->assumptions maps a_i to b_i (the label term goes in the literal slot).
    */
   if (!context_supports_model_interpolation(ctx)) {
     if (error != NULL) {
@@ -1298,44 +1303,62 @@ static smt_status_t _o_check_context_with_term_assumptions_mcsat(context_t *ctx,
   {
     model_t mdl;               // temporary model: sets all label terms b_i to true
     int_hmap_t label_map;      // map label b_i -> original assumption a_i
+    ivector_t terms;           // terms[k] is the assumption that assumptions[k] labels
     ivector_t mapped_core;     // translated core over original assumptions
     term_t interpolant = NULL_TERM; // raw/substituted interpolant for sticky UNSAT result
     int32_t code;              // return code from assert_formula (negative on internalization error)
-    bool pushed;               // whether we pushed a temporary scope and must pop it
+    term_t b;
+    bool pushed;               // true if the labels have their own MCSAT scope
     term_manager_t tm;
 
     init_model(&mdl, ctx->terms, true);
     init_int_hmap(&label_map, 0);
     init_ivector(&assumptions, n);
+    init_ivector(&terms, n);
     init_ivector(&mapped_core, 0);
     init_term_manager(&tm, ctx->terms);
     stat = YICES_STATUS_IDLE;
 
-    pushed = false;
-    if (context_supports_pushpop(ctx)) {
-      context_push(ctx);
-      pushed = true;
+    pushed = context_supports_pushpop(ctx);
+    if (pushed) {
+      mcsat_push(ctx->mcsat);
     }
 
+    /*
+     * Where an MCSAT context does not support push and pop, when an MCSAT check with assumptions
+     * receives an assumption term that an earlier MCSAT check with assumptions received,
+     * `yices_check_context_with_assumptions` shall create no label term for that assumption term.
+     *
+     * When an MCSAT check with assumptions runs, the context shall not assume the label of an
+     * assumption term that the call did not receive.
+     */
     for (i=0; i<n; i++) {
-      term_t b = new_uninterpreted_term(ctx->terms, bool_id);
-      term_t implication = mk_implies(&tm, b, a[i]);
-
-      int_hmap_add(&label_map, b, a[i]);
-      code = _o_assert_formula(ctx, implication);
-      if (code < 0) {
-        if (error != NULL) {
-          *error = code;
+      b = pushed ? NULL_TERM : assumption_literal_for_term(&ctx->assumptions, a[i]);
+      if (b < 0) {
+        b = new_uninterpreted_term(ctx->terms, bool_id);
+        code = _o_assert_formula(ctx, mk_implies(&tm, b, a[i]));
+        if (code < 0) {
+          if (error != NULL) {
+            *error = code;
+          }
+          stat = YICES_STATUS_ERROR;
+          break;
         }
-        stat = YICES_STATUS_ERROR;
-        break;
+        if (!pushed) {
+          assumption_stack_add(&ctx->assumptions, a[i], b);
+        }
       }
-      model_map_term(&mdl, b, vtbl_mk_bool(&mdl.vtbl, true));
-      ivector_push(&assumptions, b);
+      // a cached label repeats when a_i occurs twice in a
+      if (int_hmap_find(&label_map, b) == NULL) {
+        int_hmap_add(&label_map, b, a[i]);
+        model_map_term(&mdl, b, vtbl_mk_bool(&mdl.vtbl, true));
+        ivector_push(&assumptions, b);
+        ivector_push(&terms, a[i]);
+      }
     }
 
     if (stat != YICES_STATUS_ERROR) {
-      stat = check_context_with_model(ctx, params, &mdl, n, assumptions.data);
+      stat = check_context_with_model(ctx, params, &mdl, assumptions.size, assumptions.data);
       if (stat == YICES_STATUS_UNSAT) {
         interpolant = context_get_unsat_model_interpolant(ctx);
         assert(interpolant != NULL_TERM);
@@ -1343,17 +1366,34 @@ static smt_status_t _o_check_context_with_term_assumptions_mcsat(context_t *ctx,
       }
     }
 
+    /*
+     * When an MCSAT check with assumptions returns sat, `yices_context_status` shall return
+     * `YICES_STATUS_SAT` for that context.
+     *
+     * While an MCSAT context has the status sat from an MCSAT check with assumptions,
+     * `yices_get_model` shall return a model that gives true to each assertion and to
+     * each assumption.
+     *
+     * While an MCSAT context has the status sat from an MCSAT check with assumptions,
+     * the `get-model` command of `yices_smt2` shall print a model that gives true to
+     * each assertion and to each assumption.
+     */
     if (pushed) {
-      mcsat_cleanup_assumptions(ctx->mcsat);
-      context_pop(ctx);
+      if (stat == YICES_STATUS_SAT) {
+        mcsat_pop_at_clear(ctx->mcsat);
+      } else {
+        mcsat_cleanup_assumptions(ctx->mcsat);
+        mcsat_pop(ctx->mcsat);
+      }
     }
     if (stat == YICES_STATUS_UNSAT) {
-      mcsat_set_unsat_result_from_labeled_interpolant(ctx->mcsat, interpolant, n, assumptions.data, a);
+      mcsat_set_unsat_result_from_labeled_interpolant(ctx->mcsat, interpolant, assumptions.size, assumptions.data, terms.data);
       cache_unsat_core(ctx, &mapped_core);
     }
 
     delete_term_manager(&tm);
     delete_ivector(&mapped_core);
+    delete_ivector(&terms);
     delete_ivector(&assumptions);
     delete_int_hmap(&label_map);
     delete_model(&mdl);
@@ -1441,7 +1481,7 @@ static smt_status_t check_context_with_term_assumptions_supplement(context_t *ct
 
 /*
  * Check under assumptions given as terms.
- * - if MCSAT is enabled, this uses temporary labels + model interpolation.
+ * - if MCSAT is enabled, this uses labels + model interpolation.
  * - otherwise terms are converted to literals and handled by the CDCL(T) path.
  *
  * Preconditions:
