@@ -2783,7 +2783,7 @@ static smt_status_t check_sat_with_assumptions(smt2_globals_t *g, const param_t 
 
   /*
    * In MCSAT, a literal-only check-sat-assuming can be handled directly as
-   * check-with-model. This preserves SAT models for subsequent get-model.
+   * check-with-model. This avoids the labels of the term-assumption path.
    *
    * We keep the term-assumption path for non-literals (e.g., named formulas)
    * and when unsat assumptions are requested (core extraction needed).

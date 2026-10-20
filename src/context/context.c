@@ -6678,6 +6678,10 @@ void context_invalidate_unsat_core_cache(context_t *ctx) {
  * Reset: remove all assertions and clear all internalization tables
  */
 void reset_context(context_t *ctx) {
+  /*
+   * While an MCSAT context has the status sat from an MCSAT check with assumptions,
+   * when `yices_reset_context` is called, the context shall have no user scope.
+   */
   ctx->base_level = 0;
   ctx->arith_model_built = false;
   context_reset_sat_delegate_stats(ctx);
@@ -6714,6 +6718,10 @@ void reset_context(context_t *ctx) {
   reset_objstack(&ctx->ostack);
   reset_sharing_map(&ctx->sharing);
   reset_objstore(&ctx->cstore);
+  /*
+   * When `yices_reset_context` runs on an MCSAT context, the context shall remove the label
+   * assertions of all earlier MCSAT checks with assumptions.
+   */
   reset_assumption_stack(&ctx->assumptions);
 
   context_free_subst(ctx);

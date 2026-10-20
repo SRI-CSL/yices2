@@ -52,6 +52,7 @@
  * Elements in the stack:
  * - term = assumed term (Boolean)
  * - lit = corresponding literal in the CDCL solver
+ *   (an MCSAT context stores the label term of the assumption here)
  * - level = base level when the assumption was added
  */
 typedef struct assumption_elem_s {
