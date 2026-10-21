@@ -62,6 +62,7 @@
 
 #include "yices.h"
 #include "api/yices_api_lock_free.h"
+#include "api/yices_error_report.h"
 #include <inttypes.h>
 #include <math.h>
 
@@ -3200,7 +3201,9 @@ void mcsat_solve(mcsat_solver_t* mcsat, const param_t *params, model_t* mdl, uin
     if (mcsat->ctx->mcsat_options.check_model || model_check_assert) {
       const bool model_ok = mcsat_check_model(mcsat, model_check_assert);
       if (!model_ok) {
+        error_report_t *error = get_yices_error();
         mcsat->status = YICES_STATUS_ERROR;
+        error->code = MCSAT_ERROR_MODEL_CHECK_FAILED;
       }
     }
 

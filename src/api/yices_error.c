@@ -612,6 +612,10 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "mcsat: assumption variable has a type that mcsat cannot decide on\n");
     break;
 
+  case MCSAT_ERROR_MODEL_CHECK_FAILED:
+    code = fprintf(f, "mcsat: model check failed: an assertion is false in the model\n");
+    break;
+
   case INTERNAL_EXCEPTION:
   default:
     code = fprintf(f, "internal error\n");
@@ -1143,6 +1147,10 @@ char *error_string(void) {
 
   case MCSAT_ERROR_ASSUMPTION_TYPE_NOT_SUPPORTED:
     nchar = snprintf(buffer, BUFFER_SIZE,  "mcsat: assumption variable has a type that mcsat cannot decide on\n");
+    break;
+
+  case MCSAT_ERROR_MODEL_CHECK_FAILED:
+    nchar = snprintf(buffer, BUFFER_SIZE, "mcsat: model check failed: an assertion is false in the model");
     break;
 
   case INTERNAL_EXCEPTION:

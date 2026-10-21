@@ -1245,6 +1245,14 @@ Error Reports
 
       Since Yices 2.8.0.
 
+   .. c:enum:: MCSAT_ERROR_MODEL_CHECK_FAILED
+
+      With model checking enabled (option ``--mcsat-check-model`` of
+      ``yices_smt2``), MCSAT found an assertion that is false in the model it
+      built. This indicates a bug in Yices.
+
+      Since Yices 2.8.0.
+
    .. c:enum:: OUTPUT_ERROR
 
       Error when attempting to write to a stream. This error can be reported

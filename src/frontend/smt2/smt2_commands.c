@@ -1120,6 +1120,10 @@ static void print_yices_error(bool full) {
     print_out("mcsat: assumption variable has a type that mcsat cannot decide on");
     break;
 
+  case MCSAT_ERROR_MODEL_CHECK_FAILED:
+    print_out("mcsat: model check failed: an assertion is false in the model");
+    break;
+
   case OUTPUT_ERROR:
     print_out(" IO error");
     break;
@@ -1584,6 +1588,10 @@ static void report_status(smt2_globals_t *g, smt_status_t status) {
 
   case YICES_STATUS_ERROR:
     print_yices_error(true);
+    if (yices_error_code() == MCSAT_ERROR_MODEL_CHECK_FAILED) {
+      // wrong model: fail the run like --check-status does
+      exit(YICES_EXIT_ERROR);
+    }
     break;
 
   default:
