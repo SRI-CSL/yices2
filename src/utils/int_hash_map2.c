@@ -319,7 +319,7 @@ void reset_int_hmap2(int_hmap2_t *hmap) {
  * We do this by copying the content into a new array, which
  * may be somewhat expensive if most records are kept.
  */
-void int_hmap2_gc(int_hmap2_t *hmap, void *aux, keep_alive_fun_t f) {
+void int_hmap2_gc(int_hmap2_t *hmap, void *aux, int_hmap2_keep_alive_fun_t f) {
   int_hmap2_rec_t *tmp, *r;
   uint32_t i, n, nelems, mask;
 

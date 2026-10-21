@@ -18,6 +18,7 @@
  
 #include "mcsat/model.h"
 
+#include "utils/assert_utils.h"
 #include "utils/memalloc.h"
 
 static inline
@@ -126,6 +127,8 @@ void mcsat_model_set_value(mcsat_model_t* m, variable_t x, const mcsat_value_t* 
   if ((x_value->type != value->type) || (!mcsat_value_eq(x_value, value))) {
     mcsat_value_assign(x_value, value);
     m->timestamps[x] = ++ m->timestamp;
+    // INT32_MAX as timestamps are stored as signed int values in data structures
+    assert_always(m->timestamp < INT32_MAX);
   }
 }
 
@@ -135,5 +138,7 @@ void mcsat_model_unset_value(mcsat_model_t* m, variable_t x) {
     mcsat_value_destruct(m->values + x);
     mcsat_value_construct_default(m->values + x);
     m->timestamps[x] = ++ m->timestamp;
+    // INT32_MAX as timestamps are stored as signed int values in data structures
+    assert_always(m->timestamp < INT32_MAX);
   }
 }

@@ -81,6 +81,12 @@ void l2o_set_exception_handler(l2o_t* l2o, jmp_buf* handler);
 /** Store an assertion to l2o::assertions */
 void l2o_store_assertion(l2o_t* l2o, term_t assertion);
 
+/** Push a scope for the stored assertions */
+void l2o_push(l2o_t* l2o);
+
+/** Pop a scope, dropping the assertions stored since the matching push */
+void l2o_pop(l2o_t* l2o);
+
 /** Create the L2O cost function to the conjunction of the stored assertions */
 void l2o_run(l2o_t* l2o, mcsat_trail_t* trail, bool use_cached_values, const var_queue_t *queue);
 

@@ -393,6 +393,8 @@ typedef struct smt2_globals_s {
   bool produce_models;            // default = false
   bool produce_assignments;       // default = false
   bool dump_models;               // default = false
+  bool check_status;              // default = false: compare check-sat with (set-info :status ...)
+  smt_status_t expected_status;   // latest :status not yet checked (YICES_STATUS_IDLE if none)
   uint32_t random_seed;           // default = 0
   uint32_t verbosity;             // default = 0
 
@@ -536,6 +538,13 @@ extern void smt2_force_bvdecimal_format(void);
  * - filename = name of the output file
  */
 extern void smt2_export_to_dimacs(const char *filename);
+
+/*
+ * Compare each check-sat answer with the preceding (set-info :status ...), and
+ * exit with an error if they contradict
+ * - must not be called before init_smt2
+ */
+extern void smt2_enable_status_check(void);
 
 /*
  * Show all statistics on the output channel

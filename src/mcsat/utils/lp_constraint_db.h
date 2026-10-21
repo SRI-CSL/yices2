@@ -29,7 +29,7 @@
 #include "mcsat/variable_db.h"
 
 /**
- * A constraint of the form sgn(p(x)) = sgn_conition.
+ * A constraint of the form sgn(p(x)) = sgn_condition.
  */
 typedef struct {
   /** The polynomial of the constraint */

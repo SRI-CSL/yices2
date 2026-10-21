@@ -20,14 +20,14 @@
 #define MCSAT_MODEL_H_
 
 #include "mcsat/value.h"
-#include "mcsat/variable_db.h"
+#include "mcsat/variable.h"
 #include "mcsat/mcsat_types.h"
 
 /** The model */
 struct mcsat_model_s {
   /** Size of the model */
   uint32_t size;
-  /** Capactity of the model */
+  /** Capacity of the model */
   uint32_t capacity;
   /** Map from variables to values */
   mcsat_value_t* values;

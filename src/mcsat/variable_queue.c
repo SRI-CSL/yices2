@@ -19,6 +19,7 @@
 #include "mcsat/variable_queue.h"
 
 #include "utils/dprng.h"
+#include "utils/memalloc.h"
 
 #include <float.h>
 

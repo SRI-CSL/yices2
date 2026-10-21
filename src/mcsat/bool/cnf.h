@@ -22,11 +22,10 @@
 #include <stdbool.h>
 
 #include "mcsat/plugin.h"
-#include "mcsat/variable_db.h"
+#include "mcsat/variable.h"
 #include "mcsat/bool/clause_db.h"
 #include "mcsat/utils/int_lset.h"
-
-#include "utils/int_hash_map.h"
+#include "mcsat/utils/int_mset.h"
 
 /**
  * The CNF manager keeps the definitional CNF transformation. It converts

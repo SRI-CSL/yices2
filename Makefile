@@ -275,7 +275,7 @@ show-config: checkgmake
 
 checkgmake:
 	@ ./gmaketest --make=$(MAKE) || \
-	  (echo "GNU-Make is required to compile Yices. Aborting."; exit1)
+	  (echo "GNU-Make is required to compile Yices. Aborting."; exit 1)
 
 
 #

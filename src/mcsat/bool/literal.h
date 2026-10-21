@@ -22,12 +22,10 @@
 #include "mcsat/mcsat_types.h"
 #include "mcsat/bool/bool_plugin_types.h"
 
-#include "mcsat/variable_db.h"
+#include "mcsat/variable.h"
 #include "mcsat/trail.h"
 #include "mcsat/value.h"
 #include "mcsat/plugin.h"
-
-#define mcsat_literal_null 0
 
 /** Negate the literal */
 static inline

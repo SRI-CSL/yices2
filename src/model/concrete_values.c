@@ -32,6 +32,7 @@
 
 #ifdef HAVE_MCSAT
 #include <poly/algebraic_number.h>
+#include <poly/value.h>
 #endif
 
 
@@ -2178,17 +2179,30 @@ value_t vtbl_mk_int32(value_table_t *table, int32_t i) {
 
 /*
  * Return a finitefield constant = v
+ * - v is reduced to its representative in [0, mod): MC-SAT reports field
+ *   elements in the symmetric range, e.g. -1 for 2 mod 3
  */
 value_t vtbl_mk_finitefield(value_table_t *table, rational_t *v, const rational_t *mod) {
+  rational_t aux;
+  value_t k;
+
+  assert(q_is_integer(v) && q_is_integer(mod) && q_is_pos(mod));
+  q_init(&aux);
+  q_set(&aux, v);
+  q_integer_rem(&aux, mod);
+
   ff_hobj_t ff_hobj;
   ff_hobj.m.hash = (hobj_hash_t) hash_finitefield_value;
   ff_hobj.m.eq = (hobj_eq_t) equal_finitefield_value;
   ff_hobj.m.build = (hobj_build_t) build_finitefield_value;
   ff_hobj.table = table;
-  ff_hobj.v = v;
+  ff_hobj.v = &aux;
   ff_hobj.mod = (rational_t*)mod;
 
-  return int_htbl_get_obj(&table->htbl, (int_hobj_t *) &ff_hobj);
+  k = int_htbl_get_obj(&table->htbl, (int_hobj_t *) &ff_hobj);
+  q_clear(&aux);
+
+  return k;
 }
 
 /*
@@ -2217,12 +2231,43 @@ static value_t vtbl_mk_int32_ff(value_table_t *table, int32_t v, const rational_
 }
 
 
+#ifdef HAVE_MCSAT
+/*
+ * Rational object for an algebraic number a that is rational
+ */
+static value_t vtbl_mk_rational_from_algebraic(value_table_t *table, const lp_algebraic_number_t *a) {
+  lp_value_t lp_v;
+  lp_rational_t lp_q;
+  rational_t q;
+  value_t k;
+
+  lp_value_construct(&lp_v, LP_VALUE_ALGEBRAIC, a);
+  lp_rational_construct(&lp_q);
+  lp_value_get_rational(&lp_v, &lp_q);
+  q_init(&q);
+  q_set_mpq(&q, &lp_q);
+  k = vtbl_mk_rational(table, &q);
+  q_clear(&q);
+  lp_rational_destruct(&lp_q);
+  lp_value_destruct(&lp_v);
+
+  return k;
+}
+#endif
+
 /*
  * Copy of the algebraic number
+ * - a rational number becomes a rational object: maps are keyed by value_t,
+ *   so a number must not have both an algebraic and a rational value
  */
 value_t vtbl_mk_algebraic(value_table_t *table, void* a) {
 #ifdef HAVE_MCSAT
   algebraic_hobj_t algebraic_hobj;
+
+  // TODO this function is not complete, we could miss rationals
+  if (lp_algebraic_number_is_rational(a)) {
+    return vtbl_mk_rational_from_algebraic(table, a);
+  }
 
   algebraic_hobj.m.hash = (hobj_hash_t) hash_algebraic_value;
   algebraic_hobj.m.eq = (hobj_eq_t) equal_algebraic_value;

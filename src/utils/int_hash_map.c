@@ -381,14 +381,12 @@ int_hmap_pair_t *int_hmap_next_record(const int_hmap_t *hmap, const int_hmap_pai
 }
 
 
-
-
 /*
  * Remove the records that satisfy filter f
  * - calls f(aux, p) on every record p stored in hmap
  * - if f(aux, p) returns true then record p is removed
  */
-void int_hmap_remove_records(int_hmap_t *hmap, void *aux, int_hmap_filter_t f) {
+void int_hmap_gc(int_hmap_t *hmap, void *aux, int_hmap_keep_alive_fun_t f) {
   int_hmap_pair_t *d;
   uint32_t i, n, k;
 
@@ -396,7 +394,7 @@ void int_hmap_remove_records(int_hmap_t *hmap, void *aux, int_hmap_filter_t f) {
   d = hmap->data;
   k = 0;
   for (i=0; i<n; i++) {
-    if (d->key >= 0 && f(aux, d)) {
+    if (d->key >= 0 && !f(aux, d)) {
       // mark d as deleted
       d->key = DELETED_KEY;
       k ++;

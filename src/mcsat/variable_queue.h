@@ -19,7 +19,10 @@
 #ifndef MCSAT_VAR_QUEUE_H_
 #define MCSAT_VAR_QUEUE_H_
 
-#include "mcsat/variable_db.h"
+#include "mcsat/variable.h"
+#include "mcsat/gc.h"
+
+#include <stdbool.h>
 
 /**
  * Heap and variable activities for variable selection heuristic

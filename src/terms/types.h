@@ -1185,10 +1185,12 @@ static inline void type_table_clr_gc_mark(type_table_t *tbl, type_t i) {
 
 /*
  * Test whether i is marked
+ * - i may be a deleted type: the GC scans every index, and deleted
+ *   types keep their flags, with the mark cleared
  */
 static inline bool type_is_marked(type_table_t *tbl, type_t i) {
   assert(valid_type(tbl, i));
-  return type_flags(tbl, i) & TYPE_GC_MARK;
+  return type_desc(tbl, i)->flags & TYPE_GC_MARK;
 }
 
 

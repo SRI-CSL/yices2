@@ -25,7 +25,7 @@
 
 
 /** Structure containing all he garbage collection data */
-typedef struct {
+typedef struct gc_info_s {
 
   /** Is this an ID collector (keeping same object ids on collection) */
   bool is_id;

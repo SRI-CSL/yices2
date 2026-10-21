@@ -3007,7 +3007,7 @@ void type_table_gc(type_table_t *table, bool keep_named)  {
 
   // cleanup the max cache
   if (table->max_tbl != NULL) {
-    int_hmap_remove_records(table->max_tbl, table, keep_in_max_table);
+    int_hmap_gc(table->max_tbl, table, keep_in_max_table);
   }
 
   // cleanup the macro table cache too
