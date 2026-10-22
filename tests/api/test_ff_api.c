@@ -216,12 +216,77 @@ static void test_ff_model_accessors(void) {
   mpz_clear(p);
 }
 
+/*
+ * Model values are reduced into [0, p): -1 and p-1 must be the same value.
+ * Unreduced, (= x p-1) was false in a model where x is -1.
+ */
+static void test_ff_model_values_reduced(void) {
+  mpz_t p, z, out_val, out_mod;
+  type_t tau;
+  term_t x, c0, c1, c2, x_is_2;
+  model_t *m;
+
+  mpz_init_set_si(p, 3);
+  mpz_init(z);
+  mpz_init(out_val);
+  mpz_init(out_mod);
+
+  tau = yices_ff_type(p);
+  check(tau != NULL_TYPE, "ff type creation failed");
+  x = yices_new_uninterpreted_term(tau);
+  mpz_set_si(z, 0);
+  c0 = yices_ff_const(z, p);
+  mpz_set_si(z, 1);
+  c1 = yices_ff_const(z, p);
+  mpz_set_si(z, 2);
+  c2 = yices_ff_const(z, p);
+  x_is_2 = yices_eq(x, c2);
+  check(x_is_2 != NULL_TERM, "ff equality failed");
+
+  // user model given -1
+  m = yices_new_model();
+  check(m != NULL, "failed to create model");
+  mpz_set_si(z, -1);
+  check(yices_model_set_ff_mpz(m, x, z) == 0, "yices_model_set_ff_mpz(-1) failed");
+  check(yices_formula_true_in_model(m, x_is_2) == 1, "x = -1 should satisfy x = 2 mod 3");
+  check(yices_get_ff_value(m, x, out_val, out_mod) == 0, "yices_get_ff_value failed");
+  check_mpz_si(out_val, 2, "user model value -1 should read back as 2");
+  yices_free_model(m);
+
+  // MCSAT model: x*x = 1 and x + 1 = 0 force x = 2, which MCSAT computes as -1
+  if (yices_has_mcsat()) {
+    ctx_config_t *config = yices_new_config();
+    context_t *ctx;
+
+    yices_set_config(config, "solver-type", "mcsat");
+    ctx = yices_new_context(config);
+    yices_free_config(config);
+    check(ctx != NULL, "failed to create mcsat context");
+    check(yices_assert_formula(ctx, yices_eq(yices_ff_mul(x, x), c1)) == 0, "assert x*x = 1 failed");
+    check(yices_assert_formula(ctx, yices_eq(yices_ff_add(x, c1), c0)) == 0, "assert x + 1 = 0 failed");
+    check(yices_check_context(ctx, NULL) == YICES_STATUS_SAT, "x*x = 1, x + 1 = 0 should be sat");
+    m = yices_get_model(ctx, true);
+    check(m != NULL, "failed to get mcsat model");
+    check(yices_formula_true_in_model(m, x_is_2) == 1, "mcsat model should satisfy x = 2");
+    check(yices_get_ff_value(m, x, out_val, out_mod) == 0, "yices_get_ff_value (mcsat) failed");
+    check_mpz_si(out_val, 2, "mcsat model value should be 2");
+    yices_free_model(m);
+    yices_free_context(ctx);
+  }
+
+  mpz_clear(out_mod);
+  mpz_clear(out_val);
+  mpz_clear(z);
+  mpz_clear(p);
+}
+
 int main(void) {
   yices_init();
 
   test_ff_type_and_constants();
   test_ff_term_builders_and_deconstruction();
   test_ff_model_accessors();
+  test_ff_model_values_reduced();
 
   yices_exit();
   return 0;
