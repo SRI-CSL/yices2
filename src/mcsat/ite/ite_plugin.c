@@ -487,6 +487,19 @@ void ite_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
 }
 
 static
+void ite_plugin_event_notify(plugin_t* plugin, plugin_notify_kind_t kind) {
+  ite_plugin_t* ite = (ite_plugin_t*) plugin;
+
+  // A user pop removes atoms that were propagated inside the popped level,
+  // while their conditions can stay on the trail below trail_i. The ITE terms
+  // stay registered, so the solver does not notify them again. Scan the whole
+  // trail again: firing an ITE term a second time adds nothing.
+  if (kind == MCSAT_SOLVER_POP) {
+    ite->trail_i = 0;
+  }
+}
+
+static
 void ite_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
   ite_plugin_t* ite = (ite_plugin_t*) plugin;
   ite->exception = handler;
@@ -498,6 +511,7 @@ plugin_t* ite_plugin_allocator(void) {
   plugin->plugin_interface.construct             = ite_plugin_construct;
   plugin->plugin_interface.destruct              = ite_plugin_destruct;
   plugin->plugin_interface.new_term_notify       = ite_plugin_new_term_notify;
+  plugin->plugin_interface.event_notify          = ite_plugin_event_notify;
   plugin->plugin_interface.propagate             = ite_plugin_propagate;
   plugin->plugin_interface.explain_propagation   = ite_plugin_explain_propagation;
   plugin->plugin_interface.get_conflict          = ite_plugin_get_conflict;
