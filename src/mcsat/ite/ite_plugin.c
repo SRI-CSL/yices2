@@ -15,10 +15,36 @@
  * You should have received a copy of the GNU General Public License
  * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
  */
- 
+
+/*
+ * Lazy ITE plugin. For a non-Boolean term t = ite(c, a, b), the plugin
+ * watches c. When c gets a value, the plugin makes the atom (t = a) or
+ * (t = b) for the selected branch, and propagates it true with the reason
+ * c or (not c). The owner of the type of t keeps control of its value.
+ */
+
 #include "mcsat/ite/ite_plugin.h"
-#include "terms/term_manager.h"
 #include "mcsat/tracing.h"
+#include "mcsat/utils/int_lset.h"
+#include "mcsat/utils/scope_holder.h"
+
+#include "terms/term_manager.h"
+#include "utils/int_hash_map.h"
+#include "utils/int_vectors.h"
+#include "utils/memalloc.h"
+
+typedef struct {
+  /** Variable of the ITE term t */
+  variable_t t_var;
+  /** Condition, as in the ITE term (can be a negative term) */
+  term_t c;
+  /** Then-branch and else-branch */
+  term_t then_t;
+  term_t else_t;
+  /** Cached atoms (t = then_t) and (t = else_t), NULL_TERM until made */
+  term_t eq_then;
+  term_t eq_else;
+} ite_info_t;
 
 typedef struct {
 
@@ -28,6 +54,41 @@ typedef struct {
   /** The plugin context */
   plugin_context_t* ctx;
 
+  /** Information on each registered non-Boolean ITE term */
+  ite_info_t* infos;
+  uint32_t infos_size;
+  uint32_t infos_capacity;
+
+  /** Map from the variable of t to its index in infos */
+  int_hmap_t info_of_var;
+
+  /** Map from an atom variable to 2 * t_var + (1 if then-branch, 0 if else-branch) */
+  int_hmap_t atom_owner;
+
+  /** Map from the variable of unsigned_term(c) to the variables of the ITE terms */
+  int_lset_t watch;
+
+  /** ITE variables registered while their condition already had a value */
+  ivector_t pending;
+
+  /** Next trail element to process */
+  uint32_t trail_i;
+
+  /** Scope for trail_i */
+  scope_holder_t scope;
+
+  /** The conflict to report */
+  ivector_t conflict;
+
+  /** Temporary vector */
+  ivector_t tmp;
+
+  struct {
+    statistic_int_t* propagations;
+    statistic_int_t* conflicts;
+    statistic_int_t* conflicts_t_first;
+  } stats;
+
   /** Exception handler */
   jmp_buf* exception;
 
@@ -36,50 +97,281 @@ typedef struct {
 static
 void ite_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ite_plugin_t* ite = (ite_plugin_t*) plugin;
+
   ite->ctx = ctx;
+  ite->infos = NULL;
+  ite->infos_size = 0;
+  ite->infos_capacity = 0;
+  init_int_hmap(&ite->info_of_var, 0);
+  init_int_hmap(&ite->atom_owner, 0);
+  int_lset_construct(&ite->watch);
+  init_ivector(&ite->pending, 0);
+  ite->trail_i = 0;
+  scope_holder_construct(&ite->scope);
+  init_ivector(&ite->conflict, 0);
+  init_ivector(&ite->tmp, 0);
+
+  ite->stats.propagations = statistics_new_int(ctx->stats, "mcsat::ite::propagations");
+  ite->stats.conflicts = statistics_new_int(ctx->stats, "mcsat::ite::conflicts");
+  ite->stats.conflicts_t_first = statistics_new_int(ctx->stats, "mcsat::ite::conflicts_t_first");
+
   ctx->request_term_notification_by_kind(ctx, ITE_TERM, false);
   ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL, false);
 }
 
 static
 void ite_plugin_destruct(plugin_t* plugin) {
-  (void) plugin;
+  ite_plugin_t* ite = (ite_plugin_t*) plugin;
+
+  safe_free(ite->infos);
+  delete_int_hmap(&ite->info_of_var);
+  delete_int_hmap(&ite->atom_owner);
+  int_lset_destruct(&ite->watch);
+  delete_ivector(&ite->pending);
+  scope_holder_destruct(&ite->scope);
+  delete_ivector(&ite->conflict);
+  delete_ivector(&ite->tmp);
+}
+
+static
+ite_info_t* ite_plugin_get_info(ite_plugin_t* ite, variable_t t_var) {
+  int_hmap_pair_t* find = int_hmap_find(&ite->info_of_var, t_var);
+  assert(find != NULL);
+  return ite->infos + find->val;
 }
 
 static
 void ite_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* prop) {
-  ite_plugin_t* ite_plugin = (ite_plugin_t*) plugin;
+  ite_plugin_t* ite = (ite_plugin_t*) plugin;
+  term_table_t* terms = ite->ctx->terms;
+  variable_db_t* var_db = ite->ctx->var_db;
 
-  if (ctx_trace_enabled(ite_plugin->ctx, "mcsat::new_term")) {
-    ctx_trace_printf(ite_plugin->ctx, "ite_plugin_new_term_notify: ");
-    ctx_trace_term(ite_plugin->ctx, term);
+  if (ctx_trace_enabled(ite->ctx, "mcsat::new_term")) {
+    ctx_trace_printf(ite->ctx, "ite_plugin_new_term_notify: ");
+    ctx_trace_term(ite->ctx, term);
   }
 
-  assert(term_kind(ite_plugin->ctx->terms, term) == ITE_TERM || term_kind(ite_plugin->ctx->terms, term) == ITE_SPECIAL);
+  assert(term_kind(terms, term) == ITE_TERM || term_kind(terms, term) == ITE_SPECIAL);
 
-  // Ignore the Boolean ITE terms
-  if (term_type_kind(ite_plugin->ctx->terms, term) == BOOL_TYPE) {
+  // When the solver notifies the ITE plugin of a Boolean ITE term, the ITE
+  // plugin shall add no lemma and no trail entry for that term.
+  if (term_type_kind(terms, term) == BOOL_TYPE) {
     return;
   }
 
-  // Get the ITE parts
-  composite_term_t* ite_desc = ite_term_desc(ite_plugin->ctx->terms, term);
-  term_t c = ite_desc->arg[0];
-  term_t t_true = ite_desc->arg[1];
-  term_t t_false = ite_desc->arg[2];
+  variable_t t_var = variable_db_get_variable(var_db, term);
+  if (int_hmap_find(&ite->info_of_var, t_var) != NULL) {
+    return;
+  }
 
-  // Make the lemmas
-  term_manager_t* tm = ite_plugin->ctx->tm;
-  term_t eq_true = mk_eq(tm, term, t_true);
-  term_t eq_false = mk_eq(tm, term, t_false);
-  term_t imp1 = mk_implies(tm, c, eq_true);
-  term_t imp2 = mk_implies(tm, opposite_term(c), eq_false);
-  term_t disj = mk_binary_or(tm, eq_true, eq_false);
+  // When the solver notifies the ITE plugin of a non-Boolean ITE term, the
+  // ITE plugin shall add no lemma for that term.
+  // The branches are not registered here: the atom of a branch registers it.
+  composite_term_t* desc = ite_term_desc(terms, term);
+  if (ite->infos_size == ite->infos_capacity) {
+    ite->infos_capacity = ite->infos_capacity == 0 ? 16 : 2 * ite->infos_capacity;
+    ite->infos = (ite_info_t*) safe_realloc(ite->infos, ite->infos_capacity * sizeof(ite_info_t));
+  }
+  ite_info_t* info = ite->infos + ite->infos_size;
+  info->t_var = t_var;
+  info->c = desc->arg[0];
+  info->then_t = desc->arg[1];
+  info->else_t = desc->arg[2];
+  info->eq_then = NULL_TERM;
+  info->eq_else = NULL_TERM;
+  int_hmap_add(&ite->info_of_var, t_var, ite->infos_size);
+  ite->infos_size ++;
 
-  // Send off the lemmas
-  prop->lemma(prop, imp1);
-  prop->lemma(prop, imp2);
-  prop->lemma(prop, disj);
+  variable_t c_var = variable_db_get_variable(var_db, unsigned_term(desc->arg[0]));
+  int_lset_add(&ite->watch, c_var, t_var);
+
+  // When the solver notifies the ITE plugin of a non-Boolean ITE term whose
+  // condition already has a value, the ITE plugin shall add the trail entry
+  // of the selected branch at the next call to propagate.
+  if (trail_has_value(ite->ctx->trail, c_var)) {
+    ivector_push(&ite->pending, t_var);
+  }
+
+  (void) prop;
+}
+
+static
+void ite_plugin_report_conflict(ite_plugin_t* ite, trail_token_t* prop, variable_t t_var, variable_t c_var) {
+  const mcsat_trail_t* trail = ite->ctx->trail;
+
+  (*ite->stats.conflicts) ++;
+  if (trail_has_value(trail, t_var) && trail_get_index(trail, t_var) < trail_get_index(trail, c_var)) {
+    (*ite->stats.conflicts_t_first) ++;
+  }
+  prop->conflict(prop);
+}
+
+/** Propagate the atom of the selected branch of the ITE variable t_var */
+static
+void ite_plugin_fire(ite_plugin_t* ite, variable_t t_var, trail_token_t* prop) {
+  const mcsat_trail_t* trail = ite->ctx->trail;
+  variable_db_t* var_db = ite->ctx->var_db;
+
+  ite_info_t* info = ite_plugin_get_info(ite, t_var);
+  variable_t c_var = variable_db_get_variable_if_exists(var_db, unsigned_term(info->c));
+  assert(c_var != variable_null);
+
+  // While the condition of a registered non-Boolean ITE term t has no value
+  // on the trail, the ITE plugin shall add no trail entry for t.
+  if (!trail_has_value(trail, c_var)) {
+    return;
+  }
+
+  bool c_value = trail_get_boolean_value(trail, c_var);
+  if (is_neg_term(info->c)) {
+    c_value = !c_value;
+  }
+  term_t lit = c_value ? info->c : opposite_term(info->c);
+
+  term_t atom = c_value ? info->eq_then : info->eq_else;
+  if (atom == NULL_TERM) {
+    term_t t = variable_db_get_term(var_db, t_var);
+    atom = mk_eq(ite->ctx->tm, t, c_value ? info->then_t : info->else_t);
+    if (c_value) {
+      info->eq_then = atom;
+    } else {
+      info->eq_else = atom;
+    }
+  }
+
+  if (ctx_trace_enabled(ite->ctx, "mcsat::ite")) {
+    ctx_trace_printf(ite->ctx, "ite_plugin_fire: ");
+    ctx_trace_term(ite->ctx, atom);
+  }
+
+  if (atom == true_term) {
+    return;
+  }
+
+  // If the condition of a registered non-Boolean ITE term t selects a branch
+  // and the trail forces t to differ from that branch, then the ITE plugin
+  // shall report a conflict whose learned clause is (the negated condition
+  // literal) or (t equals that branch).
+  if (atom == false_term) {
+    ivector_reset(&ite->conflict);
+    ivector_push(&ite->conflict, lit);
+    ite_plugin_report_conflict(ite, prop, t_var, c_var);
+    return;
+  }
+
+  // The owners register the atom here. NA can give it a value by evaluation.
+  // The registration can add ITE terms, so info is not valid after this call.
+  ite->ctx->register_term(ite->ctx, atom);
+  if (!trail_is_consistent(trail)) {
+    return;
+  }
+
+  variable_t atom_var = variable_db_get_variable(var_db, unsigned_term(atom));
+  int_hmap_get(&ite->atom_owner, atom_var)->val = 2 * t_var + (c_value ? 1 : 0);
+  bool atom_var_value = is_pos_term(atom);
+
+  if (trail_has_value(trail, atom_var)) {
+    if (trail_get_boolean_value(trail, atom_var) != atom_var_value) {
+      ivector_reset(&ite->conflict);
+      ivector_push(&ite->conflict, lit);
+      ivector_push(&ite->conflict, opposite_term(atom));
+      ite_plugin_report_conflict(ite, prop, t_var, c_var);
+    }
+    return;
+  }
+
+  // While the condition c of a registered non-Boolean term t = ite(c, a, b)
+  // is true on the trail and the trail does not force t to differ from a,
+  // when the solver calls the ITE plugin to propagate, the ITE plugin shall
+  // add a trail entry that forces t to equal a.
+  // While the condition c of a registered non-Boolean term t = ite(c, a, b)
+  // is false on the trail and the trail does not force t to differ from b,
+  // when the solver calls the ITE plugin to propagate, the ITE plugin shall
+  // add a trail entry that forces t to equal b.
+  uint32_t level = trail_get_level(trail, c_var);
+  prop->add_at_level(prop, atom_var, atom_var_value ? &mcsat_value_true : &mcsat_value_false, level);
+  (*ite->stats.propagations) ++;
+}
+
+static
+void ite_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
+  ite_plugin_t* ite = (ite_plugin_t*) plugin;
+  const mcsat_trail_t* trail = ite->ctx->trail;
+  int_lset_iterator_t it;
+  uint32_t i;
+
+  while (trail_is_consistent(trail) && ite->trail_i < trail_size(trail)) {
+    variable_t var = trail_at(trail, ite->trail_i);
+    ite->trail_i ++;
+    if (!int_lset_has_list(&ite->watch, var)) {
+      continue;
+    }
+    // Copy the list: firing can register new ITE terms and change the watch
+    ivector_reset(&ite->tmp);
+    int_lset_iterator_construct(&it, &ite->watch, var);
+    while (!int_lset_iterator_done(&it)) {
+      ivector_push(&ite->tmp, *int_lset_iterator_get(&it));
+      int_lset_iterator_next_and_keep(&it);
+    }
+    int_lset_iterator_destruct(&it);
+    for (i = 0; i < ite->tmp.size && trail_is_consistent(trail); ++ i) {
+      ite_plugin_fire(ite, ite->tmp.data[i], prop);
+    }
+  }
+
+  // Pending ITE terms; firing can add more
+  i = 0;
+  while (i < ite->pending.size && trail_is_consistent(trail)) {
+    ite_plugin_fire(ite, ite->pending.data[i], prop);
+    i ++;
+  }
+  // Keep the ones that did not fire
+  uint32_t j;
+  for (j = 0; i < ite->pending.size; ++ i, ++ j) {
+    ite->pending.data[j] = ite->pending.data[i];
+  }
+  ivector_shrink(&ite->pending, j);
+}
+
+static
+term_t ite_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t* reasons) {
+  ite_plugin_t* ite = (ite_plugin_t*) plugin;
+  const mcsat_trail_t* trail = ite->ctx->trail;
+
+  int_hmap_pair_t* find = int_hmap_find(&ite->atom_owner, var);
+  assert(find != NULL);
+  variable_t t_var = find->val / 2;
+  bool is_then = (find->val % 2) == 1;
+  ite_info_t* info = ite_plugin_get_info(ite, t_var);
+
+  // When the solver asks the ITE plugin to explain a trail entry that forces
+  // t to equal a, the ITE plugin shall return the literal c as the only reason.
+  // When the solver asks the ITE plugin to explain a trail entry that forces
+  // t to equal b, the ITE plugin shall return the literal (not c) as the only
+  // reason.
+  ivector_push(reasons, is_then ? info->c : opposite_term(info->c));
+
+  return bool2term(trail_get_boolean_value(trail, var));
+}
+
+static
+void ite_plugin_get_conflict(plugin_t* plugin, ivector_t* conflict) {
+  ite_plugin_t* ite = (ite_plugin_t*) plugin;
+  ivector_add(conflict, ite->conflict.data, ite->conflict.size);
+  ivector_reset(&ite->conflict);
+}
+
+static
+void ite_plugin_push(plugin_t* plugin) {
+  ite_plugin_t* ite = (ite_plugin_t*) plugin;
+  scope_holder_push(&ite->scope, &ite->trail_i, NULL);
+}
+
+static
+void ite_plugin_pop(plugin_t* plugin) {
+  ite_plugin_t* ite = (ite_plugin_t*) plugin;
+  scope_holder_pop(&ite->scope, &ite->trail_i, NULL);
+  ivector_reset(&ite->conflict);
 }
 
 static
@@ -88,25 +380,17 @@ void ite_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
   ite->exception = handler;
 }
 
-
 plugin_t* ite_plugin_allocator(void) {
   ite_plugin_t* plugin = safe_malloc(sizeof(ite_plugin_t));
   plugin_construct((plugin_t*) plugin);
-  plugin->plugin_interface.construct           = ite_plugin_construct;
-  plugin->plugin_interface.destruct            = ite_plugin_destruct;
-  plugin->plugin_interface.new_term_notify     = ite_plugin_new_term_notify;
-  plugin->plugin_interface.new_lemma_notify    = NULL;
-  plugin->plugin_interface.event_notify        = NULL;
-  plugin->plugin_interface.propagate           = NULL;
-  plugin->plugin_interface.decide              = NULL;
-  plugin->plugin_interface.decide_assignment   = NULL;
-  plugin->plugin_interface.get_conflict        = NULL;
-  plugin->plugin_interface.explain_propagation = NULL;
-  plugin->plugin_interface.explain_evaluation  = NULL;
-  plugin->plugin_interface.push                = NULL;
-  plugin->plugin_interface.pop                 = NULL;
-  plugin->plugin_interface.gc_mark             = NULL;
-  plugin->plugin_interface.gc_sweep            = NULL;
+  plugin->plugin_interface.construct             = ite_plugin_construct;
+  plugin->plugin_interface.destruct              = ite_plugin_destruct;
+  plugin->plugin_interface.new_term_notify       = ite_plugin_new_term_notify;
+  plugin->plugin_interface.propagate             = ite_plugin_propagate;
+  plugin->plugin_interface.explain_propagation   = ite_plugin_explain_propagation;
+  plugin->plugin_interface.get_conflict          = ite_plugin_get_conflict;
+  plugin->plugin_interface.push                  = ite_plugin_push;
+  plugin->plugin_interface.pop                   = ite_plugin_pop;
   plugin->plugin_interface.set_exception_handler = ite_plugin_set_exception_handler;
 
   return (plugin_t*) plugin;

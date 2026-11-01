@@ -1,0 +1,3 @@
+sat
+((c false)
+ ((ite c y z) 2))
