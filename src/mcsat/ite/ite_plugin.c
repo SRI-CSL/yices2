@@ -20,8 +20,9 @@
  * Lazy ITE plugin. For a non-Boolean term t = ite(c, a, b), the plugin
  * registers the atoms (t = a) and (t = b) and watches c. It adds no lemma.
  * When c gets a value, the plugin propagates the atom of the selected branch
- * with the reason c or (not c). The owner of the type of t keeps control of
- * its value.
+ * with the reason c or (not c). When an atom becomes false while c has no
+ * value, the plugin propagates c with the negated atom as the reason. The
+ * owner of the type of t keeps control of its value.
  */
 
 #include "mcsat/ite/ite_plugin.h"
@@ -63,6 +64,9 @@ typedef struct {
   /** Map from an atom variable to 2 * t_var + (1 if then-branch, 0 if else-branch) */
   int_hmap_t atom_owner;
 
+  /** Map from a variable that this plugin propagated to the reason literal */
+  int_hmap_t reason_of;
+
   /** Map from the variable of unsigned_term(c) to the variables of the ITE terms */
   int_lset_t watch;
 
@@ -83,6 +87,7 @@ typedef struct {
 
   struct {
     statistic_int_t* propagations;
+    statistic_int_t* reverse_propagations;
     statistic_int_t* conflicts;
     statistic_int_t* conflicts_t_first;
   } stats;
@@ -102,6 +107,7 @@ void ite_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ite->infos_capacity = 0;
   init_int_hmap(&ite->info_of_var, 0);
   init_int_hmap(&ite->atom_owner, 0);
+  init_int_hmap(&ite->reason_of, 0);
   int_lset_construct(&ite->watch);
   init_ivector(&ite->pending, 0);
   ite->trail_i = 0;
@@ -110,6 +116,7 @@ void ite_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   init_ivector(&ite->tmp, 0);
 
   ite->stats.propagations = statistics_new_int(ctx->stats, "mcsat::ite::propagations");
+  ite->stats.reverse_propagations = statistics_new_int(ctx->stats, "mcsat::ite::reverse_propagations");
   ite->stats.conflicts = statistics_new_int(ctx->stats, "mcsat::ite::conflicts");
   ite->stats.conflicts_t_first = statistics_new_int(ctx->stats, "mcsat::ite::conflicts_t_first");
 
@@ -124,6 +131,7 @@ void ite_plugin_destruct(plugin_t* plugin) {
   safe_free(ite->infos);
   delete_int_hmap(&ite->info_of_var);
   delete_int_hmap(&ite->atom_owner);
+  delete_int_hmap(&ite->reason_of);
   int_lset_destruct(&ite->watch);
   delete_ivector(&ite->pending);
   scope_holder_destruct(&ite->scope);
@@ -282,8 +290,46 @@ void ite_plugin_fire(ite_plugin_t* ite, variable_t t_var, trail_token_t* prop) {
   // when the solver calls the ITE plugin to propagate, the ITE plugin shall
   // add a trail entry that forces t to equal b.
   uint32_t level = trail_get_level(trail, c_var);
+  int_hmap_get(&ite->reason_of, atom_var)->val = lit;
   prop->add_at_level(prop, atom_var, atom_var_value ? &mcsat_value_true : &mcsat_value_false, level);
   (*ite->stats.propagations) ++;
+}
+
+/** Propagate the condition of an ITE term from a false branch atom */
+static
+void ite_plugin_reverse(ite_plugin_t* ite, variable_t atom_var, int32_t owner, trail_token_t* prop) {
+  const mcsat_trail_t* trail = ite->ctx->trail;
+  variable_t t_var = owner / 2;
+  bool is_then = (owner % 2) == 1;
+  const ite_info_t* info = ite_plugin_get_info(ite, t_var);
+
+  term_t atom = is_then ? info->eq_then : info->eq_else;
+  bool atom_is_true = trail_get_boolean_value(trail, atom_var) == is_pos_term(atom);
+  if (atom_is_true) {
+    return;
+  }
+
+  // When c has a value, ite_plugin_fire reports the conflict of a selected
+  // branch whose atom is false.
+  variable_t c_var = variable_db_get_variable_if_exists(ite->ctx->var_db, unsigned_term(info->c));
+  assert(c_var != variable_null);
+  if (trail_has_value(trail, c_var)) {
+    return;
+  }
+
+  // While the condition c of a registered non-Boolean term t = ite(c, a, b)
+  // has no value on the trail, when the atom (t = a) becomes false on the
+  // trail, the ITE plugin shall add a trail entry that sets c to false with
+  // the literal (not (t = a)) as the only reason.
+  // While the condition c of a registered non-Boolean term t = ite(c, a, b)
+  // has no value on the trail, when the atom (t = b) becomes false on the
+  // trail, the ITE plugin shall add a trail entry that sets c to true with the
+  // literal (not (t = b)) as the only reason.
+  term_t c_lit = is_then ? opposite_term(info->c) : info->c;
+  int_hmap_get(&ite->reason_of, c_var)->val = opposite_term(atom);
+  uint32_t level = trail_get_level(trail, atom_var);
+  prop->add_at_level(prop, c_var, is_pos_term(c_lit) ? &mcsat_value_true : &mcsat_value_false, level);
+  (*ite->stats.reverse_propagations) ++;
 }
 
 static
@@ -296,6 +342,10 @@ void ite_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
   while (trail_is_consistent(trail) && ite->trail_i < trail_size(trail)) {
     variable_t var = trail_at(trail, ite->trail_i);
     ite->trail_i ++;
+    int_hmap_pair_t* owner = int_hmap_find(&ite->atom_owner, var);
+    if (owner != NULL) {
+      ite_plugin_reverse(ite, var, owner->val, prop);
+    }
     if (!int_lset_has_list(&ite->watch, var)) {
       continue;
     }
@@ -331,18 +381,15 @@ term_t ite_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_
   ite_plugin_t* ite = (ite_plugin_t*) plugin;
   const mcsat_trail_t* trail = ite->ctx->trail;
 
-  int_hmap_pair_t* find = int_hmap_find(&ite->atom_owner, var);
-  assert(find != NULL);
-  variable_t t_var = find->val / 2;
-  bool is_then = (find->val % 2) == 1;
-  ite_info_t* info = ite_plugin_get_info(ite, t_var);
-
   // When the solver asks the ITE plugin to explain a trail entry that forces
   // t to equal a, the ITE plugin shall return the literal c as the only reason.
   // When the solver asks the ITE plugin to explain a trail entry that forces
   // t to equal b, the ITE plugin shall return the literal (not c) as the only
   // reason.
-  ivector_push(reasons, is_then ? info->c : opposite_term(info->c));
+  // The reason of a condition from a false atom is the negated atom.
+  int_hmap_pair_t* find = int_hmap_find(&ite->reason_of, var);
+  assert(find != NULL);
+  ivector_push(reasons, find->val);
 
   return bool2term(trail_get_boolean_value(trail, var));
 }
@@ -429,6 +476,7 @@ void ite_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
   ite->infos_size = j;
 
   gc_info_sweep_int_hmap_keys(gc_vars, &ite->atom_owner);
+  gc_info_sweep_int_hmap_keys(gc_vars, &ite->reason_of);
 
   for (i = 0, j = 0; i < ite->pending.size; ++ i) {
     if (gc_info_is_marked(gc_vars, ite->pending.data[i])) {
