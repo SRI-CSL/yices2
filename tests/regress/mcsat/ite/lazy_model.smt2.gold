@@ -1,0 +1,3 @@
+sat
+(((ite c x y) 7.0)
+ (c true))
