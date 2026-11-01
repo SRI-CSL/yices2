@@ -18,9 +18,10 @@
 
 /*
  * Lazy ITE plugin. For a non-Boolean term t = ite(c, a, b), the plugin
- * watches c. When c gets a value, the plugin makes the atom (t = a) or
- * (t = b) for the selected branch, and propagates it true with the reason
- * c or (not c). The owner of the type of t keeps control of its value.
+ * registers the atoms (t = a) and (t = b) and watches c. It adds no lemma.
+ * When c gets a value, the plugin propagates the atom of the selected branch
+ * with the reason c or (not c). The owner of the type of t keeps control of
+ * its value.
  */
 
 #include "mcsat/ite/ite_plugin.h"
@@ -38,10 +39,7 @@ typedef struct {
   variable_t t_var;
   /** Condition, as in the ITE term (can be a negative term) */
   term_t c;
-  /** Then-branch and else-branch */
-  term_t then_t;
-  term_t else_t;
-  /** Cached atoms (t = then_t) and (t = else_t), NULL_TERM until made */
+  /** Atoms (t = then-branch) and (t = else-branch), or true_term/false_term */
   term_t eq_then;
   term_t eq_else;
 } ite_info_t;
@@ -166,8 +164,21 @@ void ite_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* pr
 
   // When the solver notifies the ITE plugin of a non-Boolean ITE term, the
   // ITE plugin shall add no lemma for that term.
-  // The branches are not registered here: the atom of a branch registers it.
+  // The two branch atoms are registered here, not during search: registration
+  // during search lets other plugins add trail entries that the propagation
+  // loop does not see. The owners of the atoms register the branches.
   composite_term_t* desc = ite_term_desc(terms, term);
+  term_t eq_then = mk_eq(ite->ctx->tm, term, desc->arg[1]);
+  term_t eq_else = mk_eq(ite->ctx->tm, term, desc->arg[2]);
+  if (eq_then != true_term && eq_then != false_term) {
+    variable_t atom_var = variable_db_get_variable(var_db, unsigned_term(eq_then));
+    int_hmap_get(&ite->atom_owner, atom_var)->val = 2 * t_var + 1;
+  }
+  if (eq_else != true_term && eq_else != false_term) {
+    variable_t atom_var = variable_db_get_variable(var_db, unsigned_term(eq_else));
+    int_hmap_get(&ite->atom_owner, atom_var)->val = 2 * t_var;
+  }
+
   if (ite->infos_size == ite->infos_capacity) {
     ite->infos_capacity = ite->infos_capacity == 0 ? 16 : 2 * ite->infos_capacity;
     ite->infos = (ite_info_t*) safe_realloc(ite->infos, ite->infos_capacity * sizeof(ite_info_t));
@@ -175,10 +186,8 @@ void ite_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* pr
   ite_info_t* info = ite->infos + ite->infos_size;
   info->t_var = t_var;
   info->c = desc->arg[0];
-  info->then_t = desc->arg[1];
-  info->else_t = desc->arg[2];
-  info->eq_then = NULL_TERM;
-  info->eq_else = NULL_TERM;
+  info->eq_then = eq_then;
+  info->eq_else = eq_else;
   int_hmap_add(&ite->info_of_var, t_var, ite->infos_size);
   ite->infos_size ++;
 
@@ -229,15 +238,6 @@ void ite_plugin_fire(ite_plugin_t* ite, variable_t t_var, trail_token_t* prop) {
   term_t lit = c_value ? info->c : opposite_term(info->c);
 
   term_t atom = c_value ? info->eq_then : info->eq_else;
-  if (atom == NULL_TERM) {
-    term_t t = variable_db_get_term(var_db, t_var);
-    atom = mk_eq(ite->ctx->tm, t, c_value ? info->then_t : info->else_t);
-    if (c_value) {
-      info->eq_then = atom;
-    } else {
-      info->eq_else = atom;
-    }
-  }
 
   if (ctx_trace_enabled(ite->ctx, "mcsat::ite")) {
     ctx_trace_printf(ite->ctx, "ite_plugin_fire: ");
@@ -259,15 +259,8 @@ void ite_plugin_fire(ite_plugin_t* ite, variable_t t_var, trail_token_t* prop) {
     return;
   }
 
-  // The owners register the atom here. NA can give it a value by evaluation.
-  // The registration can add ITE terms, so info is not valid after this call.
-  ite->ctx->register_term(ite->ctx, atom);
-  if (!trail_is_consistent(trail)) {
-    return;
-  }
-
-  variable_t atom_var = variable_db_get_variable(var_db, unsigned_term(atom));
-  int_hmap_get(&ite->atom_owner, atom_var)->val = 2 * t_var + (c_value ? 1 : 0);
+  variable_t atom_var = variable_db_get_variable_if_exists(var_db, unsigned_term(atom));
+  assert(atom_var != variable_null);
   bool atom_var_value = is_pos_term(atom);
 
   if (trail_has_value(trail, atom_var)) {
@@ -375,6 +368,17 @@ void ite_plugin_pop(plugin_t* plugin) {
 }
 
 static
+void ite_plugin_gc_mark_term(const variable_db_t* var_db, gc_info_t* gc_vars, term_t t) {
+  if (t == true_term || t == false_term) {
+    return;
+  }
+  variable_t x = variable_db_get_variable_if_exists(var_db, unsigned_term(t));
+  if (x != variable_null && !gc_info_is_marked(gc_vars, x)) {
+    gc_info_mark(gc_vars, x);
+  }
+}
+
+static
 void ite_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
   ite_plugin_t* ite = (ite_plugin_t*) plugin;
   variable_db_t* var_db = ite->ctx->var_db;
@@ -389,25 +393,15 @@ void ite_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
     }
   }
 
-  // An ITE term that stays keeps its condition, so that the watch fires
+  // An ITE term that stays keeps its condition and its two atoms
   for (i = 0; i < ite->infos_size; ++ i) {
     const ite_info_t* info = ite->infos + i;
     if (gc_info_is_marked(gc_vars, info->t_var)) {
-      variable_t c_var = variable_db_get_variable_if_exists(var_db, unsigned_term(info->c));
-      if (c_var != variable_null && !gc_info_is_marked(gc_vars, c_var)) {
-        gc_info_mark(gc_vars, c_var);
-      }
+      ite_plugin_gc_mark_term(var_db, gc_vars, info->c);
+      ite_plugin_gc_mark_term(var_db, gc_vars, info->eq_then);
+      ite_plugin_gc_mark_term(var_db, gc_vars, info->eq_else);
     }
   }
-}
-
-static
-bool ite_plugin_atom_is_kept(ite_plugin_t* ite, const gc_info_t* gc_vars, term_t atom) {
-  if (atom == NULL_TERM || atom == true_term || atom == false_term) {
-    return true;
-  }
-  variable_t atom_var = variable_db_get_variable_if_exists(ite->ctx->var_db, unsigned_term(atom));
-  return atom_var != variable_null && gc_info_is_marked(gc_vars, atom_var);
 }
 
 static
@@ -424,12 +418,6 @@ void ite_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
     ite_info_t info = ite->infos[i];
     if (!gc_info_is_marked(gc_vars, info.t_var)) {
       continue;
-    }
-    if (!ite_plugin_atom_is_kept(ite, gc_vars, info.eq_then)) {
-      info.eq_then = NULL_TERM;
-    }
-    if (!ite_plugin_atom_is_kept(ite, gc_vars, info.eq_else)) {
-      info.eq_else = NULL_TERM;
     }
     ite->infos[j] = info;
     int_hmap_add(&ite->info_of_var, info.t_var, j);
