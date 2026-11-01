@@ -375,6 +375,82 @@ void ite_plugin_pop(plugin_t* plugin) {
 }
 
 static
+void ite_plugin_gc_mark(plugin_t* plugin, gc_info_t* gc_vars) {
+  ite_plugin_t* ite = (ite_plugin_t*) plugin;
+  variable_db_t* var_db = ite->ctx->var_db;
+  uint32_t i;
+
+  // An atom that stays keeps its ITE term, so that explain_propagation works
+  int_hmap_pair_t* it = int_hmap_first_record(&ite->atom_owner);
+  for (; it != NULL; it = int_hmap_next_record(&ite->atom_owner, it)) {
+    variable_t t_var = it->val / 2;
+    if (gc_info_is_marked(gc_vars, it->key) && !gc_info_is_marked(gc_vars, t_var)) {
+      gc_info_mark(gc_vars, t_var);
+    }
+  }
+
+  // An ITE term that stays keeps its condition, so that the watch fires
+  for (i = 0; i < ite->infos_size; ++ i) {
+    const ite_info_t* info = ite->infos + i;
+    if (gc_info_is_marked(gc_vars, info->t_var)) {
+      variable_t c_var = variable_db_get_variable_if_exists(var_db, unsigned_term(info->c));
+      if (c_var != variable_null && !gc_info_is_marked(gc_vars, c_var)) {
+        gc_info_mark(gc_vars, c_var);
+      }
+    }
+  }
+}
+
+static
+bool ite_plugin_atom_is_kept(ite_plugin_t* ite, const gc_info_t* gc_vars, term_t atom) {
+  if (atom == NULL_TERM || atom == true_term || atom == false_term) {
+    return true;
+  }
+  variable_t atom_var = variable_db_get_variable_if_exists(ite->ctx->var_db, unsigned_term(atom));
+  return atom_var != variable_null && gc_info_is_marked(gc_vars, atom_var);
+}
+
+static
+void ite_plugin_gc_sweep(plugin_t* plugin, const gc_info_t* gc_vars) {
+  ite_plugin_t* ite = (ite_plugin_t*) plugin;
+  variable_db_t* var_db = ite->ctx->var_db;
+  uint32_t i, j;
+
+  // Keep the ITE terms that stay, and rebuild the index and the watch lists
+  int_hmap_reset(&ite->info_of_var);
+  int_lset_destruct(&ite->watch);
+  int_lset_construct(&ite->watch);
+  for (i = 0, j = 0; i < ite->infos_size; ++ i) {
+    ite_info_t info = ite->infos[i];
+    if (!gc_info_is_marked(gc_vars, info.t_var)) {
+      continue;
+    }
+    if (!ite_plugin_atom_is_kept(ite, gc_vars, info.eq_then)) {
+      info.eq_then = NULL_TERM;
+    }
+    if (!ite_plugin_atom_is_kept(ite, gc_vars, info.eq_else)) {
+      info.eq_else = NULL_TERM;
+    }
+    ite->infos[j] = info;
+    int_hmap_add(&ite->info_of_var, info.t_var, j);
+    variable_t c_var = variable_db_get_variable_if_exists(var_db, unsigned_term(info.c));
+    assert(c_var != variable_null);
+    int_lset_add(&ite->watch, c_var, info.t_var);
+    j ++;
+  }
+  ite->infos_size = j;
+
+  gc_info_sweep_int_hmap_keys(gc_vars, &ite->atom_owner);
+
+  for (i = 0, j = 0; i < ite->pending.size; ++ i) {
+    if (gc_info_is_marked(gc_vars, ite->pending.data[i])) {
+      ite->pending.data[j ++] = ite->pending.data[i];
+    }
+  }
+  ivector_shrink(&ite->pending, j);
+}
+
+static
 void ite_plugin_set_exception_handler(plugin_t* plugin, jmp_buf* handler) {
   ite_plugin_t* ite = (ite_plugin_t*) plugin;
   ite->exception = handler;
@@ -391,6 +467,8 @@ plugin_t* ite_plugin_allocator(void) {
   plugin->plugin_interface.get_conflict          = ite_plugin_get_conflict;
   plugin->plugin_interface.push                  = ite_plugin_push;
   plugin->plugin_interface.pop                   = ite_plugin_pop;
+  plugin->plugin_interface.gc_mark               = ite_plugin_gc_mark;
+  plugin->plugin_interface.gc_sweep              = ite_plugin_gc_sweep;
   plugin->plugin_interface.set_exception_handler = ite_plugin_set_exception_handler;
 
   return (plugin_t*) plugin;
