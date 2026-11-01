@@ -82,9 +82,6 @@ typedef struct {
   /** The conflict to report */
   ivector_t conflict;
 
-  /** Temporary vector */
-  ivector_t tmp;
-
   struct {
     statistic_int_t* propagations;
     statistic_int_t* reverse_propagations;
@@ -113,7 +110,6 @@ void ite_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ite->trail_i = 0;
   scope_holder_construct(&ite->scope);
   init_ivector(&ite->conflict, 0);
-  init_ivector(&ite->tmp, 0);
 
   ite->stats.propagations = statistics_new_int(ctx->stats, "mcsat::ite::propagations");
   ite->stats.reverse_propagations = statistics_new_int(ctx->stats, "mcsat::ite::reverse_propagations");
@@ -136,7 +132,6 @@ void ite_plugin_destruct(plugin_t* plugin) {
   delete_ivector(&ite->pending);
   scope_holder_destruct(&ite->scope);
   delete_ivector(&ite->conflict);
-  delete_ivector(&ite->tmp);
 }
 
 static
@@ -349,20 +344,15 @@ void ite_plugin_propagate(plugin_t* plugin, trail_token_t* prop) {
     if (!int_lset_has_list(&ite->watch, var)) {
       continue;
     }
-    // Copy the list: firing can register new ITE terms and change the watch
-    ivector_reset(&ite->tmp);
     int_lset_iterator_construct(&it, &ite->watch, var);
-    while (!int_lset_iterator_done(&it)) {
-      ivector_push(&ite->tmp, *int_lset_iterator_get(&it));
+    while (!int_lset_iterator_done(&it) && trail_is_consistent(trail)) {
+      ite_plugin_fire(ite, *int_lset_iterator_get(&it), prop);
       int_lset_iterator_next_and_keep(&it);
     }
     int_lset_iterator_destruct(&it);
-    for (i = 0; i < ite->tmp.size && trail_is_consistent(trail); ++ i) {
-      ite_plugin_fire(ite, ite->tmp.data[i], prop);
-    }
   }
 
-  // Pending ITE terms; firing can add more
+  // ITE terms registered while their condition already had a value
   i = 0;
   while (i < ite->pending.size && trail_is_consistent(trail)) {
     ite_plugin_fire(ite, ite->pending.data[i], prop);

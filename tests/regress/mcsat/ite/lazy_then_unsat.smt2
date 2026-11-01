@@ -1,7 +1,8 @@
-; While the condition c of a registered non-Boolean term t = ite(c, a, b) is
-; true on the trail and the trail does not force t to differ from a, when the
-; solver calls the ITE plugin to propagate, the ITE plugin shall add a trail
-; entry that forces t to equal a.
+; If the condition of a registered non-Boolean ITE term t selects a branch and
+; the trail forces t to differ from that branch, then the ITE plugin shall
+; report a conflict whose learned clause is (the negated condition literal) or
+; (t equals that branch).
+; The input atom (= (ite c y z) y) is the plugin's own atom, false when c is set.
 (set-logic QF_LRA)
 (declare-fun c () Bool)
 (declare-fun y () Real)

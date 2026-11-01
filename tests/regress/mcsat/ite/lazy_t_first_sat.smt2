@@ -1,7 +1,7 @@
-; If the condition of a registered non-Boolean ITE term t selects a branch and
-; the trail forces t to differ from that branch, then the ITE plugin shall
-; report a conflict whose learned clause is (the negated condition literal) or
-; (t equals that branch).
+; While the condition c of a registered non-Boolean term t = ite(c, a, b) has
+; no value on the trail, when the atom (t = a) becomes false on the trail, the
+; ITE plugin shall add a trail entry that sets c to false with the literal
+; (not (t = a)) as the only reason.
 ; When the solver returns sat, the solver shall return a model in which the
 ; value of each non-Boolean ITE term equals the value of the selected branch
 ; of that term.
