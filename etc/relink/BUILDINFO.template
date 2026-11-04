@@ -131,10 +131,13 @@ gmp-pic-header-sha256:    GENERATED
 gmp-license-election:     LGPL-3.0-or-later
 
 libpoly-repo:             GENERATED
-libpoly-commit:           GENERATED   locked commit
-libpoly-tree:             GENERATED
+libpoly-commit:           GENERATED   locked upstream commit, before the explicit export
+libpoly-tree:             GENERATED   upstream tree, not the modified source export
 libpoly-source-asset:     GENERATED
 libpoly-source-sha256:    GENERATED
+libpoly-export-profile:   GENERATED
+libpoly-upstream-archive-sha256: GENERATED
+libpoly-export-record-sha256: GENERATED
 libpoly-static-archive-sha256: GENERATED
 libpoly-pic-archive-sha256: GENERATED
 libpoly-tests:            GENERATED

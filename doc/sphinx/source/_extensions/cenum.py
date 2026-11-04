@@ -8,9 +8,18 @@
 # Adds a role to refer to these:
 #   :c:enum:`STATUS_UNSAT`
 #
-# This code is basaed on
+# This code is based on
 #    sphinx/domains/__init__.py
 #    sphinx/domains/c.py
+#
+# Copyright 2007-2014 by the Sphinx team, see
+# ../_static/licenses/SPHINX-1.3b2-AUTHORS.txt.
+# The Sphinx-derived portions are under the BSD-2-Clause terms.
+# Full copyright, conditions and disclaimer:
+# ../_static/licenses/SPHINX-1.3b2-LICENSE.txt.
+# Adapted for Yices enum directives/roles by Bruno Dutertre.
+# The retained 1.3b2 sources establish the applicable Sphinx notice;
+# they are not a claim that the original import version is known.
 #
 
 from docutils.parsers.rst import Directive, directives

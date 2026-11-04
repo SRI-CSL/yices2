@@ -830,6 +830,9 @@ relink-kit: static-tarfile pic-lib
 	  replace libpoly-tree "$$(get_prov libpoly-tree)"; \
 	  replace libpoly-source-asset "$$libpoly_asset"; \
 	  replace libpoly-source-sha256 "$$(get_prov libpoly-source-sha256)"; \
+	  replace libpoly-export-profile "$$(get_prov libpoly-export-profile)"; \
+	  replace libpoly-upstream-archive-sha256 "$$(get_prov libpoly-upstream-archive-sha256)"; \
+	  replace libpoly-export-record-sha256 "$$(get_prov libpoly-export-record-sha256)"; \
 	  replace libpoly-static-archive-sha256 "$$(get_prov libpoly-static-archive-sha256)"; \
 	  replace libpoly-pic-archive-sha256 "$$(get_prov libpoly-pic-archive-sha256)"; \
 	  replace libpoly-tests "$$(get_prov libpoly-tests)"; \
@@ -1054,6 +1057,9 @@ macos-relink-kit: static-tarfile dylib-relink-lib
 	    printf 'libpoly-tree: %s\n' "$$(get_prov libpoly-tree)"; \
 	    printf 'libpoly-source-asset: %s\n' "$$(get_prov libpoly-source-file)"; \
 	    printf 'libpoly-source-sha256: %s\n' "$$(get_prov libpoly-source-sha256)"; \
+	    printf 'libpoly-export-profile: %s\n' "$$(get_prov libpoly-export-profile)"; \
+	    printf 'libpoly-upstream-archive-sha256: %s\n' "$$(get_prov libpoly-upstream-archive-sha256)"; \
+	    printf 'libpoly-export-record-sha256: %s\n' "$$(get_prov libpoly-export-record-sha256)"; \
 	    printf 'libpoly-static-archive-sha256: %s\n' "$$(get_prov libpoly-static-archive-sha256)"; \
 	    printf 'libpoly-pic-archive-sha256: %s\n' "$$(get_prov libpoly-pic-archive-sha256)"; \
 	    printf 'libpoly-tests: %s\n' "$$(get_prov libpoly-tests)"; \

@@ -24,7 +24,7 @@ matching platform kit, the recipes below use:
 
 * `RELEASE-INPUTS` and `RELEASE-INPUTS.sha256`;
 * `gmp-6.3.0.tar.xz`;
-* `libpoly-c342ff1ad2f0.tar.gz`;
+* `libpoly-c342ff1ad2f0-yices-release.tar.gz`;
 * on Linux, `glibc-2.28-251.el8_10.40.src.rpm`.
 
 Verify the outer `SHA256SUMS` against the complete downloaded asset set, using
@@ -96,7 +96,7 @@ are rejected before creating the helper's build directory.
 
 ```sh
 tar -xf "$YICES_ASSETS/gmp-6.3.0.tar.xz" -C "$YICES_REBUILD"
-tar -xf "$YICES_ASSETS/libpoly-c342ff1ad2f0.tar.gz" -C "$YICES_REBUILD"
+tar -xf "$YICES_ASSETS/libpoly-c342ff1ad2f0-yices-release.tar.gz" -C "$YICES_REBUILD"
 # Make your intended source changes in the two extracted directories now.
 # Keep the absolute CC/CXX/M4 selections and PATH above for the whole recipe.
 "$YICES_KIT/rebuild-gmp-libpoly.sh" \

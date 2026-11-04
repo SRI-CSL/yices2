@@ -1,29 +1,27 @@
-{%- extends "!layout.html" %}
+{#
+  Yices navigation additions to the installed Sphinx classic layout.
+  Copyright (c) 2026, SRI International
+  SPDX-License-Identifier: BSD-3-Clause
+  Full terms: ../_static/licenses/YICES-BSD-3-Clause.txt
+#}
+{% extends "!layout.html" %}
 
-{%- set html5_doctype = "true" %}
-{%- set reldelim2 = '&nbsp;&bull;&nbsp;' %}
-{%- set home = "https://yices.csl.sri.com" %}
-{%- set logowidth = 175 %}
-{%- set logoheight = 49 %}
-{%- if builder == 'html' %}
-  {%- set metatags = '<meta name="viewport" content="width=device-width, initial-scale=1" />' %}
-{%- endif %}
+{% block relbaritems %}
+  {{ super() }}
+  <li><a href="https://yices.csl.sri.com/">Yices home</a></li>
+  {% if hasdoc('search') %}
+    <li><a href="{{ pathto('search')|e }}">Search</a></li>
+  {% endif %}
+  <li><a href="{{ pathto('documentation-notices')|e }}">Documentation licenses</a></li>
+{% endblock %}
 
-{%- block rootrellink %}
-         <li class="left"><a href="{{ pathto(master_doc) }}">Table of Content</a>&nbsp;&bull;&nbsp;</li>
-         <li class="left"><a href="{{ pathto('search') }}">Search</a></li>
-{%- endblock %}
-
-{# put the sidebar before the body #}
-{% block sidebar1 %}{{ sidebar() }}{% endblock %}
-{% block sidebar2 %}{% endblock %}
-
-{# fix the logo #}
-{%- block sidebarlogo %}
-{%- if logo %}
-<p class="logo"><a href="{{ home }}">
-    <img class="logo" width="{{ logowidth }}" height="{{ logoheight }}" src="{{ pathto('_static/' + logo, 1) }}" alt="Logo"/>
-</a></p>
-{%- endif %}
-{%- endblock %}
+{% block footer %}
+  {{ super() }}
+  {% if builder != 'epub' %}
+  <p class="yices-build-notice">Sphinx builder:
+    <a href="{{ pathto('_static/licenses/SPHINX-BUILD.txt', 1)|e }}">version record</a> and
+    <a href="{{ pathto('_static/licenses/SPHINX-BUILD-LICENSE.txt', 1)|e }}">complete license</a>.
+  </p>
+  {% endif %}
+{% endblock %}
 

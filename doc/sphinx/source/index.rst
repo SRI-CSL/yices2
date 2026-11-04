@@ -59,6 +59,7 @@ Appendix
    smt-logics
    parameters
    references
+   documentation-notices
 
 .. only:: builder_html
 

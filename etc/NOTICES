@@ -225,23 +225,59 @@ distributed binaries described in section 3.
 doc/sphinx/source/_extensions/cheader.py was written by Arto Bendiken and is
 released into the public domain, as the file states.
 
-doc/sphinx/source/_extensions/cenum.py carries no notice of its own. Its
-header records that it is based on the Sphinx sources
-sphinx/domains/__init__.py and sphinx/domains/c.py. Sphinx is distributed by
-its authors under a two-clause BSD license.
+doc/sphinx/source/_extensions/cenum.py is adapted from the Sphinx sources
+sphinx/domains/__init__.py and sphinx/domains/c.py. The retained epub.css
+stylesheet and genindex.html, localtoc.html, relations.html and searchbox.html
+templates are also Sphinx-derived. Their headers retain the Sphinx notice and
+identify local adaptations. The complete primary notice below and AUTHORS
+are retained under doc/sphinx/source/_static/licenses/ as
+SPHINX-1.3b2-LICENSE.txt and SPHINX-1.3b2-AUTHORS.txt. Sphinx 1.3b2 is the
+verified notice reference, not a claim that every original import version
+has been established.
 
-The files under doc/sphinx/source/_static and doc/sphinx/source/_templates are
-of three kinds.
+The inherited default.css and classic.css overrides have been removed from
+the current documentation sources. New custom.css styling, a minimal
+layout.html navigation override and sphinx_notices.py are SRI International
+additions under the BSD-3-Clause terms in LICENSE.txt. They use the installed
+stock Sphinx classic theme. The build copies that installed Sphinx version's
+full license and a version/checksum record into _static/licenses/ in the
+rendered output. The Documentation Licenses and Credits page links those
+files and reproduces this historical notice and the new additions' BSD terms.
 
-Sphinx material carrying its own notice: epub.css under _static, and
-genindex.html, localtoc.html, relations.html and searchbox.html under
-_templates. Each carries the Sphinx copyright notice and a reference to
-Sphinx's license.
+The retained favicon.ico, logo10.png, logo3.pdf, ppbox2.svg and ppbox2.svgz
+graphics are SRI International material, separate from the Sphinx-derived
+files. No new permission to use SRI names or marks for endorsement is granted.
 
-Files carrying no notice: classic.css and default.css under _static, which
-describe themselves as an alternate Sphinx design; layout.html under
-_templates, which records no origin; and the images favicon.ico, logo10.png,
-logo3.pdf, ppbox2.svg and ppbox2.svgz under _static.
+Primary Sphinx notice, reproduced from Sphinx 1.3b2:
+
+  License for Sphinx
+  ==================
+
+  Copyright (c) 2007-2014 by the Sphinx team (see AUTHORS file).
+  All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are
+  met:
+
+  * Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+
+  * Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Files that are not third-party material: example1.c, example1b.c, names.c and
 test_pp.c under _static each carry an SRI International copyright notice and a
@@ -407,7 +443,7 @@ That canonical source archive preserves an upstream packaging inconsistency.
 Its debian/copyright file labels the work `GPL-3+`, but the grant immediately
 below that label and the project LICENCE and source headers all say GNU Lesser
 General Public License version 3 or later. This release does not silently
-rewrite the pinned source archive. Its LibPoly classification follows the
+change that packaging label. Its LibPoly classification follows the
 actual grant text, LICENCE, and source headers, and this paragraph records the
 contradictory packaging label for downstream license scanners.
 
@@ -453,6 +489,31 @@ LibPoly.
   ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
   TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
   SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+The separately published LibPoly source also contains a different portability
+fallback, src/utils/open_memstream.c. Its implementation originates in Ian
+Piumarta's memstream 0.1, first released 2013-08-17, at
+https://www.piumarta.com/software/memstream/. The author's distribution page
+states that memstream is distributed under the MIT license. The four files
+in that upstream distribution contain no copyright or permission notice;
+there is no separate license file. No upstream copyright year or line is
+invented here. The standard MIT text accompanies Yices as LICENSES/MIT.txt
+(licenses/MIT.txt in the relink kits) and is reproduced with this component's
+provenance in YICES-MEMSTREAM-NOTICE.txt in the LibPoly source export.
+
+For this release, the explicit yices-libpoly-memstream-text-v1 source export
+replaces only that C file's introductory manual-style comment with new
+functional documentation and adds the memstream notice and an export record.
+It preserves every executable-code byte, conditional guard, existing notice
+and other upstream member. The replaced prose is not shipped in that export;
+no permission for it or retrospective clearance of older copies is asserted.
+The export record names the upstream commit/tree and original archive hash
+separately from the changed source member and added notice. It is not a claim
+that the export is an unmodified Git archive or that all of LibPoly is MIT.
+
+Unlike u_memstream above, this fallback is selected only when the platform
+lacks open_memstream. Its absence from the inspected release library archives
+does not remove the obligations for the separately distributed source.
 
 3.6 CUDD
 
@@ -764,7 +825,8 @@ upstream legal files under descriptive names instead.
                                       libstdc++ and libgcc
   LICENSES/GCC-exception-3.1.txt      libstdc++ and libgcc
   LICENSES/MIT.txt                    CaDiCaL, Kissat, CryptoMiniSat, MiniSat,
-                                      and the u_memstream files in LibPoly
+                                      the u_memstream files in LibPoly, and
+                                      memstream in the LibPoly source export
   LICENSES/Apache-2.0.txt             CaDiCaL Craig interpolation tracer
 
 An installed copy places the legal record differently. The make install target
@@ -810,7 +872,8 @@ C Library's exact upstream notice collection travels as
 LICENSES/glibc-LICENSES.txt rather than being transcribed into this file, as
 section 3.3 states. GMP carries file-specific notices rather than a project
 notice, as section 3.4 states. LibPoly's distinct source-file notices are
-reproduced in section 3.5. Libstdc++ and libgcc use file-specific notices rather than
+reproduced in section 3.5; that section also explains why no upstream copyright
+line is invented for Piumarta's memstream. Libstdc++ and libgcc use file-specific notices rather than
 one project-level line suitable for reproduction here, as section 3.10 states.
 The macOS system libraries of section 3.11 are supplied by the operating system
 and are neither built into nor redistributed with these files. For the files
@@ -861,8 +924,9 @@ authenticate every named support file from the public asset set.
 
 LibPoly's source is prepared once, before any platform build, rather than
 reconstructed afterward on each builder. Every builder verifies and compiles
-the same canonical archive. PROVENANCE records its repository, commit, tree,
-file name and checksum, the checksums of the normal and PIC archives used by
+the same canonical archive. PROVENANCE records its upstream repository, commit
+and tree, the explicit source-export profile, original-archive and export-record
+checksums, the exported file name and checksum, and the normal and PIC archives used by
 that build, and the file name and checksum of the canonical RELEASE-INPUTS
 manifest. The final collector checks those fields in every binary archive and
 relink kit against the manifest before it copies any asset. The release

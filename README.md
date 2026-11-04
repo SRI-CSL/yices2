@@ -184,32 +184,39 @@ To build the manual, you also need:
 - a latex installation
 - the latexmk tool
 
-To build the on-line documentation, you need to install the Sphinx
-python package. The simplest method is:
-
-```
-sudo pip install sphinx
-```
-
-Sphinx 1.4.x or better is needed.
+The API documentation in the Git checkout requires Python 3.8 or later
+and a compatible Sphinx installation, at least version 1.8. Use an isolated
+Python environment with the Sphinx distribution metadata and license intact.
+See [doc/sphinx/README.md](doc/sphinx/README.md) in that checkout for the build
+and notice-delivery requirements. Compatibility with every older version
+combination is not implied.
 
 
 #### Quick Installation
 
-Do this:
+Choose a fresh installation directory that you own, using an absolute path
+without whitespace. Check that `$HOME/local/yices-2.8.0` does not already
+exist; if it does, choose another unused path in the command below:
 
 ```
 autoconf
-./configure
+./configure --prefix="$HOME/local/yices-2.8.0"
 make
-sudo make install
+make install
 ```
 
-This will install binaries and libraries in `/usr/local/`. It also
-installs `LICENSE` and `NOTICES` in `/usr/local/share/doc/yices-2.8.0`,
-and the license texts in `/usr/local/share/licenses/yices-2.8.0`. You
-can change the installation location by giving option `--prefix=...`
-to the `./configure` script.
+This installs binaries, libraries and headers under the chosen prefix,
+without `sudo`. `LICENSE` and `NOTICES` go in `share/doc/yices-2.8.0` under
+that prefix, and license texts go in `share/licenses/yices-2.8.0`. Add the
+prefix's `bin` directory to `PATH` or invoke the binaries by their full paths.
+
+Warning: `make install` has no existing-installation check and can overwrite
+Yices files without prompting. Unlike `install-yices` in the prebuilt binary
+archives, it does not refuse an existing Yices installation. Reusing a
+prefix can replace binaries, libraries, headers and other installed files.
+If `--prefix` is omitted, the default is `/usr/local`. Install into a shared
+prefix with elevated privileges only when you intend to replace its Yices
+files and have backed up anything you need to retain.
 
 For more explanations, please check `doc/COMPILING`.
 
@@ -231,13 +238,15 @@ If you want the MC-SAT solver, follow these instructions:
 
 3. After you've installed libpoly and CUDD, add option
    `--enable-mcsat` to the configure command. In details, type this in
-   the toplevel Yices directory:
+   the toplevel Yices directory. Choose a fresh prefix for this variant
+   too; the same overwrite warning applies:
 
 ```
 autoconf
-./configure --enable-mcsat
+./configure --prefix="$HOME/local/yices-2.8.0-mcsat" \
+            --enable-mcsat
 make
-sudo make install
+make install
 ```
 
 3. You may need to provide `LDFLAGS/CPPFLAGS` if `./configure` fails to
@@ -247,12 +256,15 @@ sudo make install
 
 #### Support for Thread Safety
 
-The Yices library is not thread safe by default, if you need a re-entrant version:
+The Yices library is not thread safe by default. If you need a re-entrant
+version, choose a fresh prefix for it, subject to the overwrite warning above:
+
 ```
 autoconf
-./configure --enable-thread-safety
+./configure --prefix="$HOME/local/yices-2.8.0-threadsafe" \
+            --enable-thread-safety
 make
-sudo make install
+make install
 ```
 
 If configured with `--enable-thread-safety` the Yices library will be thread

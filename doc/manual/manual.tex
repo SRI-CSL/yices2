@@ -526,6 +526,7 @@ distribution such as Ubuntu, but they should work with minor
 adjustments on other Unix variants.
 
 \section{Basic Build}
+\label{source-install}
 
 Yices~2 is straightforward to compile on UNIX-like systems. Any recent
 version of GCC or Clang should work. The compilation uses standard
@@ -541,6 +542,23 @@ managers.  For example, on Ubuntu:
 \end{small}
 After this, compiling and installing Yices use standard steps.
 
+\paragraph{Installation directory and overwrite warning.}
+Choose a fresh directory that you own, using an absolute path without
+whitespace. Check that each example's installation directory does not
+already exist; if it does, choose another unused path. The examples below
+use separate directories for different build variants and do not require
+\texttt{sudo} for installing Yices.
+
+\texttt{make install} has no existing-installation check and can overwrite
+Yices files without prompting. Unlike \texttt{install-yices} in the
+prebuilt binary archives, it does not refuse an existing Yices installation.
+Reusing a prefix can replace binaries, libraries, headers and other
+installed files. If \texttt{--prefix} is omitted, the default is
+\texttt{/usr/local}. Install into a shared prefix with elevated privileges
+only when you intend to replace its Yices files and have backed up anything
+you need to retain. Use the installed binaries' full paths or add the
+chosen prefix's \texttt{bin} directory to \texttt{PATH}.
+
 \subsection*{From A Source Tarfile}
 
 If you downloaded the Yices~2 source from \url{https://yices.csl.sri.com}. Follow these steps:
@@ -548,20 +566,20 @@ If you downloaded the Yices~2 source from \url{https://yices.csl.sri.com}. Follo
 \begin{lstlisting}[language=sh,deletekeywords={cd}]
    tar xvf yices-2.8.0-src.tar.gz
    cd yices-2.8.0
-   ./configure
+   ./configure --prefix="$HOME/local/yices-2.8.0"
    make -j
    make check
 \end{lstlisting}
 \end{small}
-This will build binaries and libraries, and run the regression tests. If all goes well, you can then
-install Yices in \texttt{/usr/local} with
+This will build binaries and libraries, and run the regression tests. If
+all goes well, install Yices under \texttt{\$HOME/local/yices-2.8.0} with
 \begin{small}
 \begin{lstlisting}[language=sh]
-   sudo make install
+   make install
 \end{lstlisting}
 \end{small}
-You can change the installation location by giving a \texttt{--prefix} option
-to \texttt{configure}.
+The \texttt{--prefix} option to \texttt{configure} selects the installation
+location; choose a fresh path as explained above.
 
 \subsection*{From The Git Repository}
 
@@ -571,15 +589,16 @@ You can also get the latest source from \url{https://github.com/SRI-CSL/yices2} 
    git clone https://github.com/SRI-CSL/yices2
    cd yices2
    autoconf
-   ./configure
+   ./configure --prefix="$HOME/local/yices-git"
    make -j
    make check
 \end{lstlisting}
 \end{small}
-As before, you can then install Yices in \texttt{/usr/local} with
+As before, install under the chosen fresh prefix, here
+\texttt{\$HOME/local/yices-git}, with
 \begin{small}
 \begin{lstlisting}[language=sh]
-   sudo make install
+   make install
 \end{lstlisting}
 \end{small}
 
@@ -651,12 +670,14 @@ Another fix is to edit the Makefile and replace '1.14' by your version of automa
 
 \subsection*{Enabling MCSAT Support in Yices}
 Once you have installed \textsc{LibPoly} and CUDD, you can compile Yices with MCSAT
-support as follows:
+support as follows. Choose a fresh prefix for this variant too; the overwrite
+warning in Section~\ref{source-install} applies:
 \begin{small}
 \begin{lstlisting}[language=sh]
-   ./configure --enable-mcsat
+   ./configure --prefix="$HOME/local/yices-2.8.0-mcsat" \
+               --enable-mcsat
    make -j
-   sudo make install
+   make install
 \end{lstlisting}
 \end{small}
 The configure scripts will check that CUDD and \textsc{LibPoly} are present on your system,
@@ -775,10 +796,14 @@ at \url{https://github.com/arminbiere/kissat}. To compile the code, follow these
 
 \subsection*{Configure Yices~2}
 
-If all third-party SAT solvers are installed, you can configure Yices~2 as follows to use them:
+For any Yices installation in this section, choose a fresh prefix as in
+Section~\ref{source-install}; the configure commands are alternatives.
+If all third-party SAT solvers are installed, you can configure Yices~2 as
+follows to use them:
 \begin{small}
 \begin{lstlisting}[language=sh]
-  ./configure CPPFLAGS='-DHAVE_CADICAL -DHAVE_CRYPTOMINISAT -DHAVE_KISSAT' \
+  ./configure --prefix="$HOME/local/yices-2.8.0-sat" \
+       CPPFLAGS='-DHAVE_CADICAL -DHAVE_CRYPTOMINISAT -DHAVE_KISSAT' \
        LIBS='-lcryptominisat5 -lcadical -lkissat -lstdc++ -lm'
 \end{lstlisting}
 \end{small}
@@ -828,27 +853,30 @@ CaDiCaL + Kissat combination, you can build and install Yices as usual:
 \begin{lstlisting}[language=sh,deletekeywords={test}]
    make -j
    make check
-   sudo make install
+   make install
 \end{lstlisting}
 \end{small}
 If you want only CaDiCaL, use the following configure command instead
 \begin{small}
 \begin{lstlisting}[language=sh]
-  ./configure CPPFLAGS=-DHAVE_CADICAL \
+  ./configure --prefix="$HOME/local/yices-2.8.0-sat" \
+       CPPFLAGS=-DHAVE_CADICAL \
        LIBS='-lcadical -lstdc++ -lm'
 \end{lstlisting}
 \end{small}
 If you want only CryptoMiniSat, you can use
 \begin{small}
 \begin{lstlisting}[language=sh]
-  ./configure CPPFLAGS=-DHAVE_CRYPTOMINISAT \
+  ./configure --prefix="$HOME/local/yices-2.8.0-sat" \
+       CPPFLAGS=-DHAVE_CRYPTOMINISAT \
        LIBS='-lcryptominisat5 -lstdc++'
 \end{lstlisting}
 \end{small}
 If you want only Kissat, use this command:
 \begin{small}
 \begin{lstlisting}[language=sh]
-  ./configure CPPFLAGS=-DHAVE_KISSAT \
+  ./configure --prefix="$HOME/local/yices-2.8.0-sat" \
+       CPPFLAGS=-DHAVE_KISSAT \
        LIBS='-lkissat -lm'
 \end{lstlisting}
 \end{small}
@@ -860,12 +888,14 @@ you add option \texttt{--enable-mcsat} to any of these configure commands.
 
 By default, the Yices library is not re-entrant and it cannot be used
 in multi-threaded applications. If you need a re-entrant version of
-the library, you can configure and build Yices as follows:
+the library, choose a fresh prefix for it and configure and build as follows.
+The overwrite warning in Section~\ref{source-install} applies here too:
 \begin{small}
 \begin{lstlisting}[language=sh]
-  ./configure --enable-thread-safety
+  ./configure --prefix="$HOME/local/yices-2.8.0-threadsafe" \
+              --enable-thread-safety
   make
-  sudo make install
+  make install
 \end{lstlisting}
 \end{small}
 When configured in this fashion, the Yices library will allow multiple

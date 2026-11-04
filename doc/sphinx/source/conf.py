@@ -24,7 +24,7 @@ sys.path.append(os.path.abspath('_extensions'))
 # -- General configuration ------------------------------------------------
 
 # If your documentation needs a minimal Sphinx version, state it here.
-needs_sphinx = '1.0'
+needs_sphinx = '1.8'  # add_css_file; see ../README.md for build requirements.
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -34,7 +34,7 @@ needs_sphinx = '1.0'
 #
 # mathjax_path = 'https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML'
 #
-extensions = [] if version_info[0] >= 3 else ['cenum']
+extensions = ['sphinx_notices'] + ([] if version_info[0] >= 3 else ['cenum'])
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -114,7 +114,19 @@ html_theme = 'classic'
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
-html_theme_options = {}
+html_theme_options = {
+    'bodyfont': '"Helvetica Neue", Helvetica, Arial, sans-serif',
+    'headfont': '"Helvetica Neue", Helvetica, Arial, sans-serif',
+    'headtextcolor': '#1A419d',
+    'headbgcolor': '#f3f5fa',
+    'linkcolor': '#1A419d',
+    'sidebarbgcolor': '#f3f5fa',
+    'sidebartextcolor': '#242b38',
+    'sidebarlinkcolor': '#1A419d',
+    'relbarbgcolor': '#1A419d',
+    'footerbgcolor': '#f3f5fa',
+    'footertextcolor': '#242b38',
+}
 
 # Add any paths that contain custom themes here, relative to this directory.
 #html_theme_path = []
@@ -139,6 +151,8 @@ html_favicon = "_static/favicon.ico"
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+# sphinx_notices adds custom.css to HTML builders, not the separate EPUB theme.
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -297,9 +311,16 @@ epub_show_urls = 'inline'
 
 epub_theme_options = { 'footer' : 'false', 'relbar1' : 'false' }
 
-epub_exclude_files = ['search.html', '_static/basic.css', '_static/default.css', '_static/example1.c',
+epub_exclude_files = ['search.html', '_static/basic.css', '_static/custom.css', '_static/example1.c',
   '_static/favicon.ico', '_static/logo3.pdf', '_static/names.c', '_static/test_pp.c',
   '_static/ajax-loader.gif', '_static/comment-bright.png', '_static/comment-close.png',
   '_static/comment.png', '_static/down-pressed.png', '_static/down.png',
   '_static/minus.png', '_static/plus.png', '_static/up-pressed.png', '_static/up.png'
+]
+# These notices are included verbatim in documentation-notices.xhtml instead;
+# plain-text attachments are not EPUB core media types.
+epub_exclude_files += [
+    '_static/licenses/SPHINX-1.3b2-LICENSE.txt',
+    '_static/licenses/SPHINX-1.3b2-AUTHORS.txt',
+    '_static/licenses/YICES-BSD-3-Clause.txt',
 ]

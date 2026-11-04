@@ -40,17 +40,26 @@ To build the manual, you also need:
 QUICK INSTALLATION
 ------------------
 
-Do this:
+Choose a fresh installation directory that you own, using an absolute path
+without whitespace. Check that $HOME/local/yices-2.8.0 does not already
+exist; if it does, choose another unused path in the command below:
 
-  ./configure
+  ./configure --prefix="$HOME/local/yices-2.8.0"
   make
-  sudo make install
+  make install
 
-This will install binaries and libraries in /usr/local/. It also
-installs LICENSE and NOTICES in /usr/local/share/doc/yices-2.8.0,
-and the license texts in /usr/local/share/licenses/yices-2.8.0.
-You can change the installation location by giving option 
-  --prefix=... to the ./configure script.
+This installs binaries, libraries and headers under the chosen prefix,
+without sudo. LICENSE and NOTICES go in share/doc/yices-2.8.0 under that
+prefix, and license texts go in share/licenses/yices-2.8.0. Add the prefix's
+bin directory to PATH or invoke the installed binaries by their full paths.
+
+Warning: make install has no existing-installation check and can overwrite
+Yices files without prompting. Unlike install-yices in the prebuilt binary
+archives, it does not refuse an existing Yices installation. Reusing a
+prefix can replace binaries, libraries, headers and other installed files.
+If --prefix is omitted, the default is /usr/local. Install into a shared
+prefix with elevated privileges only when you intend to replace its Yices
+files and have backed up anything you need to retain.
 
 For more explanations, please check doc/COMPILING.
 
@@ -94,11 +103,13 @@ follow these instructions:
    These are tested identities, not claimed minimum compatible versions.
 
 2) After you've installed LibPoly and CUDD, configure Yices with the
-   flag '--enable-mcsat', then build Yices as usual:
+   flag '--enable-mcsat', then build Yices as usual. Choose a fresh prefix
+   for this variant too; the same overwrite warning applies:
 
-    ./configure --enable-mcsat
+    ./configure --prefix="$HOME/local/yices-2.8.0-mcsat" \
+                --enable-mcsat
     make
-    sudo make install
+    make install
 
    You may need to provide LDFLAGS/CPPFLAGS if ./configure fails to
    find either library and its headers. Other options may be useful too. Try

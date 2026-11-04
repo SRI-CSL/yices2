@@ -424,9 +424,9 @@ release_inputs_checksums=$release_inputs_dir/RELEASE-INPUTS.sha256
 
 release_inputs_sha=$(sha256_file "$release_inputs_manifest") ||
     fail "cannot hash canonical release-input manifest"
-expected_release_inputs_sha=27f62cc4e44e3c89b02fd25289af471ba5138aa5602754878ef7db6a6cb2dd65
-[ "$(field format "$release_inputs_manifest")" = yices-release-inputs-v3 ] ||
-    fail "unsupported release-input format; expected yices-release-inputs-v3"
+expected_release_inputs_sha=e04af35a1c1275e1afaf81ac7ec3add98bc69239ac0fc47dbfdb8c7204edb1e0
+[ "$(field format "$release_inputs_manifest")" = yices-release-inputs-v4 ] ||
+    fail "unsupported release-input format; expected yices-release-inputs-v4"
 [ "$release_inputs_sha" = "$expected_release_inputs_sha" ] ||
     fail "canonical release-input manifest differs from the release lock: $release_inputs_sha"
 [ "$(field gmp-version "$release_inputs_manifest")" = "$GMP_VERSION" ] ||
@@ -524,7 +524,8 @@ release_inputs_checksum_lines=$(awk 'END { print NR + 0 }' "$release_inputs_chec
     fail "unsupported LibPoly build receipt"
 [ "$(field release-inputs-sha256 "$LIBPOLY_SOURCE_RECEIPT")" = "$release_inputs_sha" ] ||
     fail "LibPoly build receipt names a different release-input manifest"
-for _key in libpoly-repo libpoly-commit libpoly-tree libpoly-source-file libpoly-source-sha256; do
+for _key in libpoly-repo libpoly-commit libpoly-tree libpoly-source-file libpoly-source-sha256 \
+    libpoly-export-profile libpoly-upstream-archive-sha256 libpoly-export-record-sha256; do
     _receipt_value=$(field "$_key" "$LIBPOLY_SOURCE_RECEIPT")
     _manifest_value=$(field "$_key" "$release_inputs_manifest")
     [ "$_receipt_value" = "$_manifest_value" ] ||
@@ -1204,6 +1205,10 @@ awk -F ': ' '$1 == "libpoly-header" { sub(/^[^:]*: /, ""); print }' \
 done
 emit cryptominisat-submodule-policy \
     "$(field cryptominisat-submodule-policy "$release_inputs_manifest")"
+for suffix in export-profile upstream-archive-sha256 export-record-sha256; do
+    key=libpoly-$suffix
+    emit "$key" "$(field "$key" "$release_inputs_manifest")"
+done
 for suffix in export-profile upstream-archive-sha256 export-record-sha256; do
     key=cryptominisat-$suffix
     [ "$(field "$key" "$DEPENDENCY_SOURCE_RECEIPT")" = "$(field "$key" "$release_inputs_manifest")" ] ||

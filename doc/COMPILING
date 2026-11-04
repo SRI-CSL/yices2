@@ -164,6 +164,24 @@ The usual options can be given to './configure' and the usual
 environment variables are taken into account (CC, CFLAGS, LD,
 LDFLAGS, CPPFLAGS, etc.).  Type './configure --help' for details.
 
+For a local source installation, choose a fresh directory that you own,
+using an absolute path without whitespace. Check that the example path
+does not already exist; otherwise choose another unused path:
+
+   ./configure --prefix="$HOME/local/yices-2.8.0"
+
+After the ordinary 'make' build, 'make install' installs under this prefix
+without sudo. Use the installed binaries' full paths or add the prefix's
+bin directory to PATH. For the static-only workflow below, follow its
+separate installation instructions instead.
+
+Warning: 'make install' has no existing-installation check and can overwrite
+Yices files without prompting. It does not provide the collision refusal
+of 'install-yices' from the prebuilt binary archives. If --prefix is omitted,
+the default is /usr/local. Install into a shared prefix with elevated
+privileges only when you intend to replace its Yices files and have backed
+up anything you need to retain. Use a fresh prefix for each build variant.
+
 
 
 3) GMP library location
