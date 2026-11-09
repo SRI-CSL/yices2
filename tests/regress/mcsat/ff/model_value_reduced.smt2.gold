@@ -1,0 +1,3 @@
+sat
+((x #f2m3)
+ ((= x (as ff2 F)) true))
