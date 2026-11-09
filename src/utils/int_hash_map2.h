@@ -132,9 +132,9 @@ extern void reset_int_hmap2(int_hmap2_t *hmap);
  * calls keep_alive(aux, r) on every record r, and removes r if
  * keep_alive returns false.
  */
-typedef bool (*keep_alive_fun_t)(void *aux, int_hmap2_rec_t *r);
+typedef bool (*int_hmap2_keep_alive_fun_t)(void *aux, int_hmap2_rec_t *r);
 
-extern void int_hmap2_gc(int_hmap2_t *hmap, void *aux, keep_alive_fun_t f);
+extern void int_hmap2_gc(int_hmap2_t *hmap, void *aux, int_hmap2_keep_alive_fun_t f);
 
 
 #endif /* __INT_HASH_MAP2_H */

@@ -455,11 +455,13 @@ extern value_t vtbl_mk_int32(value_table_t *table, int32_t x);
 
 /*
  * Finite field constants (make a copy).
+ * - v is reduced modulo mod into [0, mod)
  */
 extern value_t vtbl_mk_finitefield(value_table_t *table, rational_t *v, const rational_t *mod);
 
 /*
  * Algebraic number (make a copy).
+ * - if a is rational, the result is a rational object
  */
 extern value_t vtbl_mk_algebraic(value_table_t *table, void *a);
 

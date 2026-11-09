@@ -156,6 +156,7 @@ spair_t* spair_new(slice_t* lhs, slice_t* rhs, uint32_t appearing_in) {
 }
 
 /** splist cons */
+static
 splist_t* splist_cons(spair_t* pair, bool is_main, splist_t* tail) {
 
   splist_t* result = safe_malloc(sizeof(splist_t));
@@ -169,6 +170,7 @@ splist_t* splist_cons(spair_t* pair, bool is_main, splist_t* tail) {
  * Delete a list of pairs, also deleting each pair if b == true.
  * In any case, not deleting slices that pairs consist of.
  */
+static
 void bv_slicing_spdelete(splist_t* spl, bool b) {
   splist_t* l = spl;
   splist_t* next;
@@ -180,6 +182,7 @@ void bv_slicing_spdelete(splist_t* spl, bool b) {
   }
 }
 
+static
 void slice_print(const slice_t* s, FILE* out) {
   fprintf(out, "[");
   if (s->lo_sub != NULL) {
@@ -196,6 +199,7 @@ void slice_print(const slice_t* s, FILE* out) {
   fprintf(out, "]");
 }
 
+static
 void ctx_print_slice(const plugin_context_t* ctx, const slice_t* s) {
   FILE* out = ctx_trace_out(ctx);
   term_table_t* terms = ctx->terms;
@@ -204,6 +208,7 @@ void ctx_print_slice(const plugin_context_t* ctx, const slice_t* s) {
 }
 
 /** Prints a list of slices. */
+static
 void bv_slicing_print_slist(const plugin_context_t* ctx, slist_t* sl) {
   FILE* out = ctx_trace_out(ctx);
   slist_t* l = sl;
@@ -217,6 +222,7 @@ void bv_slicing_print_slist(const plugin_context_t* ctx, slist_t* sl) {
 }
 
 /** Prints a pairs. if b is true, as an equality, otherwise, as a disequality */
+static
 void ctx_print_spair(const plugin_context_t* ctx, spair_t* p, bool b) {
   FILE* out = ctx_trace_out(ctx);
   assert(p->lhs != NULL);
@@ -227,6 +233,7 @@ void ctx_print_spair(const plugin_context_t* ctx, spair_t* p, bool b) {
 }
 
 /** Prints a list of pairs. if b is true, then these are equalities, otherwise, disequalities */
+static
 void ctx_print_splist(const plugin_context_t* ctx, splist_t* spl, bool b) {
   FILE* out = ctx_trace_out(ctx);
   splist_t* l = spl;
@@ -240,6 +247,7 @@ void ctx_print_splist(const plugin_context_t* ctx, splist_t* spl, bool b) {
 }
 
 /** Creates a leaf slice, no children */
+static
 slice_t* bv_slicing_slice_new(term_manager_t* tm, term_t term, uint32_t lo, uint32_t hi) {
 
   assert(lo < hi);
@@ -260,6 +268,7 @@ slice_t* bv_slicing_slice_new(term_manager_t* tm, term_t term, uint32_t lo, uint
  * Also deletes the list of pairs involving the slice along the way, but not
  * deleting the pairs themselves.
  */
+static
 void bv_slicing_slice_delete(slice_t* s) {
   if (s->lo_sub != NULL) bv_slicing_slice_delete(s->lo_sub);
   if (s->hi_sub != NULL) bv_slicing_slice_delete(s->hi_sub);
@@ -268,6 +277,7 @@ void bv_slicing_slice_delete(slice_t* s) {
 }
 
 /** slist cons */
+static
 slist_t* bv_slicing_scons(slice_t* s, slist_t* tail) {
   slist_t* result = safe_malloc(sizeof(slist_t));
   result->slice = s;
@@ -276,6 +286,7 @@ slist_t* bv_slicing_scons(slice_t* s, slist_t* tail) {
 }
 
 /** Slices slice s at index k, pushing resulting slicings to be performed in the "todo" queue */
+static
 void bv_slicing_split(const plugin_context_t* ctx, slice_t* s, uint32_t k, ptr_queue_t* todo) {
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
@@ -318,6 +329,7 @@ void bv_slicing_split(const plugin_context_t* ctx, slice_t* s, uint32_t k, ptr_q
  * that the first one is a leaf slice. Recursive function with tail being an
  * accumulator.
  */
+static
 slist_t* bv_slicing_as_list(slice_t* s, slist_t* tail) {
   assert(s != NULL);
   if (s->hi_sub == NULL) return bv_slicing_scons(s,tail);
@@ -329,6 +341,7 @@ slist_t* bv_slicing_as_list(slice_t* s, slist_t* tail) {
  * s1 and s2 have equal length. The alignment can trigger some future slicings
  * that are queued in todo. Destructs l1 and l2 along the way.
  */
+static
 void bv_slicing_align(const plugin_context_t* ctx, slist_t* l1, slist_t* l2, uint32_t appearing_in, ptr_queue_t* todo) {
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::slicing")) {
@@ -398,7 +411,8 @@ void bv_slicing_align(const plugin_context_t* ctx, slist_t* l1, slist_t* l2, uin
  * Stacks on argument tail consecutive sub-slices of s that cover s from lo to hi
  * (head of result is the lowest index slice). If either lo or hi does not coincide
  * with an existing slice point of s, they get created.
- * */
+ */
+static
 slist_t* bv_slicing_extracts(const plugin_context_t* ctx, slice_t* s, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo) {
 
   /* fprintf(out, "Extracts %d to %d from ", hi, lo); */
@@ -449,6 +463,7 @@ slist_t* bv_slicing_extracts(const plugin_context_t* ctx, slice_t* s, uint32_t h
 /**
  * Wrapping up above function: stack on top of tail a slice with base t, from lo to hi
  */
+static
 slist_t* bv_slicing_sstack(const plugin_context_t* ctx, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, ptr_hmap_t* slices) {
 
   if (ctx_trace_enabled(ctx, "mcsat::bv::slicing::norm")) {
@@ -485,6 +500,7 @@ term_t bit_over_extract(term_table_t* terms, term_t t) {
 
 /** Normalises the hi-lo extraction of a term into a list of slices added to tail,
     which acts as an accumulator for this recursive function. */
+static
 slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, slist_t* tail, ptr_queue_t* todo, ptr_hmap_t* slices) {
 
   term_t conflict_var   = exp->csttrail.conflict_var_term;
@@ -595,7 +611,8 @@ slist_t* bv_slicing_norm(eq_ext_con_t* exp, term_t t, uint32_t hi, uint32_t lo, 
   return bv_slicing_sstack(ctx, t, hi, lo, tail, todo, slices);
 }
 
-// Prints a slicing
+/** Prints a slicing */
+static
 void bv_slicing_print_slicing(const bv_slicing_t* slicing) {
 
   FILE* out = ctx_trace_out(slicing->exp->super.ctx);
@@ -618,7 +635,8 @@ void bv_slicing_print_slicing(const bv_slicing_t* slicing) {
   }
 }
 
-// Destructs a slicing. Everything goes.
+/** Destructs a slicing. Everything goes. */
+static
 void bv_slicing_slicing_destruct(bv_slicing_t* slicing) {
 
   // We go through all variables, and destroy all slices
@@ -639,6 +657,7 @@ void bv_slicing_slicing_destruct(bv_slicing_t* slicing) {
 
 /** At the end of the slicing algorithm, we go through each of the created slices,
     and perform 3 tasks: */
+static
 void bv_slicing_slice_treat(slice_t* s, splist_t** constraints, eq_ext_con_t* exp, eq_graph_t* egraph) {
 
   if (s->lo_sub == NULL) { // This is a leaf
@@ -976,6 +995,7 @@ term_t term_is_ext_con(eq_ext_con_t* exp, term_t u, bool assume_fragment) {
  * Will slice conflict_core, and additionally the give var. If the var is
  * given it's slice_list will be returned, otherwise NULL is returned.
  */
+static
 slist_t* bv_slicing_construct(bv_slicing_t* slicing, eq_ext_con_t* exp, const ivector_t* conflict_core, term_t var_to_slice, eq_graph_t* egraph) {
 
   // Standard abbreviations

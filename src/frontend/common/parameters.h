@@ -126,6 +126,7 @@ typedef enum yices_param {
   PARAM_MCSAT_PARTIAL_RESTART,
   PARAM_MCSAT_L2O,
   PARAM_MCSAT_SUPPLEMENT_CHECK,
+  PARAM_MCSAT_CHECK_MODEL,
   // error
   PARAM_UNKNOWN
 } yices_param_t;

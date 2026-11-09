@@ -21,6 +21,10 @@
 
 #include "mcsat/variable_db.h"
 
+#include "utils/int_hash_map.h"
+#include "utils/int_vectors.h"
+#include "utils/ptr_vectors.h"
+
 #include <stdio.h>
 
 /** Type of reference to the list */

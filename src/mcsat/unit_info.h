@@ -18,9 +18,11 @@
 
 #pragma once
 
-#include "mcsat/variable_db.h"
+#include "mcsat/variable.h"
 #include "mcsat/gc.h"
 #include "utils/int_hash_map.h"
+
+#include <stddef.h>
 
 typedef enum {
   /** The constraint is not unit, nor fully assigned */

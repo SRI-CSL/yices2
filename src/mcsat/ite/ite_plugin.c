@@ -33,6 +33,7 @@ typedef struct {
 
 } ite_plugin_t;
 
+static
 void ite_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ite_plugin_t* ite = (ite_plugin_t*) plugin;
   ite->ctx = ctx;
@@ -40,9 +41,12 @@ void ite_plugin_construct(plugin_t* plugin, plugin_context_t* ctx) {
   ctx->request_term_notification_by_kind(ctx, ITE_SPECIAL, false);
 }
 
+static
 void ite_plugin_destruct(plugin_t* plugin) {
+  (void) plugin;
 }
 
+static
 void ite_plugin_new_term_notify(plugin_t* plugin, term_t term, trail_token_t* prop) {
   ite_plugin_t* ite_plugin = (ite_plugin_t*) plugin;
 

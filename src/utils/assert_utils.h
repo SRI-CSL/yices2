@@ -38,6 +38,11 @@
  *
  *    assert_true(function(....))
  * or assert_false(function(...))
+ *
+ * assert_always is for a condition that must hold in every mode, where going on
+ * would be worse than stopping: a case that is not implemented yet and would
+ * otherwise produce a wrong answer. With assertions enabled, this is a regular
+ * assert, otherwise it checks the condition and leaves with YICES_EXIT_INTERNAL_ERROR.
  */
 
 #ifndef __ASSERT_UTILS_H
@@ -56,5 +61,22 @@ static inline __attribute__ ((always_inline)) bool assert_false(bool flag) {
   return flag;
 }
 
+#ifdef NDEBUG
+/*
+ * Report a failed assert_always and leave. In assert_utils.c, so that this
+ * header does not drag stdio, unistd and the exit codes into every user.
+ */
+extern void assert_always_failed(const char *file, unsigned line, const char *func, const char *cond)
+  __attribute__ ((noreturn, cold));
+
+#define assert_always(cond)                                            \
+  do {                                                                 \
+    if (__builtin_expect(!(cond), 0)) {                                \
+      assert_always_failed(__FILE__, __LINE__, __func__, #cond);       \
+    }                                                                  \
+  } while (false)
+#else
+#define assert_always(cond) assert(cond)
+#endif
 
 #endif /* __ASSERT_UTILS_H */

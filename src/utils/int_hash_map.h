@@ -110,13 +110,13 @@ extern void int_hmap_reset(int_hmap_t *hmap);
 
 
 /*
- * Remove all records that satisfy f
+ * Garbage collect. Removes all records that not satisfy f.
  * - calls f(aux, p) on every record p stored in hmap
- * - if f(aux, p) returns true then record p is removed
+ * - if f(aux, p) returns false then record p is removed
  */
-typedef bool (*int_hmap_filter_t)(void *aux, const int_hmap_pair_t *p);
+typedef bool (*int_hmap_keep_alive_fun_t)(void *aux, const int_hmap_pair_t *p);
 
-extern void int_hmap_remove_records(int_hmap_t *hmap, void *aux, int_hmap_filter_t f);
+extern void int_hmap_gc(int_hmap_t *hmap, void *aux, int_hmap_keep_alive_fun_t f);
 
 
 /*

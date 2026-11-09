@@ -1,0 +1,20 @@
+; z occurs only in a popped assertion. l2o kept that assertion after the
+; pop, so a later l2o run collected z as a free variable although its MCSAT
+; variable had been garbage collected.
+(set-logic QF_NIA)
+(declare-fun z () Int)
+(declare-fun x0 () Int)
+(declare-fun x1 () Int)
+(declare-fun x2 () Int)
+(declare-fun x3 () Int)
+(declare-fun x4 () Int)
+(push 1)
+(assert (> (* z z) 2))
+(pop 1)
+(assert (and (<= 1 x0) (<= x0 4)))
+(assert (and (<= 1 x1) (<= x1 4)))
+(assert (and (<= 1 x2) (<= x2 4)))
+(assert (and (<= 1 x3) (<= x3 4)))
+(assert (and (<= 1 x4) (<= x4 4)))
+(assert (distinct x0 x1 x2 x3 x4))
+(check-sat)

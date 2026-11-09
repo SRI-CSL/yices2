@@ -19,9 +19,6 @@
 #ifndef MCSAT_TYPES_H_
 #define MCSAT_TYPES_H_
 
-#include <stdint.h>
-#include <stdbool.h>
-
 typedef struct mcsat_solver_s mcsat_solver_t;
 typedef struct mcsat_model_s mcsat_model_t;
 typedef struct mcsat_trail_s mcsat_trail_t;
