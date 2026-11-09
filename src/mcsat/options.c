@@ -18,7 +18,7 @@
 
 #include "options.h"
 
-#include <stddef.h>
+#include <stdbool.h>
 
 extern void init_mcsat_options(mcsat_options_t *opts) {
   opts->na_nlsat = false;
@@ -29,6 +29,6 @@ extern void init_mcsat_options(mcsat_options_t *opts) {
   opts->bv_var_size = -1;
   opts->model_interpolation = false;
   opts->partial_restart = false;
+  opts->check_model = false;
   opts->l2o = false;
 }
-

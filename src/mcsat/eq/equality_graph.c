@@ -189,12 +189,11 @@ bool eq_graph_is_pair(const eq_graph_t* eq, eq_node_id_t n_id) {
 #endif
 
 /** Add a value node */
+static
 eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v);
 
-/** Is this value registered yet? */
-bool eq_graph_has_value(const eq_graph_t* eq, const mcsat_value_t* v);
-
 /** Return the id of a value */
+static
 eq_node_id_t eq_graph_value_id(const eq_graph_t* eq, const mcsat_value_t* v);
 
 void eq_graph_construct(eq_graph_t* eq, plugin_context_t* ctx, const char* name) {
@@ -500,6 +499,7 @@ eq_node_id_t eq_graph_add_term(eq_graph_t* eq, term_t t) {
   return id;
 }
 
+static
 eq_node_id_t eq_graph_add_value(eq_graph_t* eq, const mcsat_value_t* v) {
 
   if (ctx_trace_enabled(eq->ctx, "mcsat::eq")) {
@@ -781,6 +781,7 @@ bool eq_graph_term_is_rep(const eq_graph_t* eq, term_t t) {
   return n->find == id;
 }
 
+static
 eq_node_id_t eq_graph_value_id(const eq_graph_t* eq, const mcsat_value_t* v) {
   value_hmap_pair_t* find = value_hmap_find(&eq->value_to_id, v);
   assert(find != NULL);
@@ -788,11 +789,7 @@ eq_node_id_t eq_graph_value_id(const eq_graph_t* eq, const mcsat_value_t* v) {
 }
 
 bool eq_graph_has_term(const eq_graph_t* eq, term_t t) {
-  return int_hmap_find((int_hmap_t*) &eq->term_to_id, t) != NULL;
-}
-
-bool eq_graph_has_value(const eq_graph_t* eq, const mcsat_value_t* v) {
-  return value_hmap_find(&eq->value_to_id, v) != NULL;
+  return int_hmap_find(&eq->term_to_id, t) != NULL;
 }
 
 bool eq_graph_are_equal(const eq_graph_t* eq, term_t t1, term_t t2){
@@ -1026,7 +1023,7 @@ void eq_graph_unmerge_nodes(eq_graph_t* eq, eq_node_id_t n_into_id, eq_node_id_t
 }
 
 
-/** Do we prefer n1 to n2 */
+/** Do we prefer n1 over n2 */
 static inline
 bool eq_graph_merge_preference(const eq_node_t* n1, const eq_node_t* n2) {
 
@@ -1038,8 +1035,8 @@ bool eq_graph_merge_preference(const eq_node_t* n1, const eq_node_t* n2) {
     return true;
   }
 
-  // Otherwise we prefer a biger one (so that we update less nodes)
-  return n1->size < n2->size;
+  // Otherwise we prefer a bigger one (so that we update less nodes)
+  return n1->size > n2->size;
 }
 
 /** Allocate a new edge */
@@ -1768,6 +1765,7 @@ void eq_graph_pop(eq_graph_t* eq) {
 /**
  * Make an equality between two terms that evaluates to true wrt the given values.
  */
+static
 term_t eq_graph_add_eq_explanation(const eq_graph_t* eq,
     term_t lhs, eq_node_id_t lhs_value,
     term_t rhs, eq_node_id_t rhs_value,

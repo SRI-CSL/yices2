@@ -18,9 +18,8 @@
 
 #pragma once
 
-#include "mcsat/trail.h"
 #include "mcsat/watch_list_manager.h"
-#include "mcsat/variable_db.h"
+#include "mcsat/variable.h"
 #include "mcsat/value.h"
 
 #include "utils/int_hash_sets.h"

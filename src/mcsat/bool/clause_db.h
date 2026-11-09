@@ -19,6 +19,7 @@
 #ifndef CLAUSE_DB_H_
 #define CLAUSE_DB_H_
 
+#include "mcsat/bool/bool_plugin_types.h"
 #include "mcsat/bool/literal.h"
 
 /**
@@ -88,9 +89,6 @@ typedef struct {
   mcsat_clause_t clause;
 
 } mcsat_tagged_clause_t;
-
-/** Null clause */
-#define clause_ref_null 0
 
 /** Clause database type */
 typedef struct clause_db_s clause_db_t;

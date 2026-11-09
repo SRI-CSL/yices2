@@ -17,7 +17,6 @@
  */
  
 #include "mcsat/bool/clause_db.h"
-#include "utils/ptr_vectors.h"
 #include "utils/int_array_sort.h"
 
 #include <string.h>
