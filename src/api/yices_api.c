@@ -9359,7 +9359,7 @@ static inline bool yices_assert_formulas_checks(uint32_t n, const term_t t[]) {
  * context_clear on an MCSAT context can run mcsat_pop (it removes the label
  * scope that an MCSAT check with assumptions leaves open after sat), and
  * mcsat_pop reads the term table. Take the global lock for that case, as
- * yices_push and yices_pop do. The lock is not recursive, so this is for
+ * yices_push and yices_pop do. The lock is not recursive on POSIX, so this is for
  * callers that do not already hold it.
  */
 static void context_clear_locked(context_t *ctx) {
