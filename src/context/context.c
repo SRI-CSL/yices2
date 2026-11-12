@@ -7593,7 +7593,11 @@ void context_gc_mark(context_t *ctx) {
     uint32_t i;
     for (i=0; i<ctx->assumptions.top; i++) {
       term_table_set_gc_mark(ctx->terms, index_of(ctx->assumptions.data[i].term));
-      term_table_set_gc_mark(ctx->terms, index_of(ctx->assumptions.data[i].lit));
+      // guard: a front end may have stored a literal here (context_add_assumption)
+      if (ctx->assumptions.data[i].lit >= 0 &&
+          valid_term_idx(ctx->terms, index_of(ctx->assumptions.data[i].lit))) {
+        term_table_set_gc_mark(ctx->terms, index_of(ctx->assumptions.data[i].lit));
+      }
     }
     mcsat_gc_mark(ctx->mcsat);
   }
