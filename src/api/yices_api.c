@@ -9355,6 +9355,21 @@ static inline bool yices_assert_formulas_checks(uint32_t n, const term_t t[]) {
   MT_PROTECT(bool,  __yices_globals.lock, _o_yices_assert_formulas_checks(n, t));
 }
 
+/*
+ * context_clear on an MCSAT context can run mcsat_pop (it removes the label
+ * scope that an MCSAT check with assumptions leaves open after sat), and
+ * mcsat_pop reads the term table. Take the global lock for that case, as
+ * yices_push and yices_pop do. The lock is not recursive, so this is for
+ * callers that do not already hold it.
+ */
+static void context_clear_locked(context_t *ctx) {
+  if (ctx->mcsat != NULL) {
+    MT_PROTECT_VOID(__yices_globals.lock, context_clear(ctx));
+  } else {
+    context_clear(ctx);
+  }
+}
+
 EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t t[]) {
   int32_t code;
 
@@ -9369,7 +9384,7 @@ EXPORTED int32_t yices_assert_formulas(context_t *ctx, uint32_t n, const term_t 
       set_error_code(CTX_OPERATION_NOT_SUPPORTED);
       return -1;
     }
-    context_clear(ctx);
+    context_clear_locked(ctx);
     break;
 
   case YICES_STATUS_IDLE:
@@ -9725,7 +9740,7 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
       set_error_code(CTX_OPERATION_NOT_SUPPORTED);
       return YICES_STATUS_ERROR;
     }
-    context_clear(ctx);
+    context_clear_locked(ctx);
     break;
 
   case YICES_STATUS_IDLE:

@@ -7584,6 +7584,17 @@ void context_gc_mark(context_t *ctx) {
   }
 
   if (ctx->mcsat != NULL) {
+    /*
+     * Without push/pop, an MCSAT check with assumptions caches in ctx->assumptions
+     * a pair (assumption term, label term). Both are terms (the CDCL(T) context
+     * stores a literal in the second slot), and the cache is consulted on later
+     * checks, so keep them alive.
+     */
+    uint32_t i;
+    for (i=0; i<ctx->assumptions.top; i++) {
+      term_table_set_gc_mark(ctx->terms, index_of(ctx->assumptions.data[i].term));
+      term_table_set_gc_mark(ctx->terms, index_of(ctx->assumptions.data[i].lit));
+    }
     mcsat_gc_mark(ctx->mcsat);
   }
   if (ctx->mcsat_supplement) {
