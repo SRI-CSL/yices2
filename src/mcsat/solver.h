@@ -64,6 +64,11 @@ void mcsat_push(mcsat_solver_t* mcsat);
 void mcsat_pop(mcsat_solver_t* mcsat);
 
 /*
+ * Keep the last pushed scope until the next mcsat_clear, which pops it.
+ */
+void mcsat_pop_at_clear(mcsat_solver_t* mcsat);
+
+/*
  * Assert all formulas f[0] ... f[n-1]. The context status must be IDLE.
  *
  * Return code:
