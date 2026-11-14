@@ -764,6 +764,22 @@ struct context_s {
   int_hmap_t *mcsat_relax_abstractions;      // original arithmetic term -> fresh internal arithmetic term
   int_hset_t *mcsat_relax_abstraction_terms; // fresh internal arithmetic terms above
   term_manager_t *mcsat_relax_manager;       // allocated lazily
+
+  // term (a monomial's abstraction variable, or one of its factors) -> the
+  // literal for the atom "term = 0". Built eagerly, at base level, when the
+  // monomial is abstracted (mcsat_relax_pprod) -- new theory atoms cannot be
+  // created later mid-search (simplex only allows atom creation at the base
+  // decision level), so on-demand zero-lemma checking may only look up and
+  // combine these pre-existing literals into new clauses, never create atoms.
+  int_hmap_t *mcsat_relax_zero_atoms;
+
+  // monomial term -> bitmask of which on-demand zero-lemma clauses were
+  // already added for it (bit i: factor i's forward clause; top bit: the
+  // reverse clause). Needed because the literals these clauses are built
+  // from are typically fresh and unassigned, so nothing forces the search
+  // to move on: without this, the same violation would be redetected and
+  // the same clause re-added on every subsequent propagate/final_check call.
+  int_hmap_t *mcsat_relax_zero_lemma_done;
 };
 
 

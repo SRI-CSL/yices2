@@ -113,6 +113,7 @@ core_src_c := \
 	context/common_conjuncts.c \
 	context/conditional_definitions.c \
 	context/context.c \
+	context/context_mcsat_relax.c \
 	context/context_simplifier.c \
 	context/context_solver.c \
 	context/context_statistics.c \

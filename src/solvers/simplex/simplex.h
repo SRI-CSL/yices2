@@ -399,6 +399,14 @@ extern bool simplex_value_in_model(simplex_solver_t *solver, int32_t x, rational
 extern void simplex_free_model(simplex_solver_t *solver);
 
 
+/*
+ * Check whether x is assigned the value 0 in the solver's current
+ * (possibly partial, mid-search) candidate assignment.
+ * - unlike simplex_value_in_model, this does not require simplex_build_model
+ */
+extern bool simplex_var_is_zero_in_assignment(simplex_solver_t *solver, thvar_t x);
+
+
 
 /*********************
  *  GET STATISTICS   *

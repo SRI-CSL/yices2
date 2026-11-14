@@ -351,6 +351,12 @@ static void context_reset_mcsat_relaxation(context_t *ctx) {
   if (ctx->mcsat_relax_manager != NULL) {
     reset_term_manager(ctx->mcsat_relax_manager);
   }
+  if (ctx->mcsat_relax_zero_atoms != NULL) {
+    int_hmap_reset(ctx->mcsat_relax_zero_atoms);
+  }
+  if (ctx->mcsat_relax_zero_lemma_done != NULL) {
+    int_hmap_reset(ctx->mcsat_relax_zero_lemma_done);
+  }
 }
 
 static void context_delete_mcsat_relaxation(context_t *ctx) {
@@ -368,6 +374,16 @@ static void context_delete_mcsat_relaxation(context_t *ctx) {
     delete_term_manager(ctx->mcsat_relax_manager);
     safe_free(ctx->mcsat_relax_manager);
     ctx->mcsat_relax_manager = NULL;
+  }
+  if (ctx->mcsat_relax_zero_atoms != NULL) {
+    delete_int_hmap(ctx->mcsat_relax_zero_atoms);
+    safe_free(ctx->mcsat_relax_zero_atoms);
+    ctx->mcsat_relax_zero_atoms = NULL;
+  }
+  if (ctx->mcsat_relax_zero_lemma_done != NULL) {
+    delete_int_hmap(ctx->mcsat_relax_zero_lemma_done);
+    safe_free(ctx->mcsat_relax_zero_lemma_done);
+    ctx->mcsat_relax_zero_lemma_done = NULL;
   }
 }
 
@@ -436,7 +452,7 @@ static void context_observe_mcsat_atom(context_t *ctx, term_t atom, literal_t l)
   }
 }
 
-static inline bool context_mcsat_relaxation_enabled(context_t *ctx) {
+bool context_mcsat_relaxation_enabled(context_t *ctx) {
   return ctx->mcsat_supplement && context_has_simplex_solver(ctx);
 }
 
@@ -464,6 +480,30 @@ static int_hmap_t *context_get_mcsat_relax_abstractions(context_t *ctx) {
     map = (int_hmap_t *) safe_malloc(sizeof(int_hmap_t));
     init_int_hmap(map, 0);
     ctx->mcsat_relax_abstractions = map;
+  }
+  return map;
+}
+
+int_hmap_t *context_get_mcsat_relax_zero_lemma_done(context_t *ctx) {
+  int_hmap_t *map;
+
+  map = ctx->mcsat_relax_zero_lemma_done;
+  if (map == NULL) {
+    map = (int_hmap_t *) safe_malloc(sizeof(int_hmap_t));
+    init_int_hmap(map, 0);
+    ctx->mcsat_relax_zero_lemma_done = map;
+  }
+  return map;
+}
+
+static int_hmap_t *context_get_mcsat_relax_zero_atoms(context_t *ctx) {
+  int_hmap_t *map;
+
+  map = ctx->mcsat_relax_zero_atoms;
+  if (map == NULL) {
+    map = (int_hmap_t *) safe_malloc(sizeof(int_hmap_t));
+    init_int_hmap(map, 0);
+    ctx->mcsat_relax_zero_atoms = map;
   }
   return map;
 }
@@ -533,15 +573,57 @@ static term_t mcsat_relax_abstraction_for_term(context_t *ctx, term_t t) {
 
 static term_t mcsat_relax_arith_term(context_t *ctx, term_manager_t *manager, term_t t);
 
+/*
+ * Build (if not already cached) and cache the literal for the atom "t = 0".
+ * This must only be called at the base decision level (e.g. from ordinary
+ * internalization, as mcsat_relax_pprod does below): building a new theory
+ * atom is unsafe once the search is past the base level, unlike combining
+ * already-existing literals into new clauses. Building this atom also
+ * internalizes t as a side effect, so its value becomes queryable via
+ * simplex without any separate internalization step.
+ */
+static literal_t mcsat_relax_cache_zero_atom(context_t *ctx, term_t t) {
+  int_hmap_pair_t *r;
+
+  r = int_hmap_get(context_get_mcsat_relax_zero_atoms(ctx), t);
+  if (r->val < 0) {
+    r->val = map_arith_eq_to_literal(ctx, t);
+  }
+  return r->val;
+}
+
+/*
+ * Pre-build the "z = 0" and "xi = 0" atoms for monomial p (abstracted as z)
+ * now, at base level (ordinary internalization time), for later on-demand
+ * zero-lemma checking (context_check_mcsat_relax_zero_lemmas), which runs
+ * mid-search and may only look up and combine these literals into new
+ * clauses, never create new atoms. A factor that itself requires MCSAT has
+ * no sound simplex atom to build here, so it is left untouched
+ * (context_check_mcsat_relax_zero_lemmas treats a missing cached atom as
+ * "skip this monomial").
+ */
+static void mcsat_relax_setup_zero_lemma_atoms(context_t *ctx, pprod_t *p, term_t z) {
+  uint32_t i;
+
+  (void) mcsat_relax_cache_zero_atom(ctx, z);
+  for (i=0; i<p->len; i++) {
+    if (!term_requires_mcsat_supplement_uncached(ctx, p->prod[i].var)) {
+      (void) mcsat_relax_cache_zero_atom(ctx, p->prod[i].var);
+    }
+  }
+}
+
 static term_t mcsat_relax_pprod(context_t *ctx, term_manager_t *manager, term_t t) {
   pprod_t *p;
   term_t *a;
-  term_t r;
+  term_t r, z;
   uint32_t i, n;
 
   p = pprod_term_desc(ctx->terms, t);
   if (pprod_degree(p) > 1) {
-    return mcsat_relax_abstraction_for_term(ctx, t);
+    z = mcsat_relax_abstraction_for_term(ctx, t);
+    mcsat_relax_setup_zero_lemma_atoms(ctx, p, z);
+    return z;
   }
 
   n = p->len;
@@ -3565,7 +3647,7 @@ static occ_t internalize_to_eterm(context_t *ctx, term_t t) {
  * - otherwise, x must be the code of an arithmetic variable v,
  *   we return v.
  */
-static thvar_t translate_code_to_arith(context_t *ctx, int32_t x) {
+thvar_t translate_code_to_arith(context_t *ctx, int32_t x) {
   eterm_t u;
   thvar_t v;
 
@@ -6558,6 +6640,8 @@ void init_context(context_t *ctx, term_table_t *terms, smt_logic_t logic,
   ctx->mcsat_relax_abstractions = NULL;
   ctx->mcsat_relax_abstraction_terms = NULL;
   ctx->mcsat_relax_manager = NULL;
+  ctx->mcsat_relax_zero_atoms = NULL;
+  ctx->mcsat_relax_zero_lemma_done = NULL;
   /*
    * Allocate and initialize the solvers and core
    * NOTE: no theory solver yet if arch is AUTO_IDL or AUTO_RDL
