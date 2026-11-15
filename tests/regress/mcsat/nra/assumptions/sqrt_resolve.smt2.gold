@@ -1,2 +1,2 @@
 unsat
-(/= y 1)
+(distinct y 1.0)
