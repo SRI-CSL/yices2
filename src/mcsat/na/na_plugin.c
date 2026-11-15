@@ -1781,7 +1781,19 @@ term_t na_plugin_explain_propagation(plugin_t* plugin, variable_t var, ivector_t
     // at the base level while analysis pops it, so we check the level of the
     // propagation itself, as trail_pop_assertion does.
     assert(trail_get_level(na->ctx->trail, var) <= na->ctx->trail->decision_level_base);
-    return mcsat_value_to_term(value, na->ctx->tm);
+    term_t result = mcsat_value_to_term(value, na->ctx->tm);
+    term_table_t* terms = na->ctx->terms;
+    if (term_type_kind(terms, atom) == SCALAR_TYPE) {
+      // The plugin represents scalar values by their index, but the explanation
+      // must be a term of the variable's type: an arithmetic constant would make
+      // the equality var = value ill-sorted.
+      int32_t index = 0;
+      bool ok = q_get32(rational_term_desc(terms, result), &index);
+      (void) ok;
+      assert(ok);
+      result = mk_constant(na->ctx->tm, term_type(terms, atom), index);
+    }
+    return result;
   }
 }
 
