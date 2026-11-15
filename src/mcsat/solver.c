@@ -2121,6 +2121,9 @@ term_t mcsat_analyze_final(mcsat_solver_t* mcsat, conflict_t* input_conflict) {
   // This is required by the conflict handling.
   mcsat_trail_t trail;
   trail_construct_copy(&trail, mcsat->trail);
+  // Propagations below the base level (e.g., after a push) would keep their value
+  // when popped, and block resolution of the variables below them (see #659)
+  trail_flatten_below_base(&trail);
 
   conflict_t conflict;
   conflict_construct(&conflict, &literals, false, mcsat_evaluator_get(mcsat), mcsat->var_db, &trail, &mcsat->tm, trace);

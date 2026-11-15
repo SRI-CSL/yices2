@@ -105,6 +105,22 @@ void trail_construct(mcsat_trail_t* trail, const variable_db_t* var_db);
 /** Copy construct */
 void trail_construct_copy(mcsat_trail_t* trail, const mcsat_trail_t* from);
 
+/**
+ * Raise the level of every assigned variable below decision_level_base to
+ * decision_level_base.
+ *
+ * Only meant for throw-away copies used for final conflict analysis (see
+ * mcsat_analyze_final). On such a copy nothing is ever pushed again, so we want
+ * trail_pop_propagation to really unassign every popped variable. It does so only
+ * if the variable's level equals the current decision level, and the level never
+ * drops below the base level; without this, propagations made below the base
+ * level (e.g., after a push) keep their value when popped. They then stay the
+ * "top" variable of the conflict literals they occur in and keep the literals
+ * from being resolved any further. Relative order is preserved: the trail
+ * indices of variables below the base level are monotone in their levels.
+ */
+void trail_flatten_below_base(mcsat_trail_t* trail);
+
 /** Destruct a given trail */
 void trail_destruct(mcsat_trail_t* trail);
 
