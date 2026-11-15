@@ -352,7 +352,7 @@ static bool get_prefix(bvslicer_t *slicer, term_table_t *tbl, const term_t *a, u
     return true;
   }
 
-  if (j+1 < n && term_kind(tbl, t) == BIT_TERM) {
+  if (j+1 < n && is_pos_term(t) && term_kind(tbl, t) == BIT_TERM) {
     k = get_repeat_prefix(a, t, j+1, n);
     if (k > j+1) { // a[j ... k-1] form a repeat prefix      
       *i = k;

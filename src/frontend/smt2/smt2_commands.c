@@ -50,6 +50,7 @@
 #include "frontend/smt2/smt2_printer.h"
 #include "io/term_printer.h"
 #include "frontend/smt2/smt2_symbol_printer.h"
+#include "frontend/smt2/smt2_term_printer.h"
 #include "mcsat/options.h"
 #include "model/model_eval.h"
 #include "model/projection.h"
@@ -4512,8 +4513,12 @@ static void show_unsat_model_interpolant(smt2_globals_t *g) {
         print_error("Call (check-sat-assuming-model) first");
       } else {
         init_pretty_printer(&printer, g);
-        pp_term_full(&printer.pp, __yices_globals.terms, unsat_model_interpolant);
-        delete_smt2_pp(&printer, true);
+        if (smt2_pp_term(&printer, __yices_globals.terms, unsat_model_interpolant)) {
+          delete_smt2_pp(&printer, true);
+        } else {
+          delete_smt2_pp(&printer, false);
+          print_error("get-unsat-model-interpolant: the interpolant cannot be printed in SMT-LIB 2 syntax");
+        }
       }
       break;
 
