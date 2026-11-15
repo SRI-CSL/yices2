@@ -1,2 +1,2 @@
 unsat
-(=> a (= z 0b01))
+(or (not a) (= z #b01))

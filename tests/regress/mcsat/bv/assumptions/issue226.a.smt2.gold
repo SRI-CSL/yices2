@@ -1,2 +1,2 @@
 unsat
-(/= (bv-extract 3 0 y) 0b0110)
+(distinct ((_ extract 3 0) y) #b0110)
