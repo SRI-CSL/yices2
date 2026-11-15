@@ -30,6 +30,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <inttypes.h>
+#include <stddef.h>
 #include <string.h>
 #include <ctype.h>
 #include <assert.h>
@@ -2706,16 +2707,45 @@ static void init_smt2_context(smt2_globals_t *g) {
 
 
 /*
+ * Search parameters set by the user (set-option or command line) must survive
+ * the resets to defaults done at set-logic and check-sat (issue #687).
+ * We record the bytes of g->parameters written by set-option in g->user_param_mask.
+ */
+static void mark_user_param(smt2_globals_t *g, size_t offset, size_t size) {
+  memset(g->user_param_mask + offset, 1, size);
+}
+
+#define SET_USER_PARAM(g, field, val)                                   \
+  do {                                                                  \
+    (g)->parameters.field = (val);                                      \
+    mark_user_param((g), offsetof(param_t, field), sizeof((g)->parameters.field)); \
+  } while (0)
+
+// copy the user-set fields of saved into g->parameters
+static void restore_user_params(smt2_globals_t *g, const param_t *saved) {
+  uint8_t *dst = (uint8_t *) &g->parameters;
+  const uint8_t *src = (const uint8_t *) saved;
+  size_t i;
+
+  for (i = 0; i < sizeof(param_t); i ++) {
+    if (g->user_param_mask[i]) dst[i] = src[i];
+  }
+}
+
+/*
  * Initialize the search parameters
  * - this must be done after the context is created
  * - if the architecture is AUTO_RDL or AUTO_IDL,
  *   this must be called after the assertions
  */
 static void init_search_parameters(smt2_globals_t *g) {
+  param_t saved;
   int32_t code;
 
   assert(g->ctx != NULL);
+  saved = g->parameters;
   yices_default_params_for_context(g->ctx, &g->parameters);
+  restore_user_params(g, &saved);
   if (g->delegate != NULL) {
     if (parse_sat_delegate(g->delegate, &g->ctx->sat_delegate) < 0) {
       g->ctx->sat_delegate = SAT_DELEGATE_NONE;
@@ -4790,6 +4820,7 @@ static void init_smt2_globals(smt2_globals_t *g) {
   g->verbosity = 0;
   init_ctx_params(&g->ctx_parameters);
   init_params_to_defaults(&g->parameters);
+  memset(g->user_param_mask, 0, sizeof(g->user_param_mask));
   g->dump_models = false;
   g->check_status = false;
   g->expected_status = YICES_STATUS_IDLE;
@@ -5964,145 +5995,145 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
 
   case PARAM_FAST_RESTARTS:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      g->parameters.fast_restart = tt;
+      SET_USER_PARAM(g, fast_restart, tt);
     }
     break;
 
   case PARAM_C_THRESHOLD:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.c_threshold = n;
+      SET_USER_PARAM(g, c_threshold, n);
     }
     break;
 
   case PARAM_C_FACTOR:
     if (param_val_to_factor(param, val, &x, &reason)) {
-      g->parameters.c_factor = x;
+      SET_USER_PARAM(g, c_factor, x);
     }
     break;
 
   case PARAM_D_THRESHOLD:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.d_threshold = n;
+      SET_USER_PARAM(g, d_threshold, n);
     }
     break;
 
   case PARAM_D_FACTOR:
     if (param_val_to_factor(param, val, &x, &reason)) {
-      g->parameters.d_factor = x;
+      SET_USER_PARAM(g, d_factor, x);
     }
     break;
 
   case PARAM_R_INITIAL_THRESHOLD:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.r_initial_threshold = n;
+      SET_USER_PARAM(g, r_initial_threshold, n);
     }
     break;
 
   case PARAM_R_INTERVAL:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.r_interval = n;
+      SET_USER_PARAM(g, r_interval, n);
     }
     break;
 
   case PARAM_VAR_DECAY:
     if (param_val_to_ratio(param, val, &x, &reason)) {
-      g->parameters.var_decay = x;
+      SET_USER_PARAM(g, var_decay, x);
     }
     break;
 
   case PARAM_RANDOMNESS:
     if (param_val_to_ratio(param, val, &x, &reason)) {
-      g->parameters.randomness = x;
+      SET_USER_PARAM(g, randomness, x);
     }
     break;
 
   case PARAM_RANDOM_SEED:
     if (param_val_to_int32(param, val, &n, &reason)) {
-      g->parameters.random_seed = (uint32_t) n;
+      SET_USER_PARAM(g, random_seed, (uint32_t) n);
     }
     break;
 
   case PARAM_BRANCHING:
     if (param_val_to_branching(param, val, &b, &reason)) {
-      g->parameters.branching = b;
+      SET_USER_PARAM(g, branching, b);
     }
     break;
 
   case PARAM_CLAUSE_DECAY:
     if (param_val_to_ratio(param, val, &x, &reason)) {
-      g->parameters.clause_decay = x;
+      SET_USER_PARAM(g, clause_decay, x);
     }
     break;
 
   case PARAM_CACHE_TCLAUSES:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      g->parameters.cache_tclauses = tt;
+      SET_USER_PARAM(g, cache_tclauses, tt);
     }
     break;
 
   case PARAM_TCLAUSE_SIZE:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.tclause_size = n;
+      SET_USER_PARAM(g, tclause_size, n);
     }
     break;
 
   case PARAM_DYN_ACK:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      g->parameters.use_dyn_ack = tt;
+      SET_USER_PARAM(g, use_dyn_ack, tt);
     }
     break;
 
   case PARAM_DYN_BOOL_ACK:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      g->parameters.use_bool_dyn_ack = tt;
+      SET_USER_PARAM(g, use_bool_dyn_ack, tt);
     }
     break;
 
   case PARAM_OPTIMISTIC_FCHECK:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      g->parameters.use_optimistic_fcheck = tt;
+      SET_USER_PARAM(g, use_optimistic_fcheck, tt);
     }
     break;
 
   case PARAM_MAX_ACK:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.max_ackermann = n;
+      SET_USER_PARAM(g, max_ackermann, n);
     }
     break;
 
   case PARAM_MAX_BOOL_ACK:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.max_boolackermann = n;
+      SET_USER_PARAM(g, max_boolackermann, n);
     }
     break;
 
   case PARAM_AUX_EQ_QUOTA:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.aux_eq_quota = n;
+      SET_USER_PARAM(g, aux_eq_quota, n);
     }
     break;
 
   case PARAM_AUX_EQ_RATIO:
     if (param_val_to_posfloat(param, val, &x, &reason)) {
-      g->parameters.aux_eq_ratio = x;
+      SET_USER_PARAM(g, aux_eq_ratio, x);
     }
     break;
 
   case PARAM_DYN_ACK_THRESHOLD:
     if (param_val_to_pos16(param, val, &n, &reason)) {
-      g->parameters.dyn_ack_threshold = (uint16_t) n;
+      SET_USER_PARAM(g, dyn_ack_threshold, (uint16_t) n);
     }
     break;
 
   case PARAM_DYN_BOOL_ACK_THRESHOLD:
     if (param_val_to_pos16(param, val, &n, &reason)) {
-      g->parameters.dyn_bool_ack_threshold = (uint16_t) n;
+      SET_USER_PARAM(g, dyn_bool_ack_threshold, (uint16_t) n);
     }
     break;
 
   case PARAM_MAX_INTERFACE_EQS:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.max_interface_eqs = n;
+      SET_USER_PARAM(g, max_interface_eqs, n);
     }
     break;
 
@@ -6122,25 +6153,25 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
 
   case PARAM_SIMPLEX_PROP:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      g->parameters.use_simplex_prop = tt;
+      SET_USER_PARAM(g, use_simplex_prop, tt);
     }
     break;
 
   case PARAM_SIMPLEX_ADJUST:
     if (param_val_to_bool(param, val, &tt, &reason)) {
-      g->parameters.adjust_simplex_model = tt;
+      SET_USER_PARAM(g, adjust_simplex_model, tt);
     }
     break;
 
   case PARAM_PROP_THRESHOLD:
     if (param_val_to_nonneg32(param, val, &n, &reason)) {
-      g->parameters.max_prop_row_size = n;
+      SET_USER_PARAM(g, max_prop_row_size, n);
     }
     break;
 
   case PARAM_BLAND_THRESHOLD:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.bland_threshold = n;
+      SET_USER_PARAM(g, bland_threshold, n);
     }
     break;
 
@@ -6160,19 +6191,19 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
 
   case PARAM_ICHECK_PERIOD:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.integer_check_period = n;
+      SET_USER_PARAM(g, integer_check_period, n);
     }
     break;
 
   case PARAM_MAX_UPDATE_CONFLICTS:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.max_update_conflicts = n;
+      SET_USER_PARAM(g, max_update_conflicts, n);
     }
     break;
 
   case PARAM_MAX_EXTENSIONALITY:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.max_extensionality = n;
+      SET_USER_PARAM(g, max_extensionality, n);
     }
     break;
 
@@ -6400,18 +6431,19 @@ static void yices_set_option(smt2_globals_t *g, const char *param, const param_v
 
   case PARAM_MCSAT_RAND_DEC_FREQ:
     if (param_val_to_ratio(param, val, &x, &reason)) {
-      g->parameters.randomness = x;
+      SET_USER_PARAM(g, randomness, x);
     }
     break;
 
   case PARAM_MCSAT_RAND_DEC_SEED:
     if (param_val_to_pos32(param, val, &n, &reason)) {
-      g->parameters.random_seed = n;
+      SET_USER_PARAM(g, random_seed, n);
     }
     break;
 
   case PARAM_MCSAT_SUPPLEMENT_CHECK:
     if (param_val_to_mcsat_supplement_check(param, val, &g->parameters.mcsat_supplement_check, &reason)) {
+      mark_user_param(g, offsetof(param_t, mcsat_supplement_check), sizeof(g->parameters.mcsat_supplement_check));
       // parameter is consumed during check-sat
     }
     break;
@@ -6731,7 +6763,11 @@ void smt2_set_logic(const char *name) {
     // in benchmark mode (or exists/forall) set the parameters to defaults for the logic
     // the context is not initialized yet
     default_ctx_params(&__smt2_globals.ctx_parameters, code, arch, CTX_MODE_ONECHECK);
-    yices_set_default_params(&__smt2_globals.parameters, code, arch, CTX_MODE_ONECHECK);
+    {
+      param_t saved = __smt2_globals.parameters;
+      yices_set_default_params(&__smt2_globals.parameters, code, arch, CTX_MODE_ONECHECK);
+      restore_user_params(&__smt2_globals, &saved);
+    }
   }
 
   report_success();

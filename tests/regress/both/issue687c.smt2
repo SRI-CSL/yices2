@@ -1,0 +1,5 @@
+(set-logic QF_LIA)
+(declare-const x Int)
+(assert (> x 0))
+(check-sat)
+(get-option :yices-mcsat-rand-dec-freq)

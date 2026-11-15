@@ -401,6 +401,7 @@ typedef struct smt2_globals_s {
   // yices options
   ctx_param_t ctx_parameters;  // preprocessing options
   param_t parameters;          // search options
+  uint8_t user_param_mask[sizeof(param_t)]; // bytes of parameters set by the user
 
   // nthreads
   uint32_t nthreads;           // default = 0 (single threaded)
