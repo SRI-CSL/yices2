@@ -66,6 +66,17 @@ void trail_construct_copy(mcsat_trail_t* trail, const mcsat_trail_t* from) {
   trail->inconsistent = from->inconsistent;
 }
 
+void trail_flatten_below_base(mcsat_trail_t* trail) {
+  const uint32_t base = trail->decision_level_base;
+  for (uint32_t i = 0; i < trail->elements.size; ++ i) {
+    const variable_t x = trail->elements.data[i];
+    assert(trail->level.data[x] >= 0);
+    if ((uint32_t) trail->level.data[x] < base) {
+      trail->level.data[x] = base;
+    }
+  }
+}
+
 void trail_destruct(mcsat_trail_t* trail) {
   trail->var_db = NULL;
   delete_ivector(&trail->elements);
