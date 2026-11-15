@@ -169,6 +169,10 @@ static void run(int unused) {
 int main(void) {
   int unused;
 
+  if (!yices_has_mcsat()) {
+    return 1; /* skipped */
+  }
+
   for (unused = 0; unused < 4; unused ++) {
     run(unused);
   }
