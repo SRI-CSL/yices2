@@ -2469,7 +2469,10 @@ static void pp_bit_array(yices_pp_t *printer, term_table_t *tbl, term_t *a, uint
     pp_bv_slices(printer, tbl, slicer.data, slicer.nelems, level);
   } else {    
     pp_open_block(printer, PP_OPEN_BV_ARRAY);
-    for (i=0; i<n; i++) {
+    // a[0] is the low-order bit but (bool-to-bv b_1 ... b_n) takes b_1 as the high-order bit
+    i = n;
+    while (i > 0) {
+      i --;
       pp_term_recur(printer, tbl, a[i], level, true);
     }
     pp_close_block(printer, true);
