@@ -432,6 +432,7 @@ extra_src_c := \
 	frontend/smt2/smt2_model_printer.c \
 	frontend/smt2/smt2_parser.c \
 	frontend/smt2/smt2_printer.c \
+	frontend/smt2/smt2_sublogic.c \
 	frontend/smt2/smt2_symbol_printer.c \
 	frontend/smt2/smt2_term_printer.c \
 	frontend/smt2/smt2_term_stack.c \

@@ -36,6 +36,7 @@
 #include "frontend/smt2/smt2_commands.h"
 #include "frontend/smt2/smt2_model_printer.h"
 #include "frontend/smt2/smt2_printer.h"
+#include "frontend/smt2/smt2_sublogic.h"
 #include "io/term_printer.h"
 #include "frontend/smt2/smt2_symbol_printer.h"
 #include "frontend/smt2/smt2_term_printer.h"
@@ -3186,12 +3187,42 @@ static void add_delayed_assertion(smt2_globals_t *g, term_t t) {
 
 
 /*
+ * In benchmark mode, the declared logic may be larger than the problem
+ * (e.g., QF_NIA for a linear problem). If so, replace g->logic_code with the
+ * smallest sublogic so that the context uses the solvers for that logic
+ * (e.g., simplex instead of MCSAT for a linear problem).
+ *
+ * We keep the declared logic if the user's options depend on it.
+ */
+static void switch_to_sublogic(smt2_globals_t *g) {
+  smt_logic_t sub;
+
+  if (!g->benchmark_mode || g->efmode || g->mcsat || g->force_dpllt ||
+      g->delegate != NULL || g->export_to_dimacs ||
+      g->produce_unsat_cores || g->produce_unsat_assumptions ||
+      g->produce_unsat_model_interpolants || g->mcsat_options.model_interpolation ||
+      !logic_is_supported(g->logic_code)) {
+    return;
+  }
+
+  sub = smt2_smallest_sublogic(__yices_globals.terms, g->logic_code,
+                               g->assertions.data, g->assertions.size);
+  if (sub != g->logic_code) {
+    trace_printf(g->tracer, 2, "(Warning: the problem is in logic %s, using it instead of %s)\n",
+                 smt_logic_name(sub), smt_logic_name(g->logic_code));
+    g->logic_code = sub;
+  }
+}
+
+
+/*
  * Check satisfiability of all assertions
  */
 static void check_delayed_assertions(smt2_globals_t *g, bool report) {
   int32_t code;
   smt_status_t status;
   sat_delegate_incremental_mode_t delegate_mode;
+  smt_logic_t declared_logic;
   model_t *model;
 
   // set frozen to true to disallow more assertions
@@ -3217,6 +3248,8 @@ static void check_delayed_assertions(smt2_globals_t *g, bool report) {
       trace_printf(g->tracer, 2, "(Warning: switching logic to QF_IDL)\n");
       g->logic_code = QF_IDL;
     }
+    declared_logic = g->logic_code;
+    switch_to_sublogic(g);
     init_smt2_context(g);
 
     if (g->export_to_dimacs) {
@@ -3235,6 +3268,19 @@ static void check_delayed_assertions(smt2_globals_t *g, bool report) {
        * Assert formulas
        */
       code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
+      if (code < 0 && g->logic_code != declared_logic) {
+        /*
+         * The solvers of the sublogic can't handle some assertion.
+         * Fall back to the declared logic.
+         */
+        trace_printf(g->tracer, 2, "(Warning: logic %s failed, using %s)\n",
+                     smt_logic_name(g->logic_code), smt_logic_name(declared_logic));
+        yices_free_context(g->ctx);
+        g->ctx = NULL;
+        g->logic_code = declared_logic;
+        init_smt2_context(g);
+        code = yices_assert_formulas(g->ctx, g->assertions.size, g->assertions.data);
+      }
       if (code < 0) {
         // error during assertion processing
         print_yices_error(true);

@@ -1,0 +1,10 @@
+(set-logic QF_ABV)
+; Bit-vectors only occur inside the array sort: the BV solver is still needed
+; (there are only 4 arrays from BitVec 1 to BitVec 1)
+(declare-fun a () (Array (_ BitVec 1) (_ BitVec 1)))
+(declare-fun b () (Array (_ BitVec 1) (_ BitVec 1)))
+(declare-fun c () (Array (_ BitVec 1) (_ BitVec 1)))
+(declare-fun d () (Array (_ BitVec 1) (_ BitVec 1)))
+(declare-fun e () (Array (_ BitVec 1) (_ BitVec 1)))
+(assert (distinct a b c d e))
+(check-sat)

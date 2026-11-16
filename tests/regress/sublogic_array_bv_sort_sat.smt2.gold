@@ -1,0 +1,5 @@
+sat
+((define-fun a () (Array (_ BitVec 1) (_ BitVec 1)) (store ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b0) #b1 #b1))
+ (define-fun b () (Array (_ BitVec 1) (_ BitVec 1)) ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b0))
+ (define-fun c () (Array (_ BitVec 1) (_ BitVec 1)) ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b1))
+ (define-fun d () (Array (_ BitVec 1) (_ BitVec 1)) (store ((as const (Array (_ BitVec 1) (_ BitVec 1))) #b0) #b0 #b1)))

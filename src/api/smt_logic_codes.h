@@ -201,6 +201,13 @@ extern smt_logic_t smt_logic_code(const char *logic_name);
 
 
 /*
+ * Name of a logic code (the inverse of smt_logic_code)
+ * - return "UNKNOWN" if the code is not valid
+ */
+extern const char *smt_logic_name(smt_logic_t code);
+
+
+/*
  * Convert a string to an arithmetic-fragment code
  * - the name must be something like "IDL" or "LIRA"
  * - return ARITH_NONE if the name is not recognized
