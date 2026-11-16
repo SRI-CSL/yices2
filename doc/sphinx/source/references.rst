@@ -28,7 +28,7 @@ References
 	      in Computer-Aided Verification (CAV 2014), LNCS 8559, pp. 737--744, Springer, Heidelberg, 2014.
 
 .. [Dut2015]  Bruno Dutertre,
-	      `Solving Exists/Forall Problems With Yices <http://yices.csl.sri.com/papers/smt2015.pdf>`_,
+	      `Solving Exists/Forall Problems With Yices <https://yices.csl.sri.com/papers/smt2015.pdf>`_,
 	      presented at the SMT Workshop, 2015.
 
 .. [ES2003]   Niklas E\ |e'|\ n and Niklas S\ |o"|\ rensson,

@@ -1,23 +1,18 @@
-Yices SMT Solver, Copyright SRI International
+Yices SMT Solver
 =============================================
 
-This file is part of the Yices __YICES__ binary distribution for Linux
-platforms. 
+Copyright (c) 2026, SRI International
+SPDX-License-Identifier: BSD-3-Clause
 
-This release was built on __OS_VERSION__.
-
-Yices is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Yices is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
- 
-You should have received a copy of the GNU General Public License
-along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+This applies to the Yices source. This archive also contains the GNU C
+Library, GMP, and LibPoly. These are covered by the GNU Lesser General
+Public License; NOTICES states which version applies to each. GMP and LibPoly
+carry copyright notices in individual source files rather than one notice for
+the project, so NOTICES reproduces no project-level copyright line for either.
+For the GNU C Library, LICENSES/glibc-LICENSES.txt preserves the exact upstream
+copying-permission notice collection. A relink kit for rebuilding against your
+own versions of those libraries is published as a separate asset on the
+release page.
 
 Content
 -------
@@ -32,6 +27,8 @@ This distribution includes four solvers
 and the Yices library and header files
 
   lib/__DYLIB__
+  lib/libyices.a
+  lib/pkgconfig/yices.pc
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -41,9 +38,59 @@ and the Yices library and header files
 Examples and documentation are in the examples and doc directories.
 
 
-The binaries and library were linked statically against GMP version __GMP__,
-copyright Free Software Foundation (see NOTICES).
+The Yices shared library and the binaries other than the sat solver were
+linked statically against GMP version __GMP__, copyright Free Software
+Foundation (see NOTICES).
 
+
+pkg-config
+----------
+
+The file lib/pkgconfig/yices.pc supports `pkg-config --cflags` and
+`pkg-config --modversion` from the unpacked archive. The `--libs` and
+`--static --libs` results do not produce a working link from the archive as
+shipped. The archive has no unversioned shared-library link, so `-lyices`
+selects libyices.a, and the private dependency archives named by Libs.private
+are not included in lib/.
+
+The installer creates the unversioned shared-library link and installs
+yices.pc in <prefix>/lib/pkgconfig.
+
+
+Shared-library runtime requirements
+-----------------------------------
+
+The four Linux executables are statically linked. The shared Yices library
+is not: it loads libc.so.6, libm.so.6, libpthread.so.0, libstdc++.so.6, and
+libgcc_s.so.1. A consumer needs compatible versions of those runtime
+libraries. PROVENANCE identifies the producing toolchain; it is not a claim
+that every distribution or runtime version has been tested. A kernel-version
+minimum alone does not establish C++ runtime compatibility.
+
+Before using the shared library on another system, inspect its dependencies
+with ldd and compile and run a small client on that system. NOTICES explains
+the mixture of static and dynamic runtime code in the library. RELINKING.md
+in the separate source archive, and the README in the separate relink kit,
+describe rebuilding with a recipient's own libraries and toolchain, whose
+runtime requirements may differ. RELINKING.md is not included in this binary
+archive or in the relink kit.
+
+
+Static-library clients
+----------------------
+
+The lib/libyices.a in this Linux archive is not position-independent. On a
+toolchain that builds PIE executables by default, a client linking this
+archive needs the compiler driver's -no-pie option at link time, along with
+the required dependency libraries. This is not an instruction to disable PIE
+for clients of the shared Yices library. The static archive cannot be used
+to build another shared library; build Yices with PIC when that is needed.
+
+The matching relink kit supplies the required dependency archives in deps/.
+Alternatively, build compatible archives from the accompanying canonical
+dependency-source assets using the recorded configuration. Stock upstream
+libraries are not interchangeable with the release's forked and namespaced
+builds; see the private-library notes in lib/pkgconfig/yices.pc.
 
 
 Installation
@@ -62,20 +109,27 @@ included in this distribution. Just type
 
 
 
-Alternatively, you can install Yices in /usr/local as follows:
+For a non-destructive installation, choose a fresh prefix that you own:
 
-  sudo ./install-yices
+  YICES_PREFIX="$HOME/.local/yices-2.8.0"
+  ./install-yices "$YICES_PREFIX"
 
-This will copy the binaries  /usr/local/bin, the header files in
-/usr/local/include, and the libraries in /usr/local/lib.
+This copies the binaries, headers, shared library, pkg-config file, and legal
+record below that prefix. Add "$YICES_PREFIX/bin" to PATH when you want these
+binaries. Library users can set PKG_CONFIG_PATH to
+"$YICES_PREFIX/lib/pkgconfig".
 
-To install Yices in another location, give the installation directory
-as argument to the shell script:
+The installer does not copy `lib/libyices.a` or `doc/manual.pdf`. Keep the
+extracted distribution when you need the static archive or the manual.
 
-  ./install-yices <dir>
+The installer refuses to replace any existing Yices file or link. If you
+intentionally want to replace an installation in a shared prefix, review that
+prefix first and use the explicit option:
+
+  sudo ./install-yices --replace-existing /usr/local
 
 
 
 
 
-For more information about Yices, please visit http://yices.csl.sri.com.
+For more information about Yices, please visit https://yices.csl.sri.com.

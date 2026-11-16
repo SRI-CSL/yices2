@@ -1,6 +1,6 @@
 #! /bin/sh
-# Copyright 2012 SRI International
-# See LICENSE for other credits and copying information
+# Copyright (c) 2026, SRI International
+# SPDX-License-Identifier: BSD-3-Clause
 
 # Look for global variables.
 #

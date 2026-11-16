@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /* Achieves the following additional coverage:
  * api/yices_api.c:yices_arith_geq_atom()
  * terms/term_utils.c:finite_domain_is_nonpos(), exiting via `return false`

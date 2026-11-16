@@ -1,19 +1,6 @@
 /*
- * This file is part of the Yices SMT Solver.
- * Copyright (C) 2017 SRI International.
- *
- * Yices is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Yices is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 /*
@@ -27,6 +14,7 @@
 #endif
 
 #include <stdio.h>
+#include "frontend/common/library_notices.h"
 #include <stdlib.h>
 #include <stdbool.h>
 #include <signal.h>
@@ -231,11 +219,16 @@ static option_desc_t options[NUM_OPTIONS] = {
  */
 static void print_version(void) {
   printf("Yices %s\n"
-	 "Copyright SRI International.\n"
+	 "Copyright (c) 2026, SRI International.\n"
          "Linked with GMP %s\n"
 	 "Copyright Free Software Foundation, Inc.\n"
+         YICES_LIBPOLY_NOTICES
          "Build date: %s\n"
-         "Platform: %s (%s)\n",
+         "Platform: %s (%s)\n"
+         "Includes components from the Free Software Foundation and others.\n"
+         "See the NOTICES file for those components, the terms that apply to\n"
+         "them, and where to find the copies of the GNU Lesser General Public\n"
+         "License and the GNU General Public License distributed with Yices.\n",
          yices_version, gmp_version,
          yices_build_date, yices_build_arch, yices_build_mode);
   fflush(stdout);
@@ -254,7 +247,7 @@ static void yices_help(char *progname) {
 #endif
          "   --timeout=<int>, -t <int>  Give a timeout in seconds (default: no timeout)\n"
          "\n"
-         "For bug reporting and other information, please see http://yices.csl.sri.com/\n");
+         "For bug reporting and other information, please see https://yices.csl.sri.com/\n");
   fflush(stdout);
 }
 
@@ -383,8 +376,13 @@ static inline simplex_solver_t *context_get_simplex_solver(context_t *ctx) {
  * Version header
  */
 static void print_yices_header(FILE *f) {
-  fprintf(f, "Yices %s, Copyright SRI International.\n", yices_version);
+  fprintf(f, "Yices %s, Copyright (c) 2026, SRI International.\n", yices_version);
   fprintf(f, "GMP %s, Copyright Free Software Foundation, Inc\n", gmp_version);
+  fputs(YICES_LIBPOLY_NOTICES, f);
+  fprintf(f, "Includes components from the Free Software Foundation and others.\n"
+             "See the NOTICES file for those components, the terms that apply to\n"
+             "them, and where to find the copies of the GNU Lesser General Public\n"
+             "License and the GNU General Public License distributed with Yices.\n");
   fprintf(f, "Build date: %s\n", yices_build_date);
   fprintf(f, "Platform: %s (%s)\n", yices_build_arch, yices_build_mode);
   fprintf(f, "----\n");
@@ -1377,4 +1375,3 @@ int main(int argc, char *argv[]) {
 
   return process_benchmark();
 }
-

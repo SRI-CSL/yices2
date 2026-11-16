@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /* Achieves the following additional coverage:
  * model/model_eval.c: function `eval_arith_idiv`, `if` branch when
  *                     `object_is_rational(eval->vtbl, v1) && [..]` holds

@@ -1,19 +1,6 @@
 /*
- * This file is part of the Yices SMT Solver.
- * Copyright (C) 2017 SRI International.
- *
- * Yices is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Yices is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 /*
@@ -156,9 +143,15 @@ int main(void) {
   check("negative constant", yices_arith_eq_atom(i, yices_int32(-7)), "(= i (- 7))");
   check("real poly", yices_arith_geq0_atom(yices_sub(yices_mul(yices_int32(2), r), s)), "(>= (+ (* 2.0 r) (* (- 1.0) s)) 0.0)");
   check("rational", yices_arith_leq_atom(r, yices_rational32(-5, 4)), "(>= (+ (/ (- 5.0) 4.0) (* (- 1.0) r)) 0.0)");
-  check("power", yices_arith_eq_atom(yices_power(i, 3), yices_int32(8)), "(= (* i i i) 8)");
+  // Equality normalizes by term id. Allocate new operands in a defined order:
+  // C does not specify the evaluation order of function-call arguments.
+  t = yices_power(i, 3);
+  u = yices_int32(8);
+  check("power", yices_arith_eq_atom(t, u), "(= (* i i i) 8)");
   check("product", yices_arith_eq_atom(yices_mul(i, j), yices_int32(8)), "(= 8 (* i j))");
-  check("div", yices_arith_eq_atom(yices_idiv(i, j), yices_int32(1)), "(= (div i j) 1)");
+  t = yices_idiv(i, j);
+  u = yices_int32(1);
+  check("div", yices_arith_eq_atom(t, u), "(= (div i j) 1)");
   check("mod", yices_arith_eq_atom(yices_imod(i, j), yices_int32(1)), "(= 1 (mod i j))");
   check("rdiv", yices_arith_eq_atom(yices_division(r, s), yices_int32(1)), "(= 1.0 (/ r s))");
   check("divides const", yices_divides_atom(yices_int32(3), i), "((_ divisible 3) i)");
@@ -184,18 +177,27 @@ int main(void) {
   check("bvshl", yices_eq(yices_bvshl(x, y), x), "(= x (bvshl x y))");
   check("bvlshr", yices_eq(yices_bvlshr(x, y), x), "(= x (bvlshr x y))");
   check("bvashr", yices_eq(yices_bvashr(x, y), x), "(= x (bvashr x y))");
-  check("extract", yices_eq(yices_bvextract(x, 0, 3), yices_bvconst_uint32(4, 6)), "(= ((_ extract 3 0) x) #b0110)");
-  check("concat", yices_eq(yices_bvconcat2(x, y), yices_bvconst_uint32(16, 6)), "(= (concat x y) #b0000000000000110)");
+  t = yices_bvextract(x, 0, 3);
+  u = yices_bvconst_uint32(4, 6);
+  check("extract", yices_eq(t, u), "(= ((_ extract 3 0) x) #b0110)");
+  t = yices_bvconcat2(x, y);
+  u = yices_bvconst_uint32(16, 6);
+  check("concat", yices_eq(t, u), "(= (concat x y) #b0000000000000110)");
   check("bit", yices_bitextract(x, 6), "(= ((_ extract 6 6) x) #b1)");
   check("not bit", yices_not(yices_bitextract(x, 6)), "(not (= ((_ extract 6 6) x) #b1))");
-  check("bit vector from bools", yices_eq(yices_bvarray(3, (term_t[]) { b, yices_true(), yices_not(c) }), yices_bvconst_uint32(3, 2)),
+  t = yices_bvarray(3, (term_t[]) { b, yices_true(), yices_not(c) });
+  u = yices_bvconst_uint32(3, 2);
+  check("bit vector from bools", yices_eq(t, u),
 	"(= (concat (ite (not c) #b1 #b0) #b1 (ite b #b1 #b0)) #b010)");
   // a negated bit must not be mistaken for the bit itself when slicing
-  check("negated bit in array",
-	yices_eq(yices_bvarray(2, (term_t[]) { yices_not(yices_bitextract(x, 2)), yices_bitextract(x, 3) }), yices_bvconst_uint32(2, 1)),
+  t = yices_bvarray(2, (term_t[]) { yices_not(yices_bitextract(x, 2)), yices_bitextract(x, 3) });
+  u = yices_bvconst_uint32(2, 1);
+  check("negated bit in array", yices_eq(t, u),
 	"(= (concat ((_ extract 3 3) x) (ite (not (= ((_ extract 2 2) x) #b1)) #b1 #b0)) #b01)");
   check("wide constant", yices_eq(z, yices_bvconst_minus_one(70)), "(= z #b1111111111111111111111111111111111111111111111111111111111111111111111)");
-  u = yices_eq(yices_bvadd(z, yices_bvconst_one(70)), yices_bvconst_zero(70));
+  t = yices_bvadd(z, yices_bvconst_one(70));
+  u = yices_bvconst_zero(70);
+  u = yices_eq(t, u);
   check("wide bvadd", u, "(= (bvadd #b0000000000000000000000000000000000000000000000000000000000000000000001 z) #b0000000000000000000000000000000000000000000000000000000000000000000000)");
 
   // Terms that cannot be printed

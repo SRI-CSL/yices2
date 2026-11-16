@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * Issue #685: the term printer wrote the bits of (bool-to-bv ...) low-order bit
  * first, but the parser reads the first argument as the high-order bit.
  * A printed term must parse back to the same term.

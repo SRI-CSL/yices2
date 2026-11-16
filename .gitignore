@@ -1,6 +1,8 @@
 *~
 /*.tar.gz
 /configure
+/yices.pc
+/yices-[0-9]*.[0-9]*.[0-9]*/
 /config.log
 /config.status
 /autom4te.cache

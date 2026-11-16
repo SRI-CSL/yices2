@@ -1,88 +1,84 @@
+Copyright (c) 2026, SRI International
+SPDX-License-Identifier: BSD-3-Clause
+
 HOW TO PREPARE A YICES RELEASE
 
-1) Update the version number.
+This checklist describes repository preparation. The authoritative public
+downloads are the GitHub Release assets.
 
-First, in the top-level Makefile, we have
+1. Select and validate the release commit.
 
-  MAJOR = 2
-  MINOR = 6
-  PATCH_LEVEL = 2
+   - Work on the preparing-release-2.8.0 branch.
+   - Ensure the worktree is clean and all intended pull requests are merged.
+   - Reconcile the complete diff from the previous release tag with the
+     milestone and release notes.
 
+2. Update the version number.
 
-Other places that need updates
+   The release version must agree in:
 
-In src/include/yices.h
+   - Makefile
+   - src/include/yices.h
+   - doc/manual/manual.tex
+   - doc/sphinx/source/conf.py
+   - doc/yices.1
+   - doc/yices-sat.1
+   - doc/yices-smt.1
+   - doc/yices-smt2.1
+   - debian/changelog
+   - debian/control
 
-  #define __YICES_VERSION            2
-  #define __YICES_VERSION_MAJOR      6
-  #define __YICES_VERSION_PATCHLEVEL 2
+3. Validate licensing.
 
-In the doc:
+   - LICENSE.txt must contain the BSD 3-Clause License.
+   - SRI-owned source files must carry the approved copyright/SPDX notice.
+   - Third-party notices and historical artifacts must retain their original
+     terms.
+   - Source and binary distributions must include LICENSE.
 
-  doc/manual/manual.tex
-  doc/sphinx/source/conf.py 
-  doc/yices.1
-  doc/yices-sat.1
-  doc/yices-smt.1
-  doc/yices-smt2.1
+4. Build and test from a clean checkout.
 
+   Run the release, development, API, unit, regression, MCSAT, thread-safe,
+   and delegate configurations required by the release checklist. Build the
+   Sphinx documentation and PDF manual.
 
-2) Prepare a release on Github
+5. Build distributions from the validated release commit.
 
-3) Ian builds homebrew and ppa packages from the Github release
-
-4) Build distributions to include on the yices.csl.sri.com  webpage.
-
-   From the yices2 directory, distributions are copied (as compressed tarfiles)
-   in the ./distributions directory.
-  
    Source:
-   make source-distribution
+     make source-distribution
 
-   Linux:
-   make static-distribution (on a linux machine)
+   Linux x86-64 static GMP:
+     make static-distribution
 
-   Mac intel:
-   make static-distribution (on a Mac)
+   macOS Intel static GMP:
+     make static-distribution
 
-   Mac arm/M1:
-   make static-distrbution (on a new Mac/Ian has one)
+   macOS Apple Silicon static GMP:
+     make static-distribution
 
+   Record the exact asset filenames and compute checksums.
 
-   Windows:
+6. Tag and publish on GitHub.
 
-   1) find a Windows VM with everything on it, then
-      run  ./utils/mingw-build mingw64 in the top-level yices2 directory
+   - Create the lightweight tag yices-2.8.0.
+   - Push the tag.
+   - Create the GitHub Release from that tag.
+   - Upload the verified platform assets and checksums.
+   - Download and smoke-test every published artifact.
 
-   2) export the Windows tar file to another machine (Linux works)
+7. Update the Yices website.
 
-   3) run ./utils/dosify <windows-tar-file> to fix end-of-line formatting
-      in ASCII files and convert the tarfile to zip.
-   
+   - Check out the exact release tag in the adjacent yices2 repository.
+   - Update Portals/yices.csl.sri.com release metadata and notes.
+   - Use the exact GitHub asset URLs; do not guess filenames.
+   - Run:
+       ant clean refresh-manual check-release
+   - Publish only after the generated pages and links have been reviewed.
 
-5) Update the doc in doc/sphinx then run
+8. Complete downstream publication.
 
-      make html
-
-   in there. This will generate the html doc in build/html
-
-     
-
-6) Update the webpages for yices.csl.sri.com:
-
-   - clone https://github.com/SRI-CSL/Portals
-
-   - modify the content in  yices.csl.sri.com/data
-
-    - fix the version numbers in
-
-    yices.csl.sri.com/template-mappings/version-filter.properties
-
-
-    Then there's a way to automatically install the updates on
-    the webserver (ask Ian).
-
-    Manual step: copy the Sphinx doc from buid/html to doc on
-    the webserver.
-
+   - Update Homebrew and Debian/Ubuntu PPA packaging.
+   - Close the GitHub milestone.
+   - Publish the release announcement.
+   - Perform final public website and download smoke tests.
 

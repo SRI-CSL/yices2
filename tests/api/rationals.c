@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /* Achieved the following additional coverage:
  * terms/rationals.c: q_set64() - then branch
  *                  q_smt2_div() - if (q_is_pos(y)) - else branch

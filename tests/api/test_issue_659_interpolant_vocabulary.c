@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * Issue #659: interpolation sequences with MCSAT could return an interpolant
  * that mentions a variable that is not shared between the two sides.
  *

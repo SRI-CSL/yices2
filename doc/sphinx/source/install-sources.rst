@@ -299,6 +299,11 @@ headers:
 rewritten archive. The public Kissat API and ``kissat.h`` are unchanged. Do not
 use ``-Wl,--allow-multiple-definition`` for this collision: it can silently bind
 one solver to the other's incompatible Kitten functions.
+On macOS, set ``KISSAT_SOURCE_DIR`` before make to the configured Kissat
+source tree that produced the raw ``libkissat.a``. The rewrite script builds
+the namespaced archive a second time from that source with a forced namespace
+header. It deliberately refuses binary objcopy rewriting on Mach-O because
+that can drop deployment metadata or damage relocations.
 Do not use a bare ``make`` or ``make all`` for this all-delegate static release
 configuration: those targets also build dynamic artifacts, and Yices rejects
 raw dynamic CaDiCaL + Kissat builds by default.

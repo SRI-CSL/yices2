@@ -1,4 +1,9 @@
 #!/usr/bin/make -f
+#
+# Copyright (c) 2026, SRI International
+# SPDX-License-Identifier: BSD-3-Clause
+#
+
 
 #export DH_VERBOSE = 1
 

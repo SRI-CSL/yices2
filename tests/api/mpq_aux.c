@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /* Achieved the following additional coverage:
  * terms/mpq_aux.h: mpq_is_nonpos()
  *       rationals.h: q_is_nonpos()

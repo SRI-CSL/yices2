@@ -1,168 +1,965 @@
-This Software uses the GMP library, available from http:://gmplib.org/.
-The following terms apply to GMP.
-----
-                   GNU LESSER GENERAL PUBLIC LICENSE
-                       Version 3, 29 June 2007
+THIRD-PARTY NOTICES FOR YICES 2
+===============================
 
- Copyright (C) 2007 Free Software Foundation, Inc. <http://fsf.org/>
- Everyone is permitted to copy and distribute verbatim copies
- of this license document, but changing it is not allowed.
+About this file
+---------------
+
+Yices itself is covered by the terms in the file LICENSE. A copy accompanies
+this file in the Yices 2.8.0 source archive, the three binary archives, the
+three relink kits, and the installed legal record.
+
+This file is separate from LICENSE. It describes third-party material that
+Yices includes, or that is combined with Yices when Yices is built and
+distributed. For each component it records what the component is and where it
+came from. It records the terms under which that component's own authors
+distribute it where the repository evidence establishes them, and records the
+gap where it does not.
+
+This file identifies third-party components distributed with Yices and
+reproduces notices provided by those components. It does not modify or replace
+any applicable license term. It does not state terms for any combined work,
+and nothing in it should be read as doing so.
+
+Three collections of files are described, and they are not the same. Some
+components appear in more than one of them: CUDD is described in sections 1
+and 3, and the CaDiCaL material of entry 2.6 is covered by section 3.7. No
+component is described in all three.
+
+  Section 1  Third-party material inside the Yices source code itself.
+             Present in the source repository, the source distribution, and
+             every binary distribution.
+
+  Section 2  Additional third-party files carried in the Yices source
+             repository. Mostly build and documentation tooling. All of them
+             except the Sphinx material of entry 2.5 are also carried in the
+             source distribution. With one exception these are not part of
+             any binary distribution.
+
+  Section 3  Components incorporated into the Yices binary distributions
+             when Yices is compiled and linked.
+
+Section 4 lists the license texts that accompany this file in the source
+distribution and in the binary archives. The relink kits carry a licenses
+directory, spelled in lower case, that holds a subset of that list, and the
+subset differs between platforms. Section 5 says which component versions are
+fixed for this release and where to find the ones that depend on the build
+machine. Section 6 covers the material published for rebuilding.
 
 
-  This version of the GNU Lesser General Public License incorporates
-the terms and conditions of version 3 of the GNU General Public
-License, supplemented by the additional permissions listed below.
+Section 1. Third-party material in the Yices source code
+--------------------------------------------------------
 
-  0. Additional Definitions.
+1.1 MiniSat
 
-  As used herein, "this License" refers to version 3 of the GNU Lesser
-General Public License, and the "GNU GPL" refers to version 3 of the GNU
-General Public License.
+Yices carries MiniSat-derived CDCL solver logic in
+src/solvers/cdcl/smt_core.c and src/solvers/cdcl/sat_solver.c. The first file
+identifies clause-simplification logic derived from MiniSat, and the second
+says that the solver is mostly based on MiniSat. The later
+src/solvers/cdcl/new_sat_solver.c descends from that Yices solver lineage. The
+Git repository also retains the repository-only backup pair
+src/solvers/cdcl/sat_solver.cxxx and src/solvers/cdcl/sat_solver.hxxx. The
+.cxxx file repeats the MiniSat derivation statement and the .hxxx file is its
+companion header; neither reaches a released archive. The notice below is
+conservatively applied to all three released files and both repository-only
+backup files.
 
-  "The Library" refers to a covered work governed by this License,
-other than an Application or a Combined Work as defined below.
+The Yices repository does not record which MiniSat snapshot supplied the
+derived code. To avoid omitting a potentially applicable notice, this file
+reproduces the cumulative notice and permission text carried by the official
+MiniSat 2.2.0 release. This does not assert that the Yices code was taken from
+that release.
 
-  An "Application" is any work that makes use of an interface provided
-by the Library, but which is not otherwise based on the Library.
-Defining a subclass of a class defined by the Library is deemed a mode
-of using an interface provided by the Library.
+  MiniSat -- Copyright (c) 2003-2006, Niklas Een, Niklas Sorensson
+             Copyright (c) 2007-2010  Niklas Sorensson
 
-  A "Combined Work" is a work produced by combining or linking an
-Application with the Library.  The particular version of the Library
-with which the Combined Work was made is also called the "Linked
-Version".
+  Permission is hereby granted, free of charge, to any person obtaining a
+  copy of this software and associated documentation files (the
+  "Software"), to deal in the Software without restriction, including
+  without limitation the rights to use, copy, modify, merge, publish,
+  distribute, sublicense, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to
+  the following conditions:
 
-  The "Minimal Corresponding Source" for a Combined Work means the
-Corresponding Source for the Combined Work, excluding any source code
-for portions of the Combined Work that, considered in isolation, are
-based on the Application, and not on the Linked Version.
+  The above copyright notice and this permission notice shall be included
+  in all copies or substantial portions of the Software.
 
-  The "Corresponding Application Code" for a Combined Work means the
-object code and/or source code for the Application, including any data
-and utility programs needed for reproducing the Combined Work from the
-Application, but excluding the System Libraries of the Combined Work.
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
+  LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+  OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
+  WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-  1. Exception to Section 3 of the GNU GPL.
+1.2 CUDD
 
-  You may convey a covered work under sections 3 and 4 of this License
-without being bound by section 3 of the GNU GPL.
+The function bdds_Cudd_bddPickOneCube in src/mcsat/bv/bdd_computation.c is
+adapted from CUDD, the University of Colorado decision diagram package, in
+order to control which value is picked. A comment at that function records the
+adaptation and names the CUDD routine it derives from.
 
-  2. Conveying Modified Versions.
+CUDD is distributed by its authors under the following terms.
 
-  If you modify a copy of the Library, and, in your modifications, a
-facility refers to a function or data to be supplied by an Application
-that uses the facility (other than as an argument passed when the
-facility is invoked), then you may convey a copy of the modified
-version:
+  Copyright (c) 1995-2004, Regents of the University of Colorado
 
-   a) under this License, provided that you make a good faith effort to
-   ensure that, in the event an Application does not supply the
-   function or data, the facility still operates, and performs
-   whatever part of its purpose remains meaningful, or
+  All rights reserved.
 
-   b) under the GNU GPL, with none of the additional permissions of
-   this License applicable to that copy.
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions
+  are met:
 
-  3. Object Code Incorporating Material from Library Header Files.
+  Redistributions of source code must retain the above copyright
+  notice, this list of conditions and the following disclaimer.
 
-  The object code form of an Application may incorporate material from
-a header file that is part of the Library.  You may convey such object
-code under terms of your choice, provided that, if the incorporated
-material is not limited to numerical parameters, data structure
-layouts and accessors, or small macros, inline functions and templates
-(ten or fewer lines in length), you do both of the following:
+  Redistributions in binary form must reproduce the above copyright
+  notice, this list of conditions and the following disclaimer in the
+  documentation and/or other materials provided with the distribution.
 
-   a) Give prominent notice with each copy of the object code that the
-   Library is used in it and that the Library and its use are
-   covered by this License.
+  Neither the name of the University of Colorado nor the names of its
+  contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
 
-   b) Accompany the object code with a copy of the GNU GPL and this license
-   document.
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+  FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+  COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+  INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+  BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+  CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+  LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+  ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  POSSIBILITY OF SUCH DAMAGE.
 
-  4. Combined Works.
+The same terms apply to the CUDD library itself, which is described in
+section 3.
 
-  You may convey a Combined Work under terms of your choice that,
-taken together, effectively do not restrict modification of the
-portions of the Library contained in the Combined Work and reverse
-engineering for debugging such modifications, if you also do each of
-the following:
+1.3 Bob Jenkins, lookup3
 
-   a) Give prominent notice with each copy of the Combined Work that
-   the Library is used in it and that the Library and its use are
-   covered by this License.
+Yices uses hash functions from Bob Jenkins' lookup3 code. The implementations
+are in src/utils/hash_functions.c and src/utils/hash_functions.h, and derived
+hash codes appear in a number of other files, including
+src/solvers/egraph/composites.c, src/utils/cache.c,
+src/utils/pair_hash_map.c, src/utils/pair_hash_sets.c, src/utils/ptr_sets.c,
+src/solvers/bv/bvsolver.c, src/solvers/simplex/arith_atomtable.c, and
+src/solvers/egraph/egraph_eq_stats.c.
 
-   b) Accompany the Combined Work with a copy of the GNU GPL and this license
-   document.
+Bob Jenkins placed lookup3 in the public domain. The Yices sources record this
+where the code is used, and give http://www.burtleburtle.net as the source.
 
-   c) For a Combined Work that displays copyright notices during
-   execution, include the copyright notice for the Library among
-   these notices, as well as a reference directing the user to the
-   copies of the GNU GPL and this license document.
+1.4 Timsort
 
-   d) Do one of the following:
+src/utils/stable_sort.h and src/utils/stable_sort.c implement a stable sort.
+The header records that the implementation is based on Tim Peters' timsort, as
+used by Python, with the galloping part omitted, and cites two references: the
+timsort description at http://bugs.python.org/file4451/timsort.txt and the
+CPython file Objects/listobject.c.
 
-       0) Convey the Minimal Corresponding Source under the terms of this
-       License, and the Corresponding Application Code in a form
-       suitable for, and under terms that permit, the user to
-       recombine or relink the Application with a modified version of
-       the Linked Version to produce a modified Combined Work, in the
-       manner specified by section 6 of the GNU GPL for conveying
-       Corresponding Source.
+Repository history establishes when the Yices implementation entered this
+repository, but not that every source expression was written independently.
+The files were authored in October 2013 and then evolved through Yices-specific
+changes, including a low-memory merge and a later correction to the run-stack
+invariant. Yices omits CPython's galloping implementation.
 
-       1) Use a suitable shared library mechanism for linking with the
-       Library.  A suitable mechanism is one that (a) uses at run time
-       a copy of the Library already present on the user's computer
-       system, and (b) will operate properly with a modified version
-       of the Library that is interface-compatible with the Linked
-       Version.
+One compact routine does overlap. The five executable statements in Yices'
+`min_run` function follow the same order and operations as CPython's
+`merge_compute_minrun` in both CPython 3.3.2 and 3.4.0a3. Yices changes the
+type to `uint32_t`, uses an unsigned `1u` literal, and omits CPython's
+assertion and inline comment. The repository evidence does not establish
+whether this sequence was copied or independently re-expressed from the
+published algorithm. Because the Yices header expressly says the
+implementation is based on Python's timsort, this release conservatively
+treats that sequence as CPython-derived material.
 
-   e) Provide Installation Information, but only if you would otherwise
-   be required to provide such information under section 6 of the
-   GNU GPL, and only to the extent that such information is
-   necessary to install and execute a modified version of the
-   Combined Work produced by recombining or relinking the
-   Application with a modified version of the Linked Version. (If
-   you use option 4d0, the Installation Information must accompany
-   the Minimal Corresponding Source and Corresponding Application
-   Code. If you use option 4d1, you must provide the Installation
-   Information in the manner specified by section 6 of the GNU GPL
-   for conveying Corresponding Source.)
+The exact 254-line CPython 3.4.0a3 LICENSE file accompanies this notice as
+LICENSES/CPython-3.4.0a3-LICENSE.txt. Its SHA-256 is
+be4ab04487306fe817abdd569a7a64e3a727d4e176114c956dca25df71bb7fec.
+That file retains the Python Software Foundation License Version 2 and the
+copyright notice it requires. Brief summary of changes: Yices adapted the
+minimum-run computation as stated above, integrated it into a separate
+pointer-array stable sort, omitted galloping, and subsequently changed its
+merge buffering and run-stack handling.
 
-  5. Combined Libraries.
 
-  You may place library facilities that are a work based on the
-Library side by side in a single library together with other library
-facilities that are not Applications and are not covered by this
-License, and convey such a combined library under terms of your
-choice, if you do both of the following:
+Section 2. Third-party files in the source distribution and repository
+-----------------------------------------------------------------------
 
-   a) Accompany the combined library with a copy of the same work based
-   on the Library, uncombined with any other library facilities,
-   conveyed under the terms of this License.
+Each file named below carries its own notice, except where its entry says
+otherwise. Where a file carries its own notice, that notice is authoritative
+and is not reproduced here.
 
-   b) Give prominent notice with the combined library that part of it
-   is a work based on the Library, and explaining where to find the
-   accompanying uncombined form of the same work.
+2.1 etc/pstdint.h
 
-  6. Revised Versions of the GNU Lesser General Public License.
+A portable stdint.h by Paul Hsieh, copyright 2005-2007, distributed under a
+BSD license set out in the file. This is the one item in section 2 that is
+also present in the binary distributions.
 
-  The Free Software Foundation may publish revised and/or new versions
-of the GNU Lesser General Public License from time to time. Such new
-versions will be similar in spirit to the present version, but may
-differ in detail to address new problems or concerns.
+2.2 config.guess, config.sub, autoconf/config.guess
 
-  Each version is given a distinguishing version number. If the
-Library as you received it specifies that a certain numbered version
-of the GNU Lesser General Public License "or any later version"
-applies to it, you have the option of following the terms and
-conditions either of that published version or of any later version
-published by the Free Software Foundation. If the Library as you
-received it does not specify a version number of the GNU Lesser
-General Public License, you may choose any version of the GNU Lesser
-General Public License ever published by the Free Software Foundation.
+Free Software Foundation configuration scripts, distributed under version 3 or
+later of the GNU General Public License with the Autoconf configure script
+exception. Both config.guess copies retain the upstream 2016-10-02 base and
+carry a prominent SRI International modification notice dated 2026-09-14 for
+the Darwin arm64-to-aarch64 mapping; their --version output also reports that
+modification. config.sub is unchanged. The exception permits these scripts,
+when included in a program that contains an Autoconf-generated configuration
+script, to use the distribution terms applied to the rest of that program.
 
-  If the Library as you received it specifies that a proxy can decide
-whether future versions of the GNU Lesser General Public License shall
-apply, that proxy's public statement of acceptance of any version is
-permanent authorization for you to choose that version for the
-Library.
+2.3 install-sh
+
+An install script originating with the X Consortium, with later changes placed
+in the public domain by the Free Software Foundation. Its terms are stated in
+the file.
+
+2.4 etc/msinttypes-r26.zip
+
+An archive of ISO C9x compliant stdint.h and inttypes.h headers for Microsoft
+Visual Studio, by Alexander Chemeris, copyright 2006-2008, distributed under a
+three-clause BSD license set out inside the archived files. The archive is
+carried for Windows builds and its contents are not compiled into the
+distributed binaries described in section 3.
+
+2.5 Sphinx documentation extensions and assets
+
+doc/sphinx/source/_extensions/cheader.py was written by Arto Bendiken and is
+released into the public domain, as the file states.
+
+doc/sphinx/source/_extensions/cenum.py is adapted from the Sphinx sources
+sphinx/domains/__init__.py and sphinx/domains/c.py. The retained epub.css
+stylesheet and genindex.html, localtoc.html, relations.html and searchbox.html
+templates are also Sphinx-derived. Their headers retain the Sphinx notice and
+identify local adaptations. The complete primary notice below and AUTHORS
+are retained under doc/sphinx/source/_static/licenses/ as
+SPHINX-1.3b2-LICENSE.txt and SPHINX-1.3b2-AUTHORS.txt. Sphinx 1.3b2 is the
+verified notice reference, not a claim that every original import version
+has been established.
+
+The inherited default.css and classic.css overrides have been removed from
+the current documentation sources. New custom.css styling, a minimal
+layout.html navigation override and sphinx_notices.py are SRI International
+additions under the BSD-3-Clause terms in LICENSE.txt. They use the installed
+stock Sphinx classic theme. The build copies that installed Sphinx version's
+full license and a version/checksum record into _static/licenses/ in the
+rendered output. The Documentation Licenses and Credits page links those
+files and reproduces this historical notice and the new additions' BSD terms.
+
+The retained favicon.ico, logo10.png, logo3.pdf, ppbox2.svg and ppbox2.svgz
+graphics are SRI International material, separate from the Sphinx-derived
+files. No new permission to use SRI names or marks for endorsement is granted.
+
+Primary Sphinx notice, reproduced from Sphinx 1.3b2:
+
+  License for Sphinx
+  ==================
+
+  Copyright (c) 2007-2014 by the Sphinx team (see AUTHORS file).
+  All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are
+  met:
+
+  * Redistributions of source code must retain the above copyright
+    notice, this list of conditions and the following disclaimer.
+
+  * Redistributions in binary form must reproduce the above copyright
+    notice, this list of conditions and the following disclaimer in the
+    documentation and/or other materials provided with the distribution.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Files that are not third-party material: example1.c, example1b.c, names.c and
+test_pp.c under _static each carry an SRI International copyright notice and a
+BSD-3-Clause identifier.
+
+These files are used to build the documentation. They are not compiled into
+the distributed binaries.
+
+2.6 etc/cadical-patch.txt
+
+A unified diff against CaDiCaL's own configure and makefile.in, kept in the
+repository for reference. It adds install, libcadical.so and libcadical.dylib
+targets. Its context lines are reproduced from those two CaDiCaL files, so the
+file contains CaDiCaL material. It carries no notice of its own. CaDiCaL's
+terms and its copyright notice are in section 3.7 below.
+
+The repository does not record which CaDiCaL release the diff was taken
+against, and its hunk offsets and context lines do not match CaDiCaL 3.0.0. No
+part of the Yices build applies it, and nothing in it is compiled into the
+distributed binaries.
+
+
+Section 3. Components incorporated into the binary distributions
+-----------------------------------------------------------------
+
+Yices binary distributions are produced by compiling Yices and linking it with
+the libraries below. Some are linked statically, meaning the library's code is
+copied into the file that is distributed. Some are linked dynamically, meaning
+the distributed file requires a copy of the library on the system where it
+runs.
+
+The tables below give the placement in each published binary archive.
+Placement was determined by inspecting the distributed files themselves, not
+from build configuration.
+
+The paths in this file are of three kinds. A path such as bin/yices,
+lib/libyices.a or LICENSES/MIT.txt names a file inside a published binary or
+source archive, written relative to the top of that archive. A path such as
+src/utils/hash_functions.c or contrib/craigtracer.cpp records where code came
+from in a source tree, and is not a claim that the file accompanies any
+distribution. A path beginning with a slash names a file on the reader's own
+system.
+
+The relink kits are a further case. They carry LICENSE, NOTICES and a licenses
+directory, spelled in lower case there, and they carry no PROVENANCE. The
+three example paths of the first kind given above do not resolve inside a kit.
+
+An installed copy is another such case. Section 4 gives its layout. The
+license texts are not in a directory named LICENSES there, so a path of the
+first kind such as LICENSES/MIT.txt does not resolve inside it.
+
+3.1 Placement, the Linux x86-64 static-GMP binary archive
+
+This is the only Linux binary archive published for this release. Its name is
+yices-2.8.0-x86_64-pc-linux-gnu-static-gmp.tar.gz.
+
+  Component        bin/yices, bin/yices-smt,   bin/yices-sat   lib/libyices.so.2.8.0
+                   bin/yices-smt2
+
+  GNU C Library    static                      static          dynamic
+  GMP              static                      not present     static
+  LibPoly          static                      not present     static
+  CUDD             static                      not present     static
+  CaDiCaL          static                      not present     static
+  Kissat           static                      not present     static
+  CryptoMiniSat    static                      not present     static
+  libstdc++        static                      not present     static + dynamic
+  libgcc           static                      static          dynamic
+
+The Linux shared library loads libstdc++.so.6 and also contains runtime code
+from GCC Toolset 14's nonshared support: std::ios_base_library_init() and
+std::__throw_bad_array_new_length(). The mixed placement is covered by the
+GCC runtime terms and exception described in section 3.10; "dynamic" alone
+would not describe all the libstdc++ code in this file.
+
+The archive file lib/libyices.a contains Yices object code only. No
+third-party library code is present in it.
+
+3.2 Placement, macOS distributions
+
+Both macOS distributions, Intel and Apple Silicon, have the same shape.
+
+  Component        bin/yices, bin/yices-smt,   bin/yices-sat   lib/libyices.2.dylib
+                   bin/yices-smt2
+
+  GMP              static                      not present     static
+  LibPoly          static                      not present     static
+  CUDD             static                      not present     static
+  CaDiCaL          static                      not present     static
+  Kissat           static                      not present     static
+  CryptoMiniSat    static                      not present     static
+
+One difference from the Linux distribution is worth stating, because a reader
+who has seen one table may assume the other matches.
+
+The macOS builds contain no GNU C Library. macOS supplies its C library as
+part of the operating system, and it is not built into these files.
+
+The only libraries the macOS files load at run time are libSystem.B.dylib and
+libc++.1.dylib, both supplied by macOS. They are described in section 3.11.
+
+3.3 GNU C Library
+
+The GNU C Library is distributed by the Free Software Foundation under
+version 2.1 or later of the GNU Lesser General Public License. A copy of that
+license accompanies this file as LICENSES/LGPL-2.1-or-later.txt in the source
+distribution and in the binary archives, and as
+licenses/LGPL-2.1-or-later.txt in the Linux relink kit. The macOS relink kits
+do not carry it, because the macOS builds contain no GNU C Library.
+
+The upstream GNU C Library 2.28 source also provides a file named LICENSES.
+Its opening paragraph says that it collects copying-permission notices for
+files with copyright owners other than the Free Software Foundation, and that
+those notices must accompany binary distributions derived from the library.
+That exact 391-line upstream file accompanies this one as
+LICENSES/glibc-LICENSES.txt in the source and binary distributions. Its
+SHA-256 is 35bdb41dc0bcb10702ddacbd51ec4c0fe6fb3129f734e8c85fc02e4d3eb0ce3f.
+This NOTICES file does not transcribe or alter those third-party notices.
+
+The exact version and the distribution packaging of the C library built into
+these binaries depend on the machine that produced them. They are recorded in
+the PROVENANCE file that the binary archives carry, together with the checksum
+of the library archive that was linked and the identity of the corresponding
+source package. The complete source for that C library, including the
+distribution's patches, is published as a separate asset alongside the binary
+archives.
+
+3.4 GMP
+
+GMP version 6.3.0, the GNU Multiple Precision Arithmetic Library, available
+from https://gmplib.org/, is distributed by the Free Software Foundation under
+a choice of terms. A recipient may take it under version 3 or later of the GNU
+Lesser General Public License, or under version 2 or later of the GNU General
+Public License, or under both in parallel.
+
+SRI International takes GMP under version 3 or later of the GNU Lesser General
+Public License. A copy of that license accompanies this file as
+LICENSES/LGPL-3.0-or-later.txt, and a copy of version 3 of the GNU General
+Public License, which it incorporates by reference, accompanies this file as
+LICENSES/GPL-3.0-or-later.txt, in the source distribution and in the binary
+archives. All three relink kits carry both texts, as
+licenses/LGPL-3.0-or-later.txt and licenses/GPL-3.0-or-later.txt.
+
+GMP has no notice for the project as a whole. The notices in its source files
+name the Free Software Foundation, with the years for each file, so no GMP
+copyright line is reproduced here.
+
+3.5 LibPoly
+
+LibPoly, from https://github.com/SRI-CSL/libpoly, is distributed under version
+3 or later of the GNU Lesser General Public License, as stated in its headers.
+Copies of that license and of version 3 of the GNU General Public License
+accompany this file as LICENSES/LGPL-3.0-or-later.txt and
+LICENSES/GPL-3.0-or-later.txt in the source distribution and in the binary
+archives, and as licenses/LGPL-3.0-or-later.txt and
+licenses/GPL-3.0-or-later.txt in all three relink kits.
+
+The exact source revision used is recorded in the PROVENANCE file that the
+binary archives carry, and the corresponding source is published as a separate
+asset alongside the binary archives.
+
+That canonical source archive preserves an upstream packaging inconsistency.
+Its debian/copyright file labels the work `GPL-3+`, but the grant immediately
+below that label and the project LICENCE and source headers all say GNU Lesser
+General Public License version 3 or later. This release does not silently
+change that packaging label. Its LibPoly classification follows the
+actual grant text, LICENCE, and source headers, and this paragraph records the
+contradictory packaging label for downstream license scanners.
+
+LibPoly has no notice for the project as a whole. Most of the notices in its
+source files name SRI International, and their years differ from file to file.
+The distinct SRI notices in the pinned C/C++ source and header files are:
+
+  Copyright 2015, SRI International.
+  Copyright 2024, SRI International.
+
+Frontends built with MCSAT identify these as LibPoly source-file notices in
+their copyright-display paths, together with the u_memstream notice below
+and the reference to the distributed GPL/LGPL texts. These are not a new
+project-wide copyright date range or a change to any file's license.
+
+LibPoly itself contains a component under different terms. The files
+src/utils/u_memstream.c and src/utils/u_memstream.h are copyright 2020 Lag
+Free Games, LLC, and are distributed under the MIT license, reproduced below.
+Their headers record that the code was adapted from the mesa project, which is
+where the disclaimer's reference to VMware comes from. That code is compiled
+into LibPoly and is therefore present in the Yices binaries that contain
+LibPoly.
+
+  Copyright 2020 Lag Free Games, LLC
+  All Rights Reserved.
+
+  Permission is hereby granted, free of charge, to any person obtaining a
+  copy of this software and associated documentation files (the
+  "Software"), to deal in the Software without restriction, including
+  without limitation the rights to use, copy, modify, merge, publish,
+  distribute, sub license, and/or sell copies of the Software, and to
+  permit persons to whom the Software is furnished to do so, subject to
+  the following conditions:
+
+  The above copyright notice and this permission notice (including the
+  next paragraph) shall be included in all copies or substantial portions
+  of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+  IN NO EVENT SHALL VMWARE AND/OR ITS SUPPLIERS BE LIABLE FOR
+  ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+  TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+  SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+The separately published LibPoly source also contains a different portability
+fallback, src/utils/open_memstream.c. Its implementation originates in Ian
+Piumarta's memstream 0.1, first released 2013-08-17, at
+https://www.piumarta.com/software/memstream/. The author's distribution page
+states that memstream is distributed under the MIT license. The four files
+in that upstream distribution contain no copyright or permission notice;
+there is no separate license file. No upstream copyright year or line is
+invented here. The standard MIT text accompanies Yices as LICENSES/MIT.txt
+(licenses/MIT.txt in the relink kits) and is reproduced with this component's
+provenance in YICES-MEMSTREAM-NOTICE.txt in the LibPoly source export.
+
+For this release, the explicit yices-libpoly-memstream-text-v1 source export
+replaces only that C file's introductory manual-style comment with new
+functional documentation and adds the memstream notice and an export record.
+It preserves every executable-code byte, conditional guard, existing notice
+and other upstream member. The replaced prose is not shipped in that export;
+no permission for it or retrospective clearance of older copies is asserted.
+The export record names the upstream commit/tree and original archive hash
+separately from the changed source member and added notice. It is not a claim
+that the export is an unmodified Git archive or that all of LibPoly is MIT.
+
+Unlike u_memstream above, this fallback is selected only when the platform
+lacks open_memstream. Its absence from the inspected release library archives
+does not remove the obligations for the separately distributed source.
+
+3.6 CUDD
+
+CUDD version 3.0.0, the University of Colorado decision diagram package. Its
+terms are those reproduced in section 1.2 above.
+
+CUDD includes support code under a different copyright. Most of the files
+under its util and st directories, which provide memory helpers, timing
+helpers and the hash table that CUDD's core routines use, are copyright the
+Regents of the University of California. That code is compiled into the CUDD
+archive and is linked in wherever CUDD is. Its terms are:
+
+  Copyright (c) 1994-1998 The Regents of the Univ. of California.
+  All rights reserved.
+
+  Permission is hereby granted, without written agreement and without license
+  or royalty fees, to use, copy, modify, and distribute this software and its
+  documentation for any purpose, provided that the above copyright notice and
+  the following two paragraphs appear in all copies of this software.
+
+  IN NO EVENT SHALL THE UNIVERSITY OF CALIFORNIA BE LIABLE TO ANY PARTY FOR
+  DIRECT, INDIRECT, SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES ARISING OUT
+  OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF THE UNIVERSITY OF
+  CALIFORNIA HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+  THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES,
+  INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND
+  FITNESS FOR A PARTICULAR PURPOSE.  THE SOFTWARE PROVIDED HEREUNDER IS ON AN
+  "AS IS" BASIS, AND THE UNIVERSITY OF CALIFORNIA HAS NO OBLIGATION TO PROVIDE
+  MAINTENANCE, SUPPORT, UPDATES, ENHANCEMENTS, OR MODIFICATIONS.
+
+Besides the University of California grant above, the CUDD sources compiled
+into the CUDD archive carry three copyright lines that section 1.2 does not
+reproduce. All three name the Regents of the University of Colorado, and the
+conditions that apply to them are those reproduced in section 1.2. Membership
+of the archive was determined by mapping each CUDD .c and .cc source to the
+archive member named cudd_libcudd_la-<basename>.o and inspecting the built
+archive.
+
+  Copyright (c) 1995-2015, Regents of the University of Colorado
+
+Ninety files in the CUDD source carry that line, and sixty-five of them build
+a member of the archive. Of the other twenty-five, nine are headers, which
+build no object of their own, fifteen are sources that build no member --
+CUDD's C++ interface, its test programs and its nanotrav example -- and one is
+doc/cudd.tex.in, a documentation template.
+
+  Copyright (c) 1999-2015, Regents of the University of Colorado
+
+Twelve files carry that line, and ten of them build a member of the archive.
+The other two are headers. These are the same twelve files that carry the
+University of California line reproduced above.
+
+  Copyright (c) 2014-2015, Regents of the University of Colorado
+
+Two files carry that line, util/cstringstream.c and util/cstringstream.h, and
+the first of them builds a member of the archive.
+
+Three further copyright lines appear in C or C++ source-tree files in the CUDD
+source tree and are not reproduced here, because no file carrying them builds
+a member of the archive. Two name Politecnico di Torino; every file carrying
+either of them is under CUDD's dddmp directory, and no source that builds a
+member of the archive includes those files. The third names the Regents of the
+University of Colorado with the year 2015 and is carried by st/testst.c alone,
+a test program that is not built into the archive.
+
+CUDD is built into the shared library lib/libyices.so.2.8.0 as well as into
+the executables. No CUDD shared library is needed at run time.
+
+3.7 CaDiCaL
+
+CaDiCaL version 3.0.0, distributed by its authors under the following terms.
+
+  MIT License
+
+  Copyright (c) 2016-2021 Armin Biere, Johannes Kepler University Linz, Austria
+  Copyright (c) 2020-2021 Mathias Fleury, Johannes Kepler University Linz, Austria
+  Copyright (c) 2020-2021 Nils Froleyks, Johannes Kepler University Linz, Austria
+  Copyright (c) 2022-2025 Katalin Fazekas, Vienna University of Technology, Austria
+  Copyright (c) 2021-2025 Armin Biere, University of Freiburg, Germany
+  Copyright (c) 2021-2025 Mathias Fleury, University of Freiburg, Germany
+  Copyright (c) 2023-2025 Florian Pollitt, University of Freiburg, Germany
+  Copyright (c) 2024-2024 Tobias Faller, University of Freiburg, Germany
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+CaDiCaL's archive also contains a Craig interpolation tracer, contributed
+separately and carrying its own notice. In CaDiCaL 3.0.0 the tracer is
+contrib/craigtracer.cpp and contrib/craigtracer.hpp, and both are offered
+under the MIT license or the Apache License version 2.0, at the recipient's
+option. The notice they carry is:
+
+  Copyright 2013 Stefan Kupferschmid
+  Copyright 2023 Florian Pollitt
+  Copyright 2023 Tobias Faller
+
+The MIT terms are those reproduced above. The Apache License version 2.0 text
+is in LICENSES/Apache-2.0.txt in the source distribution and in the binary
+archives, and in licenses/Apache-2.0.txt in all three relink kits. The relink
+kits redistribute libcadical.a, which contains the object compiled from
+contrib/craigtracer.cpp and its included contrib/craigtracer.hpp. That object
+is linked into none of the shipped Yices executables and into no shipped Yices
+library. The binary archives ship no libcadical.a.
+
+3.8 Kissat
+
+Kissat, distributed by its authors under the following terms. The copy used by
+Yices is built from the pinned fork recorded in PROVENANCE. Before linking,
+Yices' scripts/rewrite-kissat-kitten-symbols.sh renames Kissat's private Kitten
+symbols so that they do not collide with the equivalent symbols in CaDiCaL when
+both solvers are linked into one program. That renaming changes symbol names
+only. The script is included in the Yices source distribution.
+
+  Copyright (c) 2021-2025 Armin Biere, University of Freiburg, Germany
+  Copyright (c) 2025-2025 Mathias Fleury, University of Freiburg, Germany
+  Copyright (c) 2025-2025 Florian Pollitt, University of Freiburg, Germany
+  Copyright (c) 2019-2021 Armin Biere, Johannes Kepler University Linz, Austria
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all
+  copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
+3.9 CryptoMiniSat
+
+CryptoMiniSat, copyright Mate Soos. Its authors state that everything needed to
+run, build, install, or link the system is under the MIT license, and that
+other files, which are not needed for those purposes, are generally under
+version 2 of the GNU General Public License or compatible terms. Its notice
+excepts two upstream documentation file kinds: `splncs03.bat` (actually
+named `splncs03.bst`) under the LPPL, and `ieee.cls` under the IEEE Copyright
+Policy. Neither kind is included in this release's source export.
+
+The release source asset is cryptominisat-b8c0e44beef0-yices-release.tar.gz,
+an explicitly reduced export of upstream commit
+b8c0e44beef01e52b5ce83ceed002728eebad92a. Its profile
+`yices-cms-no-competition-docs-v1` omits the complete, unused docs/ subtree:
+27 files, including all four copies of each of those two styles. Production
+source/build files and their notices, including upstream LICENSE.txt, remain
+unchanged. Gitlink directories remain unexpanded; the production library uses
+none. YICES-SOURCE-EXPORT.json inside the archive records every excluded and
+retained member, the upstream commit/tree and original archive checksum.
+RELEASE-INPUTS distinguishes that upstream identity from the exported archive
+and record checksums. This is not a full export of the upstream Git tree or
+a claim of permission to redistribute the omitted documentation.
+
+The separately published canonical CryptoMiniSat source asset also contains
+35 source files offered under version 2 only of the GNU General Public
+License. Their file notices remain intact. A complete copy of that license is
+published beside the source asset as GPL-2.0-only.txt. It also ships as
+LICENSES/GPL-2.0-only.txt in the Yices source and binary archives and as
+licenses/GPL-2.0-only.txt in every relink kit.
+
+Only the library is linked into Yices. The optional M4RI dependency, which
+CryptoMiniSat's own notice identifies as carrying a GNU General Public License
+that would affect a program built with it, is not enabled in the Yices build.
+This was checked by inspecting the distributed files for M4RI symbols and
+finding none.
+
+The MIT terms are as follows.
+
+  CryptoMiniSat Copyright (c) Mate Soos 2009-2018
+  All rights reserved.
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy
+  of this software and associated documentation files (the "Software"), to deal
+  in the Software without restriction, including without limitation the rights
+  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+  copies of the Software, and to permit persons to whom the Software is
+  furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in
+  all copies or substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+  THE SOFTWARE.
+
+CryptoMiniSat includes a Mersenne Twister random number generator under a
+different copyright. It is used by CryptoMiniSat's core search code and is
+therefore present wherever CryptoMiniSat is. Its terms are:
+
+  Copyright (C) 1997 - 2002, Makoto Matsumoto and Takuji Nishimura,
+  Copyright (C) 2000 - 2003, Richard J. Wagner
+  All rights reserved.
+
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions
+  are met:
+
+    1. Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
+
+    2. Redistributions in binary form must reproduce the above copyright
+       notice, this list of conditions and the following disclaimer in the
+       documentation and/or other materials provided with the distribution.
+
+    3. The names of its contributors may not be used to endorse or promote
+       products derived from this software without specific prior written
+       permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+  A PARTICULAR PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+  CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+  EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+  PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+  PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+3.10 GCC runtime libraries
+
+The C++ standard library libstdc++ and the compiler support library libgcc
+are distributed by the Free Software Foundation under version 3 or later of
+the GNU General Public License, together with the GCC Runtime Library
+Exception version 3.1. The exception grants additional permissions under
+section 7 of that license.
+
+Copies accompany this file as LICENSES/GPL-3.0-or-later.txt and
+LICENSES/GCC-exception-3.1.txt in the source distribution and in the binary
+archives. The relink kits contain no libstdc++ or libgcc library archive members.
+Objects compiled from C++ headers may still contain inline or template Target
+Code. The kits carry the GNU General Public License text as
+licenses/GPL-3.0-or-later.txt because the version 3 GNU Lesser General Public
+License terms for GMP and LibPoly incorporate it, and they do not carry the
+GCC exception text.
+
+The two runtime libraries use file-specific copyright notices rather than one
+project-level copyright line suitable for reproduction here, so this file does
+not select a representative copyright line for either. No source for either
+library is published with this release. For the statically linked runtime code
+in the Linux binaries, this release relies on the exception's additional
+permission for Target Code generated by an Eligible Compilation Process.
+
+The compiler whose runtime libraries were used depends on the machine that
+produced these binaries. The PROVENANCE file that the binary archives carry
+records it in two fields. The cc field names the compiler the build invoked.
+The cc-version field holds the first line of that compiler's own version
+output.
+
+
+3.11 macOS system libraries
+
+The macOS files load two libraries at run time, /usr/lib/libSystem.B.dylib and
+/usr/lib/libc++.1.dylib. Both are supplied by macOS as part of the operating
+system. Neither is built into the distributed files and neither is
+redistributed here. Their terms are Apple's and are not reproduced in this
+file.
+
+
+Section 4. License texts accompanying this file
+-----------------------------------------------
+
+Yices' own terms are in LICENSE, at the top of every distribution.
+
+The LICENSES directory in the source distribution and in the binary archives
+contains the legal texts listed below. Most license-only files are named by
+their SPDX license identifier. The CPython and glibc files preserve exact
+upstream legal files under descriptive names instead.
+
+  LICENSES/BSD-3-Clause.txt           Yices itself
+  LICENSES/CPython-3.4.0a3-LICENSE.txt
+                                      CPython's exact upstream license and
+                                      copyright notice
+  LICENSES/LGPL-2.1-or-later.txt      the GNU C Library
+  LICENSES/GPL-2.0-only.txt          GPL-2.0-only files in the separately
+                                      published CryptoMiniSat source asset
+  LICENSES/glibc-LICENSES.txt         the GNU C Library's exact upstream
+                                      copying-permission notice collection
+  LICENSES/LGPL-3.0-or-later.txt      GMP as taken by SRI, and LibPoly
+  LICENSES/GPL-3.0-or-later.txt       required by version 3 of the Lesser
+                                      license, which incorporates it; also
+                                      libstdc++ and libgcc
+  LICENSES/GCC-exception-3.1.txt      libstdc++ and libgcc
+  LICENSES/MIT.txt                    CaDiCaL, Kissat, CryptoMiniSat, MiniSat,
+                                      the u_memstream files in LibPoly, and
+                                      memstream in the LibPoly source export
+  LICENSES/Apache-2.0.txt             CaDiCaL Craig interpolation tracer
+
+An installed copy places the legal record differently. The make install target
+puts LICENSE and NOTICES in share/doc/yices-2.8.0 under the installation
+prefix, and the legal texts listed above in share/licenses/yices-2.8.0 under
+the same prefix. The installer scripts etc/install-yices.linux and
+etc/install-yices.darwin use those same two directories, under /usr/local
+unless a directory is given on the command line, and they place PROVENANCE
+alongside LICENSE and NOTICES there. The make install target installs no
+PROVENANCE. An installer script invoked with the argument here copies no files.
+
+The LICENSES directory holds no separate file for CUDD. CUDD's own terms are
+reproduced in full in section 1.2 above, under the University of Colorado
+copyright notice that CUDD's LICENSE file carries. The copyright lines carried
+by the CUDD sources built into the archive that Yices links are reproduced in
+section 3.6, together with the University of California grant that covers part
+of CUDD's support code.
+
+Except for CPython-3.4.0a3-LICENSE.txt and glibc-LICENSES.txt, the texts in
+LICENSES are the licenses themselves. The copyright notices that those
+licenses require to travel with a distribution are reproduced verbatim in
+sections 1 through 3 above, because they name the copyright holders of the
+components and a license text generally does not. The CPython file preserves
+its upstream license and required copyright notice byte for byte. The glibc
+file preserves the upstream notice collection byte for byte.
+
+This file reproduces a copyright line for MiniSat in section 1.1, for CUDD in
+sections 1.2 and 3.6, for the University of California support code in CUDD in
+section 3.6, for the SRI and Lag Free Games files in LibPoly in section 3.5, for
+CaDiCaL and for its Craig interpolation tracer in section 3.7, for Kissat in
+section 3.8, and for CryptoMiniSat and for the Mersenne Twister it includes in
+section 3.9. CPython's required copyright notice is retained in its exact
+upstream LICENSE file. For every other component named in this file it
+reproduces none, for the reasons given below.
+
+The Yices repository does not identify the exact MiniSat snapshot, so section
+1.1 explains why the cumulative official notice is reproduced without
+claiming a source release. Section 1.3 records that Bob Jenkins placed lookup3
+in the public domain. Section 1.4 records the observed CPython minimum-run
+expression overlap without claiming that its origin is known, and explains
+the conservative inclusion of CPython's license and copyright notice. The GNU
+C Library's exact upstream notice collection travels as
+LICENSES/glibc-LICENSES.txt rather than being transcribed into this file, as
+section 3.3 states. GMP carries file-specific notices rather than a project
+notice, as section 3.4 states. LibPoly's distinct source-file notices are
+reproduced in section 3.5; that section also explains why no upstream copyright
+line is invented for Piumarta's memstream. Libstdc++ and libgcc use file-specific notices rather than
+one project-level line suitable for reproduction here, as section 3.10 states.
+The macOS system libraries of section 3.11 are supplied by the operating system
+and are neither built into nor redistributed with these files. For the files
+listed in section 2, the notice is in the file itself, except where that
+section's entry says otherwise.
+
+Some files in LICENSES carry a copyright line of their own.
+LICENSES/BSD-3-Clause.txt is Yices' own grant and names SRI International. The
+GNU license documents name the Free Software Foundation as the holder of the
+copyright on the text of the license itself, which is a notice for that text
+and not for any component. LICENSES/glibc-LICENSES.txt is different: it is the
+upstream collection of component copying-permission notices described in
+section 3.3.
+
+Section 5. Component and version record
+---------------------------------------
+
+The fixed component versions given above are GMP 6.3.0, CUDD 3.0.0 and CaDiCaL
+3.0.0. LibPoly, Kissat and CryptoMiniSat are also fixed for this release, by
+source revision rather than by a version number, and this file does not give
+those revisions.
+
+Component versions that depend on the machine that produced a given binary
+archive are not written here, because writing them would make this file wrong
+for any archive built elsewhere. They are recorded in the PROVENANCE file that
+the binary archives carry. That file names the compiler the build used and
+records the first line of its version output. It identifies the C library the
+binaries were built against. Where the build links a C library archive, it
+gives that archive's checksum and names the source package the archive came
+from. It also gives the GMP version and the file name and checksum of the GMP
+source asset. On Linux it also records the local name and immutable ID of the
+derived builder image and the pinned base image separately. All three
+builder-image fields say that they are not applicable in a native macOS build.
+
+Each platform archive carries the manual PDF built and validated on that
+platform. PROVENANCE records that exact PDF's checksum. TeX implementations
+can produce different PDF layout bytes from the same manual source, so the
+Linux, Intel macOS, and Apple Silicon checksums need not match. The release
+workflow extracts text from every PDF and applies the same required-content
+and stale-content gates to all three.
+
+PROVENANCE, YICES-SOURCE-RECEIPT, and the platform validation receipts name
+and hash some build receipts, manifests, and validation scripts that are
+internal release records rather than publication assets. Those hashes bind
+the inputs used by the release workflow and support the release operator's
+audit. They are not an assertion that a recipient can obtain or independently
+authenticate every named support file from the public asset set.
+
+LibPoly's source is prepared once, before any platform build, rather than
+reconstructed afterward on each builder. Every builder verifies and compiles
+the same canonical archive. PROVENANCE records its upstream repository, commit
+and tree, the explicit source-export profile, original-archive and export-record
+checksums, the exported file name and checksum, and the normal and PIC archives used by
+that build, and the file name and checksum of the canonical RELEASE-INPUTS
+manifest. The final collector checks those fields in every binary archive and
+relink kit against the manifest before it copies any asset. The release
+SHA256SUMS then verifies the published source archive and manifest relative to
+a checksum obtained through a trusted release channel. The checksum file by
+itself does not authenticate its publisher.
+
+Section 6. Materials for rebuilding
+------------------------------------
+
+Some of the libraries built into the Yices binaries are distributed under
+terms that give you the right to modify them and rebuild Yices against your
+modified version. The material needed to do that is published as a separate
+asset alongside the binary archives, together with the corresponding library
+source.
+
+The platform relink kits include REBUILDING.md and a private-prefix GMP/LibPoly
+build recipe. The Linux kit additionally includes helpers to prepare the exact
+patched glibc SRPM source and explicitly link the application objects with a
+recipient-built glibc and its startup objects. These use ordinary compatible
+toolchain prerequisites and do not install a C runtime into the host system.
+They substantiate a source/application-object route, not a promise of bitwise
+reproduction or legal sign-off. Every binary recipient must be given access to
+the matching required source and relink material, even when only the smaller
+binary archive is downloaded.
+
+The release asset set separately publishes the exact six dependency source
+archives named and hashed in RELEASE-INPUTS: GMP, LibPoly, CUDD, CaDiCaL,
+Kissat and CryptoMiniSat. Those archives preserve the upstream notices and
+license files of their retained material; section 3.9 describes the explicitly
+reduced CryptoMiniSat export. Section 4 identifies the license texts accompanying
+the release, including GPL-2.0-only for the files in the CryptoMiniSat source
+asset.
+
+You do not need any of it to install or run Yices. If you only want to use
+Yices, the ordinary distribution archive is complete on its own.

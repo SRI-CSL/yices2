@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# Copyright (c) 2026, SRI International
+# SPDX-License-Identifier: BSD-3-Clause
+#
+
 
 #
 # Script to help build the Windows (mingw32/mingw64) distributions from
@@ -58,8 +63,8 @@ fi
 #
 # vsbase="/cygdrive/c/Program Files (x86)/Microsoft Visual Studio 10.0"
 vsbase="/cygdrive/c/Program Files (x86)/Microsoft Visual Studio/2017/Community"
-gmp32="/home/bruno/tools/mingw32/bin"
-gmp64="/home/bruno/tools/mingw64/bin"
+gmp32="${GMP32_BIN:-/opt/yices-deps/mingw32/bin}"
+gmp64="${GMP64_BIN:-/opt/yices-deps/mingw64/bin}"
 
 
 #

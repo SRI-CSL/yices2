@@ -13,13 +13,18 @@ distributions at https://yices.csl.sri.com.
 Package Managers
 ................
 
-On Ubuntu/Debian:
+We provide APT packages for Ubuntu through a Launchpad PPA:
 
 .. code-block:: sh
 
    sudo add-apt-repository ppa:sri-csl/formal-methods
    sudo apt-get update
    sudo apt-get install yices2
+
+The PPA provides packages for Ubuntu 22.04 (Jammy) on amd64. It may lag the
+current release. Check with ``apt-cache policy yices2``. For the current
+release, use the binary distributions at https://yices.csl.sri.com or build
+from source.
 
 
 On Mac OS X:

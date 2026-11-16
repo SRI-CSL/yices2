@@ -64,17 +64,6 @@ Model Construction
    state. Future operations on *ctx* (including deleting or resetting
    *ctx*) do not change the model.
 
-.. c:function:: model_t* yices_new_model(void)
-
-   Builds an empty model.
-
-   This function constructs a model with no term assignments and returns a
-   pointer to it. The model must be deleted when it is no longer used by
-   calling :c:func:`yices_free_model`.
-
-   Since Yices 2.6.4.
-
-
 .. c:function:: model_t* yices_model_clone(model_t *src)
 
    Builds a representation-preserving clone of model *src*.
@@ -2284,7 +2273,10 @@ Implicants
 
    The parameter *max_cubes* is the maximum number of distinct cubes to
    return. If *max_cubes* is 0, there is no explicit cap. Larger values of
-   *max_cubes* make this function more expensive.
+   *max_cubes* make this function more expensive. The Boolean abstraction is
+   searched with false-first decisions and superset blockers, so returned
+   cubes are built from subset-minimal satisfying sets of abstraction
+   literals.
 
    If the function succeeds, it returns a value *k >= 1*. Then *v* contains
    the literals of *k* cubes, separated by *k-1* occurrences of
@@ -2465,56 +2457,5 @@ The generalization functions take a parameter of type :c:type:`yices_gen_mode_t`
    This function is equivalent to calling
    :c:func:`yices_generalize_model_with_budget` with argument
    (*a[0]* |and| |...| |and| *a[n-1]*).
-
-   *Since 2.8.0.*
-
-
-Implicant Cube Enumeration
---------------------------
-
-.. c:function:: int32_t yices_implicant_cubes_for_formula(model_t *mdl, term_t t, uint32_t max_cubes, term_vector_t *v)
-
-   Enumerates multiple implicant cubes for a formula.
-
-   This function computes up to *max_cubes* distinct implicant cubes of *t* in
-   model *mdl*. The Boolean abstraction of *t* is searched with strict
-   false-first decisions and superset blockers, so returned cubes are built from
-   subset-minimal satisfying sets of abstraction literals.
-
-   **Parameters**
-
-   - *mdl*: model
-
-   - *t*: Boolean term that is true in *mdl*
-
-   - *max_cubes*: maximum number of cubes to return. A value of 0 means no explicit cap.
-
-   - *v*: term vector to store the result (must be initialized with :c:func:`yices_init_term_vector`)
-
-   **Return value and result encoding**
-
-   If the return code is *k* |geq| 1, then *v* contains the literals of *k* cubes
-   separated by *k - 1* occurrences of :c:macro:`NULL_TERM`. There is no trailing
-   :c:macro:`NULL_TERM`. For example, two cubes {*a*, *b*} and {*c*} are encoded as::
-
-      a, b, NULL_TERM, c
-
-   Each cube is true in *mdl* and implies *t*. When *max_cubes* is 1, the
-   result has the same flat literal-vector layout as
-   :c:func:`yices_implicant_for_formula`.
-
-   If the return code is -1, *v* is empty and the error report is the same as for
-   :c:func:`yices_implicant_for_formula`.
-
-   *Since 2.8.0.*
-
-.. c:function:: int32_t yices_implicant_cubes_for_formulas(model_t *mdl, uint32_t n, const term_t a[], uint32_t max_cubes, term_vector_t *v)
-
-   Enumerates multiple implicant cubes for a conjunction of formulas.
-
-   This is the array variant of :c:func:`yices_implicant_cubes_for_formula`.
-   It enumerates cubes for the conjunction (*a[0]* |and| |...| |and| *a[n-1]*).
-   The result encoding, return codes, and errors are as described for
-   :c:func:`yices_implicant_cubes_for_formula`.
 
    *Since 2.8.0.*
