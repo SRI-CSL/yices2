@@ -6,4 +6,4 @@ runs:
     - name: Run Coverage
       shell: bash
       run: |
-        lcov --directory build --base-directory src --capture --ignore-errors source --output-file coverage.info
+        lcov --gcov-tool gcov-13 --directory build --base-directory src --capture --ignore-errors source --output-file coverage.info
