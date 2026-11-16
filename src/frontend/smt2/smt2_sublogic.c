@@ -21,12 +21,11 @@
  */
 
 #include <assert.h>
+#include <string.h>
 
 #include "api/context_config.h"
 #include "context/context_types.h"
 #include "frontend/smt2/smt2_sublogic.h"
-#include "terms/polynomials.h"
-#include "terms/power_products.h"
 #include "utils/int_hash_sets.h"
 #include "utils/int_vectors.h"
 
@@ -125,11 +124,9 @@ static void add_component_features(type_table_t *types, type_t tau, sublogic_fea
  */
 static void add_type_features(term_table_t *terms, term_t t, sublogic_features_t *f) {
   switch (term_type_kind(terms, t)) {
-  case BOOL_TYPE:
-    break;
-
   case INT_TYPE:
   case REAL_TYPE:
+    // an integer constant says nothing about int versus real
     f->arith_used = true;
     if (term_kind(terms, t) == ARITH_CONSTANT) {
       if (!is_integer_term(terms, t)) f->has_real = true;
@@ -140,24 +137,9 @@ static void add_type_features(term_table_t *terms, term_t t, sublogic_features_t
     }
     break;
 
-  case BITVECTOR_TYPE:
-    f->bv = true;
-    break;
-
-  case SCALAR_TYPE:
-  case UNINTERPRETED_TYPE:
-    f->uf = true;
-    break;
-
-  case FUNCTION_TYPE:
-    // function terms are only visited when they are not the head of an application
-    f->uf = true;
-    add_component_features(terms->types, term_type(terms, t), f);
-    break;
-
   default:
-    // tuples, finite fields, ...
-    f->unsupported = true;
+    // function terms are only visited when they are not the head of an application
+    add_component_features(terms->types, term_type(terms, t), f);
     break;
   }
 }
@@ -215,6 +197,7 @@ static bool is_arith_constant(term_table_t *terms, term_t t) {
 static void visit_term(term_table_t *terms, term_t t, ivector_t *stack, sublogic_features_t *f) {
   composite_term_t *d;
   pprod_t *p;
+  uint32_t i;
 
   add_type_features(terms, t, f);
   if (f->unsupported) return;
@@ -272,38 +255,24 @@ static void visit_term(term_table_t *terms, term_t t, ivector_t *stack, sublogic
   case ARITH_RDIV:
   case ARITH_IDIV:
   case ARITH_MOD:
-    // t = (op num den): linear iff den is a constant
-    d = composite_term_desc(terms, t);
-    if (!is_arith_constant(terms, d->arg[1])) {
-      f->nonlinear = true;
-    }
-    push_composite(stack, d, 0);
-    break;
-
   case ARITH_DIVIDES_ATOM:
-    // t = (divides k x): linear iff k is a constant
+    // (op num den) is linear iff den is a constant; (divides k x) iff k is
     d = composite_term_desc(terms, t);
-    if (!is_arith_constant(terms, d->arg[0])) {
+    if (!is_arith_constant(terms, d->arg[term_kind(terms, t) == ARITH_DIVIDES_ATOM ? 0 : 1])) {
       f->nonlinear = true;
     }
     push_composite(stack, d, 0);
     break;
 
   case APP_TERM:
-    // arg[0] is the function. If it's a variable, it must not be treated as a
-    // function-typed argument.
+    // arg[0] is the function: its type gives the egraph group and the sorts it uses.
+    // An uninterpreted function symbol is not visited as a function-typed term.
     d = composite_term_desc(terms, t);
-    f->uf = true;
     add_component_features(terms->types, term_type(terms, d->arg[0]), f);
-    if (term_kind(terms, unsigned_term(d->arg[0])) == UNINTERPRETED_TERM) {
-      push_composite(stack, d, 1);
-    } else {
-      push_composite(stack, d, 0);
-    }
+    push_composite(stack, d, term_kind(terms, unsigned_term(d->arg[0])) == UNINTERPRETED_TERM ? 1 : 0);
     break;
 
   case UPDATE_TERM:
-    f->uf = true;
     push_composite(stack, composite_term_desc(terms, t), 0);
     break;
 
@@ -338,11 +307,8 @@ static void visit_term(term_table_t *terms, term_t t, ivector_t *stack, sublogic
     if (is_arithmetic_term(terms, t)) {
       f->nonlinear = true;
     }
-    {
-      uint32_t i;
-      for (i=0; i<p->len; i++) {
-        ivector_push(stack, p->prod[i].var);
-      }
+    for (i=0; i<p->len; i++) {
+      ivector_push(stack, p->prod[i].var);
     }
     break;
 
@@ -370,14 +336,7 @@ static void collect_features(term_table_t *terms, const term_t *a, uint32_t n, s
   term_t t;
   uint32_t i;
 
-  f->uf = false;
-  f->bv = false;
-  f->arith_used = false;
-  f->has_int = false;
-  f->has_real = false;
-  f->mixed = false;
-  f->nonlinear = false;
-  f->unsupported = false;
+  memset(f, 0, sizeof(sublogic_features_t));
 
   init_int_hset(&seen, 64);
   init_ivector(&stack, 64);
@@ -385,7 +344,8 @@ static void collect_features(term_table_t *terms, const term_t *a, uint32_t n, s
     ivector_push(&stack, a[i]);
   }
 
-  while (stack.size > 0 && !f->unsupported) {
+  // non-linear or unsupported problems keep the declared logic: no need to look further
+  while (stack.size > 0 && !f->unsupported && !f->nonlinear) {
     t = unsigned_term(ivector_pop2(&stack));
     if (int_hset_add(&seen, t)) {
       visit_term(terms, t, &stack, f);
@@ -407,7 +367,7 @@ static int32_t candidate_cost(smt_logic_t c, smt_logic_t declared, const sublogi
                               uint32_t needs, bool exact_arith) {
   arith_fragment_t cfrag, dfrag;
   uint32_t ccaps, dcaps;
-  bool c_arrays, c_eg, c_bv, d_arrays, d_bv;
+  bool c_arrays, c_uf, c_bv;
   int32_t arch;
 
   if (c == SMT_ALL || c == NONE || qf_fragment(c) != c) return -1;
@@ -429,12 +389,10 @@ static int32_t candidate_cost(smt_logic_t c, smt_logic_t declared, const sublogi
   if ((needs & ~ccaps) != 0) return -1;     // c lacks arithmetic that we need
 
   c_arrays = logic_has_arrays(c);
-  c_eg = logic_has_uf(c) || c_arrays;
+  c_uf = logic_has_uf(c);
   c_bv = logic_has_bv(c);
-  d_arrays = logic_has_arrays(declared);
-  d_bv = logic_has_bv(declared);
 
-  if (c_bv && !d_bv) return -1;
+  if (c_bv && !logic_has_bv(declared)) return -1;
   if (f->bv && !c_bv) return -1;
 
   /*
@@ -444,14 +402,31 @@ static int32_t candidate_cost(smt_logic_t c, smt_logic_t declared, const sublogi
    * Otherwise, we drop both.
    */
   if (f->uf) {
-    if (c_arrays != d_arrays || logic_has_uf(c) != logic_has_uf(declared)) return -1;
-  } else if (c_eg) {
+    if (c_arrays != logic_has_arrays(declared) || c_uf != logic_has_uf(declared)) return -1;
+  } else if (c_uf || c_arrays) {
     return -1;
   }
 
-  return 3 * (int32_t) c_arrays + 2 * (int32_t) logic_has_uf(c) + 2 * (int32_t) c_bv
+  return 3 * (int32_t) c_arrays + 2 * (int32_t) c_uf + 2 * (int32_t) c_bv
     + (int32_t) ((ccaps & CAP_INT) != 0) + (int32_t) ((ccaps & CAP_REAL) != 0)
     + 4 * (int32_t) ((ccaps & CAP_NL) != 0);
+}
+
+
+/*
+ * A logic with a single theory (QF_UF, QF_AX, QF_BV, linear arithmetic) has no sublogic
+ * that needs a different architecture. So we skip the scan, unless the logic combines
+ * theories, has non-linear arithmetic, or is ALL.
+ */
+static bool can_narrow(smt_logic_t logic) {
+  uint32_t theories;
+  arith_fragment_t frag;
+
+  frag = arith_fragment(logic);
+  theories = (uint32_t) (logic_has_uf(logic) || logic_has_arrays(logic))
+    + (uint32_t) logic_has_bv(logic) + (uint32_t) (frag != ARITH_NONE);
+
+  return logic == SMT_ALL || theories >= 2 || (arith_caps(frag) & CAP_NL) != 0;
 }
 
 
@@ -464,7 +439,7 @@ smt_logic_t smt2_smallest_sublogic(term_table_t *terms, smt_logic_t declared,
   bool exact_arith;
 
   if (declared == SMT_UNKNOWN || declared == NONE || qf_fragment(declared) != declared ||
-      arith_fragment(declared) == ARITH_FFA) {
+      arith_fragment(declared) == ARITH_FFA || !can_narrow(declared)) {
     return declared;
   }
 
