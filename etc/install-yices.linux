@@ -1,21 +1,8 @@
 #!/bin/sh
 
 #
-#  This file is part of the Yices SMT Solver.
-#  Copyright (C) 2017 SRI International.
-# 
-#  Yices is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-# 
-#  Yices is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-# 
-#  You should have received a copy of the GNU General Public License
-#  along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+#  Copyright (c) 2026, SRI International
+#  SPDX-License-Identifier: BSD-3-Clause
 #
 
 #
@@ -31,6 +18,9 @@
 #     binaries      in <directory>/bin
 #     libraries     in <directory>/lib
 #     include files in <directory>/include
+#     pkg-config    in <directory>/lib/pkgconfig/yices.pc
+#     legal record  in <directory>/share/doc/yices-2.8.0 and
+#                   <directory>/share/licenses/yices-2.8.0
 #
 # If no <directory> is given, Yices will be installed in /usr/local.
 #
@@ -39,6 +29,7 @@
 # in ./lib
 #
 # OPTIONS:
+#  --replace-existing: permit replacement of existing Yices paths
 #  -h: print a short help message
 #
 
@@ -49,11 +40,15 @@ The first form installs Yices in the specified by <directory> as follows:
    binaries      in <directory>/bin
    libraries     in <directory>/lib
    include files in <directory>/include
+   pkg-config    in <directory>/lib/pkgconfig/yices.pc
+   legal record  in <directory>/share/doc/yices-2.8.0 and
+                 <directory>/share/licenses/yices-2.8.0
 
 The second form installs Yices locally. No files are copied, but
 symbolic links are created in ./lib.
 
 OPTIONS:
+  --replace-existing: permit replacement of existing Yices files and links
   -h --help: print this message
 "
 
@@ -74,12 +69,18 @@ ldconfig="/sbin/ldconfig"
 #
 location_given=no
 location=
+replace_existing=no
 
 while test -n "$1"; do
   case $1 in
     -h | --help)
         echo "$usage"
         exit 0;;
+
+    --replace-existing)
+        replace_existing=yes
+        shift
+        continue;;
 
     -*) echo "Unknown option $1. Try $0 -h for help"
         exit 1;;
@@ -101,13 +102,13 @@ done
 # subdirectory and get the dynamic libraries name.
 #
 local_dir=`pwd`
-if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a "$local_dir/include" ; then
+if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a -d "$local_dir/include" ; then
 
    sofile=`ls lib/*.so.2.*.* | sed -e 's+lib/++' 2>/dev/null`
 
    case "$sofile" in
      libyices.so.2.*.*)
-       break;;
+       ;;
 
      *) echo "$failure"
         echo "Can't find the Yices library libyices.so.2.x.y in ./lib"
@@ -125,6 +126,8 @@ else
    exit 1
 fi
 
+version=${sofile#libyices.so.}
+
 
 #
 # Set install dir and local_install flag
@@ -137,13 +140,13 @@ if test -n "$location" ; then
 
     here) local_install="yes"
           install_dir="$local_dir"
-          break;;
+          ;;
 
     *) install_dir="$location"
        if test "$location" -ef "$local_dir" ; then
           local_install="yes"
        fi
-       break;;
+       ;;
 
   esac
 fi
@@ -170,7 +173,52 @@ fi
 #
 bindir="$install_dir/bin"
 libdir="$install_dir/lib"
+pkgconfigdir="$libdir/pkgconfig"
 includedir="$install_dir/include"
+docdir="$install_dir/share/doc/yices-$version"
+licensesdir="$install_dir/share/licenses/yices-$version"
+
+
+#
+# Refuse accidental replacement.  A shared prefix such as /usr/local may
+# already contain another Yices release.  Directories may pre-exist, but every
+# file or link this script would replace requires explicit authorization.
+#
+if test "$local_install" = "no" -a "$replace_existing" = "no" ; then
+  collision_found=no
+
+  check_target () {
+    if test -e "$1" -o -L "$1" ; then
+      echo "Existing install path: $1" >&2
+      collision_found=yes
+    fi
+  }
+
+  check_group () {
+    destination=$1
+    shift
+    for source_path in "$@" ; do
+      check_target "$destination/${source_path##*/}"
+    done
+  }
+
+  check_group "$bindir" ./bin/*
+  check_group "$includedir" ./include/*.h
+  check_group "$libdir" ./lib/*.so.2.*.*
+  check_group "$pkgconfigdir" ./lib/pkgconfig/yices.pc
+  check_group "$docdir" ./LICENSE ./NOTICES ./PROVENANCE
+  check_group "$licensesdir" ./LICENSES/*
+  check_target "$libdir/libyices.so.${version%.*}"
+  check_target "$libdir/libyices.so"
+
+  if test "$collision_found" = "yes" ; then
+    echo "$failure"
+    echo "Refusing to replace an existing Yices installation."
+    echo "Choose a fresh prefix or rerun with --replace-existing."
+    echo ""
+    exit 1
+  fi
+fi
 
 
 
@@ -179,10 +227,15 @@ includedir="$install_dir/include"
 #
 if test "$local_install" = "no" ; then
   echo "Installing Yices in $install_dir"
-  {  $install -d "$install_dir" "$bindir" "$libdir" "$includedir" \
+  {  $install -d "$install_dir" "$bindir" "$libdir" "$pkgconfigdir" "$includedir" "$docdir" "$licensesdir" \
      && $install -m 0644 ./include/*.h "$includedir"  \
      && $install ./bin/* "$bindir"  \
-     && $install ./lib/*.so.2.*.* "$libdir" ; } 2> /dev/null ||
+     && $install ./lib/*.so.2.*.* "$libdir" \
+     && $install -m 0644 ./lib/pkgconfig/yices.pc "$pkgconfigdir" \
+     && $install -m 0644 ./LICENSE "$docdir" \
+     && $install -m 0644 ./NOTICES "$docdir" \
+     && $install -m 0644 ./PROVENANCE "$docdir" \
+     && $install -m 0644 ./LICENSES/* "$licensesdir" ; } 2> /dev/null ||
   { echo "$failure"
     echo "Could not create the directories or copy files."
     echo "Check that you have the right permissions (try sudo)."

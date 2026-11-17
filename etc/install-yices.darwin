@@ -1,21 +1,8 @@
 #!/bin/sh
 
 #
-#  This file is part of the Yices SMT Solver.
-#  Copyright (C) 2017 SRI International.
-# 
-#  Yices is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-# 
-#  Yices is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-# 
-#  You should have received a copy of the GNU General Public License
-#  along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+#  Copyright (c) 2026, SRI International
+#  SPDX-License-Identifier: BSD-3-Clause
 #
 
 #
@@ -31,6 +18,9 @@
 #     binaries      in <location>/bin
 #     libraries     in <location>/lib
 #     include files in <location>/include
+#     pkg-config    in <location>/lib/pkgconfig/yices.pc
+#     legal record  in <location>/share/doc/yices-2.8.0 and
+#                   <location>/share/licenses/yices-2.8.0
 #
 # If no <location> is given, Yices will be installed in /usr/local.
 #
@@ -39,18 +29,22 @@
 # are created in ./lib
 #
 # OPTIONS:
+#  --replace-existing: permit replacement of existing Yices paths
 #  -h --help: print a short help message
 #
 
-usage="Usage: $0 <directory>
+usage="Usage: $0 [OPTIONS] <directory>
     or $0 here
 
-The fist form installs Yices in the location specified by <directory>.
+The first form installs Yices in the location specified by <directory>.
 This copies binaries, libraries, and header files as follows:
 
    binaries      in <directory>/bin
    libraries     in <directory>/lib
    include files in <directory>/include
+   pkg-config    in <directory>/lib/pkgconfig/yices.pc
+   legal record  in <directory>/share/doc/yices-2.8.0 and
+                 <directory>/share/licenses/yices-2.8.0
 
 If the <directory> is not given, this script will attempt to install
 Yices in the default location, that is, in /usr/local. To use this
@@ -63,6 +57,7 @@ links in the ./lib directory.
 
 
 OPTIONS:
+  --replace-existing: permit replacement of existing Yices files and links
   -h --help:  print this message
 "
 
@@ -76,7 +71,6 @@ Installation failed
 #
 install="/usr/bin/install"
 link="/bin/ln"
-install_name_tool="/usr/bin/install_name_tool"
 
 
 #
@@ -84,12 +78,18 @@ install_name_tool="/usr/bin/install_name_tool"
 #
 location_given=no
 location=
+replace_existing=no
 
 while test -n "$1"; do
   case $1 in
     -h | --help)
         echo "$usage"
         exit 0;;
+
+    --replace-existing)
+        replace_existing=yes
+        shift
+        continue;;
 
     -*) echo "Unknown option $1. Try $0 -h for help"
         exit 1;;
@@ -112,13 +112,13 @@ done
 # subdirectories and check the lib contains libyices.2.dylbib.
 #
 local_dir=`pwd`
-if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a "$local_dir/include" ; then
+if test -d "$local_dir/bin" -a -d "$local_dir/lib" -a -d "$local_dir/include" ; then
 
    dylib_file=`ls lib/libyices.2.dylib | sed -e 's+lib/++' 2>/dev/null`
 
    case "$dylib_file" in
      libyices.2.dylib)
-       break;;
+       ;;
 
      *) echo "$failure"
         echo "Can't find the Yices library libyices.2.dylib in ./lib"
@@ -136,6 +136,10 @@ else
    exit 1
 fi
 
+# The dylib filename contains only the ABI major version, not the full release
+# version. Keep this literal synchronized with each Yices release.
+version=2.8.0
+
 
 #
 # Set install dir and local_install flag
@@ -149,17 +153,17 @@ if test -n "$location" ; then
     here)
       local_install="yes"
       install_dir="$local_dir"
-      break;;
+      ;;
 
     /*)
       install_dir="$location"
       if test "$location" -ef "$local_dir" ; then
          local_install="yes"
       fi
-      break;;
+      ;;
 
     *)
-      echo "The directory must be givan as an absolute path"
+      echo "The directory must be given as an absolute path"
       exit 1;;
 
   esac
@@ -174,11 +178,6 @@ if test "$local_install" = "no" ; then
   { echo "$failure" ; echo "Can't find $install" ; echo "" ; exit 1 ; }
 fi
 
-if test "$install_dir" != "/usr/local" ; then
-  { test -f "$install_name_tool" -a -x "$install_name_tool" ; } ||
-  { echo "$failure" ; echo "Can't find $install_name_tool" ; echo "" ; exit 1 ; }
-fi
-
 { test -f "$link" -a -x "$link"; } ||
   { echo "$failure" ; echo "Can't find $link" ; echo "" ; exit 1 ; }
 
@@ -188,7 +187,51 @@ fi
 #
 bindir="$install_dir/bin"
 libdir="$install_dir/lib"
+pkgconfigdir="$libdir/pkgconfig"
 includedir="$install_dir/include"
+docdir="$install_dir/share/doc/yices-$version"
+licensesdir="$install_dir/share/licenses/yices-$version"
+
+
+#
+# Refuse accidental replacement.  A shared prefix such as /usr/local may
+# already contain another Yices release.  Directories may pre-exist, but every
+# file or link this script would replace requires explicit authorization.
+#
+if test "$local_install" = "no" -a "$replace_existing" = "no" ; then
+  collision_found=no
+
+  check_target () {
+    if test -e "$1" -o -L "$1" ; then
+      echo "Existing install path: $1" >&2
+      collision_found=yes
+    fi
+  }
+
+  check_group () {
+    destination=$1
+    shift
+    for source_path in "$@" ; do
+      check_target "$destination/${source_path##*/}"
+    done
+  }
+
+  check_group "$bindir" ./bin/*
+  check_group "$includedir" ./include/*.h
+  check_group "$libdir" ./lib/*.2.dylib
+  check_group "$pkgconfigdir" ./lib/pkgconfig/yices.pc
+  check_group "$docdir" ./LICENSE ./NOTICES ./PROVENANCE
+  check_group "$licensesdir" ./LICENSES/*
+  check_target "$libdir/libyices.dylib"
+
+  if test "$collision_found" = "yes" ; then
+    echo "$failure"
+    echo "Refusing to replace an existing Yices installation."
+    echo "Choose a fresh prefix or rerun with --replace-existing."
+    echo ""
+    exit 1
+  fi
+fi
 
 
 #
@@ -197,10 +240,15 @@ includedir="$install_dir/include"
 #
 if test "$local_install" = "no" ; then
   echo "Installing Yices in $install_dir"
-  { $install -d "$install_dir" "$bindir" "$libdir" "$includedir" \
+  { $install -d "$install_dir" "$bindir" "$libdir" "$pkgconfigdir" "$includedir" "$docdir" "$licensesdir" \
     && $install -m 0644 ./include/*.h "$includedir" \
     && $install ./bin/* "$bindir" \
-    && $install ./lib/*.2.dylib "$libdir" ; } 2> /dev/null ||
+    && $install ./lib/*.2.dylib "$libdir" \
+    && $install -m 0644 ./lib/pkgconfig/yices.pc "$pkgconfigdir" \
+    && $install -m 0644 ./LICENSE "$docdir" \
+    && $install -m 0644 ./NOTICES "$docdir" \
+    && $install -m 0644 ./PROVENANCE "$docdir" \
+    && $install -m 0644 ./LICENSES/* "$licensesdir" ; } 2> /dev/null ||
   { echo "$failure"
     echo "Could not create install directories or copy files"
     echo "Check that you have the right permissions"
@@ -211,18 +259,9 @@ fi
 
 
 #
-# If the install_dir is not /usr/local, fix the
-# library's install name.
-#
-if test "$install_dir" != "/usr/local" ; then
-   full_path_dylib="$libdir/$dylib_file"
-  { "$install_name_tool" -id "$full_path_dylib" "$full_path_dylib" ; }  ||
-   { echo "$failure"
-     echo "Could not fix the install name"
-     echo ""
-     exit 1 ; }
-fi
-
+# Preserve the packaged @rpath install name and signature state for every
+# destination. The copied dylib must remain byte-for-byte identical to the
+# validated release artifact; consumers select its location with rpath.
 #
 # Create the symbolic link to lib/liyices.2.dylib
 # on Mac OS, the symbolic link permissions matter.

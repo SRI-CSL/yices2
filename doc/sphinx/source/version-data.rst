@@ -25,7 +25,7 @@ used at compile time for checking the Yices version.
 For Yices 2.5.0, they are defined as follows::
 
    #define __YICES_VERSION            2
-   #define __YICES_VERSION_MAJOR      5
+   #define __YICES_VERSION_MAJOR      8
    #define __YICES_VERSION_PATCHLEVEL 0
 
 The same information is available in the following constant string.

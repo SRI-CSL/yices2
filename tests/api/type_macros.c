@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /* Achieves the following additional coverage:
  * api/yices_api.c:yices_type_variable(),
  *                 yices_type_constructor(),

@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /* Additional coverage achieved:
  * mcsat/uf/uf_plugin.c: `case ARITH_IDIV` in `get_function_application_type()`
  *                       in `uf_plugin_build_model`:

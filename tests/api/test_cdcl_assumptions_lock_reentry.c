@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * Regression test for lock reentry in CDCL(T) check-with-assumptions path.
  *
  * Under THREAD_SAFE pre-fix code, yices_check_context_with_assumptions held the

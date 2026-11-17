@@ -1,21 +1,8 @@
 #!/bin/sh
 
 #
-#  This file is part of the Yices SMT Solver.
-#  Copyright (C) 2017 SRI International.
-# 
-#  Yices is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-# 
-#  Yices is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-# 
-#  You should have received a copy of the GNU General Public License
-#  along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+#  Copyright (c) 2026, SRI International
+#  SPDX-License-Identifier: BSD-3-Clause
 #
 
 #
@@ -74,7 +61,37 @@ tempfile=`$mktemp_cmd` || { echo "Can't create temporary file" ; exit 1 ; }
 # Date and git commit
 #
 now=`date +"%Y-%m-%d"`
-rev=`git rev-parse HEAD 2>/dev/null || echo "unknown"`
+
+#
+# Revision.
+#
+# YICES_SOURCE_REVISION, if set, wins. The release build sets it so that a
+# build from a source tarball reports the real release commit. Without it a
+# tarball build has no .git directory, git rev-parse fails, and the binary
+# truthfully reports "unknown" rather than claiming that a potentially
+# modified downstream tree is the pristine release commit. README documents
+# how an unmodified source-archive build can use the authenticated receipt.
+#
+# Fall back to git for ordinary development builds only when the source root
+# itself is a Git work tree. Git normally searches parent directories; without
+# this boundary an extracted source archive inside an unrelated work tree can
+# inherit that outer repository's commit. Only then fall back to "unknown".
+#
+if test -n "$YICES_SOURCE_REVISION" ; then
+  rev="$YICES_SOURCE_REVISION"
+else
+  script_dir=`CDPATH= cd -- "$(dirname -- "$0")" 2>/dev/null && pwd -P`
+  source_root=`CDPATH= cd -- "$script_dir/.." 2>/dev/null && pwd -P`
+  git_root=unknown
+  if test -n "$source_root" && test -e "$source_root/.git" ; then
+    git_root=`git -C "$source_root" rev-parse --show-toplevel 2>/dev/null || echo unknown`
+  fi
+  if test "$git_root" = "$source_root" ; then
+    rev=`git -C "$source_root" rev-parse HEAD 2>/dev/null || echo unknown`
+  else
+    rev=unknown
+  fi
+fi
 
 
 #
@@ -90,6 +107,5 @@ sed -e "s/YICES_VERSION/$version/g" -e "s/YICES_COMPILATION_DATE/$now/g" \
 diff -q -N $tempfile $result > /dev/null || cp $tempfile $result
 
 rm -f $tempfile
-
 
 

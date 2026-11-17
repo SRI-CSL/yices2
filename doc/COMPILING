@@ -1,20 +1,7 @@
 ======================================================================
 
- This file is part of the Yices SMT Solver.
- Copyright (C) 2017 SRI International.
-
- Yices is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
-
- Yices is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+ Copyright (c) 2026, SRI International
+ SPDX-License-Identifier: BSD-3-Clause
 
 ======================================================================
 
@@ -177,6 +164,24 @@ The usual options can be given to './configure' and the usual
 environment variables are taken into account (CC, CFLAGS, LD,
 LDFLAGS, CPPFLAGS, etc.).  Type './configure --help' for details.
 
+For a local source installation, choose a fresh directory that you own,
+using an absolute path without whitespace. Check that the example path
+does not already exist; otherwise choose another unused path:
+
+   ./configure --prefix="$HOME/local/yices-2.8.0"
+
+After the ordinary 'make' build, 'make install' installs under this prefix
+without sudo. Use the installed binaries' full paths or add the prefix's
+bin directory to PATH. For the static-only workflow below, follow its
+separate installation instructions instead.
+
+Warning: 'make install' has no existing-installation check and can overwrite
+Yices files without prompting. It does not provide the collision refusal
+of 'install-yices' from the prebuilt binary archives. If --prefix is omitted,
+the default is /usr/local. Install into a shared prefix with elevated
+privileges only when you intend to replace its Yices files and have backed
+up anything you need to retain. Use a fresh prefix for each build variant.
+
 
 
 3) GMP library location
@@ -290,6 +295,12 @@ and links the static executables against that archive instead of raw
 This rewrite keeps the public Kissat API and kissat.h unchanged. Do not use
 -Wl,--allow-multiple-definition for the CaDiCaL/Kissat collision: it can
 silently bind one solver to the other's incompatible Kitten implementation.
+
+On macOS, set KISSAT_SOURCE_DIR before make to the configured Kissat source
+tree that produced the raw libkissat.a. The rewrite script builds the
+namespaced archive a second time from that source with a forced namespace
+header. It deliberately refuses binary objcopy rewriting on Mach-O because
+that can drop deployment metadata or damage relocations.
 
 4b) CaDiCaL and Kissat SAT delegates - dynamic build
 
@@ -804,10 +815,10 @@ MEW METHOD: Using a cross compiler
 
    Two versions of GMP must be installed. On my machine, the dynamic
    GMP library was built with
-     --prefix=/home/bruno/tools/mingw32
+     --prefix=/opt/yices-deps/mingw32
 
    and the static version was built with
-     --prefix=/home/bruno/tools/mingw32/static
+     --prefix=/opt/yices-deps/mingw32/static
 
 
 3) Configure yices as follows:
@@ -817,20 +828,20 @@ MEW METHOD: Using a cross compiler
         LD=/usr/bin/i686-w64-mingw32-ld \
         STRIP=/usr/bin/i686-w64-mingw32-strip \
         RANLIB=/usr/bin/i686-w64-mingw32-ranlib \
-	CPPFLAGS=-I/home/bruno/tools/mingw32/include \
-	LDFLAGS=-L/home/bruno/tools/mingw32/lib \
-        --with-static-gmp=/home/bruno/tools/mingw32/static/lib/libgmp.a \
-        --with-static-gmp-include-dir=/home/bruno/tools/mingw32/static/include
+	CPPFLAGS=-I/opt/yices-deps/mingw32/include \
+	LDFLAGS=-L/opt/yices-deps/mingw32/lib \
+        --with-static-gmp=/opt/yices-deps/mingw32/static/lib/libgmp.a \
+        --with-static-gmp-include-dir=/opt/yices-deps/mingw32/static/include
 
 
 
 3a) Aternative method: use --host=i686-w64-ming32 when running ./configure
 
    ./configure --host=i686-w64-mingw32 \
-        CPPFLAGS=-I/home/bruno/tools/mingw32/include \
-	LDFLAGS=-L/home/bruno/tools/mingw32/lib \
-        --with-static-gmp=/home/bruno/tools/mingw32/static/lib/libgmp.a \
-        --with-static-gmp-include-dir=/home/bruno/tools/mingw32/static/include
+        CPPFLAGS=-I/opt/yices-deps/mingw32/include \
+	LDFLAGS=-L/opt/yices-deps/mingw32/lib \
+        --with-static-gmp=/opt/yices-deps/mingw32/static/lib/libgmp.a \
+        --with-static-gmp-include-dir=/opt/yices-deps/mingw32/static/include
 
 
 
@@ -875,28 +886,28 @@ This can be done using the mingw64 cross compiler on Cygwin.
    configure properly.
 
    On my Dell laptop: the dynamic GMP/64bits library was installed with
-     --prefix=/home/bruno/tools/mingw64
+     --prefix=/opt/yices-deps/mingw64
 
    The static GMP/64bits library was installed with
-     --prefix=/home/bruno/tools/mingw64/static
+     --prefix=/opt/yices-deps/mingw64/static
 
    So this means that we have the following files:
 
-      /home/bruno/tools/mingw64/bin/libgmp-10.dll        (GMP DLL)
-      /home/bruno/tools/mingw64/lib/libgmp.dll.a         (corresponding lib file)
-      /home/bruno/tools/mingw64/include/gmp.h            (corresponding include)
+      /opt/yices-deps/mingw64/bin/libgmp-10.dll        (GMP DLL)
+      /opt/yices-deps/mingw64/lib/libgmp.dll.a         (corresponding lib file)
+      /opt/yices-deps/mingw64/include/gmp.h            (corresponding include)
 
-      /home/bruno/tools/mingw64/static/lib/libgmp.a      (static GMP)
-      /home/bruno/tools/mingw64/static/include/gmp.h     (corresponding include)
+      /opt/yices-deps/mingw64/static/lib/libgmp.a      (static GMP)
+      /opt/yices-deps/mingw64/static/include/gmp.h     (corresponding include)
 
 
 3) Assuming this installation, configure Yices as follows
 
     ,/configure --host=x86_64-w64-mingw32 \
-	CPPFLAGS=-I/home/bruno/tools/mingw64/include \
-	LDFLAGS=-L/home/bruno/tools/mingw64/lib \
-        --with-static-gmp=/home/bruno/tools/mingw64/static/lib/libgmp.a \
-        --with-static-gmp-include-dir=/home/bruno/tools/mingw64/static/include
+	CPPFLAGS=-I/opt/yices-deps/mingw64/include \
+	LDFLAGS=-L/opt/yices-deps/mingw64/lib \
+        --with-static-gmp=/opt/yices-deps/mingw64/static/lib/libgmp.a \
+        --with-static-gmp-include-dir=/opt/yices-deps/mingw64/static/include
 
   or like this
 
@@ -905,10 +916,10 @@ This can be done using the mingw64 cross compiler on Cygwin.
         LD=/usr/bin/x86_64-w64-mingw32-ld \
         STRIP=/usr/bin/x86_64-w64-mingw32-strip \
         RANLIB=/usr/bin/x86_64-w64-mingw32-ranlib \
-	CPPFLAGS=-I/home/bruno/tools/mingw64/include \
-	LDFLAGS=-L/home/bruno/tools/mingw64/lib \
-        --with-static-gmp=/home/bruno/tools/mingw64/static/lib/libgmp.a \
-        --with-static-gmp-include-dir=/home/bruno/tools/mingw64/static/include
+	CPPFLAGS=-I/opt/yices-deps/mingw64/include \
+	LDFLAGS=-L/opt/yices-deps/mingw64/lib \
+        --with-static-gmp=/opt/yices-deps/mingw64/static/lib/libgmp.a \
+        --with-static-gmp-include-dir=/opt/yices-deps/mingw64/static/include
 
    To select this configuration give 'OPTION=mingw64' to the make commands.
 

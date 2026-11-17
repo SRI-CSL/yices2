@@ -1,22 +1,37 @@
-Yices SMT Solver, Copyright SRI International
+Yices SMT Solver
 =============================================
 
-This file is part of the Yices __YICES__ binary distribution for MacOS X.
+Copyright (c) 2026, SRI International
+SPDX-License-Identifier: BSD-3-Clause
 
-This release was built on __OS_VERSION__.
+This applies to the Yices source. This archive also contains GMP and
+LibPoly. These are covered by the GNU Lesser General Public License; NOTICES
+states which version applies to each. Both carry copyright notices in
+individual source files rather than one notice for the project, so NOTICES
+reproduces no invented project-level copyright line for either library.
+Section 3.5 reproduces the distinct LibPoly source-file notices. A relink kit for
+rebuilding against your own versions of those libraries is published as a
+separate asset on the release page.
 
-Yices is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
+The `darwinNN.N.N` component in an archive filename identifies the build host.
+It is not the minimum supported macOS version: every Mach-O object in this
+archive has deployment target macOS 11.0.
 
-Yices is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
- 
-You should have received a copy of the GNU General Public License
-along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+For Apple Silicon, the `aarch64` component identifies the 64-bit Arm
+architecture; every Mach-O object in that archive is `arm64`.
+
+The Apple Silicon archive's four executables and shared library carry ad hoc
+linker signatures. Their Intel counterparts are unsigned. Object files inside
+lib/libyices.a are unsigned on both architectures. Neither archive is signed
+with an Apple Developer ID or notarized.
+
+A browser download may carry macOS quarantine metadata and be subject to
+Gatekeeper approval before first use; an ad hoc signature is not notarization.
+After verifying the archive checksum, a shell report of `Killed: 9`, exit 137,
+or no version output can indicate quarantine rather than a solver failure.
+Inspect it with `xattr -lr <extracted-directory>` and, if the archive came from
+the expected release, clear it with
+`xattr -dr com.apple.quarantine <extracted-directory>` before retrying.
 
 
 Content
@@ -32,6 +47,8 @@ This distribution includes four solvers
 and the Yices libraries and header files
 
   lib/__DYLIB__
+  lib/libyices.a
+  lib/pkgconfig/yices.pc
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -41,28 +58,56 @@ and the Yices libraries and header files
 Examples and documentation are in the examples and doc directories.
 
 
-The binaries and library were linked statically against GMP version __GMP__,
-copyright Free Software Foundation (see NOTICES).
+The Yices shared library and the binaries other than the sat solver were
+linked statically against GMP version __GMP__, copyright Free Software
+Foundation (see NOTICES).
 
+
+pkg-config
+----------
+
+The file lib/pkgconfig/yices.pc supports `pkg-config --cflags` and
+`pkg-config --modversion` from the unpacked archive. The `--libs` and
+`--static --libs` results do not produce a working link from the archive as
+shipped. The archive has no unversioned shared-library link, so `-lyices`
+selects libyices.a, and the private dependency archives named by Libs.private
+are not included in lib/.
+
+The installer creates the unversioned shared-library link and installs
+yices.pc in <prefix>/lib/pkgconfig.
 
 
 Installation
 ------------
 
-The library's install name is '/usr/local/lib/__DYLIB__', so
-__DYLIB__ must be copied into /usr/local/lib.
-This distribution includes a shell script for this purpose.
-Just type
+The library's install name is '@rpath/__DYLIB__'. A program that links against
+it must supply a run-path, normally with
+`-Wl,-rpath,/path/to/yices/lib` at link time, or set `DYLD_LIBRARY_PATH` at
+run time.
+This distribution includes a shell script to copy the files into an
+installation prefix. For a non-destructive installation, choose a fresh
+prefix that you own:
 
-   sudo ./install-yices
+   YICES_PREFIX="$HOME/.local/yices-2.8.0"
+   ./install-yices "$YICES_PREFIX"
 
-from a terminal. This will copy the binaries /usr/local/bin, the
-header files in /usr/local/include, and the libraries in /usr/local/lib.
+This copies the binaries, headers, shared library, pkg-config file, and legal
+record below that prefix. Add "$YICES_PREFIX/bin" to PATH when you want these
+binaries. Library users can set PKG_CONFIG_PATH to
+"$YICES_PREFIX/lib/pkgconfig" and must still supply the run-path described
+above.
 
-Other installation choices are possible. Try ./install-yices --help
-for more explanations.
+The installer does not copy `lib/libyices.a` or `doc/manual.pdf`. Keep the
+extracted distribution when you need the static archive or the manual.
+
+The installer refuses to replace any existing Yices file or link. If you
+intentionally want to replace an installation in a shared prefix, review that
+prefix first and use the explicit option:
+
+   sudo ./install-yices --replace-existing /usr/local
+
+Try ./install-yices --help for more explanations.
 
 
 
-For more information, please visit http://yices.csl.sri.com.
-
+For more information, please visit https://yices.csl.sri.com.

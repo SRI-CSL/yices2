@@ -1,4 +1,9 @@
 #!/bin/bash
+#
+# Copyright (c) 2026, SRI International
+# SPDX-License-Identifier: BSD-3-Clause
+#
+
 
 #
 # Setup environment variables to run the Visual

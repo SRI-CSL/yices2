@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /* Achieved the following additional coverage:
  * mcsat/nra/nra_plugin_explain.c: case where
  *          `lp_assignment_get_value(..)->type != LP_VALUE_NONE && sgn == 0

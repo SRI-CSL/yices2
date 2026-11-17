@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * Issue #684: MCSAT model interpolants over a scalar type.
  *
  * The NA plugin owns scalar types and propagates the value of each scalar

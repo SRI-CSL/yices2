@@ -1,6 +1,6 @@
 /*
- * This file is part of the Yices SMT Solver.
- * Copyright (C) 2026 SRI International.
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #ifndef MCSAT_BRANCH_UTILS_H_

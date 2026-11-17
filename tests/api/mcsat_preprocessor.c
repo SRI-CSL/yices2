@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /* Achieves the following additional coverage:
  * mcsat/preprocessor.c: function `preprocessor_build_model()`, `if` branch
  *                       when `eq_desc->arity > 1` holds

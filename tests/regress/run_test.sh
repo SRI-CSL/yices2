@@ -1,344 +1,237 @@
 #!/bin/bash
 
 #
-#  This file is part of the Yices SMT Solver.
-#  Copyright (C) 2017 SRI International.
-#
-#  Yices is free software: you can redistribute it and/or modify
-#  it under the terms of the GNU General Public License as published by
-#  the Free Software Foundation, either version 3 of the License, or
-#  (at your option) any later version.
-#
-#  Yices is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+#  Copyright (c) 2026, SRI International
+#  SPDX-License-Identifier: BSD-3-Clause
 #
 
+# Run an input once per option set: file.options is untagged and
+# file.<tag>.options is tagged. Without any sidecars there is one plain run.
+# Tagged sets do not inherit file.options. An empty file.options explicitly
+# retains the plain run alongside tags. Tags have no dot; options belonging
+# to another input sharing this prefix are not tags.
+# Compare file.<tag>.gold when present, otherwise file.gold.
+# -x excludes tags (comma/space separated). regress/both uses mcsat/dpllt
+# sidecars, not implicit directory-specific execution.
 #
-# Run one single regression tests
-#
-# Usage: run_test.sh [-c] [-s <smt2-options>] [-x <tags>] <test-file> <bin-dir> [<out-dir>]
-#
-# test-file is the test file the SMT1, SMT2, or Yices input language
-# bin-dir contains the Yices binaries for each of these languages
-# tmp-dir (optional) and specifies the location to put the results
-#
-# An input is run once per option set, and each run counts as its own test. An
-# option set is a file of command line options next to the input: file.options
-# for the untagged one, file.<tag>.options for the one named <tag>. A variant of
-# an existing input therefore needs a sidecar, not a copy of the input. An input
-# with no option set at all is run once, untagged, with no options.
-#
-# Once an input has tags, its untagged run is the one named by file.options, so
-# an empty file.options is meaningful: it keeps the plain run of an input that
-# takes no options. Leaving it out drops that run, which is what regress/both
-# does to be run under its two tags only.
-#
-# Each run is compared against file.<tag>.gold, falling back to file.gold when
-# the tag has no gold of its own.
-#
-# The tests in regress/both use this for the two solver modes, under the tags
-# mcsat and dpllt. -x disables tags, as in -x dpllt for an MCSAT-only run.
-#
+# One unique terminal record per variant preserves duplicates and parallel
+# safety. Its first two lines are the exact input spelling and tag, consumed
+# by check.sh's independently enumerated expected-result multiset.
 
 usage() {
-  echo "Usage: $0 [-c] [-s <smt2-options>] [-x <tags>] <test-file> <bin-dir> [out-dir]"
-  exit 4
+    echo "Usage: $0 [-c] [-s <smt2-options>] [-x <tags>] [-u <unavailable-delegates>] <test-file> <bin-dir> [out-dir]"
+    exit 4
 }
 
+script_dir=${BASH_SOURCE%/*}
+[ "$script_dir" != "$BASH_SOURCE" ] || script_dir=.
+source "$script_dir/test_options.sh" || exit 4
 smt2_options=
-color=
 disabled_tags=
-
-while getopts "cs:x:" o; do
+unavailable_delegates=
+color=
+while getopts "cs:x:u:" o; do
     case "$o" in
-    s)
-      smt2_options=${OPTARG}
-      ;;
-    x)
-      disabled_tags=${OPTARG}
-      ;;
-    c)
-      color="on"
-      ;;
-    *)
-      usage
-      ;;
+        s) smt2_options=$OPTARG ;;
+        x) disabled_tags=$OPTARG ;;
+        u) unavailable_delegates=$OPTARG ;;
+        c) color=on ;;
+        *) usage ;;
     esac
 done
 shift $((OPTIND-1))
-
-if [ $# -lt 2 ] ; then
-  usage
-fi
-
+[ $# -ge 2 ] && [ $# -le 3 ] || usage
 test_file=$1
 bin_dir=$2
-
-if [ $# -ge 3 ] ; then
-  out_dir=$3
-fi
-
-# Tags may be given separated by commas or by spaces
-disabled_tags=$(echo "$disabled_tags" | tr ',' ' ')
-
+out_dir=${3-}
+test_string=$test_file
+tag=
 export LIBC_FATAL_STDERR_=1
-
-#
-# System-dependent configuration
-#
-os_name=$(uname 2>/dev/null) || os_name=unknown
-
-case "$os_name" in
-  *Darwin* )
-     mktemp_cmd="/usr/bin/mktemp -t out"
-  ;;
-
-  * )
-     mktemp_cmd=mktemp
-  ;;
-
-esac
-
-#
-# We try bash's builtin time command
-#
 TIMEFORMAT="%U"
+TIME_LIMIT=${TIME_LIMIT:-60}
 
-
-#
-# Output colors
-#
-red=
-green=
-black=
+red= green= black=
 if [ -t 1 ] || [ -n "$color" ]; then
     red=$(tput setaf 1)
     green=$(tput setaf 2)
     black=$(tput sgr0)
 fi
 
-#
-# The temp files for output, reused by every option set
-#
-outfile=$($mktemp_cmd) || { echo "Can't create temp file" ; exit 3 ; }
-timefile=$($mktemp_cmd) || { echo "Can't create temp file" ; exit 3 ; }
+outfile= timefile= log_file=
+result_line= result_detail=
+completed=no
+active=no
+termination_signal=
 
-cleanup() {
-    rm -f "$timefile" "$outfile"
+record_result() {
+    local status=$1 suffix=error result_color=$red tmp_file
+    if [ -z "$result_line" ]; then
+        result_line="FAIL: worker exited with status $status: $test_string"
+    fi
+    if [ "$status" -eq 0 ]; then
+        suffix=pass
+        result_color=$green
+    fi
+    if [ -n "$log_file" ]; then
+        if ! printf '%s\n' "$test_file" "$tag" "$test_string" "$result_detail" > "$log_file" ||
+           ! mv "$log_file" "$log_file.$suffix"; then
+            result_line="FAIL: cannot record result for $test_string"
+            result_color=$red
+            status=3
+        fi
+    fi
+    # Only this worker's successfully allocated temporary files are removed.
+    for tmp_file in "$outfile" "$timefile" "$log_file"; do
+        [ -z "$tmp_file" ] || rm -f "$tmp_file"
+    done
+    outfile= timefile= log_file=
+    active=no
+    printf '%s %s %s\n' "$result_color" "$result_line" "$black"
+    result_line= result_detail=
+    return "$status"
 }
-trap cleanup EXIT
 
-if [[ -z "$TIME_LIMIT" ]];
-then
-    TIME_LIMIT=60
+finish() {
+    local status=$?
+    trap - EXIT
+    if [ "$completed" != yes ] && [ "$status" -eq 0 ]; then
+        status=1
+    fi
+    if [ "$active" = yes ] || [ "$completed" != yes ]; then
+        record_result "$status"
+        status=$?
+    fi
+    if [ -n "$termination_signal" ]; then
+        # Bash's parent must see SIGINT termination, not an ordinary exit 130.
+        trap - "$termination_signal"
+        kill -s "$termination_signal" "$$"
+    fi
+    exit "$status"
+}
+
+fail_test() {
+    local status=$1
+    shift
+    result_detail="$*"
+    result_line="FAIL: $result_detail"
+    exit "$status"
+}
+
+trap finish EXIT
+trap 'termination_signal=HUP; exit 129' HUP
+trap 'termination_signal=INT; exit 130' INT
+trap 'termination_signal=TERM; exit 143' TERM
+
+# A setup failure must also leave a terminal error record.
+if [ -n "$out_dir" ]; then
+    [ -d "$out_dir" ] || fail_test 3 "result directory is missing: $out_dir"
+    log_file=$(mktemp "$out_dir/result.XXXXXXXX") || fail_test 3 "cannot allocate result in $out_dir"
 fi
+active=yes
 
-# Get the binary based on the filename
-filename=$(basename "$test_file")
-
-base_options=
-
-case $filename in
-    *.smt2)
-        binary=yices_smt2
-        base_options=$smt2_options
-        ;;
-    *.smt)
-        binary=yices_smtcomp
-        ;;
-    *.ys)
-        binary=yices
-        ;;
-    *)
-        echo "FAIL: unknown extension for $filename"
-        exit 2
+if [[ -z "$test_file" || "$test_file" == *$'\n'* ]]; then
+    fail_test 2 "empty or newline-containing regression pathname is not supported"
+fi
+# Keep the caller's spelling as identity, but make file operands unambiguous.
+case "$test_file" in
+    /*|./*|../*) test_path=$test_file ;;
+    *) test_path="./$test_file" ;;
 esac
+case "$bin_dir" in /*|./*|../*) ;; *) bin_dir="./$bin_dir" ;; esac
+filename=${test_path##*/}
+base_options=
+case "$filename" in
+    *.smt2) binary=yices_smt2; base_options=$smt2_options ;;
+    *.smt) binary=yices_smtcomp ;;
+    *.ys) binary=yices ;;
+    *) fail_test 2 "unknown extension for $filename" ;;
+esac
+[ -f "$test_path" ] && [ -r "$test_path" ] || fail_test 2 "missing or unreadable test: $test_file"
+[ -x "$bin_dir/$binary" ] || fail_test 2 "solver is missing or not executable: $bin_dir/$binary"
+collect_test_tags "$test_path" "$disabled_tags" || fail_test 2 "cannot enumerate option sets for $test_file"
+filter_test_tags_for_delegates "$test_path" "$unavailable_delegates"
+
+if [ ${#test_tags[@]} -eq 0 ]; then
+    [ -z "$log_file" ] || rm -f "$log_file"
+    log_file=
+    active=no
+    completed=yes
+    echo "SKIP: all option-set variants are disabled or unsupported: $test_file"
+    # A direct worker with zero runs must not report successful testing.
+    exit 1
+fi
 
 run_solver_once() {
-  local run_options=$1
-  local run_outfile=$2
-  local run_timefile=$3
-
-  (
-    ulimit -S -t $TIME_LIMIT &> /dev/null
-    ulimit -H -t $((1+$TIME_LIMIT)) &> /dev/null
-    (time "./$bin_dir/$binary" $run_options "./$test_file" >& "$run_outfile") >& "$run_timefile"
-  )
+    local run_options=$1
+    (
+        ulimit -S -t "$TIME_LIMIT" &> /dev/null || exit 3
+        ulimit -H -t $((1+TIME_LIMIT)) &> /dev/null || exit 3
+        # Options files use whitespace-separated arguments, not shell syntax.
+        # Disable glob expansion so an option cannot expand into local files.
+        set -f
+        (time "$bin_dir/$binary" $run_options "$test_path" >& "$outfile") >& "$timefile"
+    )
 }
 
-# The tags that have an option set, one per <test-file>.<tag>.options. The
-# pattern cannot match the untagged <test-file>.options, which has nothing
-# between the input name and the suffix.
-#
-# A tag is one name, without a dot. Inputs come in families that share a prefix,
-# such as fuzz17.smt2 and its reduction fuzz17.smt2.dd.smt2, and the options of
-# the second must not read as a tag "dd.smt2" of the first. A candidate that is
-# the options of an existing input is skipped for the same reason.
-collect_tags() {
-  local file
-  local tag
-
-  for file in "$test_file".*.options; do
-    [ -e "$file" ] || continue
-    tag=${file#"$test_file".}
-    tag=${tag%.options}
-    case "$tag" in
-      ""|*.*)
-        continue
-        ;;
-    esac
-    if [ -e "$test_file.$tag" ] ; then
-      continue
-    fi
-    echo "$tag"
-  done
-}
-
-is_tag_disabled() {
-  local tag=$1
-  local disabled
-
-  for disabled in $disabled_tags; do
-    if [ "$disabled" = "$tag" ] ; then
-      return 0
-    fi
-  done
-
-  return 1
-}
-
-# The options file of a tag, the untagged one for an empty tag
-options_file_of() {
-  local tag=$1
-
-  if [ -n "$tag" ] ; then
-    echo "$test_file.$tag.options"
-  else
-    echo "$test_file.options"
-  fi
-}
-
-# The gold of a tag, falling back to the one shared by every tag
-gold_of() {
-  local tag=$1
-
-  if [ -n "$tag" ] && [ -e "$test_file.$tag.gold" ] ; then
-    echo "$test_file.$tag.gold"
-  elif [ -e "$test_file.gold" ] ; then
-    echo "$test_file.gold"
-  fi
-}
-
-# Where the log of a run goes. One log per option set, so that the counts in
-# check.sh see every run.
-log_file_of() {
-  local tag=$1
-  local base
-
-  if [ ! -d "$out_dir" ] ; then
-    return 0
-  fi
-
-  # replace _ with __ and / with _
-  base="$out_dir/_$(echo "${test_file//_/__}" | tr '/' '_')"
-  if [ -n "$tag" ] ; then
-    base="$base@$tag"
-  fi
-
-  echo "$base"
-}
-
-# Run the test under one option set. Returns 0 when it passes.
-run_option_set() {
-  local tag=$1
-  local options_file
-  local options
-  local test_string
-  local log_file
-  local gold
-  local code
-
-  options_file=$(options_file_of "$tag")
-  options=$base_options
-  test_string="$test_file"
-  if [ -n "$tag" ] ; then
-    test_string="$test_string ($tag)"
-  fi
-  if [ -e "$options_file" ] ; then
-    options="$options $(cat "$options_file")"
-  fi
-  # An option set may well be empty: unquoted, it collapses to nothing
-  if [ -n "$(echo $options)" ] ; then
-    test_string="$test_string [ $options ]"
-  fi
-
-  log_file=$(log_file_of "$tag")
-
-  gold=$(gold_of "$tag")
-  if [ -z "$gold" ] ; then
-    echo "$red FAIL: missing file: $test_file.gold $black"
-    if [ -n "$log_file" ] ; then
-      echo "$test_string" > "$log_file.error"
-      echo "missing file: $test_file.gold" >> "$log_file.error"
-    fi
+variant_error() {
+    result_detail="$*"
+    result_line="FAIL: $result_detail"
     return 2
-  fi
-
-  # Declared before the assignments: "local x=$(cmd)" would overwrite the exit
-  # status of cmd with the one of local
-  local status runtime DIFF diff_status
-
-  run_solver_once "$options" "$outfile" "$timefile"
-  status=$?
-  runtime=$(cat "$timefile")
-
-  DIFF=$(diff -w "$outfile" "$gold")
-  diff_status=$?
-
-  if [ $diff_status -eq 0 ] && [ $status -eq 0 ]
-  then
-      echo -e "$green PASS [${runtime} s] $black $test_string"
-      if [ -n "$log_file" ] ; then
-          echo "$test_string" > "$log_file.pass"
-          echo "$runtime" >> "$log_file.pass"
-      fi
-      code=0
-  else
-      echo -e "$red FAIL $black $test_string"
-      if [ -n "$log_file" ] ; then
-          echo "$test_string" > "$log_file.error"
-          echo "$runtime" >> "$log_file.error"
-          if [ $status -ne 0 ]; then
-              echo "exit status: $status" >> "$log_file.error"
-          fi
-          echo "$DIFF" >> "$log_file.error"
-      fi
-      code=1
-  fi
-
-  return $code
 }
 
-#
-# One run per option set: the untagged one when it exists, or when the input has
-# no option set at all, then one per tag that is not disabled.
-#
-tags=$(collect_tags)
+run_variant() {
+    local options_file="$test_path.options" gold="$test_path.gold"
+    local options=$base_options file_options status runtime difference diff_status
+    test_string=$test_file
+    if [ -n "$tag" ]; then
+        options_file="$test_path.$tag.options"
+        test_string="$test_file ($tag)"
+        if [ -e "$test_path.$tag.gold" ] || [ -L "$test_path.$tag.gold" ]; then
+            gold="$test_path.$tag.gold"
+        fi
+    fi
+    if [ -e "$options_file" ] || [ -L "$options_file" ]; then
+        if ! file_options=$(cat "$options_file"); then
+            variant_error "cannot read $options_file"; return 2
+        fi
+        options="$options $file_options"
+    fi
+    test_string="$test_string [ $options ]"
+    if [ ! -f "$gold" ] || [ ! -r "$gold" ]; then
+        variant_error "missing or unreadable file: $gold"; return 2
+    fi
+    outfile=$(mktemp "${TMPDIR:-/tmp}/yices-test.XXXXXXXX") || {
+        variant_error "cannot create solver output file"; return 3;
+    }
+    timefile=$(mktemp "${TMPDIR:-/tmp}/yices-test.XXXXXXXX") || {
+        variant_error "cannot create timing file"; return 3;
+    }
+    run_solver_once "$options"
+    status=$?
+    if ! runtime=$(cat "$timefile"); then
+        variant_error "cannot read timing file"; return 3
+    fi
+    difference=$(diff -w "$outfile" "$gold")
+    diff_status=$?
+    if [ "$status" -eq 0 ] && [ "$diff_status" -eq 0 ]; then
+        result_line="PASS [${runtime} s] $test_string"
+        result_detail=$runtime
+        return 0
+    fi
+    result_line="FAIL $test_string"
+    result_detail="exit status: $status"$'\n'"$runtime"$'\n'"$difference"
+    return 1
+}
+
 code=0
-
-if [ -e "$test_file.options" ] || [ -z "$tags" ] ; then
-  run_option_set "" || code=1
-fi
-
-while IFS= read -r tag; do
-  [ -n "$tag" ] || continue
-  is_tag_disabled "$tag" && continue
-  run_option_set "$tag" || code=1
-done <<< "$tags"
-
-exit $code
+for tag in "${test_tags[@]}"; do
+    active=yes
+    if [ -n "$out_dir" ] && [ -z "$log_file" ]; then
+        log_file=$(mktemp "$out_dir/result.XXXXXXXX") || fail_test 3 "cannot allocate result in $out_dir"
+    fi
+    run_variant
+    status=$?
+    record_result "$status" || code=1
+done
+completed=yes
+exit "$code"

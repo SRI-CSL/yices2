@@ -1,19 +1,6 @@
 /*
- * This file is part of the Yices SMT Solver.
- * Copyright (C) 2017 SRI International.
- *
- * Yices is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * Yices is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 /*
@@ -60,6 +47,7 @@
 #include <unistd.h>
 #endif
 
+#include "frontend/common/library_notices.h"
 #include "frontend/common/parameters.h"
 #include "frontend/smt2/smt2_commands.h"
 #include "frontend/smt2/smt2_lexer.h"
@@ -268,12 +256,17 @@ static option_desc_t options[NUM_OPTIONS] = {
  */
 static void print_version(void) {
   printf("Yices %s\n"
-   "Copyright SRI International.\n"
+   "Copyright (c) 2026, SRI International.\n"
          "Linked with GMP %s\n"
    "Copyright Free Software Foundation, Inc.\n"
+         YICES_LIBPOLY_NOTICES
          "Build date: %s\n"
          "Platform: %s (%s)\n"
-         "Revision: %s\n",
+         "Revision: %s\n"
+         "Includes components from the Free Software Foundation and others.\n"
+         "See the NOTICES file for those components, the terms that apply to\n"
+         "them, and where to find the copies of the GNU Lesser General Public\n"
+         "License and the GNU General Public License distributed with Yices.\n",
          yices_version, gmp_version,
          yices_build_date, yices_build_arch, yices_build_mode, yices_rev);
   fflush(stdout);
@@ -306,7 +299,7 @@ static void print_help(const char *progname) {
 	 "    --nthreads=<number of threads>  Specify the number of threads (default = 0 = main thread only)\n"
 	 "    -n <number of threads>\n"
          "\n"
-         "For bug reports and other information, please see http://yices.csl.sri.com/\n");
+         "For bug reports and other information, please see https://yices.csl.sri.com/\n");
   fflush(stdout);
 }
 

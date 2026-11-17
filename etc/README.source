@@ -1,19 +1,8 @@
 ======================================================================
 
- The Yices SMT Solver. Copyright 2017 SRI International.
-
- Yices is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
-
- Yices is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
- 
- You should have received a copy of the GNU General Public License
- along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+ The Yices SMT Solver.
+ Copyright (c) 2026, SRI International
+ SPDX-License-Identifier: BSD-3-Clause
 
 ======================================================================
 
@@ -27,7 +16,7 @@ tests, and examples.
 Yices 2 is developed by Bruno Dutertre and Dejan Jovanovic, at the
 Computer Science Laboratory, SRI International. To contact us, report
 a bug, or to get more information about Yices, please visit our
-website at http://yices.csl.sri.com.
+website at https://yices.csl.sri.com.
 
 
 PREREQUISITES
@@ -51,17 +40,49 @@ To build the manual, you also need:
 QUICK INSTALLATION
 ------------------
 
-Do this:
+Choose a fresh installation directory that you own, using an absolute path
+without whitespace. Check that $HOME/local/yices-2.8.0 does not already
+exist; if it does, choose another unused path in the command below:
 
-  ./configure
+  ./configure --prefix="$HOME/local/yices-2.8.0"
   make
-  sudo make install
+  make install
 
-This will install binaries and libraries in /usr/local/
-You can change the installation location by giving option 
-  --prefix=... to the ./configure script.
+This installs binaries, libraries and headers under the chosen prefix,
+without sudo. LICENSE and NOTICES go in share/doc/yices-2.8.0 under that
+prefix, and license texts go in share/licenses/yices-2.8.0. Add the prefix's
+bin directory to PATH or invoke the installed binaries by their full paths.
+
+Warning: make install has no existing-installation check and can overwrite
+Yices files without prompting. Unlike install-yices in the prebuilt binary
+archives, it does not refuse an existing Yices installation. Reusing a
+prefix can replace binaries, libraries, headers and other installed files.
+If --prefix is omitted, the default is /usr/local. Install into a shared
+prefix with elevated privileges only when you intend to replace its Yices
+files and have backed up anything you need to retain.
 
 For more explanations, please check doc/COMPILING.
+
+
+SOURCE REVISION
+---------------
+
+The official release binaries record the full release commit. The release
+workflow supplies it through YICES_SOURCE_REVISION.
+
+A normal build from this extracted source archive has no Git metadata. It
+therefore reports "Revision: unknown" unless YICES_SOURCE_REVISION is set.
+This is intentional: a locally modified source tree must not silently claim
+to be the pristine release commit. For a byte-unmodified official source
+archive, you may set YICES_SOURCE_REVISION to the full commit recorded in the
+published YICES-SOURCE-RECEIPT before running make. Keep a separate record of
+any local modifications.
+
+Generated src/api/yices_*_version.c files are intentionally omitted from this
+source archive. The build regenerates the appropriate version source from
+the configured mode and YICES_SOURCE_REVISION (or bounded Git discovery).
+The source receipt binds the archived inputs, not a previous builder's
+transient version file.
 
 
 
@@ -72,19 +93,67 @@ This release has experimental support for non-linear real arithmetic,
 but it is not enabled by default. If you want non-linear arithmetic,
 follow these instructions:
 
-1) Install SRI's library for polynomial manipulation. It's available
-   on github (https://github.com/SRI-CSL/libpoly).
+1) Install SRI's LibPoly and CUDD, including their headers and libraries.
+   The release uses LibPoly 0.2.1 at c342ff1ad2f0cbcfc866b1ef024003ccc001add2
+   (https://github.com/SRI-CSL/libpoly) and CUDD 3.0.0 at
+   f54f533303640afd5dbe47a05ebeabb3066f2a25 (https://github.com/ivmai/cudd).
+   Their exact corresponding-source archives accompany the release. Follow
+   their build instructions; use PIC dependencies for the Yices shared
+   library (CUDD: configure CFLAGS=-fPIC; LibPoly: enable its static PIC build).
+   These are tested identities, not claimed minimum compatible versions.
 
-2) After you've installed libpoly, configure yices with the
-   flag '--enable-mcsat', then build Yices as usual:
+2) After you've installed LibPoly and CUDD, configure Yices with the
+   flag '--enable-mcsat', then build Yices as usual. Choose a fresh prefix
+   for this variant too; the same overwrite warning applies:
 
-    ./configure --enable-mcsat
+    ./configure --prefix="$HOME/local/yices-2.8.0-mcsat" \
+                --enable-mcsat
     make
-    sudo make install
+    make install
 
    You may need to provide LDFLAGS/CPPFLAGS if ./configure fails to
-   find the libpoly library. Other options may be useful too.  Try
+   find either library and its headers. Other options may be useful too. Try
    ./configure --help to see what's there.
+
+
+TEST COVERAGE AND OPTIONAL TOOLS
+-------------------------------
+
+The source archive includes API/unit tests and the arrays, bv, efsmt, mantis
+and wd regression groups. The test targets have different purposes:
+
+- make check builds the solvers and runs the included regression groups.
+  For a static build, use make static-check.
+- make check-api builds and runs the API tests. For a static build, use
+  make static-check-api.
+- make test builds the unit-test programs; it does not execute them.
+  make static-test builds their static counterparts. Some programs require
+  arguments or input files: consult their source before running them
+  individually from build/<target>-<mode>/bin (or static_bin).
+
+On Linux, static-check-api and static-test also build the shared library with
+static GMP unless both the CaDiCaL and Kissat delegates are configured. With
+both delegates these targets build the static executables instead, and a
+non-PIC GMP archive is sufficient. In the shared-library case, if the system
+libgmp.a is not PIC, supply a PIC archive through configure's --with-pic-gmp
+option (and its matching header if needed); see doc/COMPILING. This PIC
+requirement also applies when requesting make static-lib explicitly.
+
+With Python 3 installed, python3 tests/unit/test_regress_harness.py checks the
+regression driver's own failure accounting and path handling, without building
+Yices. It uses controlled solver/parallel-dispatch fixtures; it is not a
+solver-correctness suite or a substitute for the targets above.
+
+The larger MCSAT regression suite remains in the Git repository and
+is not included in this archive. Requesting make mcsat-check or
+make static-mcsat-regress without that suite fails; zero tests is not a PASS.
+For that coverage use a matching Git checkout with the suite and an
+MCSAT-enabled build. The release build's recorded MCSAT results do not mean
+that a recipient ran those tests.
+
+The optional Python 3 portfolio helper utils/yices2_parallel.py also remains
+in the Git repository rather than these source/binary archives. The manual's
+portfolio examples require that checkout and an explicit solver path.
 
 
 
@@ -112,4 +181,3 @@ Other documentation is in the ./doc directory:
 - doc/NOTES gives an overview of the source code.
 - doc/YICES-LANGUAGE explains the syntax of the Yices language, and
   describes commands, functions, and heuristic parameters.
-

@@ -1,24 +1,13 @@
-Yices SMT Solver, Copyright SRI International
+Yices SMT Solver
 =============================================
 
-This file is part of the Yices __YICES__ binary distribution for Linux
-platforms. 
+Copyright (c) 2026, SRI International
+SPDX-License-Identifier: BSD-3-Clause
 
-This release was built on __OS_VERSION__.
-
-Yices is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-Yices is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
- 
-You should have received a copy of the GNU General Public License
-along with Yices.  If not, see <http://www.gnu.org/licenses/>.
-
+This applies to the Yices source. Other components in this distribution are
+covered by their own terms; NOTICES identifies those components, reproduces
+a copyright notice for some of them, and records why it reproduces none for
+the others.
 
 Content
 -------
@@ -33,6 +22,8 @@ This distribution includes four solvers
 and the Yices libraries and header files
 
   lib/__DYLIB__
+  lib/libyices.a
+  lib/pkgconfig/yices.pc
   include/yices.h
   include/yices_types.h
   include/yices_limits.h
@@ -42,8 +33,8 @@ and the Yices libraries and header files
 Examples and documentation are in the examples and doc directories.
 
 
-The binaries and library require the GNU Multiprecision library (GMP)
-version __GMP__ or compatible.  GMP must be installed as a dynamic
+The Yices shared library and the binaries other than the sat solver require
+GMP version __GMP__ or compatible.  GMP must be installed as a dynamic
 library for Yices to work.  GMP is copyright Free Software Foundation
 (see NOTICES).
 
@@ -65,20 +56,21 @@ included in this distribution. Just type
 
 
 
-Alternatively, you can install Yices in /usr/local as follows:
+For a non-destructive installation, choose a fresh prefix that you own:
 
-  sudo ./install-yices
+  YICES_PREFIX="$HOME/.local/yices-2.8.0"
+  ./install-yices "$YICES_PREFIX"
 
-This will copy the binaries  /usr/local/bin, the header files in
-/usr/local/include, and the libraries in /usr/local/lib.
+The installer does not copy `lib/libyices.a` or `doc/manual.pdf`. Keep the
+extracted distribution when you need the static archive or the manual.
 
-To install Yices in another location, give the installation directory
-as argument to the shell script:
+The installer refuses to replace existing Yices files or links. To
+intentionally replace an installation in a shared prefix after reviewing it:
 
-  ./install-yices <dir>
-
-
-
+  sudo ./install-yices --replace-existing /usr/local
 
 
-For more information about Yices, please visit http://yices.csl.sri.com.
+
+
+
+For more information about Yices, please visit https://yices.csl.sri.com.

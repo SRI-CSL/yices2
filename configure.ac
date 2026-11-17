@@ -1,18 +1,6 @@
 dnl========================================================================
-dnl The Yices SMT Solver. Copyright 2017 SRI International.
-dnl
-dnl Yices is free software: you can redistribute it and/or modify
-dnl it under the terms of the GNU General Public License as published by
-dnl the Free Software Foundation, either version 3 of the License, or
-dnl (at your option) any later version.
-dnl
-dnl Yices is distributed in the hope that it will be useful,
-dnl but WITHOUT ANY WARRANTY; without even the implied warranty of
-dnl MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-dnl GNU General Public License for more details.
-dnl
-dnl You should have received a copy of the GNU General Public License
-dnl along with Yices.  If not, see <http://www.gnu.org/licenses/>.
+dnl Copyright (c) 2026, SRI International
+dnl SPDX-License-Identifier: BSD-3-Clause
 dnl
 dnl========================================================================
 
@@ -59,6 +47,8 @@ if test "$POSIXOS" = unknown ; then
    AC_MSG_ERROR([Unknown operating system])
 fi
 
+AC_SUBST(YICES_PC_PRIVATE_LIBS)
+
 
 dnl
 dnl define SET_MAKE if needed
@@ -74,6 +64,12 @@ dnl
 AC_PROG_SED
 AC_PROG_LN_S
 AC_PROG_MKDIR_P
+case "$MKDIR_P" in
+  ./*)
+    MKDIR_P="$ac_pwd/${MKDIR_P#./}"
+    AC_MSG_NOTICE([using absolute MKDIR_P: $MKDIR_P])
+    ;;
+esac
 AC_PROG_INSTALL
 
 AC_PROG_CC
@@ -426,7 +422,7 @@ AC_ARG_WITH([static-dep-dir],
 static_delegates=""
 AC_ARG_WITH([static-delegates],
    [AS_HELP_STRING([--with-static-delegates=<directory>],
-            [Directory containing raw static delegate archives])],
+            [Directory containing static delegate archives])],
    [if test "x$withval" = x; then
       AC_MSG_WARN([--with-static-delegates was used but no directory was given. Ignoring])
     else
@@ -957,13 +953,13 @@ fi
 # Position-independent static version of LIBPOLY
 #
 PIC_LIBPOLY="$STATIC_LIBPOLY"
-PIB_LIBPOLY_INCLUDE_DIR="$STATIC_LIBPOLY_INCLUDE_DIR"
+PIC_LIBPOLY_INCLUDE_DIR="$STATIC_LIBPOLY_INCLUDE_DIR"
 AC_SUBST(PIC_LIBPOLY)
 AC_SUBST(PIC_LIBPOLY_INCLUDE_DIR)
 if test $use_mcsat = yes ; then
   if test "x$pic_lpoly" != x ; then
      CSL_CHECK_HEADER([poly/polynomial.h],$pic_includelpoly,--with-pic-libpoly-include-dir)
-     CSL_CHECK_LIB_PATH($pic_lpoly,--with-pic-lpoly)
+     CSL_CHECK_LIB_PATH($pic_lpoly,--with-pic-libpoly)
      if test "x$PIC_GMP" != x ; then
         auxlibs="$PIC_GMP"
      else
@@ -973,7 +969,7 @@ if test $use_mcsat = yes ; then
          auxlibs="-lgmp"
        fi
      fi
-     CSL_CHECK_STATIC_LIBPOLY($pic_lpoly,$pic_includelpoly,$auxlibs)
+     CSL_CHECK_LIBPOLY($testlib,$testincludedir,$auxlibs)
      if test $run_ok = yes; then
        PIC_LIBPOLY=$testlib
        PIC_LIBPOLY_INCLUDE_DIR=$testincludedir
@@ -1011,6 +1007,7 @@ STATIC_CADICAL_RAW=""
 STATIC_CRYPTOMINISAT_RAW=""
 STATIC_KISSAT_RAW=""
 STATIC_KISSAT_YICES=""
+STATIC_KISSAT_YICES_GENERATED=no
 DYNAMIC_DELEGATES_ASSUME_HIDDEN_KITTEN="$dynamic_delegates_assume_hidden_kitten"
 
 AC_SUBST(HAVE_CADICAL_DELEGATE)
@@ -1022,6 +1019,7 @@ AC_SUBST(STATIC_CADICAL_RAW)
 AC_SUBST(STATIC_CRYPTOMINISAT_RAW)
 AC_SUBST(STATIC_KISSAT_RAW)
 AC_SUBST(STATIC_KISSAT_YICES)
+AC_SUBST(STATIC_KISSAT_YICES_GENERATED)
 AC_SUBST(DYNAMIC_DELEGATES_ASSUME_HIDDEN_KITTEN)
 
 if test "x$static_include_delegates" != x ; then
@@ -1050,14 +1048,23 @@ if test "x$static_delegates" != x ; then
    fi
 
    if test $HAVE_KISSAT_DELEGATE = yes ; then
-      CSL_CHECK_STATIC_DELEGATE_ARCHIVE([$static_delegates],[libkissat.a])
-      STATIC_KISSAT_RAW=$testlib
-      STATIC_KISSAT_YICES='$(STATIC_DEPDIR)/libkissat_yices.a'
+      if test -f "$static_delegates/libkissat_yices.a" ; then
+         AC_MSG_NOTICE([using supplied namespaced Kissat archive $static_delegates/libkissat_yices.a])
+         STATIC_KISSAT_YICES="$static_delegates/libkissat_yices.a"
+         if test -f "$static_delegates/libkissat.a" ; then
+            STATIC_KISSAT_RAW="$static_delegates/libkissat.a"
+         fi
+      else
+         CSL_CHECK_STATIC_DELEGATE_ARCHIVE([$static_delegates],[libkissat.a])
+         STATIC_KISSAT_RAW=$testlib
+         STATIC_KISSAT_YICES='$(STATIC_DEPDIR)/libkissat_yices.a'
+         STATIC_KISSAT_YICES_GENERATED=yes
+      fi
       CSL_CHECK_HEADER([kissat.h],$static_include_delegates,--with-static-delegates-include-dir)
    fi
 else
    if test $HAVE_CADICAL_DELEGATE = yes && test $HAVE_KISSAT_DELEGATE = yes ; then
-      AC_MSG_WARN([CaDiCaL and Kissat both export private Kitten symbols. Static builds must configure --with-static-delegates=DIR so make can generate libkissat_yices.a.])
+      AC_MSG_WARN([CaDiCaL and Kissat both export private Kitten symbols. Static builds must configure --with-static-delegates=DIR so the build can use or generate a namespaced libkissat_yices.a.])
    fi
 fi
 
@@ -1082,21 +1089,6 @@ if test $use_mcsat = yes ; then
    AC_CHECK_LIB([cudd],[Cudd_Init], [], [AC_MSG_ERROR([*** CUDD library not found. Try to set LDFLAGS ***])])   
 fi
 
-
-#
-# Fix MKDIR_P to an absolute path if it's set to './install-sh -c -d'
-# because the Makefiles import its definition via ./configs/make.include.
-# This may be unreliable (it won't handle spaces in directory names).
-#
-# case "$MKDIR_P" in
-#   ./install-sh*)
-#      curdir=`pwd`
-#      new_mkdir_p="$curdir/$MKDIR_P"
-#     AC_MSG_WARN([*** MKDIR_P is relative: converting $MKDIR_P to $new_mkdir_p ***])
-#     MKDIR_P=$new_mkdir_p
-#     ;;
-# esac
-#
 
 #
 # THREAD-SAFE OPTION
@@ -1133,10 +1125,46 @@ dnl AC_CHECK_HEADERS([poly/poly.h], [], [AC_MSG_ERROR([*** libpoly headers not f
 #
 CFLAGS=$saved_cflags
 
+# Static consumers need only the dependencies actually compiled into Yices.
+# Keep the production link order: dependents first, LibPoly then GMP last.
+YICES_PC_PRIVATE_LIBS="-lm"
+if test "$use_mcsat" = yes ; then
+  YICES_PC_PRIVATE_LIBS="-lcudd $YICES_PC_PRIVATE_LIBS"
+fi
+if test "$HAVE_CRYPTOMINISAT_DELEGATE" = yes ; then
+  YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lcryptominisat5"
+fi
+if test "$HAVE_CADICAL_DELEGATE" = yes ; then
+  YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lcadical"
+fi
+if test "$HAVE_KISSAT_DELEGATE" = yes ; then
+  if test -n "$STATIC_KISSAT_YICES" ; then
+    YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lkissat_yices"
+  else
+    YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lkissat"
+  fi
+fi
+if test "$HAVE_CADICAL_DELEGATE" = yes || test "$HAVE_CRYPTOMINISAT_DELEGATE" = yes ; then
+  case "${host_os:-$build_os}" in
+    darwin*) YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lc++ -lm" ;;
+    *) YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lstdc++ -lm" ;;
+  esac
+fi
+if test "$thread_safe" = yes || test "$HAVE_CRYPTOMINISAT_DELEGATE" = yes ; then
+  case "${host_os:-$build_os}" in
+    darwin*) ;; dnl libSystem supplies pthread on Darwin.
+    *) YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lpthread" ;;
+  esac
+fi
+if test "$use_mcsat" = yes ; then
+  YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lpoly"
+fi
+YICES_PC_PRIVATE_LIBS="$YICES_PC_PRIVATE_LIBS -lgmp"
+
 #
 # Store config data in ./configs/make.include.$(ARCH)
 #
-AC_CONFIG_FILES([make.include])
+AC_CONFIG_FILES([make.include yices.pc])
 AC_OUTPUT
 
 if test ! -d configs ; then

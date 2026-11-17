@@ -1,4 +1,9 @@
 /*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
+/*
  * Regression tests for type-table garbage collection.
  *
  * - A deleted type leaves a hole in the table that the next collection

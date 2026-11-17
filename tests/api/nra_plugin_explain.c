@@ -1,3 +1,8 @@
+/*
+ * Copyright (c) 2026, SRI International
+ * SPDX-License-Identifier: BSD-3-Clause
+ */
+
 /* Achieves the following additional coverage:
  * mcsat/nra/nra_plugin_explain.c:310-311
  * api/yices_api.c: yices_error_code()

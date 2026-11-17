@@ -1,0 +1,224 @@
+# Copyright (c) 2026, SRI International
+# SPDX-License-Identifier: BSD-3-Clause
+#
+# BUILDINFO schema for the record carried in the Yices relink kit.
+#
+# The production build fills every value from the actual build environment.
+# A published copy must contain no placeholder token. Do not hand-edit it or
+# substitute values recalled from an earlier build.
+#
+# Format is one "key: value" per line. Values containing newlines are indented
+# by two spaces on continuation lines.
+
+# --- identity -------------------------------------------------------------
+
+yices-version:            2.8.0
+yices-commit:             GENERATED   git rev-parse HEAD
+yices-branch:             GENERATED   git rev-parse --abbrev-ref HEAD
+artifact:                 GENERATED   name of the binary tarball this kit corresponds to
+artifact-sha256:          GENERATED   sha256 of that tarball
+kit-built:                GENERATED   date -u +%Y-%m-%dT%H:%M:%SZ
+
+# --- target ---------------------------------------------------------------
+
+target-triple:            GENERATED   output of config.guess
+elf-class:                GENERATED   readelf -hW on a shipped executable
+build-host-os:            GENERATED   distribution name and version
+thread-safe:              GENERATED   yes or no, from THREAD_SAFE in make.include
+yices-mode:               release
+
+# The derived builder is named and identified by its immutable local image ID.
+# Its pinned base image is recorded separately. A tag or base digest alone is
+# not sufficient: the Dockerfile installs additional packages and tools, so
+# neither identifies the complete image that produced these objects. Nothing
+# inside a container can discover its own image ID, so the invoker supplies it.
+#
+# The production base reference is supplied by the build and recorded below;
+# this template deliberately carries no second, ungated copy of its digest.
+
+builder-image:            GENERATED   local name of the derived image
+builder-image-digest:     GENERATED   immutable sha256: ID of the derived image
+builder-base-image:       GENERATED   base image reference including registry digest
+
+# --- toolchain that produced the published objects -------------------------
+#
+# A relinker whose toolchain differs from these may still succeed. See the
+# README. These are recorded so the difference can be seen.
+
+cc:                       GENERATED   value of CC
+cc-version:               GENERATED   first line of $CC --version
+cxx-runtime:              GENERATED   libstdc++ version linked, from the archive used
+ld-version:               GENERATED   first line of $LD --version
+ar-version:               GENERATED   first line of ar --version, or version-unavailable for pinned Apple ar
+libc-runtime:             GENERATED   first line of ldd --version
+manual-pdf-sha256:        GENERATED   exact manual PDF shipped in this artifact
+manual-build-host-os:     GENERATED   uname -sr on the host that built the manual
+manual-latexmk-version:   GENERATED   first nonempty line of latexmk -v
+manual-pdflatex-version:  GENERATED   first line of pdflatex --version
+sdk-version:              GENERATED   active macOS SDK version, or NOT-APPLICABLE on Linux
+
+# --- flags, as reconstructed -----------------------------------------------
+#
+# These record the production flags as the release build assembles them. A
+# value is not a capture of a command line any tool received. The relink
+# scripts have their own defaults and do not read this file. The kit README
+# lists where the two differ. Encode the production values here rather than
+# relying on the scripts' defaults.
+
+cflags:                   GENERATED   final value of CFLAGS
+static-flag:              GENERATED   final value of STATIC
+# The literal EMPTY in bin-ldflags means the production link passed no extra
+# BIN_LDFLAGS. It is a record value, not a string to pass to a linker.
+bin-ldflags:              GENERATED   production BIN_LDFLAGS; the literal EMPTY means zero flags
+soname:                   libyices.so.2.8
+
+# --- production link commands, as reconstructed ---------------------------
+#
+# One field per output. The release build assembles each value from the same
+# variables the production rules use, then writes the dependency archives as
+# kit-relative paths in place of the -L and -l form those rules pass. A value
+# is not a capture of the command line the linker received. LDFLAGS has no
+# field here, and the release stripping that follows each link is not recorded
+# in this file. A relinker compares these against what the scripts print,
+# input by input rather than as strings.
+
+link-yices:               GENERATED
+link-yices-smt:           GENERATED
+link-yices-smt2:          GENERATED
+link-yices-sat:           GENERATED
+link-libyices-so:         GENERATED
+
+# --- LGPL source correspondence -------------------------------------------
+#
+# These fields identify the exact source packages published alongside this
+# kit. Package-manager sources are captured during the build. LibPoly is
+# prepared once before any platform build; the build receipt proves that the
+# normal and PIC archives came from that exact source input. The final
+# collector verifies every PROVENANCE and BUILDINFO record against the same
+# canonical manifest before publishing anything.
+
+glibc-binary-package:     GENERATED   name and exact version of the installed package
+glibc-source-package:     GENERATED   source package name and exact version
+glibc-source-asset:       GENERATED   filename of the published source asset
+glibc-source-sha256:      GENERATED   sha256 of that asset
+glibc-archive-sha256:     GENERATED   sha256 of the libc.a actually linked
+
+gmp-version:              6.3.0
+gmp-source-asset:         GENERATED
+gmp-source-sha256:        GENERATED
+gmp-build-platform:       GENERATED
+gmp-build-arch:           GENERATED
+gmp-deployment-target:    GENERATED
+gmp-cc:                   GENERATED
+gmp-cc-version:           GENERATED
+gmp-cxx:                  GENERATED
+gmp-cxx-version:          GENERATED
+gmp-layout:               GENERATED
+gmp-normal-configure-args: GENERATED
+gmp-normal-cflags:        GENERATED
+gmp-normal-cxxflags:      GENERATED
+gmp-normal-tests:         GENERATED
+gmp-pic-configure-args:   GENERATED
+gmp-pic-cflags:           GENERATED
+gmp-pic-cxxflags:         GENERATED
+gmp-pic-tests:            GENERATED
+gmp-static-archive-sha256: GENERATED
+gmp-pic-archive-sha256:   GENERATED
+gmp-normal-header-file:   GENERATED
+gmp-normal-header-sha256: GENERATED
+gmp-pic-header-file:      GENERATED
+gmp-pic-header-sha256:    GENERATED
+gmp-license-election:     LGPL-3.0-or-later
+
+libpoly-repo:             GENERATED
+libpoly-commit:           GENERATED   locked upstream commit, before the explicit export
+libpoly-tree:             GENERATED   upstream tree, not the modified source export
+libpoly-source-asset:     GENERATED
+libpoly-source-sha256:    GENERATED
+libpoly-export-profile:   GENERATED
+libpoly-upstream-archive-sha256: GENERATED
+libpoly-export-record-sha256: GENERATED
+libpoly-static-archive-sha256: GENERATED
+libpoly-pic-archive-sha256: GENERATED
+libpoly-tests:            GENERATED
+libpoly-header-root:      GENERATED
+libpoly-header-count:     GENERATED
+libpoly-header-manifest-sha256: GENERATED
+release-inputs-file:      RELEASE-INPUTS
+release-inputs-sha256:    GENERATED
+
+# --- canonical delegate sources and native build receipt -------------------
+#
+# CUDD, CaDiCaL, CryptoMiniSat, and Kissat are prepared once as canonical
+# source archives. Each platform builds them natively and records the exact
+# archives and headers consumed by Yices. The dependency receipt itself is
+# preserved in the matching provenance archive.
+# The delegate metadata profile omits hostnames from CaDiCaL/Kissat's generated
+# headers via a checked build recipe; their canonical source scripts are intact.
+# The exact transformation is scripts/delegate-build-metadata.py in the matching
+# Yices source archive. It retains OS/release/architecture and compiler details.
+
+dependency-build-receipt-sha256: GENERATED
+delegate-metadata-profile: GENERATED
+delegate-metadata-script-sha256: GENERATED
+dependency-build-platform: GENERATED
+dependency-build-arch:    GENERATED
+dependency-deployment-target: GENERATED
+dependency-cc:            GENERATED
+dependency-cc-version:    GENERATED
+dependency-cxx:           GENERATED
+dependency-cxx-version:   GENERATED
+dependency-ar-version:    GENERATED
+dependency-ar-command:    GENERATED
+dependency-cmake-version: GENERATED
+dependency-make-version:  GENERATED
+dependency-ninja-version: GENERATED
+dependency-cflags:        GENERATED
+dependency-cxxflags:      GENERATED
+
+cudd-repo:                GENERATED
+cudd-commit:              GENERATED
+cudd-tree:                GENERATED
+cudd-source-file:         GENERATED
+cudd-source-sha256:       GENERATED
+cudd-configure-args:      GENERATED
+cudd-tests:               GENERATED
+cudd-archive-sha256:      GENERATED
+cudd-header-sha256:       GENERATED
+
+cadical-repo:             GENERATED
+cadical-commit:           GENERATED
+cadical-tree:             GENERATED
+cadical-source-file:      GENERATED
+cadical-source-sha256:    GENERATED
+cadical-configure-args:   GENERATED
+cadical-tests:            GENERATED
+cadical-archive-sha256:   GENERATED
+cadical-header-sha256:    GENERATED
+
+cryptominisat-repo:       GENERATED
+cryptominisat-commit:     GENERATED
+cryptominisat-tree:       GENERATED
+cryptominisat-source-file: GENERATED
+cryptominisat-source-sha256: GENERATED
+cryptominisat-submodule-policy: GENERATED
+cryptominisat-export-profile: GENERATED
+cryptominisat-upstream-archive-sha256: GENERATED
+cryptominisat-export-record-sha256: GENERATED
+cryptominisat-cmake-args: GENERATED
+cryptominisat-tests:      GENERATED
+cryptominisat-archive-sha256: GENERATED
+cryptominisat-header-sha256: GENERATED
+
+kissat-repo:              GENERATED
+kissat-commit:            GENERATED
+kissat-tree:              GENERATED
+kissat-source-file:       GENERATED
+kissat-source-sha256:     GENERATED
+kissat-configure-args:    GENERATED
+kissat-tests:             GENERATED
+kissat-raw-archive-sha256: GENERATED
+kissat-namespaced-archive-sha256: GENERATED
+kissat-header-sha256:     GENERATED
+kissat-namespace-script-file: GENERATED
+kissat-namespace-script-sha256: GENERATED
