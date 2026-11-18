@@ -184,6 +184,7 @@ static bool is_arith_constant(term_table_t *terms, term_t t) {
 static void visit_term(term_table_t *terms, term_t t, ivector_t *stack, sublogic_features_t *f) {
   composite_term_t *d;
   pprod_t *p;
+  term_t den;
   uint32_t i;
 
   add_type_features(terms, t, f);
@@ -243,9 +244,12 @@ static void visit_term(term_table_t *terms, term_t t, ivector_t *stack, sublogic
   case ARITH_IDIV:
   case ARITH_MOD:
   case ARITH_DIVIDES_ATOM:
-    // (op num den) is linear iff den is a constant; (divides k x) iff k is
+    // (op num den) is linear iff den is a non-zero constant; (divides k x) iff k is.
+    // Division by zero is treated as non-linear: the simplex solvers reject it
+    // when asserting, so trying them would only cost a second context.
     d = composite_term_desc(terms, t);
-    if (!is_arith_constant(terms, d->arg[term_kind(terms, t) == ARITH_DIVIDES_ATOM ? 0 : 1])) {
+    den = d->arg[term_kind(terms, t) == ARITH_DIVIDES_ATOM ? 0 : 1];
+    if (!is_arith_constant(terms, den) || unsigned_term(den) == zero_term) {
       f->nonlinear = true;
     }
     push_composite(stack, d, 0);
