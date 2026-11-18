@@ -1,0 +1,8 @@
+(set-logic QF_ABV)
+(declare-fun a () (Array (_ BitVec 1) (_ BitVec 1)))
+(declare-fun b () (Array (_ BitVec 1) (_ BitVec 1)))
+(declare-fun c () (Array (_ BitVec 1) (_ BitVec 1)))
+(declare-fun d () (Array (_ BitVec 1) (_ BitVec 1)))
+(assert (distinct a b c d))
+(check-sat)
+(get-model)

@@ -224,6 +224,19 @@ smt_logic_t smt_logic_code(const char *logic_name) {
 
 
 /*
+ * Name of a logic code: linear search in the table
+ */
+const char *smt_logic_name(smt_logic_t code) {
+  uint32_t i;
+
+  for (i=0; i<NUM_SMT_LOGIC_NAMES; i++) {
+    if (smt_code[i] == code) return smt_logic_names[i];
+  }
+  return "UNKNOWN";
+}
+
+
+/*
  * Arithmetic fragments: names in lexicographic order
  */
 static const char * const fragment_names[NUM_ARITH_FRAGMENTS] = {
