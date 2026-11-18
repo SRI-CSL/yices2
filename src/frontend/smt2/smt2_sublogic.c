@@ -359,7 +359,7 @@ static int32_t candidate_cost(smt_logic_t c, smt_logic_t declared, const sublogi
   arith_fragment_t cfrag, dfrag;
   uint32_t ccaps, dcaps;
   bool c_arrays, c_uf, c_bv;
-  int32_t arch;
+  int32_t arch, cost;
 
   if (c == SMT_ALL || c == NONE || qf_fragment(c) != c) return -1;
 
@@ -398,9 +398,12 @@ static int32_t candidate_cost(smt_logic_t c, smt_logic_t declared, const sublogi
     return -1;
   }
 
-  return 3 * (int32_t) c_arrays + 2 * (int32_t) c_uf + 2 * (int32_t) c_bv
+  cost = 3 * (int32_t) c_arrays + 2 * (int32_t) c_uf + 2 * (int32_t) c_bv
     + (int32_t) ((ccaps & CAP_INT) != 0) + (int32_t) ((ccaps & CAP_REAL) != 0)
     + 4 * (int32_t) ((ccaps & CAP_NL) != 0);
+
+  // on equal cost, prefer the declared arithmetic fragment (e.g., QF_RDL over QF_LRA for QF_UFRDL)
+  return 2 * cost + (int32_t) (cfrag != dfrag);
 }
 
 
