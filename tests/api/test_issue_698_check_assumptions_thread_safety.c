@@ -40,9 +40,14 @@ int main(void) {
 
 #include <pthread.h>
 
+/*
+ * run_test.sh limits the CPU time of a test to 60 s, summed over all threads.
+ * Instrumented builds (coverage) are slow, so keep the load small. More
+ * noise threads find the race faster than more rounds.
+ */
 #define NUM_WORKERS 16
-#define NUM_NOISE   4
-#define NUM_ROUNDS  3000
+#define NUM_NOISE   8
+#define NUM_ROUNDS  1000
 
 typedef struct {
   uint32_t id;
