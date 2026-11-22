@@ -20,6 +20,7 @@
  */
 
 #include <stdio.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -39,20 +40,49 @@ int main(void) {
 #else
 
 #include <pthread.h>
+#include <signal.h>
+#include <time.h>
+#include <unistd.h>
 
 /*
- * run_test.sh limits the CPU time of a test to 60 s, summed over all threads.
- * Instrumented builds (coverage) are slow, so keep the load small. More
- * noise threads find the race faster than more rounds.
+ * run_test.sh limits the CPU time of a test, summed over all threads.
+ * Instrumented builds (coverage) can be many times slower. So every thread
+ * also stops after WORK_SECONDS of wall-clock time. This bounds the CPU time
+ * to about (threads * WORK_SECONDS) in any build. More noise threads find the
+ * race faster than more rounds.
  */
-#define NUM_WORKERS 16
-#define NUM_NOISE   8
-#define NUM_ROUNDS  1000
+#define NUM_WORKERS  16
+#define NUM_NOISE    8
+#define NUM_ROUNDS   1000
+#define WORK_SECONDS 2
+#define HANG_SECONDS 30
 
 typedef struct {
   uint32_t id;
   uint32_t failures;
 } worker_t;
+
+static struct timespec deadline;
+static volatile uint32_t progress[NUM_WORKERS];
+
+static bool expired(void) {
+  struct timespec now;
+
+  clock_gettime(CLOCK_MONOTONIC, &now);
+  return now.tv_sec > deadline.tv_sec ||
+    (now.tv_sec == deadline.tv_sec && now.tv_nsec >= deadline.tv_nsec);
+}
+
+// A hang is a failure. Print how far each worker got.
+static void on_alarm(int sig) {
+  uint32_t i;
+
+  (void) sig;
+  fprintf(stderr, "timeout: possible hang; rounds done per worker:");
+  for (i = 0; i < NUM_WORKERS; i++) fprintf(stderr, " %u", (unsigned) progress[i]);
+  fprintf(stderr, "\n");
+  _exit(3);
+}
 
 static void *worker_main(void *arg) {
   worker_t *w = (worker_t *) arg;
@@ -82,13 +112,14 @@ static void *worker_main(void *arg) {
   bv32 = yices_bv_type(32);
   x = yices_new_uninterpreted_term(bv32);
 
-  for (r = 0; r < NUM_ROUNDS; r++) {
+  for (r = 0; r < NUM_ROUNDS && !expired(); r++) {
     // fresh constants every round: new terms are created by each call
     sum = yices_bvadd(x, yices_bvconst_uint32(32, r));
     eq = yices_eq(sum, yices_bvconst_uint32(32, w->id * 100000 + 2 * r));
     if (yices_check_context_with_assumptions(ctx, NULL, 1, &eq) != YICES_STATUS_SAT) {
       w->failures++;
     }
+    progress[w->id] = r + 1;
   }
 
   yices_free_context(ctx);
@@ -101,7 +132,7 @@ static void *noise_main(void *arg) {
   uint32_t i;
 
   // only create terms: this makes the term table grow
-  for (i = 0; i < 4 * NUM_ROUNDS; i++) {
+  for (i = 0; i < 4 * NUM_ROUNDS && !expired(); i++) {
     term_t t = yices_new_uninterpreted_term(bv32);
     (void) yices_bvadd(t, yices_bvconst_uint32(32, id * 1000000 + i));
   }
@@ -120,6 +151,11 @@ int main(void) {
     yices_exit();
     return 1; // skipped: not a thread-safe build
   }
+
+  signal(SIGALRM, on_alarm);
+  alarm(HANG_SECONDS);
+  clock_gettime(CLOCK_MONOTONIC, &deadline);
+  deadline.tv_sec += WORK_SECONDS;
 
   for (i = 0; i < NUM_WORKERS; i++) {
     data[i].id = i;
@@ -141,6 +177,7 @@ int main(void) {
   failures = 0;
   for (i = 0; i < NUM_WORKERS; i++) failures += data[i].failures;
 
+  alarm(0);
   yices_exit();
 
   if (failures > 0) {
