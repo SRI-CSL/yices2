@@ -9346,8 +9346,8 @@ static inline bool yices_assert_formulas_checks(uint32_t n, const term_t t[]) {
  * context_clear on an MCSAT context can run mcsat_pop (it removes the label
  * scope that an MCSAT check with assumptions leaves open after sat), and
  * mcsat_pop reads the term table. Take the global lock for that case, as
- * yices_push and yices_pop do. The lock is not recursive on POSIX, so this is for
- * callers that do not already hold it.
+ * yices_push and yices_pop do. The global lock is recursive, so this is also
+ * safe for callers that already hold it.
  */
 static void context_clear_locked(context_t *ctx) {
   if (ctx->mcsat != NULL) {
@@ -9701,6 +9701,15 @@ static bool _o_unsat_core_check_assumptions(uint32_t n, const term_t a[]) {
 }
 
 /*
+ * These checks read the term table, which other threads may be growing
+ * (issue #698). The global lock is recursive, so this is also safe for
+ * callers that already hold it.
+ */
+static bool unsat_core_check_assumptions(uint32_t n, const term_t a[]) {
+  MT_PROTECT(bool, __yices_globals.lock, _o_unsat_core_check_assumptions(n, a));
+}
+
+/*
  * Check context with assumptions
  * - n = number of assumptions
  * - a[0] ... a[n-1] = n assumptions. All of them must be Boolean terms.
@@ -9710,7 +9719,7 @@ smt_status_t _o_yices_check_context_with_assumptions(context_t *ctx, const param
   smt_status_t stat;
   int32_t error;
 
-  if (!_o_unsat_core_check_assumptions(n, a)) {
+  if (!unsat_core_check_assumptions(n, a)) {
     return YICES_STATUS_ERROR; // Bad assumptions
   }
 
