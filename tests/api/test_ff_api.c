@@ -16,6 +16,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "yices.h"
 
@@ -55,13 +56,20 @@ static void test_ff_type_and_constants(void) {
   check(yices_type_is_ff(yices_bv_type(8)) == 0, "yices_type_is_ff should fail for bv");
   check(yices_type_is_ff(NULL_TYPE) == 0, "yices_type_is_ff should fail for NULL_TYPE");
   check(yices_error_code() == INVALID_TYPE, "expected INVALID_TYPE");
+  check(yices_error_report()->type1 == NULL_TYPE, "expected type1 = NULL_TYPE");
   check(yices_ff_type_order(tau, z) == 0, "yices_ff_type_order failed");
   check_mpz_si(z, 7, "expected order 7");
   check(yices_ff_type_order(yices_int_type(), z) == -1, "yices_ff_type_order should fail for int");
   check(yices_error_code() == FFTYPE_REQUIRED, "expected FFTYPE_REQUIRED");
   check(yices_error_report()->type1 == yices_int_type(), "expected type1 = int");
+  {
+    char *msg = yices_error_string();
+    check(strcmp(msg, "finite field type required") == 0, "unexpected FFTYPE_REQUIRED message");
+    yices_free_string(msg);
+  }
   check(yices_ff_type_order(NULL_TYPE, z) == -1, "yices_ff_type_order should fail for NULL_TYPE");
   check(yices_error_code() == INVALID_TYPE, "expected INVALID_TYPE");
+  check(yices_error_report()->type1 == NULL_TYPE, "expected type1 = NULL_TYPE");
   check_mpz_si(z, 7, "order must be unchanged after failed calls");
 
   {

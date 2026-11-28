@@ -294,7 +294,7 @@ The following functions give access to attributes and components of a type.
 
    The function copies the order into *order*, which must be
    initialized by the caller. It returns 0 if successful and -1 if
-   there's an error.
+   there's an error. If there's an error, *order* is not modified.
 
    **Error report**
 

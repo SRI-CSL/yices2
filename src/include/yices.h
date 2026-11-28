@@ -546,6 +546,8 @@ __YICES_DLLSPEC__ extern void yices_delete_type_macro(int32_t id);
  *
  * yices_type_is_arithmetic(tau) returns true if tau is either int or real.
  *
+ * yices_type_is_ff is available since 2.8.1.
+ *
  * if tau not a valid type, the functions return false
  * and set the error report:
  *   code = INVALID_TYPE
@@ -556,7 +558,7 @@ __YICES_DLLSPEC__ extern int32_t yices_type_is_int(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_real(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_arithmetic(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_bitvector(type_t tau);
-__YICES_DLLSPEC__ extern int32_t yices_type_is_ff(type_t tau); // since 2.8.1
+__YICES_DLLSPEC__ extern int32_t yices_type_is_ff(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_tuple(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_function(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_scalar(type_t tau);
@@ -607,6 +609,7 @@ __YICES_DLLSPEC__ extern uint32_t yices_bvtype_size(type_t tau);
  * - the order (a prime) is copied into the GMP integer 'order',
  *   which must be initialized by the caller.
  * - return 0 if this succeeds, -1 if there's an error.
+ * - if there's an error, order is not modified.
  *
  * Error report:
  * if tau is not a valid type
