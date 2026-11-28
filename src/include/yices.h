@@ -556,6 +556,7 @@ __YICES_DLLSPEC__ extern int32_t yices_type_is_int(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_real(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_arithmetic(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_bitvector(type_t tau);
+__YICES_DLLSPEC__ extern int32_t yices_type_is_ff(type_t tau); // since 2.8.1
 __YICES_DLLSPEC__ extern int32_t yices_type_is_tuple(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_function(type_t tau);
 __YICES_DLLSPEC__ extern int32_t yices_type_is_scalar(type_t tau);
@@ -599,6 +600,26 @@ __YICES_DLLSPEC__ extern int32_t yices_compatible_types(type_t tau, type_t sigma
  *    type1 = tau
  */
 __YICES_DLLSPEC__ extern uint32_t yices_bvtype_size(type_t tau);
+
+#ifdef __GMP_H__
+/*
+ * Order of a finite-field type tau.
+ * - the order (a prime) is copied into the GMP integer 'order',
+ *   which must be initialized by the caller.
+ * - return 0 if this succeeds, -1 if there's an error.
+ *
+ * Error report:
+ * if tau is not a valid type
+ *    code = INVALID_TYPE
+ *    type1 = tau
+ * if tau is not a finite-field type
+ *    code = FFTYPE_REQUIRED
+ *    type1 = tau
+ *
+ * Since 2.8.1.
+ */
+__YICES_DLLSPEC__ extern int32_t yices_ff_type_order(type_t tau, mpz_t order);
+#endif
 
 
 /*

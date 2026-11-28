@@ -281,6 +281,10 @@ int32_t print_error(FILE *f) {
     code = fprintf(f, "incompatible finite field types/orders (line %"PRIu32", column %"PRIu32")", error->line, error->column);
     break;
 
+  case FFTYPE_REQUIRED:
+    code = fprintf(f, "finite field type required\n");
+    break;
+
     /*
      * Parser errors
      */
@@ -816,6 +820,10 @@ char *error_string(void) {
 
   case INCOMPATIBLE_FFSIZES:
     nchar = snprintf(buffer, BUFFER_SIZE, "incompatible finite field types/orders (line %"PRIu32", column %"PRIu32")", error->line, error->column);
+    break;
+
+  case FFTYPE_REQUIRED:
+    nchar = snprintf(buffer, BUFFER_SIZE, "finite field type required");
     break;
 
     /*

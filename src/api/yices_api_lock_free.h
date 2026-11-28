@@ -436,6 +436,8 @@ extern int32_t _o_yices_type_is_arithmetic(type_t tau);
 
 extern int32_t _o_yices_type_is_bitvector(type_t tau);
 
+extern int32_t _o_yices_type_is_ff(type_t tau);
+
 extern int32_t _o_yices_type_is_tuple(type_t tau);
 
 extern int32_t _o_yices_type_is_function(type_t tau);
@@ -449,6 +451,8 @@ extern int32_t _o_yices_test_subtype(type_t tau, type_t sigma);
 extern int32_t _o_yices_compatible_types(type_t tau, type_t sigma);
 
 extern uint32_t _o_yices_bvtype_size(type_t tau);
+
+extern int32_t _o_yices_ff_type_order(type_t tau, mpz_t order);
 
 extern uint32_t _o_yices_scalar_type_card(type_t tau);
 

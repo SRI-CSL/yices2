@@ -225,6 +225,10 @@ and set the error report (error code: :c:enum:`INVALID_TYPE`).
 
    Checks whether *tau* is a bitvector type.
 
+.. c:function:: int32_t yices_type_is_ff(type_t tau)
+
+   Checks whether *tau* is a finite-field type (Since 2.8.1).
+
 .. c:function:: int32_t yices_type_is_scalar(type_t tau)
 
    Checks whether *tau* is a scalar type.
@@ -280,6 +284,23 @@ The following functions give access to attributes and components of a type.
    - If *tau* is not a bitvector type:
 
      -- error code: :c:enum:`BVTYPE_REQUIRED`
+
+     -- type1 := *tau*
+
+
+.. c:function:: int32_t yices_ff_type_order(type_t tau, mpz_t order)
+
+   Gets the order of finite-field type *tau* (Since 2.8.1).
+
+   The function copies the order into *order*, which must be
+   initialized by the caller. It returns 0 if successful and -1 if
+   there's an error.
+
+   **Error report**
+
+   - If *tau* is not a finite-field type:
+
+     -- error code: :c:enum:`FFTYPE_REQUIRED`
 
      -- type1 := *tau*
 

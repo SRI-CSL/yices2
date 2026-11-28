@@ -355,6 +355,7 @@ typedef enum error_code {
   INVALID_TERM_OP,         // added 2014/12/04
   INVALID_FFSIZE,          // added 2024/05/20
   INCOMPATIBLE_FFSIZES,    // added 2024/05/20
+  FFTYPE_REQUIRED,         // added 2026/11/27
 
   /*
    * Parser errors
@@ -552,6 +553,7 @@ typedef enum error_code {
  *  TYPE_VAR_REQUIRED          type1
  *  DUPLICATE_TYPE_VAR         type1
  *  BVTYPE_REQUIRED            type1
+ *  FFTYPE_REQUIRED            type1
  *  BAD_TERM_DECREF            term1
  *  BAD_TYPE_DECREF            type1
  *
