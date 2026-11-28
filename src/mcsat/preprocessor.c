@@ -1321,6 +1321,19 @@ term_t preprocessor_get_eq_solved_var(const preprocessor_t* pre, term_t eq) {
   }
 }
 
+/*
+ * Value of var in a solved equality atom (var == 0) that has one argument.
+ * For a finite-field var, this is the zero of its field, not the rational 0.
+ */
+static
+term_t preprocessor_zero_for_var(const preprocessor_t* pre, term_t var) {
+  type_t tau = term_type(pre->terms, var);
+  if (is_ff_type(pre->terms->types, tau)) {
+    return ff_zero_term(pre->terms, tau);
+  }
+  return zero_term;
+}
+
 term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is_assertion) {
 
   term_table_t* terms = pre->terms;
@@ -1551,7 +1564,7 @@ term_t preprocessor_apply(preprocessor_t* pre, term_t t, ivector_t* out, bool is
 
       if (children_done) {
         if (eq_solve_var != NULL_TERM) {
-          term_t eq_solve_term = zero_term;
+          term_t eq_solve_term = preprocessor_zero_for_var(pre, eq_solve_var);
           if (children.size > 0) {
             eq_solve_term = children.data[0];
           }
@@ -2800,7 +2813,7 @@ void preprocessor_build_model(preprocessor_t* pre, model_t* model) {
     composite_term_t* eq_desc = get_composite(pre->terms, eq_kind, eq);
     term_t eq_subst = eq_desc->arity > 1
       ? (eq_desc->arg[0] == eq_var ? eq_desc->arg[1] : eq_desc->arg[0])
-      : zero_term;
+      : preprocessor_zero_for_var(pre, eq_var);
     if (model->has_alias) {
       /* Standard path: record the substitution and let the model
        * evaluator resolve eq_var lazily via eval_term(eq_subst). */
