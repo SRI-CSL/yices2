@@ -14,7 +14,7 @@
 /*
  * All the error codes defined in yices_types.h
  */
-#define NUM_CODES 114
+#define NUM_CODES 115
 
 static const error_code_t all_codes[NUM_CODES] = {
   YICES_NO_ERROR,
@@ -60,6 +60,7 @@ static const error_code_t all_codes[NUM_CODES] = {
   BAD_TYPE_DECREF,
   INVALID_TYPE_OP,
   INVALID_TERM_OP,
+  FFTYPE_REQUIRED,
   INVALID_TOKEN,
   SYNTAX_ERROR,
   UNDEFINED_TYPE_NAME,
@@ -176,6 +177,7 @@ static const char* const all_names[NUM_CODES] = {
   "BAD_TYPE_DECREF",
   "INVALID_TYPE_OP",
   "INVALID_TERM_OP",
+  "FFTYPE_REQUIRED",
   "INVALID_TOKEN",
   "SYNTAX_ERROR",
   "UNDEFINED_TYPE_NAME",

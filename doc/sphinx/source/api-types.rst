@@ -862,6 +862,12 @@ Error Reports
 
       Bad type parameter: a bitvector type is expected.
 
+   .. c:enum:: FFTYPE_REQUIRED
+
+      Bad type parameter: a finite-field type is expected.
+
+      Since Yices 2.8.1.
+
    .. c:enum:: INVALID_FFSIZE
 
       Bad finite-field size: the field order is not positive and prime.

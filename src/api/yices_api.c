@@ -1785,6 +1785,17 @@ static bool check_bvtype(type_table_t *tbl, type_t tau) {
   return true;
 }
 
+// Check whether tau is a finite-field type (tau is valid)
+static bool check_fftype(type_table_t *tbl, type_t tau) {
+  if (! is_ff_type(tbl, tau)) {
+    error_report_t *error = get_yices_error();
+    error->code = FFTYPE_REQUIRED;
+    error->type1 = tau;
+    return false;
+  }
+  return true;
+}
+
 // Check whether t is a valid term
 static bool check_good_term(term_manager_t *mngr, term_t t) {
   term_table_t *tbl;
@@ -7074,6 +7085,14 @@ int32_t _o_yices_type_is_bitvector(type_t tau) {
   return check_good_type(__yices_globals.types, tau) && is_bv_type(__yices_globals.types, tau);
 }
 
+EXPORTED int32_t yices_type_is_ff(type_t tau) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_type_is_ff(tau));
+}
+
+int32_t _o_yices_type_is_ff(type_t tau) {
+  return check_good_type(__yices_globals.types, tau) && is_ff_type(__yices_globals.types, tau);
+}
+
 EXPORTED int32_t yices_type_is_tuple(type_t tau) {
   MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_type_is_tuple(tau));
 }
@@ -7166,6 +7185,40 @@ uint32_t _o_yices_bvtype_size(type_t tau) {
     return 0;
   }
   return bv_type_size(__yices_globals.types, tau);
+}
+
+
+/*
+ * Order of a finite-field type
+ * - copy it into order and return 0
+ * - return -1 if there's an error
+ *
+ * Error report:
+ * if tau is not a valid type
+ *    code = INVALID_TYPE
+ *    type1 = tau
+ * if tau is not a finite-field type
+ *    code = FFTYPE_REQUIRED
+ *    type1 = tau
+ */
+EXPORTED int32_t yices_ff_type_order(type_t tau, mpz_t order) {
+  MT_PROTECT(int32_t,  __yices_globals.lock, _o_yices_ff_type_order(tau, order));
+}
+
+int32_t _o_yices_ff_type_order(type_t tau, mpz_t order) {
+  if (! check_good_type(__yices_globals.types, tau) ||
+      ! check_fftype(__yices_globals.types, tau)) {
+    return -1;
+  }
+  assert(!ff_type_size_any(__yices_globals.types, tau));
+  if (! q_get_mpz(ff_type_size(__yices_globals.types, tau), order)) {
+    // LCOV_EXCL_START
+    // defensive: a finite-field order is always an integer
+    set_error_code(INTERNAL_EXCEPTION);
+    return -1;
+    // LCOV_EXCL_STOP
+  }
+  return 0;
 }
 
 
