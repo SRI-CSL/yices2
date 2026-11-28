@@ -1394,6 +1394,31 @@ static smt_status_t check_context_with_term_assumptions_mcsat(context_t *ctx, co
 }
 
 /*
+ * Convert the term assumptions a[0 ... n-1] to literals and push them onto lits.
+ * - internalization reads and extends the term table, so it needs the global
+ *   lock (issue #698). Only this step is locked, not the search that follows.
+ * - return 0 on success, or the (negative) internalization error code.
+ */
+static int32_t _o_add_term_assumptions(context_t *ctx, uint32_t n, const term_t *a, ivector_t *lits) {
+  uint32_t i;
+  int32_t l;
+
+  for (i=0; i<n; i++) {
+    l = context_add_assumption(ctx, a[i]);
+    if (l < 0) {
+      return l;
+    }
+    ivector_push(lits, l);
+  }
+
+  return 0;
+}
+
+static int32_t add_term_assumptions(context_t *ctx, uint32_t n, const term_t *a, ivector_t *lits) {
+  MT_PROTECT(int32_t, __yices_globals.lock, _o_add_term_assumptions(ctx, n, a, lits));
+}
+
+/*
  * Supplemental-MCSAT variant for term assumptions in CDCL(T) mode.
  * We encode assumptions via fresh labels b_i with implications (b_i => a_i),
  * then solve under assumptions b_i = true.
@@ -1405,7 +1430,6 @@ static smt_status_t _o_check_context_with_term_assumptions_supplement(context_t 
   smt_status_t stat;
   ivector_t assumptions;
   term_t interpolant;
-  uint32_t i;
   literal_t l;
   mcsat_satellite_t *sat;
 
@@ -1421,17 +1445,12 @@ static smt_status_t _o_check_context_with_term_assumptions_supplement(context_t 
     sat = (mcsat_satellite_t *) ctx->egraph->th[ETYPE_MCSAT];
   }
 
-  for (i=0; i<n; i++) {
-    l = context_add_assumption(ctx, a[i]);
-    if (l < 0) {
-      if (error != NULL) {
-        *error = l;
-      }
-      stat = YICES_STATUS_ERROR;
-      break;
+  l = add_term_assumptions(ctx, n, a, &assumptions);
+  if (l < 0) {
+    if (error != NULL) {
+      *error = l;
     }
-
-    ivector_push(&assumptions, l);
+    stat = YICES_STATUS_ERROR;
   }
 
   if (stat != YICES_STATUS_ERROR) {
@@ -1497,20 +1516,16 @@ smt_status_t check_context_with_term_assumptions(context_t *ctx, const param_t *
     bool unknown;
     ivector_t assumptions;
     ivector_t failed;
-    uint32_t i;
     literal_t l;
 
     init_ivector(&assumptions, n);
-    for (i=0; i<n; i++) {
-      l = context_add_assumption(ctx, a[i]);
-      if (l < 0) {
-        if (error != NULL) {
-          *error = l;
-        }
-        delete_ivector(&assumptions);
-        return YICES_STATUS_ERROR;
+    l = add_term_assumptions(ctx, n, a, &assumptions);
+    if (l < 0) {
+      if (error != NULL) {
+        *error = l;
       }
-      ivector_push(&assumptions, l);
+      delete_ivector(&assumptions);
+      return YICES_STATUS_ERROR;
     }
 
     mode = effective_sat_delegate_mode(ctx->sat_delegate, params, &one_shot);
