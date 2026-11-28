@@ -6617,7 +6617,7 @@ term_t mk_composite(term_manager_t *tm, term_kind_t kind, uint32_t n, term_t* ch
       return mk_arith_eq(tm, children[0], children[1]);
     case ARITH_FF_EQ_ATOM:
       assert(n == 1);
-      return mk_arith_ff_eq(tm, children[0], zero_term);
+      return mk_arith_ff_term_eq0(tm, children[0]);
     case ARITH_FF_BINEQ_ATOM:
       assert(n == 2);
       return mk_arith_ff_eq(tm, children[0], children[1]);
